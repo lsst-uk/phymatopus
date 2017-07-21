@@ -1,0 +1,120 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2017, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#  
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+    #
+    # Initial experiments with Kafka ...
+    #
+
+    #
+    # Maria's alert_stream
+    # https://github.com/mtpatter/alert_stream
+
+    #
+    # DM alert_stream
+    # https://github.com/lsst-dm/alert_stream
+
+    #
+    # sample-avro-alert
+    # https://github.com/lsst-dm/sample-avro-alert
+
+    #
+    # fastavro
+    # https://github.com/tebeka/fastavro
+
+
+
+
+# -----------------------------------------------------
+# Configure project settings.
+#[user@desktop]
+
+    if [ ! -e "${HOME}/phymatopus.settings" ]
+    then
+        cat > "${HOME}/phymatopus.settings" << EOF
+source "\${HOME}/projects.settings"
+PHYMATOPUS_BASE="\${EDINBURGH_PROJECTS:?}/phymatopus"
+PHYMATOPUS_CODE="\${PHYMATOPUS_BASE:?}/git"
+PHYMATOPUS_LSST="\${PHYMATOPUS_BASE:?}/lsst"
+PHYMATOPUS_REPO='git@github.com:lsst-uk/phymatopus.git'
+EOF
+    fi
+
+# -----------------------------------------------------
+# Create our project base directory.
+#[user@desktop]
+
+    source "${HOME}/phymatopus.settings"
+
+    mkdir -p "${PHYMATOPUS_BASE:?}"
+    
+# -----------------------------------------------------
+# Checkout our source code.
+#[user@desktop]
+
+    source "${HOME}/phymatopus.settings"
+
+    if [ ! -e "${PHYMATOPUS_CODE:?}" ]
+    then
+        mkdir -p $(dirname "${PHYMATOPUS_CODE:?}")
+        pushd $(dirname "${PHYMATOPUS_CODE:?}")
+            git clone "${PHYMATOPUS_REPO:?}" $(basename "${PHYMATOPUS_CODE:?}")
+        popd
+    else
+        pushd "${PHYMATOPUS_CODE:?}"
+            git pull
+        popd
+    fi
+
+# -----------------------------------------------------
+# Checkout Maria's code.
+#[user@desktop]
+
+    source "${HOME}/phymatopus.settings"
+
+    mkdir -p "${PHYMATOPUS_LSST:?}/maria"
+    pushd "${PHYMATOPUS_LSST:?}/maria"
+
+        if [ ! -e 'alert_stream' ]
+        then
+            git clone git@github.com:mtpatter/alert_stream.git
+        fi
+        
+    popd
+
+# -----------------------------------------------------
+# Checkout LSST-DM code.
+#[user@desktop]
+
+    source "${HOME}/phymatopus.settings"
+
+    mkdir -p "${PHYMATOPUS_LSST:?}/lsst-dm"
+    pushd "${PHYMATOPUS_LSST:?}/lsst-dm"
+
+        if [ ! -e 'alert_stream' ]
+        then
+            git clone git@github.com:lsst-dm/sample-avro-alert.git
+        fi
+        
+    popd
+
+
+

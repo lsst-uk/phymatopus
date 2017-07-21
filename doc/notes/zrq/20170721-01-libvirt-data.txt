@@ -1,0 +1,278 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2017, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#  
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+# -----------------------------------------------------
+# Shutdown the Kafka VM.
+#[user@trop03]
+
+    source "${HOME:?}/ischnura.settings"
+
+    virsh \
+        --connect "${connection:?}" \
+        shutdown \
+            ${vmname:?}
+
+    virsh \
+        -c "${connection}" \
+        list --all
+
+         Id    Name                           State
+        ----------------------------------------------------
+         5     Etalema                        running
+         6     Greand                         running
+         -     Umiawyth                       shut off
+
+# -----------------------------------------------------
+# Create the data pool.
+#[user@trop03]
+
+    datapool=data
+    datapath=/data1/libvirt/images/data
+
+    source "${HOME}/ischnura.settings"
+
+    poolxml=$(mktemp)
+    
+    cat > "${poolxml:?}" << EOF
+<pool type='dir'>
+  <name>${datapool:?}</name>
+  <target>
+    <path>${datapath:?}</path>
+  </target>
+</pool>
+EOF
+
+    #
+    # Define the pool.
+    virsh \
+        -c "${connection:?}" \
+        pool-define "${poolxml:?}"
+
+    #
+    # Check the pool list.
+    virsh \
+        -c "${connection:?}" \
+        pool-list --all
+
+         Name                 State      Autostart 
+        -------------------------------------------
+         base                 active     yes       
+         data                 inactive   no        
+         default              active     yes       
+         live                 active     yes       
+
+    #
+    # Build the pool.
+    virsh \
+        -c "${connection:?}" \
+        pool-build "${datapool:?}"
+
+    #
+    # Start the pool.
+    virsh \
+        -c "${connection:?}" \
+        pool-start "${datapool:?}"
+
+    #
+    # Configure the pool autostart.
+    virsh \
+        -c "${connection:?}" \
+        pool-autostart "${datapool:?}"
+
+    #
+    # Check the pool info.
+    virsh \
+        -c "${connection:?}" \
+        pool-info "${datapool:?}"
+
+        Name:           data
+        UUID:           7e79291c-bbd1-456c-9182-b45c51bba0b4
+        State:          running
+        Persistent:     yes
+        Autostart:      yes
+        Capacity:       3.58 TiB
+        Allocation:     19.17 GiB
+        Available:      3.56 TiB
+
+# -----------------------------------------------------
+# Create a data volume.
+#[user@trop03]
+
+    datafile=kafka-data.qcow
+    datasize=1T
+
+    source "${HOME:?}/ischnura.settings"
+
+    virsh \
+        --connect "${connection:?}" \
+        vol-create-as \
+            "${datapool:?}" \
+            "${datafile:?}" \
+            "${datasize:?}" \
+            --format qcow2
+
+        Vol kafka-data created
+
+# -----------------------------------------------------
+# Attach the data volume to the Kafka VM.
+# https://raymii.org/s/tutorials/KVM_add_disk_image_or_swap_image_to_virtual_machine_with_virsh.html
+#[user@trop03]
+
+    vmname=Umiawyth
+
+    virsh \
+        --connect "${connection:?}" \
+        attach-disk \
+            ${vmname:?} \
+            --config \
+            --target vdb \
+            --driver qemu \
+            --subdriver qcow2 \
+            --source $(
+                virsh \
+                    --connect "${connection:?}" \
+                    vol-path \
+                        --pool "${datapool:?}" \
+                        "${datafile:?}"
+                )
+
+        Disk attached successfully
+
+# -----------------------------------------------------
+# Check the VM details.
+#[user@trop03]
+
+    virsh \
+        --connect "${connection:?}" \
+        dumpxml \
+            ${vmname:?}
+
+        ....
+          ....
+            <disk type='file' device='disk'>
+              <driver name='qemu' type='qcow2'/>
+              <source file='/data1/libvirt/images/live/Umiawyth.qcow'/>
+              <target dev='vda' bus='virtio'/>
+              <address type='pci' domain='0x0000' bus='0x00' slot='0x04' function='0x0'/>
+            </disk>
+            <disk type='file' device='disk'>
+              <driver name='qemu' type='qcow2'/>
+              <source file='/data1/libvirt/images/data/kafka-data.qcow'/>
+              <target dev='vdb' bus='virtio'/>
+              <address type='pci' domain='0x0000' bus='0x00' slot='0x05' function='0x0'/>
+            </disk>
+          ....
+        ....
+
+# -----------------------------------------------------
+# Restart the Kafka VM and login.
+#[user@trop03]
+
+    virsh \
+        --connect "${connection:?}" \
+        start \
+            ${vmname:?}
+
+
+    ssh root@${vmname:?}
+
+# -----------------------------------------------------
+# Check we don't have any Docker volumes.
+#[root@Umiawyth]
+
+    docker volume ls
+
+        DRIVER              VOLUME NAME
+        --                  --
+
+
+# -----------------------------------------------------
+# Shutdown the Docker service.
+#[root@Umiawyth]
+
+    systemctl stop docker.service
+
+#---------------------------------------------------------------------
+# Create a btrfs file system on the new drive.
+# https://www.howtoforge.com/a-beginners-guide-to-btrfs
+#[root@proline]
+
+    dnf install btrfs-progs
+
+    mkfs.btrfs \
+        /dev/vdb
+
+        btrfs-progs v4.6.1
+        See http://btrfs.wiki.kernel.org for more information.
+
+        Label:              (null)
+        UUID:               57d1cec0-74f0-45ef-8885-07d49acd71cf
+        Node size:          16384
+        Sector size:        4096
+        Filesystem size:    1.00TiB
+        Block group profiles:
+          Data:             single            8.00MiB
+          Metadata:         DUP               1.01GiB
+          System:           DUP              12.00MiB
+        SSD detected:       no
+        Incompat features:  extref, skinny-metadata
+        Number of devices:  1
+        Devices:
+           ID        SIZE  PATH
+            1     1.00TiB  /dev/vdb
+
+# -----------------------------------------------------
+# Add the new file system to fstab.
+#[root@Umiawyth]
+
+    vi /etc/fstab
+
+        UUID=6a6a5a64-889b-4d96-883c-6e0b93589ceb /                       btrfs   subvol=root     0 0
+        UUID=8ca95cee-09e1-4f47-a076-49e1c048bdd1 /boot                   ext4    defaults        1 2
+        UUID=99cb7a36-04ad-4edf-bb93-2f14d2cda8d1 swap                    swap    defaults        0 0
+    +   UUID=57d1cec0-74f0-45ef-8885-07d49acd71cf /var/lib/docker/volumes btrfs   defaults        0 0
+
+# -----------------------------------------------------
+# Mount the Docker volumes directory.
+#[root@Umiawyth]
+
+    df -h /var/lib/docker/volumes/
+
+        Filesystem      Size  Used Avail Use% Mounted on
+        /dev/vda3        15G  3.3G  9.8G  25% /
+
+    mount /var/lib/docker/volumes
+
+    df -h /var/lib/docker/volumes/
+
+        Filesystem      Size  Used Avail Use% Mounted on
+        /dev/vdb        1.0T   17M 1022G   1% /var/lib/docker/volumes
+
+# -----------------------------------------------------
+# Start the Docker service.
+
+    systemctl start docker.service
+
+    systemctl status docker.service
+
+
+

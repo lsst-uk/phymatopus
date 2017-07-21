@@ -1,0 +1,226 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2017, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#  
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+# -----------------------------------------------------
+# Create a VM for Kafka, Sender, Listener.
+#[user@trop03]
+
+    createvm
+
+        INFO : Node name [Umiawyth]
+        INFO : Base name [fedora-25-docker-16G-20170713.qcow]
+        INFO : Base path [/var/lib/libvirt/images/base/fedora-25-docker-16G-20170713.qcow]
+        INFO : Disc name [Umiawyth.qcow]
+        INFO : Disc size [16GiB]
+
+    ssh Umiawyth # Kafka
+    ssh Etalema  # Sender
+    ssh Greand   # Listener
+
+# -----------------------------------------------------
+# Configure project settings.
+#[user@virtual]
+
+    if [ ! -e "${HOME}/projects.settings" ]
+    then
+        cat > "${HOME}/projects.settings" << EOF
+PROJECTS_BASE="\${HOME}/projects"
+EOF
+    fi
+
+# -----------------------------------------------------
+# Configure Phymatopus settings.
+#[user@virtual]
+
+    if [ ! -e "${HOME}/phymatopus.settings" ]
+    then
+        cat > "${HOME}/phymatopus.settings" << EOF
+source "\${HOME}/projects.settings"
+PHYMATOPUS_BASE="\${PROJECTS_BASE:?}/phymatopus"
+PHYMATOPUS_CODE="\${PHYMATOPUS_BASE:?}/code"
+PHYMATOPUS_LSST="\${PHYMATOPUS_BASE:?}/lsst"
+PHYMATOPUS_REPO='git@github.com:lsst-uk/phymatopus.git'
+EOF
+    fi
+
+# -----------------------------------------------------
+# Create our project base directory.
+#[user@virtual]
+
+    source "${HOME}/phymatopus.settings"
+    mkdir -p "${PHYMATOPUS_BASE:?}"
+
+# -----------------------------------------------------
+# Checkout our source code.
+#[user@virtual]
+
+    source "${HOME}/phymatopus.settings"
+    if [ ! -e "${PHYMATOPUS_CODE:?}" ]
+    then
+        mkdir -p $(dirname "${PHYMATOPUS_CODE:?}")
+        pushd $(dirname "${PHYMATOPUS_CODE:?}")
+            git clone "${PHYMATOPUS_REPO:?}" $(basename "${PHYMATOPUS_CODE:?}")
+        popd
+    else
+        pushd "${PHYMATOPUS_CODE:?}"
+            git pull
+        popd
+    fi
+
+# -----------------------------------------------------
+# Checkout Maria's code.
+#[user@virtual]
+
+    source "${HOME}/phymatopus.settings"
+
+    mkdir -p "${PHYMATOPUS_LSST:?}/maria"
+    pushd "${PHYMATOPUS_LSST:?}/maria"
+
+        if [ ! -e 'alert_stream' ]
+        then
+            git clone git@github.com:mtpatter/alert_stream.git
+        fi
+        
+    popd
+
+# -----------------------------------------------------
+# Checkout LSST-DM code.
+#[user@virtual]
+
+    source "${HOME}/phymatopus.settings"
+
+    mkdir -p "${PHYMATOPUS_LSST:?}/lsst-dm"
+    pushd "${PHYMATOPUS_LSST:?}/lsst-dm"
+
+        if [ ! -e 'alert_stream' ]
+        then
+            git clone git@github.com:lsst-dm/sample-avro-alert.git
+        fi
+        
+    popd
+
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+# Start the Kafka services.
+#[user@Umiawyth]
+
+    source "${HOME}/phymatopus.settings"
+
+    docker-compose \
+        --file "${PHYMATOPUS_LSST:?}/maria/alert_stream/docker-compose.yml" \
+        up
+
+
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+# Build and run the event sender.
+#[user@Etalema]
+
+    source "${HOME}/phymatopus.settings"
+
+    docker build \
+        --tag 'alert_stream' \
+        "${PHYMATOPUS_LSST:?}/maria/alert_stream"
+
+    docker run \
+        --rm \
+        --tty \
+        --interactive \
+        --add-host "kafka:$(dig +short Umiawyth)" \
+        alert_stream \
+            python bin/sendAlertStream.py \
+                test-stream \
+                100
+
+
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+# Build and run the event listener.
+#[user@Greand]
+
+    source "${HOME}/phymatopus.settings"
+
+    docker build \
+        --tag 'alert_stream' \
+        "${PHYMATOPUS_LSST:?}/maria/alert_stream"
+
+    docker run \
+        --rm \
+        --tty \
+        --interactive \
+        --add-host "kafka:$(dig +short Umiawyth)" \
+        alert_stream \
+            python bin/monitorStream.py \
+                --group monitor-group \
+                test-stream
+
+
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+# Kafka virtual machine out of disc space.
+#[root@Umiawyth]
+
+    du -h / | grep '^[0-9]*G'
+
+        ....
+        12G	/var/lib/docker/volumes/8973fc2a361a843152d2a7172837d60acf13b01f9a88823d225b95bd6ba9e555/_data/test-stream-0
+        12G	/var/lib/docker/volumes/8973fc2a361a843152d2a7172837d60acf13b01f9a88823d225b95bd6ba9e555/_data
+        12G	/var/lib/docker/volumes/8973fc2a361a843152d2a7172837d60acf13b01f9a88823d225b95bd6ba9e555
+        12G	/var/lib/docker/volumes
+        17G	/var/lib/docker
+        17G	/var/lib
+        17G	/var
+        18G	/
+
+# -----------------------------------------------------
+# Take down kafka containers.
+#[user@Umiawyth]
+
+    source phymatopus.settings 
+    docker-compose \
+        --file "${PHYMATOPUS_LSST:?}/maria/alert_stream/docker-compose.yml" \
+        down
+
+# -----------------------------------------------------
+# Delete the orphaned volumes.
+#[user@Umiawyth]
+
+    docker volume ls
+
+        DRIVER              VOLUME NAME
+        local               756f8ffc343b8a527b28c9d77e005c263e7f8ed5f8e9752d1f60089c705ddc29
+        local               7b3f00391dcfc13c6d69c4345d5dc23d924ef6293433a7178cde9df0f7fdd229
+        local               8973fc2a361a843152d2a7172837d60acf13b01f9a88823d225b95bd6ba9e555
+        local               cf5d2d1acd2638591c3962a4c7e1e855089e113d78e35e3146f36d020eef6503
+        local               d6879f285a5ff63e79f04f4d546e8232fcd31798b40f3b57677010b934f13c69
+
+    docker volume \
+        rm $(docker volume ls -q)
+        
+
+
+
+
