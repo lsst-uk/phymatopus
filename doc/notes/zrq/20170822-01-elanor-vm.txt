@@ -12,8 +12,7 @@
 #     but WITHOUT ANY WARRANTY; without even the implied warranty of
 #     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #     GNU General Public License for more details.
-#
-#     You should have received a copy of the GNU General Public License
+
 #     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #   </meta:licence>
 # </meta:header>
@@ -94,14 +93,23 @@ Instructions on the quick start page
     sudo -s
 
 #---------------------------------------------------------------------
-# Fix the DNS servers (NOT permanent)
+# Configure the DNS servers.
 #[root@virtual]
 
-cat > /etc/resolv.conf << EOF
+    cat > /etc/resolv.conf << EOF
 search roe.ac.uk
 nameserver 129.215.166.13
 nameserver 129.215.70.239
 EOF
+
+#---------------------------------------------------------------------
+# Prevent DHCP from changing the DNS settings.
+#[root@virtual]
+
+    sed -i '
+        s/^PEERDNS.*$/PEERDNS="no"/
+        ' \
+        /etc/sysconfig/network-scripts/ifcfg-eth0
 
 #---------------------------------------------------------------------
 # Update the system.
@@ -112,7 +120,9 @@ EOF
 #---------------------------------------------------------------------
 # Create and attach a volume.
 
-    fiot on /dev/vdb
+    ....
+    ....
+
 
 #---------------------------------------------------------------------
 # Create a btrfs file system on the new drive.
@@ -125,7 +135,7 @@ EOF
         /dev/vdb
 
         Label:              (null)
-        UUID:               b0040797-624f-4b51-8674-b9cce97a389a
+        UUID:               14dcfad3-d86f-424c-9a7e-1d78e1e29fbb
         Node size:          16384
         Sector size:        4096
         Filesystem size:    256.00GiB
@@ -148,17 +158,16 @@ EOF
     ls -al /dev/disk/by-uuid/
 
         ....
-        lrwxrwxrwx. 1 root root   9 Aug 22 13:59 b0040797-624f-4b51-8674-b9cce97a389a -> ../../vdb
-        lrwxrwxrwx. 1 root root  10 Aug 22 13:56 c48bb53a-9663-49ef-ae50-50792e85ae36 -> ../../vda1
+        lrwxrwxrwx. 1 root root   9 Aug 22 16:34 14dcfad3-d86f-424c-9a7e-1d78e1e29fbb -> ../../vdb
+        lrwxrwxrwx. 1 root root  10 Aug 22 16:22 c48bb53a-9663-49ef-ae50-50792e85ae36 -> ../../vda1
 
 # -----------------------------------------------------
 # Add the new file system to fstab.
 #[root@virtual]
 
-    vi /etc/fstab
-
-        UUID=6a6a5a64-889b-4d96-883c-6e0b93589ceb /                btrfs   subvol=root     0 0
-    +   UUID=b0040797-624f-4b51-8674-b9cce97a389a /var/lib/docker  btrfs   defaults        0 0
+    cat > /etc/fstab << EOF
+UUID=14dcfad3-d86f-424c-9a7e-1d78e1e29fbb /var/lib/docker  btrfs   defaults        0 0
+EOF
 
 # -----------------------------------------------------
 # Mount the Docker volume.
@@ -225,11 +234,19 @@ EOF
 # Install the dockersock SELinux policy.
 # https://github.com/dpw/selinux-dockersock
 
+    yum -y \
+        install \
+            checkpolicy \
+            policycoreutils \
+            policycoreutils-python
+
     pushd $(mktemp -d)
-      wget https://raw.githubusercontent.com/dpw/selinux-dockersock/master/dockersock.te
-      checkmodule -M -m -o dockersock.mod dockersock.te
-      semodule_package -m dockersock.mod -o dockersock.pp
-      semodule -i dockersock.pp
+
+        wget https://raw.githubusercontent.com/dpw/selinux-dockersock/master/dockersock.te
+        checkmodule -M -m -o dockersock.mod dockersock.te
+        semodule_package -m dockersock.mod -o dockersock.pp
+        semodule -i dockersock.pp
+
     popd
 
 #---------------------------------------------------------------------
