@@ -221,6 +221,133 @@ EOF
         rm $(docker volume ls -q)
         
 
+# -----------------------------------------------------
+# -----------------------------------------------------
+# Add 1 Tera byte disc to the VM.
+#[user@desktop]
+
+    source "${HOME}/phymatopus.settings"
+    gedit  "${PHYMATOPUS_CODE:?}/doc/notes/zrq/20170721-01-libvirt-data.txt" &
+
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+# Start the Kafka services.
+#[user@Umiawyth]
+
+    source "${HOME}/phymatopus.settings"
+
+    docker-compose \
+        --file "${PHYMATOPUS_LSST:?}/maria/alert_stream/docker-compose.yml" \
+        up
+
+# -----------------------------------------------------
+# 15 hrs later, extended disc space is full.
+#[user@Umiawyth]
+
+    df -h /var/lib/docker/volumes
+
+        Filesystem      Size  Used Avail Use% Mounted on
+        /dev/vdb        1.0T 1023G  724K 100% /var/lib/docker/volumes
+
+    du -h /var/lib/docker/volumes
+
+        ....
+        ....
+        0	/var/lib/docker/volumes/b98326c09ab78d71118c22a96e2cd8647ad6b0e93e33893ba9e527f400dbdc18/_data/__consumer_offsets-41
+        0	/var/lib/docker/volumes/b98326c09ab78d71118c22a96e2cd8647ad6b0e93e33893ba9e527f400dbdc18/_data/__consumer_offsets-32
+        0	/var/lib/docker/volumes/b98326c09ab78d71118c22a96e2cd8647ad6b0e93e33893ba9e527f400dbdc18/_data/__consumer_offsets-3
+        0	/var/lib/docker/volumes/b98326c09ab78d71118c22a96e2cd8647ad6b0e93e33893ba9e527f400dbdc18/_data/__consumer_offsets-13
+        1020G	/var/lib/docker/volumes/b98326c09ab78d71118c22a96e2cd8647ad6b0e93e33893ba9e527f400dbdc18/_data/test-stream-0
+        1020G	/var/lib/docker/volumes/b98326c09ab78d71118c22a96e2cd8647ad6b0e93e33893ba9e527f400dbdc18/_data
+        1020G	/var/lib/docker/volumes/b98326c09ab78d71118c22a96e2cd8647ad6b0e93e33893ba9e527f400dbdc18
+        1020G	/var/lib/docker/volumes
+
+
+# -----------------------------------------------------
+# Kafka service dies.
+#[user@Umiawyth]
+
+        kafka_1      | [2017-07-21 16:56:50,929] FATAL [Replica Manager on Broker 1]: Halting due to unrecoverable I/O error while handling produce request:  (kafka.server.ReplicaManager)
+        kafka_1      | kafka.common.KafkaStorageException: I/O exception in append to log 'test-stream-0'
+        kafka_1      | 	at kafka.log.Log.append(Log.scala:362)
+        kafka_1      | 	at kafka.cluster.Partition$$anonfun$11.apply(Partition.scala:451)
+        kafka_1      | 	at kafka.cluster.Partition$$anonfun$11.apply(Partition.scala:439)
+        kafka_1      | 	at kafka.utils.CoreUtils$.inLock(CoreUtils.scala:213)
+        kafka_1      | 	at kafka.utils.CoreUtils$.inReadLock(CoreUtils.scala:219)
+        kafka_1      | 	at kafka.cluster.Partition.appendRecordsToLeader(Partition.scala:438)
+        kafka_1      | 	at kafka.server.ReplicaManager$$anonfun$appendToLocalLog$2.apply(ReplicaManager.scala:389)
+        kafka_1      | 	at kafka.server.ReplicaManager$$anonfun$appendToLocalLog$2.apply(ReplicaManager.scala:375)
+        kafka_1      | 	at scala.collection.TraversableLike$$anonfun$map$1.apply(TraversableLike.scala:234)
+        kafka_1      | 	at scala.collection.TraversableLike$$anonfun$map$1.apply(TraversableLike.scala:234)
+        kafka_1      | 	at scala.collection.Iterator$class.foreach(Iterator.scala:893)
+        kafka_1      | 	at scala.collection.AbstractIterator.foreach(Iterator.scala:1336)
+        kafka_1      | 	at scala.collection.IterableLike$class.foreach(IterableLike.scala:72)
+        kafka_1      | 	at scala.collection.AbstractIterable.foreach(Iterable.scala:54)
+        kafka_1      | 	at scala.collection.TraversableLike$class.map(TraversableLike.scala:234)
+        kafka_1      | 	at scala.collection.AbstractTraversable.map(Traversable.scala:104)
+        kafka_1      | 	at kafka.server.ReplicaManager.appendToLocalLog(ReplicaManager.scala:375)
+        kafka_1      | 	at kafka.server.ReplicaManager.appendRecords(ReplicaManager.scala:312)
+        kafka_1      | 	at kafka.server.KafkaApis.handleProducerRequest(KafkaApis.scala:427)
+        kafka_1      | 	at kafka.server.KafkaApis.handle(KafkaApis.scala:80)
+        kafka_1      | 	at kafka.server.KafkaRequestHandler.run(KafkaRequestHandler.scala:62)
+        kafka_1      | 	at java.lang.Thread.run(Thread.java:745)
+        kafka_1      | Caused by: java.io.IOException: No space left on device
+        kafka_1      | 	at sun.nio.ch.FileDispatcherImpl.write0(Native Method)
+        kafka_1      | 	at sun.nio.ch.FileDispatcherImpl.write(FileDispatcherImpl.java:60)
+        kafka_1      | 	at sun.nio.ch.IOUtil.writeFromNativeBuffer(IOUtil.java:93)
+        kafka_1      | 	at sun.nio.ch.IOUtil.write(IOUtil.java:65)
+        kafka_1      | 	at sun.nio.ch.FileChannelImpl.write(FileChannelImpl.java:211)
+        kafka_1      | 	at org.apache.kafka.common.record.MemoryRecords.writeFullyTo(MemoryRecords.java:82)
+        kafka_1      | 	at org.apache.kafka.common.record.FileRecords.append(FileRecords.java:159)
+        kafka_1      | 	at kafka.log.LogSegment.append(LogSegment.scala:110)
+        kafka_1      | 	at kafka.log.Log.append(Log.scala:425)
+        kafka_1      | 	... 21 more
+
+        zookeeper_1  | [2017-07-21 16:56:51,636] WARN caught end of stream exception (org.apache.zookeeper.server.NIOServerCnxn)
+        zookeeper_1  | EndOfStreamException: Unable to read additional data from client sessionid 0x15d62f7c36f0002, likely client has closed socket
+        zookeeper_1  | 	at org.apache.zookeeper.server.NIOServerCnxn.doIO(NIOServerCnxn.java:228)
+        zookeeper_1  | 	at org.apache.zookeeper.server.NIOServerCnxnFactory.run(NIOServerCnxnFactory.java:203)
+        zookeeper_1  | 	at java.lang.Thread.run(Thread.java:745)
+        zookeeper_1  | [2017-07-21 16:56:54,667] INFO Closed socket connection for client /172.18.0.3:48018 which had sessionid 0x15d62f7c36f0002 (org.apache.zookeeper.server.NIOServerCnxn)
+
+    alertstream_kafka_1 exited with code 1
+
+
+
+    #
+    # Config settings to limit size and age of logs.
+    # https://docops.ca.com/ca-experience-collector/en/troubleshooting/digital-experience-collector-troubleshooting/apache-kafka-running-out-of-disk-space
+
+
+    #
+    #  Best Practices in Deploying/Using Kafka in Produciton 
+    # https://community.hortonworks.com/articles/80813/kafka-best-practices-1.html
+
+
+    #
+    # Improve Docker compose file to locate log volumes on specific discs.
+    # Production system needs more discs (many better than big).
+
+
+
+
+        # The minimum age of a log file to be eligible for deletion due to age
+    +   log.retention.hours=8
+
+        # A size-based retention policy for logs. Segments are pruned from the log as long as the remaining
+        # segments don't drop below log.retention.bytes. Functions independently of log.retention.hours.
+    +   log.retention.bytes=1099510579200
+
+
+       1M 1024*1024
+       1G 1024*1024*1024
+       1T 1024*1024*1024*1024
+    1T-1M (1024*1024*1024*1024)-(1024*1024)=1099510579200
+
+    #
+    # Changing the properties while the system is running doesn't have any effect.
+    # Need to restart !?
 
 
 
