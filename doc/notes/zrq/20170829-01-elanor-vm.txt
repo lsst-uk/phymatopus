@@ -490,20 +490,41 @@ EOF
         ;; connection timed out; no servers could be reached
 
 # -----------------------------------------------------
-# Change the DNS resolver settings to use the ROE name servers.
+# Remove resolv.conf if it is a symlink.
+#[root@instance]
+
+    if [ -L /etc/resolv.conf ]
+    then
+        rm -f /etc/resolv.conf
+    fi
+
+# -----------------------------------------------------
+# Option #1 - Change the DNS resolver settings to use the ROE name servers.
 #[root@instance]
 
     cat > /etc/resolv.conf << EOF
-search ecdf.ed.ac.uk ed.ac.uk roe.ac.uk
+search roe.ac.uk ecdf.ed.ac.uk ed.ac.uk
 nameserver 129.215.166.13
 nameserver 129.215.70.239
 EOF
 
-#---------------------------------------------------------------------
-# Prevent DHCP from changing the DNS settings.
+# -----------------------------------------------------
+# Option #2 - Change the DNS resolver settings to use the UCS name servers.
 #[root@instance]
 
-    echo 'PEERDNS="no"' >> /etc/sysconfig/network
+    cat > /etc/resolv.conf << EOF
+search ecdf.ed.ac.uk ed.ac.uk
+nameserver 129.215.166.13
+nameserver 129.215.200.7
+nameserver 129.215.146.5
+nameserver 129.215.70.239
+EOF
+
+#---------------------------------------------------------------------
+# Prevent NetworkManager from changing the DNS settings.
+#[root@instance]
+
+    echo 'PEERDNS="no"' >> /etc/sysconfig/network-scripts/ifcfg-ens3
 
 # -----------------------------------------------------
 # Test the DNS resolver settings.
