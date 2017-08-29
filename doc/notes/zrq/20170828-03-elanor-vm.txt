@@ -1,0 +1,550 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2017, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+    #
+    # Using command line tools to manage VM images.
+    # https://docs.openstack.org/python-glanceclient/latest/cli/glance.html
+
+# -----------------------------------------------------
+# Create a new VM.
+#[user@trop]
+
+    createvm
+
+        INFO : Node name [Umiawyth]
+        INFO : Base name [fedora-25-docker-16G-20170713.qcow]
+        INFO : Base path [/var/lib/libvirt/images/base/fedora-25-docker-16G-20170713.qcow]
+        INFO : Disc name [Umiawyth.qcow]
+        INFO : Disc size [16GiB]
+
+# -----------------------------------------------------
+# Login to the new VM.
+#[user@trop]
+
+    ssh Stevedore@Umiawyth
+
+# -----------------------------------------------------
+# Configure our secrets function.
+#[user@virtual]
+
+cat > "${HOME}/secret.sh" << 'EOF'
+....
+....
+EOF
+
+    source "${HOME}/secret.sh"
+    secret frog
+
+# -----------------------------------------------------
+# Run in the latest Fedora.
+#[user@virtual]
+
+    docker run \
+        --tty \
+        --interactive \
+        --env "OS_USERNAME=$(secret openstack.user)" \
+        --env "OS_PASSWORD=$(secret openstack.pass)" \
+        fedora \
+        bash
+
+# -----------------------------------------------------
+# Check our user name and password.
+#[root@container]
+
+    echo "Username [${OS_USERNAME:?}]"
+    echo "Password [${OS_PASSWORD:?}]"
+
+# -----------------------------------------------------
+# Install the OpenStack clients.
+# https://github.com/openstack/python-novaclient
+# https://docs.openstack.org/python-novaclient/latest/
+# https://access.redhat.com/documentation/en-US/Red_Hat_Enterprise_Linux_OpenStack_Platform/4/html/End_User_Guide/install_clients.html
+#[root@container]
+
+    dnf \
+        install -y \
+        python-novaclient \
+        python-glanceclient \
+        python-neutronclient
+
+# -----------------------------------------------------
+# Check the versions.
+#[root@container]
+
+    nova --version
+
+        6.0.0
+
+    glance --version
+
+        2.5.0
+
+    neutron --version
+
+        6.0.0
+
+# -----------------------------------------------------
+# Set the V3 project details, from the Openstack Access & Security page.
+# https://horizon.ecdf.ed.ac.uk/dashboard/project/access_and_security/api_access/openrc/
+#[root@container]
+
+    export OS_AUTH_URL=https://keystone.ecdf.ed.ac.uk/v3
+
+    export OS_USER_DOMAIN_NAME="ed"
+    export OS_REGION_NAME="Edinburgh"
+
+    export OS_INTERFACE=public
+    export OS_IDENTITY_API_VERSION=3
+
+    #export OS_PROJECT_ID=b397f5c3415945ca94b74bd612210299
+    #export OS_PROJECT_NAME="AstroTROP"
+
+    export OS_PROJECT_ID=c2ff1afa3e874e0eb6f5a48f7e77208b
+    export OS_PROJECT_NAME="virtual-observatory-services"
+
+# -----------------------------------------------------
+# Try listing the available images.
+#[root@container]
+
+    glance \
+        image-list
+
+        +--------------------------------------+----------------------------+
+        | ID                                   | Name                       |
+        +--------------------------------------+----------------------------+
+        | d608b269-de15-4852-96b0-2dda15466cb6 | Centos 6 - 1612            |
+        | b241c7ea-63f5-4a77-86de-e18a1e8bee45 | Centos 7 - 1612            |
+        | 65a5d008-5d58-48f9-973a-1fd1e917ba7d | Scientific Linux 6.8       |
+        | 2326063c-5a0f-4430-b76c-e977100a3e0d | Scientific Linux 7.2       |
+        | 039046a1-0a88-4a5b-b997-b18fa2264e0b | Ubuntu 14.04               |
+        | b3bb4c27-ec69-4115-a02e-dfe9e8e65acb | Ubuntu 14.04 Spark 1.3.1   |
+        | 21649978-8542-4b5b-88c0-d1cde75b8516 | Ubuntu 14.04 Vanilla 2.7.1 |
+        | 909b980e-3514-4589-a250-444e0dcbad04 | Ubuntu 16.04               |
+        +--------------------------------------+----------------------------+
+
+    glance \
+        image-show \
+        'b241c7ea-63f5-4a77-86de-e18a1e8bee45'
+
+        +------------------+----------------------------------------------------------------------------------+
+        | Property         | Value                                                                            |
+        +------------------+----------------------------------------------------------------------------------+
+        | checksum         | 27970114a08b6f33e4899b5b6f8e99a9                                                 |
+        | container_format | bare                                                                             |
+        | created_at       | 2017-02-09T21:54:59Z                                                             |
+        | direct_url       | rbd://294bc494-81ba-4c3c-ac5d-af7b3442a2a5/images/b241c7ea-63f5-4a77-86de-       |
+        |                  | e18a1e8bee45/snap                                                                |
+        | disk_format      | qcow2                                                                            |
+        | id               | b241c7ea-63f5-4a77-86de-e18a1e8bee45                                             |
+        | locations        | [{"url": "rbd://294bc494-81ba-4c3c-ac5d-af7b3442a2a5/images/b241c7ea-63f5-4a77   |
+        |                  | -86de-e18a1e8bee45/snap", "metadata": {}}]                                       |
+        | min_disk         | 10                                                                               |
+        | min_ram          | 0                                                                                |
+        | name             | Centos 7 - 1612                                                                  |
+        | owner            | efa5d1ce80324476b4ce189686dda2d1                                                 |
+        | protected        | True                                                                             |
+        | size             | 1351483392                                                                       |
+        | status           | active                                                                           |
+        | tags             | []                                                                               |
+        | updated_at       | 2017-02-09T21:56:57Z                                                             |
+        | virtual_size     | None                                                                             |
+        | visibility       | public                                                                           |
+        +------------------+----------------------------------------------------------------------------------+
+
+# -----------------------------------------------------
+# Download our image.
+#[root@container]
+
+    dnf -y install wget
+
+    imagename=fedora-25-docker-16G-20170713
+    imagefile=${imagename:?}.qcow
+    imagegzip=${imagefile:?}.gz
+    imagepath=${HOME}/temp/${imagefile:?}
+    imagelink=http://data.metagrid.co.uk/ischnura/base/${imagegzip:?}
+
+    mkdir $(dirname ${imagepath:?})
+    pushd $(dirname ${imagepath:?})
+    
+        wget   ${imagelink:?}
+        gunzip ${imagegzip:?}
+
+    popd
+
+# -----------------------------------------------------
+# Upload our image.
+#[root@container]
+
+    glance image-create \
+        --progress \
+        --disk-format qcow2 \
+        --container-format bare \
+        --name "${imagename:?}" \
+        --file "${imagepath:?}"
+
+        [=============================>] 100%
+        +------------------+----------------------------------------------------------------------------------+
+        | Property         | Value                                                                            |
+        +------------------+----------------------------------------------------------------------------------+
+        | checksum         | cdb555011185103cf753a1d23379ed7d                                                 |
+        | container_format | bare                                                                             |
+        | created_at       | 2017-08-28T23:40:08Z                                                             |
+        | direct_url       | rbd://294bc494-81ba-4c3c-ac5d-af7b3442a2a5/images/78f2f6e8-70c3-440e-            |
+        |                  | bbf3-8ed639808706/snap                                                           |
+        | disk_format      | qcow2                                                                            |
+        | id               | 78f2f6e8-70c3-440e-bbf3-8ed639808706                                             |
+        | locations        | [{"url": "rbd://294bc494-81ba-4c3c-ac5d-af7b3442a2a5/images/78f2f6e8-70c3-440e-  |
+        |                  | bbf3-8ed639808706/snap", "metadata": {}}]                                        |
+        | min_disk         | 0                                                                                |
+        | min_ram          | 0                                                                                |
+        | name             | fedora-25-docker-16G-20170713                                                    |
+        | owner            | c2ff1afa3e874e0eb6f5a48f7e77208b                                                 |
+        | protected        | False                                                                            |
+        | size             | 763739648                                                                        |
+        | status           | active                                                                           |
+        | tags             | []                                                                               |
+        | updated_at       | 2017-08-28T23:40:34Z                                                             |
+        | virtual_size     | None                                                                             |
+        | visibility       | private                                                                          |
+        +------------------+----------------------------------------------------------------------------------+
+
+# -----------------------------------------------------
+# List our current instances.
+#[root@container]
+
+    nova list
+
+        +--------------------------------------+--------+--------+------------+-------------+----------------------------------------------+
+        | ID                                   | Name   | Status | Task State | Power State | Networks                                     |
+        +--------------------------------------+--------+--------+------------+-------------+----------------------------------------------+
+        | 4a0473c7-723e-4dd9-b166-90352d6f8d15 | efeher | ACTIVE | -          | Running     | VM Network Private=192.168.1.4, 172.16.49.22 |
+        +--------------------------------------+--------+--------+------------+-------------+----------------------------------------------+
+
+# -----------------------------------------------------
+# Inspect our current instance.
+#[root@container]
+
+    nova show 4a0473c7-723e-4dd9-b166-90352d6f8d15
+
+        +--------------------------------------+----------------------------------------------------------------------------------+
+        | Property                             | Value                                                                            |
+        +--------------------------------------+----------------------------------------------------------------------------------+
+        | OS-DCF:diskConfig                    | AUTO                                                                             |
+        | OS-EXT-AZ:availability_zone          | nova                                                                             |
+        | OS-EXT-STS:power_state               | 1                                                                                |
+        | OS-EXT-STS:task_state                | -                                                                                |
+        | OS-EXT-STS:vm_state                  | active                                                                           |
+        | OS-SRV-USG:launched_at               | 2017-08-25T10:59:52.000000                                                       |
+        | OS-SRV-USG:terminated_at             | -                                                                                |
+        | VM Network Private network           | 192.168.1.4, 172.16.49.22                                                        |
+        | accessIPv4                           |                                                                                  |
+        | accessIPv6                           |                                                                                  |
+        | config_drive                         |                                                                                  |
+        | created                              | 2017-08-25T10:59:13Z                                                             |
+        | description                          | efeher                                                                           |
+        | flavor                               | m1.small (2)                                                                     |
+        | hostId                               | 4bb8c4ddf20436aa1decefaeb199e85c9fe5e97d80cdeffe52ab043b                         |
+        | id                                   | 4a0473c7-723e-4dd9-b166-90352d6f8d15                                             |
+        | image                                | Attempt to boot from volume - no image supplied                                  |
+        | key_name                             | dmr                                                                              |
+        | locked                               | False                                                                            |
+        | metadata                             | {}                                                                               |
+        | name                                 | efeher                                                                           |
+        | os-extended-volumes:volumes_attached | [{"id": "c427cd44-4006-4b3f-8ad7-ac74ac354226", "delete_on_termination": false}] |
+        | progress                             | 0                                                                                |
+        | security_groups                      | default                                                                          |
+        | status                               | ACTIVE                                                                           |
+        | tags                                 | []                                                                               |
+        | tenant_id                            | c2ff1afa3e874e0eb6f5a48f7e77208b                                                 |
+        | updated                              | 2017-08-25T10:59:52Z                                                             |
+        | user_id                              | 3d241b5fa2d0b3378901e08e86e10284dc9f9dae3732b99f71f809cf46ccb0d5                 |
+        +--------------------------------------+----------------------------------------------------------------------------------+
+
+# -----------------------------------------------------
+# List our available flavors.
+#[root@container]
+
+    nova flavor-list
+
+        +--------------------------------------+------------+-----------+------+-----------+------+-------+-------------+-----------+
+        | ID                                   | Name       | Memory_MB | Disk | Ephemeral | Swap | VCPUs | RXTX_Factor | Is_Public |
+        +--------------------------------------+------------+-----------+------+-----------+------+-------+-------------+-----------+
+        | 09086afb-9d80-4719-974c-45e700a795bb | m1.xxlarge | 32768     | 160  | 0         |      | 16    | 1.0         | True      |
+        | 2                                    | m1.small   | 2048      | 20   | 0         |      | 1     | 1.0         | True      |
+        | 2b93be09-8179-4db2-9f27-e98dd0c8fbaf | l1.xxlarge | 98304     | 320  | 0         |      | 16    | 1.0         | True      |
+        | 3                                    | m1.medium  | 4096      | 40   | 0         |      | 2     | 1.0         | True      |
+        | 4                                    | m1.large   | 8192      | 80   | 0         |      | 4     | 1.0         | True      |
+        | 5                                    | m1.xlarge  | 16384     | 160  | 0         |      | 8     | 1.0         | True      |
+        | 6                                    | l1.small   | 6144      | 40   | 0         |      | 1     | 1.0         | True      |
+        | 7                                    | l1.medium  | 12288     | 80   | 0         |      | 2     | 1.0         | True      |
+        | 8                                    | l1.large   | 24576     | 160  | 0         |      | 4     | 1.0         | True      |
+        | 9                                    | l1.xlarge  | 49152     | 320  | 0         |      | 8     | 1.0         | True      |
+        +--------------------------------------+------------+-----------+------+-----------+------+-------+-------------+-----------+
+
+# -----------------------------------------------------
+# List our available networks.
+#[root@container]
+
+    neutron \
+        net-list
+
+        +--------------------------------------+--------------------------------------------+-------------------------------------------------------+
+        | id                                   | name                                       | subnets                                               |
+        +--------------------------------------+--------------------------------------------+-------------------------------------------------------+
+        | 4f2774d1-dfb8-4833-8374-806e1fc40827 | Floating Network Private (UoE access only) | 6ab469f9-ff01-4aee-af59-5f1da7e26e81 172.16.48.0/22   |
+        | 6e5fd378-cc05-4c00-abb2-38bf288b2dba | VM Network Public                          | c1896ce6-efcb-4124-8462-df572b371fee 192.168.2.0/24   |
+        | bfe7eeca-3c9a-4a02-8a79-0f715c14c141 | VM Network Private                         | ecf2027b-6979-4484-8af1-58bd899d09b9 192.168.1.0/24   |
+        | d1e55e07-6f28-4d98-8116-e11ca10c3e8f | Floating Network Public                    | e1c72964-3276-473f-a169-b60de622c385 129.215.193.0/24 |
+        +--------------------------------------+--------------------------------------------+-------------------------------------------------------+
+
+# -----------------------------------------------------
+# Boot an instance.
+#[root@container]
+
+    nova boot \
+        --nic 'net-id=bfe7eeca-3c9a-4a02-8a79-0f715c14c141' \
+        --flavor 2 \
+        --image 78f2f6e8-70c3-440e-bbf3-8ed639808706 \
+        dferpq
+
+        +--------------------------------------+----------------------------------------------------------------------+
+        | Property                             | Value                                                                |
+        +--------------------------------------+----------------------------------------------------------------------+
+        | OS-DCF:diskConfig                    | MANUAL                                                               |
+        | OS-EXT-AZ:availability_zone          |                                                                      |
+        | OS-EXT-STS:power_state               | 0                                                                    |
+        | OS-EXT-STS:task_state                | scheduling                                                           |
+        | OS-EXT-STS:vm_state                  | building                                                             |
+        | OS-SRV-USG:launched_at               | -                                                                    |
+        | OS-SRV-USG:terminated_at             | -                                                                    |
+        | accessIPv4                           |                                                                      |
+        | accessIPv6                           |                                                                      |
+        | adminPass                            | xaw2pn3tNL6U                                                         |
+        | config_drive                         |                                                                      |
+        | created                              | 2017-08-29T00:17:29Z                                                 |
+        | description                          | -                                                                    |
+        | flavor                               | m1.small (2)                                                         |
+        | hostId                               |                                                                      |
+        | id                                   | e5590049-9479-41b8-ab7a-df05a6976d2d                                 |
+        | image                                | fedora-25-docker-16G-20170713 (78f2f6e8-70c3-440e-bbf3-8ed639808706) |
+        | key_name                             | -                                                                    |
+        | locked                               | False                                                                |
+        | metadata                             | {}                                                                   |
+        | name                                 | dferpq                                                               |
+        | os-extended-volumes:volumes_attached | []                                                                   |
+        | progress                             | 0                                                                    |
+        | security_groups                      | default                                                              |
+        | status                               | BUILD                                                                |
+        | tags                                 | []                                                                   |
+        | tenant_id                            | c2ff1afa3e874e0eb6f5a48f7e77208b                                     |
+        | updated                              | 2017-08-29T00:17:30Z                                                 |
+        | user_id                              | 3d241b5fa2d0b3378901e08e86e10284dc9f9dae3732b99f71f809cf46ccb0d5     |
+        +--------------------------------------+----------------------------------------------------------------------+
+
+# -----------------------------------------------------
+# SHow our instance.
+#[root@container]
+
+    nova show \
+        e5590049-9479-41b8-ab7a-df05a6976d2d
+
+        +--------------------------------------+----------------------------------------------------------------------+
+        | Property                             | Value                                                                |
+        +--------------------------------------+----------------------------------------------------------------------+
+        | OS-DCF:diskConfig                    | MANUAL                                                               |
+        | OS-EXT-AZ:availability_zone          | nova                                                                 |
+        | OS-EXT-STS:power_state               | 1                                                                    |
+        | OS-EXT-STS:task_state                | -                                                                    |
+        | OS-EXT-STS:vm_state                  | active                                                               |
+        | OS-SRV-USG:launched_at               | 2017-08-29T00:18:05.000000                                           |
+        | OS-SRV-USG:terminated_at             | -                                                                    |
+        | VM Network Private network           | 192.168.1.11                                                         |
+        | accessIPv4                           |                                                                      |
+        | accessIPv6                           |                                                                      |
+        | config_drive                         |                                                                      |
+        | created                              | 2017-08-29T00:17:29Z                                                 |
+        | description                          | -                                                                    |
+        | flavor                               | m1.small (2)                                                         |
+        | hostId                               | 0af7321c2e7f8cf032038158e1221566bf520a40915647954f38fd48             |
+        | id                                   | e5590049-9479-41b8-ab7a-df05a6976d2d                                 |
+        | image                                | fedora-25-docker-16G-20170713 (78f2f6e8-70c3-440e-bbf3-8ed639808706) |
+        | key_name                             | -                                                                    |
+        | locked                               | False                                                                |
+        | metadata                             | {}                                                                   |
+        | name                                 | dferpq                                                               |
+        | os-extended-volumes:volumes_attached | []                                                                   |
+        | progress                             | 0                                                                    |
+        | security_groups                      | default                                                              |
+        | status                               | ACTIVE                                                               |
+        | tags                                 | []                                                                   |
+        | tenant_id                            | c2ff1afa3e874e0eb6f5a48f7e77208b                                     |
+        | updated                              | 2017-08-29T00:18:05Z                                                 |
+        | user_id                              | 3d241b5fa2d0b3378901e08e86e10284dc9f9dae3732b99f71f809cf46ccb0d5     |
+        +--------------------------------------+----------------------------------------------------------------------+
+
+# -----------------------------------------------------
+# Allocate a floating IP address.
+# https://access.redhat.com/documentation/en-US/Red_Hat_Enterprise_Linux_OpenStack_Platform/2/html/Getting_Started_Guide/sect-Adding_Floating_IP_Addresses_using_the_CLI.html
+#[root@container]
+
+    neutron \
+        net-list
+
+        +--------------------------------------+--------------------------------------------+-------------------------------------------------------+
+        | id                                   | name                                       | subnets                                               |
+        +--------------------------------------+--------------------------------------------+-------------------------------------------------------+
+        | 4f2774d1-dfb8-4833-8374-806e1fc40827 | Floating Network Private (UoE access only) | 6ab469f9-ff01-4aee-af59-5f1da7e26e81 172.16.48.0/22   |
+        | 6e5fd378-cc05-4c00-abb2-38bf288b2dba | VM Network Public                          | c1896ce6-efcb-4124-8462-df572b371fee 192.168.2.0/24   |
+        | bfe7eeca-3c9a-4a02-8a79-0f715c14c141 | VM Network Private                         | ecf2027b-6979-4484-8af1-58bd899d09b9 192.168.1.0/24   |
+        | d1e55e07-6f28-4d98-8116-e11ca10c3e8f | Floating Network Public                    | e1c72964-3276-473f-a169-b60de622c385 129.215.193.0/24 |
+        +--------------------------------------+--------------------------------------------+-------------------------------------------------------+
+
+    neutron \
+        floatingip-list
+
+        +--------------------------------------+------------------+---------------------+--------------------------------------+
+        | id                                   | fixed_ip_address | floating_ip_address | port_id                              |
+        +--------------------------------------+------------------+---------------------+--------------------------------------+
+        | 754d4de7-46b0-410e-b35d-a86153450233 | 192.168.1.4      | 172.16.49.22        | e53ad90f-d41e-454b-a218-30e03b12addb |
+        +--------------------------------------+------------------+---------------------+--------------------------------------+
+
+    neutron \
+        floatingip-create \
+        4f2774d1-dfb8-4833-8374-806e1fc40827
+
+        Created a new floatingip:
+        +---------------------+--------------------------------------+
+        | Field               | Value                                |
+        +---------------------+--------------------------------------+
+        | created_at          | 2017-08-29T00:52:29Z                 |
+        | description         |                                      |
+        | fixed_ip_address    |                                      |
+        | floating_ip_address | 172.16.49.88                         |
+        | floating_network_id | 4f2774d1-dfb8-4833-8374-806e1fc40827 |
+        | id                  | b958493a-e87a-4dcc-b993-65a52142651f |
+        | port_id             |                                      |
+        | project_id          | c2ff1afa3e874e0eb6f5a48f7e77208b     |
+        | revision_number     | 1                                    |
+        | router_id           |                                      |
+        | status              | DOWN                                 |
+        | tenant_id           | c2ff1afa3e874e0eb6f5a48f7e77208b     |
+        | updated_at          | 2017-08-29T00:52:29Z                 |
+        +---------------------+--------------------------------------+
+
+    neutron \
+        floatingip-list
+
+        +--------------------------------------+------------------+---------------------+--------------------------------------+
+        | id                                   | fixed_ip_address | floating_ip_address | port_id                              |
+        +--------------------------------------+------------------+---------------------+--------------------------------------+
+        | 754d4de7-46b0-410e-b35d-a86153450233 | 192.168.1.4      | 172.16.49.22        | e53ad90f-d41e-454b-a218-30e03b12addb |
+        | b958493a-e87a-4dcc-b993-65a52142651f |                  | 172.16.49.88        |                                      |
+        +--------------------------------------+------------------+---------------------+--------------------------------------+
+
+# -----------------------------------------------------
+# Associate an IP address.
+# http://superuser.openstack.org/articles/everything-you-need-to-know-to-get-started-with-neutron-f90e2797-26b7-4d1c-84d8-effef03f11d2/
+#[root@container]
+
+    neutron \
+        port-list
+
+        +--------------------------------------+------+-------------------+--------------------------------------------------------------------------------------+
+        | id                                   | name | mac_address       | fixed_ips                                                                            |
+        +--------------------------------------+------+-------------------+--------------------------------------------------------------------------------------+
+        | 505fa636-09f0-4a74-90ba-f3590c635a3f |      | fa:16:3e:f5:4d:b9 | {"subnet_id": "c1896ce6-efcb-4124-8462-df572b371fee", "ip_address": "192.168.2.4"}   |
+        | 7ce8555f-8ee2-4352-a1af-cc9fcd4ae6fb |      | fa:16:3e:72:a8:c9 | {"subnet_id": "ecf2027b-6979-4484-8af1-58bd899d09b9", "ip_address": "192.168.1.5"}   |
+        | 91e770e8-40fd-4c16-bdcb-191bffaf1f70 |      | fa:16:3e:0a:44:bc | {"subnet_id": "c1896ce6-efcb-4124-8462-df572b371fee", "ip_address": "192.168.2.3"}   |
+        | a8d0c57d-e011-4868-a232-71046f946716 |      | fa:16:3e:d3:9c:0e | {"subnet_id": "ecf2027b-6979-4484-8af1-58bd899d09b9", "ip_address": "192.168.1.11"}  |
+        | b0e1bb6b-7bc6-4311-8d34-ae71c81751cf |      | fa:16:3e:88:e9:62 | {"subnet_id": "ecf2027b-6979-4484-8af1-58bd899d09b9", "ip_address": "192.168.1.3"}   |
+        | bead19a3-adbe-41fe-9720-9b5c63dd1632 |      | fa:16:3e:85:3e:cd | {"subnet_id": "c1896ce6-efcb-4124-8462-df572b371fee", "ip_address": "192.168.2.2"}   |
+        | d2d9f1d5-21ed-4a04-9af8-fcb17d77ebdd |      | fa:16:3e:1a:c4:76 | {"subnet_id": "ecf2027b-6979-4484-8af1-58bd899d09b9", "ip_address": "192.168.1.1"}   |
+        | de5945c5-72ab-4ddf-94cc-6d34cf2531cd |      | fa:16:3e:fb:84:40 | {"subnet_id": "c1896ce6-efcb-4124-8462-df572b371fee", "ip_address": "192.168.2.254"} |
+        | e53ad90f-d41e-454b-a218-30e03b12addb |      | fa:16:3e:18:bd:b6 | {"subnet_id": "ecf2027b-6979-4484-8af1-58bd899d09b9", "ip_address": "192.168.1.4"}   |
+        | e60c1f4d-233c-4917-97a1-5a5c7d55e17d |      | fa:16:3e:99:52:a1 | {"subnet_id": "ecf2027b-6979-4484-8af1-58bd899d09b9", "ip_address": "192.168.1.7"}   |
+        | edb17cf1-1f15-47e0-b6fc-bdd4e44645bb |      | fa:16:3e:0f:f3:3e | {"subnet_id": "c1896ce6-efcb-4124-8462-df572b371fee", "ip_address": "192.168.2.1"}   |
+        | f473eca3-8dfe-45c8-858e-e00d1b46ef11 |      | fa:16:3e:b1:aa:b0 | {"subnet_id": "ecf2027b-6979-4484-8af1-58bd899d09b9", "ip_address": "192.168.1.254"} |
+        +--------------------------------------+------+-------------------+--------------------------------------------------------------------------------------+
+
+    neutron \
+        port-list |
+        grep '192.168.1.11'
+
+        | a8d0c57d-e011-4868-a232-71046f946716 |      | fa:16:3e:d3:9c:0e | {"subnet_id": "ecf2027b-6979-4484-8af1-58bd899d09b9", "ip_address": "192.168.1.11"}  |
+
+    neutron \
+        floatingip-associate \
+        b958493a-e87a-4dcc-b993-65a52142651f \
+        a8d0c57d-e011-4868-a232-71046f946716
+
+        Associated floating IP b958493a-e87a-4dcc-b993-65a52142651f
+
+    neutron \
+        floatingip-list
+
+        +--------------------------------------+------------------+---------------------+--------------------------------------+
+        | id                                   | fixed_ip_address | floating_ip_address | port_id                              |
+        +--------------------------------------+------------------+---------------------+--------------------------------------+
+        | 754d4de7-46b0-410e-b35d-a86153450233 | 192.168.1.4      | 172.16.49.22        | e53ad90f-d41e-454b-a218-30e03b12addb |
+        | b958493a-e87a-4dcc-b993-65a52142651f | 192.168.1.11     | 172.16.49.88        | a8d0c57d-e011-4868-a232-71046f946716 |
+        +--------------------------------------+------------------+---------------------+--------------------------------------+
+
+# -----------------------------------------------------
+# Login to the VM instance.
+#[user@trop]
+
+    ssh root@172.16.49.88
+
+        The authenticity of host '172.16.49.88 (172.16.49.88)' can't be established.
+        ECDSA key fingerprint is 6c:37:0e:82:c1:33:60:d2:4d:45:c5:f0:81:6c:2c:09.
+        Are you sure you want to continue connecting (yes/no)? yes
+        Warning: Permanently added '172.16.49.88' (ECDSA) to the list of known hosts.
+
+# -----------------------------------------------------
+# Fix the DNS resolver.    
+#[root@instance]
+
+    cat > /etc/resolv.conf << EOF
+search roe.ac.uk
+nameserver 129.215.166.13
+nameserver 129.215.70.239
+EOF
+
+#---------------------------------------------------------------------
+# Prevent DHCP from changing the DNS settings.
+#[root@instance]
+
+    echo 'PEERDNS="no"' >> /etc/sysconfig/network-scripts/ifcfg-ens3
+
+# -----------------------------------------------------
+# Login to the VM instance.
+#[user@trop]
+
+    ssh Stevedore@172.16.49.88
+
+        ....
+        ....
+        ....
+
+
+
+
