@@ -1,0 +1,418 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2017, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#  
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+# -----------------------------------------------------
+# Create a new VM to work with.
+#[user@trop]
+
+    createvm
+
+        INFO : Node name [Etalema]
+        INFO : Base name [fedora-25-docker-16G-20170713.qcow]
+        INFO : Base path [/var/lib/libvirt/images/base/fedora-25-docker-16G-20170713.qcow]
+        INFO : Disc name [Etalema.qcow]
+        INFO : Disc size [16GiB]
+
+# -----------------------------------------------------
+# Login to the new VM.
+#[user@trop]
+
+    ssh Stevedore@Etalema
+
+# -----------------------------------------------------
+# Configure our secrets function.
+#[user@virtual]
+
+cat > "${HOME}/secret.sh" << 'EOF'
+....
+....
+EOF
+
+    source "${HOME}/secret.sh"
+    secret frog
+
+# -----------------------------------------------------
+# Configure our OpenStack settings.
+# https://horizon.ecdf.ed.ac.uk/dashboard/project/access_and_security/api_access/openrc/
+#[user@virtual]
+
+    cat > "${HOME}/openstack.settings" << EOF
+
+export OS_INTERFACE=public
+export OS_IDENTITY_API_VERSION=3
+
+export OS_AUTH_URL=https://keystone.ecdf.ed.ac.uk/v3
+
+export OS_USER_DOMAIN_NAME="ed"
+export OS_REGION_NAME="Edinburgh"
+
+export OS_USERNAME=$(secret openstack.user)
+export OS_PASSWORD=$(secret openstack.pass)
+
+#export OS_PROJECT_ID=c2ff1afa3e874e0eb6f5a48f7e77208b
+#export OS_PROJECT_NAME=virtual-observatory-services
+
+export OS_PROJECT_ID=fcef6dd450f64a1ab4ffa5a7234c4161
+export OS_PROJECT_NAME=lsst
+
+EOF
+
+# -----------------------------------------------------
+# Run a copy of the latest Fedora.
+#[user@virtual]
+
+    docker run \
+        --rm \
+        --tty \
+        --interactive \
+        --volume "${HOME}/openstack.settings:/openstack.settings" \
+        fedora \
+        bash
+
+# -----------------------------------------------------
+# Load our settings.
+#[root@container]
+
+    source /openstack.settings
+
+# -----------------------------------------------------
+# Check our user name and password.
+#[root@container]
+
+    cat << EOF
+Username [${OS_USERNAME:?}]
+Password [${OS_PASSWORD:?}]
+Project  [${OS_PROJECT_NAME:?}]
+Project  [${OS_PROJECT_ID:?}]
+EOF
+
+# -----------------------------------------------------
+# Install the OpenStack client.
+# https://docs.openstack.org/python-openstackclient/latest/
+#[root@container]
+
+    dnf \
+        install -y \
+        python-openstackclient
+
+# -----------------------------------------------------
+# Install the JQ JSON parser.
+# https://stedolan.github.io/jq/
+#[root@container]
+
+    dnf \
+        install -y \
+        jq
+
+# -----------------------------------------------------
+# Show our project details.
+#[root@container]
+
+    openstack \
+        project \
+        show \
+        ${OS_PROJECT_ID:?}
+
+        +-------------+----------------------------------+
+        | Field       | Value                            |
+        +-------------+----------------------------------+
+        | description |                                  |
+        | domain_id   | 450db9c9d59f4e888f9f44c4a9904118 |
+        | enabled     | True                             |
+        | id          | fcef6dd450f64a1ab4ffa5a7234c4161 |
+        | is_domain   | False                            |
+        | name        | lsst                             |
+        | parent_id   | 450db9c9d59f4e888f9f44c4a9904118 |
+        +-------------+----------------------------------+
+
+# -----------------------------------------------------
+# List our project volumes.
+#[root@container]
+
+    openstack \
+        volume \
+        list
+
+        +--------------------------------------+--------------+-----------+------+-------------+
+        | ID                                   | Display Name | Status    | Size | Attached to |
+        +--------------------------------------+--------------+-----------+------+-------------+
+        | dd7c8e10-f45a-4500-a0d9-c38aba99f9fe | vm1          | deleting  |   11 |             |
+        | 243a95da-5823-47f1-b821-bee87d398f00 |              | deleting  |   11 |             |
+        | d0cfe4dc-78d8-44fc-a2f1-8ac231305641 | centos       | available |   11 |             |
+        +--------------------------------------+--------------+-----------+------+-------------+
+
+# -----------------------------------------------------
+# List our volume snapshots.
+#[root@container]
+
+    openstack \
+        snapshot \
+        list
+
+        +--------------------------------------+--------+-------------+----------+------+
+        | ID                                   | Name   | Description | Status   | Size |
+        +--------------------------------------+--------+-------------+----------+------+
+        | 88f1bbc4-25aa-4899-a4fd-d55b2449a8d8 | cdcdcd |             | deleting |   11 |
+        | f6254405-7e42-4c14-a6f5-06adee3e77ea | snap1  |             | deleting |   11 |
+        +--------------------------------------+--------+-------------+----------+------+
+
+# -----------------------------------------------------
+# Try deleting our remaining volume.
+#[root@container]
+
+    openstack \
+        volume \
+        delete \
+        'd0cfe4dc-78d8-44fc-a2f1-8ac231305641'
+
+        Failed to delete volume with name or ID 'd0cfe4dc-78d8-44fc-a2f1-8ac231305641':
+        Invalid volume: Volume status must be available or error or error_restoring or
+        error_extending and must not be migrating, attached, belong to a group or have
+        snapshots. (HTTP 400) (Request-ID: req-96bb0327-4060-40b3-a23b-c3f0c00d76ec)
+        1 of 1 volumes failed to delete.
+
+
+# -----------------------------------------------------
+# Display our limits.
+#[root@container]
+
+    openstack \
+        limits \
+        show \
+            --absolute
+
+        +--------------------------+-------+
+        | Name                     | Value |
+        +--------------------------+-------+
+        | maxServerMeta            |   128 |
+        | maxTotalInstances        |    20 |
+        | maxPersonality           |     5 |
+        | totalServerGroupsUsed    |     0 |
+        | maxImageMeta             |   128 |
+        | maxPersonalitySize       | 10240 |
+        | maxTotalRAMSize          | 81920 |
+        | maxServerGroups          |    10 |
+        | maxSecurityGroupRules    |   100 |
+        | maxTotalKeypairs         |   100 |
+        | totalCoresUsed           |     0 |
+        | totalRAMUsed             |     0 |
+        | maxSecurityGroups        |   100 |
+        | totalFloatingIpsUsed     |     0 |
+        | totalInstancesUsed       |     0 |
+        | maxServerGroupMembers    |    10 |
+        | maxTotalFloatingIps      |   100 |
+        | totalSecurityGroupsUsed  |     1 |
+        | maxTotalCores            |    40 |
+        | totalSnapshotsUsed       |     2 |
+        | maxTotalBackups          |    10 |
+        | maxTotalVolumeGigabytes  |  6148 |
+        | maxTotalSnapshots        |    10 |
+        | maxTotalBackupGigabytes  |  1000 |
+        | totalBackupGigabytesUsed |     0 |
+        | maxTotalVolumes          |    30 |
+        | totalVolumesUsed         |     4 |
+        | totalBackupsUsed         |     0 |
+        | totalGigabytesUsed       |  5175 |
+        +--------------------------+-------+
+
+    openstack \
+        limits \
+        show \
+            -f json \
+            --absolute |
+            jq '.' |
+            tee limits.json
+
+            [
+              ....
+              {
+                "Name": "totalServerGroupsUsed",
+                "Value": 0
+              },
+              {
+                "Name": "totalCoresUsed",
+                "Value": 0
+              },
+              {
+                "Name": "totalRAMUsed",
+                "Value": 0
+              },
+              {
+                "Name": "totalFloatingIpsUsed",
+                "Value": 0
+              },
+              {
+                "Name": "totalInstancesUsed",
+                "Value": 0
+              },
+              {
+                "Name": "totalSecurityGroupsUsed",
+                "Value": 1
+              },
+              {
+                "Name": "totalSnapshotsUsed",
+                "Value": 2
+              },
+              {
+                "Name": "totalBackupGigabytesUsed",
+                "Value": 0
+              },
+              {
+                "Name": "totalVolumesUsed",
+                "Value": 4
+              },
+              {
+                "Name": "totalBackupsUsed",
+                "Value": 0
+              },
+              {
+                "Name": "totalGigabytesUsed",
+                "Value": 5175
+              }
+            ]
+
+# -----------------------------------------------------
+# Filter the JSON output.
+# https://stedolan.github.io/jq/manual/#Basicfilters
+# https://blog.scottlowe.org/2015/11/11/handy-cli-tool-json/
+# https://stackoverflow.com/questions/38121740/how-to-filter-array-of-objects-by-element-property-values-using-jq
+#[root@container]
+
+    jq  '
+        .[] |
+        select(
+            .Name == (
+                "totalVolumesUsed",
+                "totalBackupsUsed",
+                "totalGigabytesUsed"
+                )
+            )
+        ' \
+        limits.json
+
+
+            {
+              "Name": "totalVolumesUsed",
+              "Value": 4
+            }
+            {
+              "Name": "totalBackupsUsed",
+              "Value": 0
+            }
+            {
+              "Name": "totalGigabytesUsed",
+              "Value": 5175
+            }
+
+            
+# -----------------------------------------------------
+# Email IT services for some help ...
+# <is.helpline@ed.ac.uk>
+
+
+    I'm trying to tidy up some resources allocated to an Elanor OpenStack project that hasn't been used for a while.
+
+    Could you help me to free up all the resources allocated to this project so that I can start using it again.
+
+        openstack \
+            project \
+            show \
+            ${OS_PROJECT_ID:?}
+
+            +-------------+----------------------------------+
+            | Field       | Value                            |
+            +-------------+----------------------------------+
+            | description |                                  |
+            | domain_id   | 450db9c9d59f4e888f9f44c4a9904118 |
+            | enabled     | True                             |
+            | id          | fcef6dd450f64a1ab4ffa5a7234c4161 |
+            | is_domain   | False                            |
+            | name        | lsst                             |
+            | parent_id   | 450db9c9d59f4e888f9f44c4a9904118 |
+            +-------------+----------------------------------+
+
+    The project limits shows that the project has 4 volumes and 5.1Tbyte of storage space allocated to it.
+
+        openstack \
+            limits \
+            show \
+                --absolute
+
+            +--------------------------+-------+
+            | Name                     | Value |
+            +--------------------------+-------+
+            | ....                     |  .... |
+            | totalVolumesUsed         |     4 |
+            | totalBackupsUsed         |     0 |
+            | totalGigabytesUsed       |  5175 |
+            +--------------------------+-------+
+
+    Only three of the four volumes show up in the volume list.
+
+    I've tried deleting the three volumes that I can see.
+
+    Two of them, 'dd7c8e10..' and '243a95da..', have been stuck at 'deleting' for over an hour.
+
+        openstack \
+            volume \
+            list
+
+            +--------------------------------------+--------------+-----------+------+-------------+
+            | ID                                   | Display Name | Status    | Size | Attached to |
+            +--------------------------------------+--------------+-----------+------+-------------+
+            | dd7c8e10-f45a-4500-a0d9-c38aba99f9fe | vm1          | deleting  |   11 |             |
+            | 243a95da-5823-47f1-b821-bee87d398f00 |              | deleting  |   11 |             |
+            | d0cfe4dc-78d8-44fc-a2f1-8ac231305641 | centos       | available |   11 |             |
+            +--------------------------------------+--------------+-----------+------+-------------+
+
+    There are also two volume snapshots that have been stuck at 'deleting' for over an hour.
+
+        openstack \
+            snapshot \
+            list
+
+            +--------------------------------------+--------+-------------+----------+------+
+            | ID                                   | Name   | Description | Status   | Size |
+            +--------------------------------------+--------+-------------+----------+------+
+            | 88f1bbc4-25aa-4899-a4fd-d55b2449a8d8 | cdcdcd |             | deleting |   11 |
+            | f6254405-7e42-4c14-a6f5-06adee3e77ea | snap1  |             | deleting |   11 |
+            +--------------------------------------+--------+-------------+----------+------+
+
+    Deleting the third volume throws an error.
+
+        openstack \
+            volume \
+            delete \
+            'd0cfe4dc-78d8-44fc-a2f1-8ac231305641'
+
+            Failed to delete volume with name or ID 'd0cfe4dc-78d8-44fc-a2f1-8ac231305641':
+            Invalid volume: Volume status must be available or error or error_restoring or
+            error_extending and must not be migrating, attached, belong to a group or have
+            snapshots. (HTTP 400) (Request-ID: req-96bb0327-4060-40b3-a23b-c3f0c00d76ec)
+            1 of 1 volumes failed to delete.
+
+
+    Thanks,
+    Dave
+
+
+
