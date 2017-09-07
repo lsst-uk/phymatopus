@@ -525,6 +525,12 @@ EOF
 # Login to our VM instance.
 #[user@trop]
 
+    #
+    # Need to send ServerAlive packets
+    # to prevent connection timeout
+    # during the database load.
+    #
+
     ssh \
         root@172.16.49.57 \
         -o 'ServerAliveInterval 20'
@@ -764,12 +770,321 @@ EOF
         zcat /gzdata/backup_ps1ss_20170320.sql.gz | mariadb-client
         date --utc --iso-8601=s
 
-        # Started at 10:09
-        # ....
-        # Running at ....
-        # ....
-        # ....
-        # ....
-        
+        # 2017-09-07T10:09:16+0000
+        # Running database client
+        # ERROR 1142 (42000) at line 48616: ANY command denied to user 'stephany'@'%' for table 'tcs_2mass_psc_cat'
+        # 2017-09-07T12:32:38+0000
 
+# -----------------------------------------------------
+# Check grant permissions.
+#[root@container]
+
+        source /database.config
+
+        mysql \
+            --user=${adminuser:?} \
+            --password=${adminpass:?} \
+            ${databasename:?}
+
+            SHOW GRANTS FOR stephany;
+
+                +---------------------------------------------------------------------------------------------------------+
+                | Grants for stephany@%                                                                                   |
+                +---------------------------------------------------------------------------------------------------------+
+                | GRANT USAGE ON *.* TO 'stephany'@'%' IDENTIFIED BY PASSWORD '*A07C807CF0C5E5501E4659C32F475566FF82F0F2' |
+                | GRANT ALL PRIVILEGES ON `testdb`.* TO 'stephany'@'%'                                                    |
+                +---------------------------------------------------------------------------------------------------------+
+
+# -----------------------------------------------------
+# Bug is caused by ALGORITHM and DEFINER statements.
+# https://stackoverflow.com/questions/25924796/mysqldump-without-create-algorithm-and-definer
+#[root@container]
+
+        zcat /gzdata/backup_ps1ss_20170320.sql.gz |
+            sed -n '
+                /CREATE ALGORITHM/p
+                /DEFINER/p
+                '
+
+            /*!50001 CREATE ALGORITHM=UNDEFINED */
+            /*!50013 DEFINER=`ssuser`@`%` SQL SECURITY DEFINER */
+            /*!50001 CREATE ALGORITHM=UNDEFINED */
+            /*!50013 DEFINER=`ssuser`@`%` SQL SECURITY DEFINER */
+
+
+
+        zcat /gzdata/backup_ps1ss_20170320.sql.gz |
+            sed -n '
+                s|![0-9]* DEFINER| DEFINER|p
+                '
+
+            /* DEFINER=`ssuser`@`%` SQL SECURITY DEFINER */
+            /* DEFINER=`ssuser`@`%` SQL SECURITY DEFINER */
+
+
+# -----------------------------------------------------
+# Import our database dump.
+#[root@container]
+
+        date --utc --iso-8601=s
+
+        zcat /gzdata/backup_ps1ss_20170320.sql.gz |
+            sed -n '
+                s|![0-9]* DEFINER| DEFINER|p
+                ' |
+            mariadb-client
+
+        date --utc --iso-8601=s
+
+        # 2017-09-07T16:51:49+0000
+        # Running database client
+        # 2017-09-07T16:59:21+0000
+
+# -----------------------------------------------------
+# Check the database contents.
+# https://stackoverflow.com/questions/9620198/how-to-get-the-sizes-of-the-tables-of-a-mysql-database
+# https://stackoverflow.com/a/9620273
+#[root@container]
+
+        mariadb-client
+
+            SHOW DATABASES ;
+            SHOW TABLES ;
+
+                +----------------------------------------+
+                | Tables_in_testdb                       |
+                +----------------------------------------+
+                | tcs_2mass_xsc_cat                      |
+                | tcs_cat_deep2dr3                       |
+                | tcs_cat_kepler_k2                      |
+                | .... .... .... ....                    |
+                | .... .... .... ....                    |
+                | tcs_transient_reobservations           |
+                | tcs_veron_cat                          |
+                | tcs_zoo_requests                       |
+                +----------------------------------------+
+
+            SELECT 
+                table_name AS 'Table name', 
+                table_rows AS 'Row count', 
+                round(((data_length + index_length) / (1024 * 1024)), 2) AS 'Size (MB)'
+            FROM
+                information_schema.TABLES 
+            WHERE
+                table_schema = "testdb"
+            AND
+                table_rows > 0
+            ORDER BY
+                table_name
+                ;
+
+                +------------------------------------+-----------+-----------+
+                | Table name                         | Row count | Size (MB) |
+                +------------------------------------+-----------+-----------+
+                | tcs_catalogue_tables               |        55 |      0.00 |
+                | tcs_cfa_detections                 |     30895 |     13.20 |
+                | tcs_cfa_to_ipp_lookup              |     30895 |      2.33 |
+                | tcs_classification_flags           |         9 |      0.00 |
+                | tcs_classification_history         |    119736 |     14.90 |
+                | tcs_cmf_metadata                   |    243570 |    152.53 |
+                | tcs_cross_matches                  |   3679433 |    365.40 |
+                | tcs_cross_matches_external         |       111 |      0.04 |
+                | tcs_detection_lists                |         7 |      0.00 |
+                | tcs_followup_photometry            |        83 |      0.01 |
+                | tcs_followup_telescopes            |        11 |      0.00 |
+                | tcs_followup_telescope_instruments |        11 |      0.00 |
+                | tcs_forced_photometry              |      1515 |      0.35 |
+                | tcs_images                         |    121264 |     40.01 |
+                | tcs_image_groups                   |    631977 |     72.94 |
+                | tcs_ipp_to_cfa_lookup              |      9875 |      0.69 |
+                | tcs_latest_object_stats            |    442545 |     73.87 |
+                | tcs_object_groups                  |      3345 |      0.26 |
+                | tcs_object_group_definitions       |        27 |      0.00 |
+                | tcs_parameter_definitions          |        36 |      0.00 |
+                | tcs_postage_stamp_images           |   1895896 |    415.54 |
+                | tcs_postage_stamp_requests         |     17469 |      1.62 |
+                | tcs_postage_stamp_status_codes     |         8 |      0.00 |
+                | tcs_processing_status              |       193 |      0.02 |
+                | tcs_search_parameters              |         3 |      0.00 |
+                | tcs_transient_objects              |  13697733 |   7027.90 |
+                | tcs_transient_reobservations       |  59149431 |  24324.85 |
+                +------------------------------------+-----------+-----------+
+
+            DESCRIBE tcs_transient_objects ;
+
+                +---------------------------+----------------------+------+-----+---------+-------+
+                | Field                     | Type                 | Null | Key | Default | Extra |
+                +---------------------------+----------------------+------+-----+---------+-------+
+                | ipp_idet                  | int(10) unsigned     | YES  | MUL | NULL    |       |
+                | x_psf                     | float                | YES  |     | NULL    |       |
+                | y_psf                     | float                | YES  |     | NULL    |       |
+                | x_psf_sig                 | float                | YES  |     | NULL    |       |
+                | y_psf_sig                 | float                | YES  |     | NULL    |       |
+                | ra_psf                    | double               | NO   | MUL | NULL    |       |
+                | dec_psf                   | double               | NO   |     | NULL    |       |
+                | posangle                  | float                | YES  |     | NULL    |       |
+                | pltscale                  | float                | YES  |     | NULL    |       |
+                | psf_inst_mag              | float                | YES  |     | NULL    |       |
+                | psf_inst_mag_sig          | float                | YES  |     | NULL    |       |
+                | ap_mag                    | float                | YES  |     | NULL    |       |
+                | ap_mag_radius             | float                | YES  |     | NULL    |       |
+                | peak_flux_as_mag          | float                | YES  |     | NULL    |       |
+                | cal_psf_mag               | float                | YES  |     | NULL    |       |
+                | cal_psf_mag_sig           | float                | YES  |     | NULL    |       |
+                | sky                       | float                | YES  |     | NULL    |       |
+                | sky_sigma                 | float                | YES  |     | NULL    |       |
+                | psf_chisq                 | float                | YES  |     | NULL    |       |
+                | cr_nsigma                 | float                | YES  |     | NULL    |       |
+                | ext_nsigma                | float                | YES  |     | NULL    |       |
+                | psf_major                 | float                | YES  |     | NULL    |       |
+                | psf_minor                 | float                | YES  |     | NULL    |       |
+                | psf_theta                 | float                | YES  |     | NULL    |       |
+                | psf_qf                    | float                | YES  |     | NULL    |       |
+                | psf_ndof                  | int(11)              | YES  |     | NULL    |       |
+                | psf_npix                  | int(11)              | YES  |     | NULL    |       |
+                | moments_xx                | float                | YES  |     | NULL    |       |
+                | moments_xy                | float                | YES  |     | NULL    |       |
+                | moments_yy                | float                | YES  |     | NULL    |       |
+                | flags                     | int(10) unsigned     | YES  |     | NULL    |       |
+                | n_frames                  | smallint(5) unsigned | YES  |     | NULL    |       |
+                | padding                   | smallint(6)          | YES  |     | NULL    |       |
+                | local_designation         | varchar(40)          | YES  | UNI | NULL    |       |
+                | local_comments            | varchar(255)         | YES  |     | NULL    |       |
+                | htm20ID                   | bigint(20) unsigned  | YES  | MUL | NULL    |       |
+                | htm16ID                   | bigint(20) unsigned  | YES  | MUL | NULL    |       |
+                | cx                        | double               | YES  |     | NULL    |       |
+                | cy                        | double               | YES  |     | NULL    |       |
+                | cz                        | double               | YES  |     | NULL    |       |
+                | id                        | bigint(20) unsigned  | NO   | PRI | NULL    |       |
+                | tcs_cmf_metadata_id       | bigint(20) unsigned  | YES  | MUL | NULL    |       |
+                | tcs_images_id             | bigint(20) unsigned  | YES  | MUL | NULL    |       |
+                | date_inserted             | datetime             | NO   | MUL | NULL    |       |
+                | date_modified             | datetime             | YES  | MUL | NULL    |       |
+                | object_classification     | int(10) unsigned     | YES  | MUL | NULL    |       |
+                | followup_priority         | int(10) unsigned     | YES  | MUL | NULL    |       |
+                | external_reference_id     | varchar(40)          | YES  | MUL | NULL    |       |
+                | followup_id               | int(10) unsigned     | YES  | MUL | NULL    |       |
+                | postage_stamp_request_id  | bigint(20) unsigned  | YES  | MUL | NULL    |       |
+                | image_group_id            | bigint(20) unsigned  | YES  | MUL | NULL    |       |
+                | detection_list_id         | smallint(5) unsigned | YES  | MUL | NULL    |       |
+                | followup_flag_date        | date                 | YES  | MUL | NULL    |       |
+                | survey_field              | varchar(10)          | YES  | MUL | NULL    |       |
+                | followup_counter          | int(10) unsigned     | YES  | MUL | NULL    |       |
+                | ps1_designation           | varchar(40)          | YES  | MUL | NULL    |       |
+                | other_designation         | varchar(40)          | YES  | MUL | NULL    |       |
+                | confidence_factor         | float                | YES  | MUL | NULL    |       |
+                | quality_threshold_pass    | tinyint(1)           | YES  | MUL | NULL    |       |
+                | locally_calculated_mag    | float                | YES  |     | NULL    |       |
+                | zoo_request_id            | bigint(20) unsigned  | YES  |     | NULL    |       |
+                | psf_inst_flux             | float                | YES  |     | NULL    |       |
+                | psf_inst_flux_sig         | float                | YES  |     | NULL    |       |
+                | diff_npos                 | int(11)              | YES  |     | NULL    |       |
+                | diff_fratio               | float                | YES  |     | NULL    |       |
+                | diff_nratio_bad           | float                | YES  |     | NULL    |       |
+                | diff_nratio_mask          | float                | YES  |     | NULL    |       |
+                | diff_nratio_all           | float                | YES  |     | NULL    |       |
+                | ap_flux                   | float                | YES  |     | NULL    |       |
+                | ap_flux_sig               | float                | YES  |     | NULL    |       |
+                | ap_mag_raw                | float                | YES  |     | NULL    |       |
+                | diff_r_m                  | float                | YES  |     | NULL    |       |
+                | diff_r_p                  | float                | YES  |     | NULL    |       |
+                | diff_sn_m                 | float                | YES  |     | NULL    |       |
+                | diff_sn_p                 | float                | YES  |     | NULL    |       |
+                | flags2                    | int(10) unsigned     | YES  |     | NULL    |       |
+                | kron_flux                 | float                | YES  |     | NULL    |       |
+                | kron_flux_err             | float                | YES  |     | NULL    |       |
+                | kron_flux_inner           | float                | YES  |     | NULL    |       |
+                | kron_flux_outer           | float                | YES  |     | NULL    |       |
+                | moments_r1                | float                | YES  |     | NULL    |       |
+                | moments_rh                | float                | YES  |     | NULL    |       |
+                | psf_qf_perfect            | float                | YES  |     | NULL    |       |
+                | current_trend             | varchar(40)          | YES  |     | NULL    |       |
+                | observation_status        | varchar(40)          | YES  | MUL | NULL    |       |
+                | deprecated                | tinyint(1)           | YES  |     | NULL    |       |
+                | tti_pair                  | tinyint(1)           | YES  | MUL | NULL    |       |
+                | processing_flags          | int(10) unsigned     | YES  | MUL | NULL    |       |
+                | sherlockClassification    | varchar(40)          | YES  | MUL | NULL    |       |
+                | classification_confidence | float                | YES  | MUL | NULL    |       |
+                | classification_type       | tinyint(3) unsigned  | YES  | MUL | NULL    |       |
+                +---------------------------+----------------------+------+-----+---------+-------+
+
+            DESCRIBE tcs_transient_reobservations ;
+
+                +--------------------------+----------------------+------+-----+---------+----------------+
+                | Field                    | Type                 | Null | Key | Default | Extra          |
+                +--------------------------+----------------------+------+-----+---------+----------------+
+                | ipp_idet                 | int(10) unsigned     | YES  | MUL | NULL    |                |
+                | x_psf                    | float                | YES  |     | NULL    |                |
+                | y_psf                    | float                | YES  |     | NULL    |                |
+                | x_psf_sig                | float                | YES  |     | NULL    |                |
+                | y_psf_sig                | float                | YES  |     | NULL    |                |
+                | ra_psf                   | double               | NO   | MUL | NULL    |                |
+                | dec_psf                  | double               | NO   |     | NULL    |                |
+                | posangle                 | float                | YES  |     | NULL    |                |
+                | pltscale                 | float                | YES  |     | NULL    |                |
+                | psf_inst_mag             | float                | YES  |     | NULL    |                |
+                | psf_inst_mag_sig         | float                | YES  |     | NULL    |                |
+                | ap_mag                   | float                | YES  |     | NULL    |                |
+                | ap_mag_radius            | float                | YES  |     | NULL    |                |
+                | peak_flux_as_mag         | float                | YES  |     | NULL    |                |
+                | cal_psf_mag              | float                | YES  |     | NULL    |                |
+                | cal_psf_mag_sig          | float                | YES  |     | NULL    |                |
+                | sky                      | float                | YES  |     | NULL    |                |
+                | sky_sigma                | float                | YES  |     | NULL    |                |
+                | psf_chisq                | float                | YES  |     | NULL    |                |
+                | cr_nsigma                | float                | YES  |     | NULL    |                |
+                | ext_nsigma               | float                | YES  |     | NULL    |                |
+                | psf_major                | float                | YES  |     | NULL    |                |
+                | psf_minor                | float                | YES  |     | NULL    |                |
+                | psf_theta                | float                | YES  |     | NULL    |                |
+                | psf_qf                   | float                | YES  |     | NULL    |                |
+                | psf_ndof                 | int(11)              | YES  |     | NULL    |                |
+                | psf_npix                 | int(11)              | YES  |     | NULL    |                |
+                | moments_xx               | float                | YES  |     | NULL    |                |
+                | moments_xy               | float                | YES  |     | NULL    |                |
+                | moments_yy               | float                | YES  |     | NULL    |                |
+                | flags                    | int(10) unsigned     | YES  |     | NULL    |                |
+                | n_frames                 | smallint(5) unsigned | YES  |     | NULL    |                |
+                | padding                  | smallint(6)          | YES  |     | NULL    |                |
+                | htm20ID                  | bigint(20) unsigned  | NO   | MUL | NULL    |                |
+                | htm16ID                  | bigint(20) unsigned  | NO   | MUL | NULL    |                |
+                | cx                       | double               | NO   |     | NULL    |                |
+                | cy                       | double               | NO   |     | NULL    |                |
+                | cz                       | double               | NO   |     | NULL    |                |
+                | id                       | bigint(20) unsigned  | NO   | PRI | NULL    | auto_increment |
+                | tcs_cmf_metadata_id      | bigint(20) unsigned  | NO   | MUL | NULL    |                |
+                | tcs_images_id            | bigint(20) unsigned  | YES  | MUL | NULL    |                |
+                | transient_object_id      | bigint(20) unsigned  | NO   | MUL | NULL    |                |
+                | date_inserted            | datetime             | NO   | MUL | NULL    |                |
+                | date_modified            | datetime             | YES  | MUL | NULL    |                |
+                | local_comments           | varchar(255)         | YES  |     | NULL    |                |
+                | postage_stamp_request_id | bigint(20) unsigned  | YES  | MUL | NULL    |                |
+                | image_group_id           | bigint(20) unsigned  | YES  | MUL | NULL    |                |
+                | quality_threshold_pass   | tinyint(1)           | YES  | MUL | NULL    |                |
+                | locally_calculated_mag   | float                | YES  |     | NULL    |                |
+                | psf_inst_flux            | float                | YES  |     | NULL    |                |
+                | psf_inst_flux_sig        | float                | YES  |     | NULL    |                |
+                | diff_npos                | int(11)              | YES  |     | NULL    |                |
+                | diff_fratio              | float                | YES  |     | NULL    |                |
+                | diff_nratio_bad          | float                | YES  |     | NULL    |                |
+                | diff_nratio_mask         | float                | YES  |     | NULL    |                |
+                | diff_nratio_all          | float                | YES  |     | NULL    |                |
+                | ap_flux                  | float                | YES  |     | NULL    |                |
+                | ap_flux_sig              | float                | YES  |     | NULL    |                |
+                | ap_mag_raw               | float                | YES  |     | NULL    |                |
+                | diff_r_m                 | float                | YES  |     | NULL    |                |
+                | diff_r_p                 | float                | YES  |     | NULL    |                |
+                | diff_sn_m                | float                | YES  |     | NULL    |                |
+                | diff_sn_p                | float                | YES  |     | NULL    |                |
+                | flags2                   | int(10) unsigned     | YES  |     | NULL    |                |
+                | kron_flux                | float                | YES  |     | NULL    |                |
+                | kron_flux_err            | float                | YES  |     | NULL    |                |
+                | kron_flux_inner          | float                | YES  |     | NULL    |                |
+                | kron_flux_outer          | float                | YES  |     | NULL    |                |
+                | moments_r1               | float                | YES  |     | NULL    |                |
+                | moments_rh               | float                | YES  |     | NULL    |                |
+                | psf_qf_perfect           | float                | YES  |     | NULL    |                |
+                | deprecated               | tinyint(1)           | YES  |     | NULL    |                |
+                | confidence_factor        | float                | YES  | MUL | NULL    |                |
+                +--------------------------+----------------------+------+-----+---------+----------------+
 
