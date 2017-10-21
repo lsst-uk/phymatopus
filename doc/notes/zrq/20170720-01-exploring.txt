@@ -118,7 +118,6 @@ EOF
         
     popd
 
-
 # -----------------------------------------------------
 # -----------------------------------------------------
 # Start the Kafka services.
@@ -139,6 +138,10 @@ EOF
 
     source "${HOME}/phymatopus.settings"
 
+    kafkahost=Umiawyth
+    kafkahost=iota.virtual.metagrid.co.uk
+    kafkaipv4=$(dig +short ${kafkahost:?})
+
     docker build \
         --tag 'alert_stream' \
         "${PHYMATOPUS_LSST:?}/maria/alert_stream"
@@ -147,12 +150,11 @@ EOF
         --rm \
         --tty \
         --interactive \
-        --add-host "kafka:$(dig +short Umiawyth)" \
+        --add-host "kafka:${kafkaipv4:?}" \
         alert_stream \
             python bin/sendAlertStream.py \
                 test-stream \
-                100
-
+                5
 
 
 # -----------------------------------------------------
@@ -162,6 +164,10 @@ EOF
 
     source "${HOME}/phymatopus.settings"
 
+    kafkahost=Umiawyth
+    kafkahost=iota.virtual.metagrid.co.uk
+    kafkaipv4=$(dig +short ${kafkahost:?})
+
     docker build \
         --tag 'alert_stream' \
         "${PHYMATOPUS_LSST:?}/maria/alert_stream"
@@ -170,7 +176,7 @@ EOF
         --rm \
         --tty \
         --interactive \
-        --add-host "kafka:$(dig +short Umiawyth)" \
+        --add-host "kafka:${kafkaipv4:?}" \
         alert_stream \
             python bin/monitorStream.py \
                 --group monitor-group \
