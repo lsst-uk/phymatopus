@@ -1,0 +1,842 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2017, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#  
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+# -----------------------------------------------------
+# Create a new VM to work with.
+#[user@trop]
+
+    createvm
+
+        INFO : Node name [Etalema]
+        INFO : Base name [fedora-25-docker-16G-20170713.qcow]
+        INFO : Base path [/var/lib/libvirt/images/base/fedora-25-docker-16G-20170713.qcow]
+        INFO : Disc name [Etalema.qcow]
+        INFO : Disc size [16GiB]
+
+# -----------------------------------------------------
+# Login to the new VM.
+#[user@trop]
+
+    ssh Stevedore@Etalema
+
+# -----------------------------------------------------
+# Configure our secrets function.
+#[user@virtual]
+
+cat > "${HOME}/secret.sh" << 'EOF'
+....
+....
+EOF
+
+    source "${HOME}/secret.sh"
+    secret frog
+
+# -----------------------------------------------------
+# Configure our OpenStack settings.
+# https://horizon.ecdf.ed.ac.uk/dashboard/project/access_and_security/api_access/openrc/
+#[user@virtual]
+
+    cat > "${HOME}/openstack.settings" << EOF
+
+export OS_INTERFACE=public
+export OS_IDENTITY_API_VERSION=3
+
+export OS_AUTH_URL=https://keystone.ecdf.ed.ac.uk/v3
+
+export OS_USER_DOMAIN_NAME="ed"
+export OS_REGION_NAME="Edinburgh"
+
+export OS_USERNAME=$(secret openstack.user)
+export OS_PASSWORD=$(secret openstack.pass)
+
+#export OS_PROJECT_ID=c2ff1afa3e874e0eb6f5a48f7e77208b
+#export OS_PROJECT_NAME=virtual-observatory-services
+
+export OS_PROJECT_ID=fcef6dd450f64a1ab4ffa5a7234c4161
+export OS_PROJECT_NAME=lsst
+
+EOF
+
+# -----------------------------------------------------
+# Run a copy of the latest Fedora.
+#[user@virtual]
+
+    docker run \
+        --rm \
+        --tty \
+        --interactive \
+        --volume "${HOME}/openstack.settings:/openstack.settings" \
+        fedora \
+        bash
+
+# -----------------------------------------------------
+# Load our settings.
+#[root@container]
+
+    source /openstack.settings
+
+# -----------------------------------------------------
+# Check our user name and password.
+#[root@container]
+
+    cat << EOF
+Username [${OS_USERNAME:?}]
+Password [${OS_PASSWORD:?}]
+Project  [${OS_PROJECT_NAME:?}]
+Project  [${OS_PROJECT_ID:?}]
+EOF
+
+# -----------------------------------------------------
+# Install the old OpenStack clients.
+# https://github.com/openstack/python-novaclient
+# https://docs.openstack.org/python-novaclient/latest/
+# https://access.redhat.com/documentation/en-US/Red_Hat_Enterprise_Linux_OpenStack_Platform/4/html/End_User_Guide/install_clients.html
+#[root@container]
+
+    dnf \
+        install -y \
+        python-novaclient \
+        python-glanceclient \
+        python-cinderclient \
+        python-neutronclient
+
+# -----------------------------------------------------
+# Install the new OpenStack client.
+# https://docs.openstack.org/python-openstackclient/latest/
+#[root@container]
+
+    dnf \
+        install -y \
+        python-openstackclient
+
+# -----------------------------------------------------
+# Install the JQ JSON parser.
+# https://stedolan.github.io/jq/
+#[root@container]
+
+    dnf \
+        install -y \
+        jq
+
+# -----------------------------------------------------
+# Show our project details.
+#[root@container]
+
+    openstack \
+        project \
+        show \
+        ${OS_PROJECT_ID:?}
+
+        +-------------+----------------------------------+
+        | Field       | Value                            |
+        +-------------+----------------------------------+
+        | description |                                  |
+        | domain_id   | 450db9c9d59f4e888f9f44c4a9904118 |
+        | enabled     | True                             |
+        | id          | fcef6dd450f64a1ab4ffa5a7234c4161 |
+        | is_domain   | False                            |
+        | name        | lsst                             |
+        | parent_id   | 450db9c9d59f4e888f9f44c4a9904118 |
+        +-------------+----------------------------------+
+
+# -----------------------------------------------------
+# List our project volumes.
+#[root@container]
+
+    openstack \
+        volume \
+        list
+
+        -
+
+# -----------------------------------------------------
+# List our project snapshots.
+#[root@container]
+
+    openstack \
+        snapshot \
+        list
+
+        -
+
+# -----------------------------------------------------
+# Display our project limits.
+#[root@container]
+
+    openstack \
+        limits \
+        show \
+            --absolute
+
+        +--------------------------+-------+
+        | Name                     | Value |
+        +--------------------------+-------+
+        | maxServerMeta            |   128 |
+        | maxTotalInstances        |    20 |
+        | maxPersonality           |     5 |
+        | totalServerGroupsUsed    |     0 |
+        | maxImageMeta             |   128 |
+        | maxPersonalitySize       | 10240 |
+        | maxTotalRAMSize          | 81920 |
+        | maxServerGroups          |    10 |
+        | maxSecurityGroupRules    |   100 |
+        | maxTotalKeypairs         |   100 |
+        | totalCoresUsed           |     0 |
+        | totalRAMUsed             |     0 |
+        | maxSecurityGroups        |   100 |
+        | totalFloatingIpsUsed     |     0 |
+        | totalInstancesUsed       |     0 |
+        | maxServerGroupMembers    |    10 |
+        | maxTotalFloatingIps      |   100 |
+        | totalSecurityGroupsUsed  |     1 |
+        | maxTotalCores            |    40 |
+        | totalSnapshotsUsed       |     2 |
+        | maxTotalBackups          |    10 |
+        | maxTotalVolumeGigabytes  |  6148 |
+        | maxTotalSnapshots        |    10 |
+        | maxTotalBackupGigabytes  |  1000 |
+        | totalBackupGigabytesUsed |     0 |
+        | maxTotalVolumes          |    30 |
+        | totalVolumesUsed         |     4 |
+        | totalBackupsUsed         |     0 |
+        | totalGigabytesUsed       |  5175 |
+        +--------------------------+-------+
+
+# -----------------------------------------------------
+# List the available flavors.
+#[root@container]
+
+    openstack \
+        flavor \
+        list
+
+        +--------------------------------------+------------+-------+------+-----------+-------+-----------+
+        | ID                                   | Name       |   RAM | Disk | Ephemeral | VCPUs | Is Public |
+        +--------------------------------------+------------+-------+------+-----------+-------+-----------+
+        | 09086afb-9d80-4719-974c-45e700a795bb | m1.xxlarge | 32768 |  160 |         0 |    16 | True      |
+        | 2                                    | m1.small   |  2048 |   20 |         0 |     1 | True      |
+        | 2b93be09-8179-4db2-9f27-e98dd0c8fbaf | l1.xxlarge | 98304 |  320 |         0 |    16 | True      |
+        | 3                                    | m1.medium  |  4096 |   40 |         0 |     2 | True      |
+        | 4                                    | m1.large   |  8192 |   80 |         0 |     4 | True      |
+        | 5                                    | m1.xlarge  | 16384 |  160 |         0 |     8 | True      |
+        | 6                                    | l1.small   |  6144 |   40 |         0 |     1 | True      |
+        | 7                                    | l1.medium  | 12288 |   80 |         0 |     2 | True      |
+        | 8                                    | l1.large   | 24576 |  160 |         0 |     4 | True      |
+        | 9                                    | l1.xlarge  | 49152 |  320 |         0 |     8 | True      |
+        +--------------------------------------+------------+-------+------+-----------+-------+-----------+
+
+# -----------------------------------------------------
+# List our available networks.
+#[root@container]
+
+    openstack \
+        network \
+        list
+
+        +--------------------------------------+--------------------------------------------+--------------------------------------+
+        | ID                                   | Name                                       | Subnets                              |
+        +--------------------------------------+--------------------------------------------+--------------------------------------+
+        | 0dc77e8e-a97e-411e-94d0-da1b6efc393c | vm-network-UoE-external                    | 378f0f3f-a7bc-495d-9b21-3997a10404e8 |
+        | 4f2774d1-dfb8-4833-8374-806e1fc40827 | Floating Network Private (UoE access only) | 6ab469f9-ff01-4aee-af59-5f1da7e26e81 |
+        | cc1bdad0-6b7c-4c7b-8c5b-6d5f4a677368 | vm-network-UoE-internal                    | 9c07390c-dc6e-4a85-a20c-66c370dbff62 |
+        | d1e55e07-6f28-4d98-8116-e11ca10c3e8f | Floating Network Public                    | e1c72964-3276-473f-a169-b60de622c385 |
+        +--------------------------------------+--------------------------------------------+--------------------------------------+
+
+
+# -----------------------------------------------------
+# List the available images.
+#[root@container]
+
+    openstack \
+        image \
+        list
+
+        +--------------------------------------+----------------------------+--------+
+        | ID                                   | Name                       | Status |
+        +--------------------------------------+----------------------------+--------+
+        | d608b269-de15-4852-96b0-2dda15466cb6 | Centos 6 - 1612            | active |
+        | b241c7ea-63f5-4a77-86de-e18a1e8bee45 | Centos 7 - 1612            | active |
+        | 2326063c-5a0f-4430-b76c-e977100a3e0d | Scientific Linux 7.2       | active |
+        | b3bb4c27-ec69-4115-a02e-dfe9e8e65acb | Ubuntu 14.04 Spark 1.3.1   | active |
+        | 21649978-8542-4b5b-88c0-d1cde75b8516 | Ubuntu 14.04 Vanilla 2.7.1 | active |
+        | 039046a1-0a88-4a5b-b997-b18fa2264e0b | Ubuntu 14.04               | active |
+        | 65a5d008-5d58-48f9-973a-1fd1e917ba7d | Scientific Linux 6.8       | active |
+        | 909b980e-3514-4589-a250-444e0dcbad04 | Ubuntu 16.04               | active |
+        +--------------------------------------+----------------------------+--------+
+
+# -----------------------------------------------------
+# Swap projects .
+#[root@container]
+
+    vi "/openstack.settings"
+
+    ~   export OS_PROJECT_ID=c2ff1afa3e874e0eb6f5a48f7e77208b
+    ~   export OS_PROJECT_NAME=virtual-observatory-services
+
+    ~   #export OS_PROJECT_ID=fcef6dd450f64a1ab4ffa5a7234c4161
+    ~   #export OS_PROJECT_NAME=lsst
+
+    source /openstack.settings
+
+# -----------------------------------------------------
+# List the available images.
+#[root@container]
+
+    openstack \
+        image \
+        list
+
+        +--------------------------------------+-------------------------------+--------+
+        | ID                                   | Name                          | Status |
+        +--------------------------------------+-------------------------------+--------+
+        | 78f2f6e8-70c3-440e-bbf3-8ed639808706 | fedora-25-docker-16G-20170713 | active |
+        | d608b269-de15-4852-96b0-2dda15466cb6 | Centos 6 - 1612               | active |
+        | b241c7ea-63f5-4a77-86de-e18a1e8bee45 | Centos 7 - 1612               | active |
+        | 2326063c-5a0f-4430-b76c-e977100a3e0d | Scientific Linux 7.2          | active |
+        | b3bb4c27-ec69-4115-a02e-dfe9e8e65acb | Ubuntu 14.04 Spark 1.3.1      | active |
+        | 21649978-8542-4b5b-88c0-d1cde75b8516 | Ubuntu 14.04 Vanilla 2.7.1    | active |
+        | 039046a1-0a88-4a5b-b997-b18fa2264e0b | Ubuntu 14.04                  | active |
+        | 65a5d008-5d58-48f9-973a-1fd1e917ba7d | Scientific Linux 6.8          | active |
+        | 909b980e-3514-4589-a250-444e0dcbad04 | Ubuntu 16.04                  | active |
+        +--------------------------------------+-------------------------------+--------+
+
+# -----------------------------------------------------
+# Share our Fedora image with the lsst project.
+#[root@container]
+
+    openstack \
+        image \
+        add project \
+        78f2f6e8-70c3-440e-bbf3-8ed639808706 \
+        fcef6dd450f64a1ab4ffa5a7234c4161
+
+        +------------+--------------------------------------+
+        | Field      | Value                                |
+        +------------+--------------------------------------+
+        | created_at | 2017-09-20T21:46:08Z                 |
+        | image_id   | 78f2f6e8-70c3-440e-bbf3-8ed639808706 |
+        | member_id  | fcef6dd450f64a1ab4ffa5a7234c4161     |
+        | schema     | /v2/schemas/member                   |
+        | status     | pending                              |
+        | updated_at | 2017-09-20T21:46:08Z                 |
+        +------------+--------------------------------------+
+
+
+    openstack \
+        image \
+        show \
+        78f2f6e8-70c3-440e-bbf3-8ed639808706
+
+        +------------------+--------------------------------------------------------+
+        | Field            | Value                                                  |
+        +------------------+--------------------------------------------------------+
+        | checksum         | cdb555011185103cf753a1d23379ed7d                       |
+        | container_format | bare                                                   |
+        | created_at       | 2017-08-28T23:40:08Z                                   |
+        | disk_format      | qcow2                                                  |
+        | file             | /v2/images/78f2f6e8-70c3-440e-bbf3-8ed639808706/file   |
+        | id               | 78f2f6e8-70c3-440e-bbf3-8ed639808706                   |
+        | min_disk         | 0                                                      |
+        | min_ram          | 0                                                      |
+        | name             | fedora-25-docker-16G-20170713                          |
+        | owner            | c2ff1afa3e874e0eb6f5a48f7e77208b                       |
+        | properties       | direct_url='....', locations='....'                    |
+        | protected        | False                                                  |
+        | schema           | /v2/schemas/image                                      |
+        | size             | 763739648                                              |
+        | status           | active                                                 |
+        | tags             |                                                        |
+        | updated_at       | 2017-08-28T23:40:34Z                                   |
+        | virtual_size     | None                                                   |
+        | visibility       | private                                                |
+        +------------------+--------------------------------------------------------+
+
+    glance \
+        member-list \
+        --image-id 78f2f6e8-70c3-440e-bbf3-8ed639808706
+
+        +--------------------------------------+----------------------------------+---------+
+        | Image ID                             | Member ID                        | Status  |
+        +--------------------------------------+----------------------------------+---------+
+        | 78f2f6e8-70c3-440e-bbf3-8ed639808706 | fcef6dd450f64a1ab4ffa5a7234c4161 | pending |
+        +--------------------------------------+----------------------------------+---------+
+
+# -----------------------------------------------------
+# Swap projects .
+#[root@container]
+
+    vi "/openstack.settings"
+
+    ~   #export OS_PROJECT_ID=c2ff1afa3e874e0eb6f5a48f7e77208b
+    ~   #export OS_PROJECT_NAME=virtual-observatory-services
+
+    ~   export OS_PROJECT_ID=fcef6dd450f64a1ab4ffa5a7234c4161
+    ~   export OS_PROJECT_NAME=lsst
+
+    source /openstack.settings
+
+# -----------------------------------------------------
+# List the available images.
+#[root@container]
+
+    openstack \
+        image \
+        list
+
+        +--------------------------------------+----------------------------+--------+
+        | ID                                   | Name                       | Status |
+        +--------------------------------------+----------------------------+--------+
+        | d608b269-de15-4852-96b0-2dda15466cb6 | Centos 6 - 1612            | active |
+        | b241c7ea-63f5-4a77-86de-e18a1e8bee45 | Centos 7 - 1612            | active |
+        | 2326063c-5a0f-4430-b76c-e977100a3e0d | Scientific Linux 7.2       | active |
+        | b3bb4c27-ec69-4115-a02e-dfe9e8e65acb | Ubuntu 14.04 Spark 1.3.1   | active |
+        | 21649978-8542-4b5b-88c0-d1cde75b8516 | Ubuntu 14.04 Vanilla 2.7.1 | active |
+        | 039046a1-0a88-4a5b-b997-b18fa2264e0b | Ubuntu 14.04               | active |
+        | 65a5d008-5d58-48f9-973a-1fd1e917ba7d | Scientific Linux 6.8       | active |
+        | 909b980e-3514-4589-a250-444e0dcbad04 | Ubuntu 16.04               | active |
+        +--------------------------------------+----------------------------+--------+
+
+# -----------------------------------------------------
+# Accept the shared image.
+#[root@container]
+
+    glance \
+        member-update \
+        78f2f6e8-70c3-440e-bbf3-8ed639808706 \
+        ${OS_PROJECT_ID:?} \
+        accepted
+
+        +--------------------------------------+----------------------------------+----------+
+        | Image ID                             | Member ID                        | Status   |
+        +--------------------------------------+----------------------------------+----------+
+        | 78f2f6e8-70c3-440e-bbf3-8ed639808706 | fcef6dd450f64a1ab4ffa5a7234c4161 | accepted |
+        +--------------------------------------+----------------------------------+----------+
+
+# -----------------------------------------------------
+# List the available images.
+#[root@container]
+
+    openstack \
+        image \
+        list
+
+        +--------------------------------------+-------------------------------+--------+
+        | ID                                   | Name                          | Status |
+        +--------------------------------------+-------------------------------+--------+
+        | 78f2f6e8-70c3-440e-bbf3-8ed639808706 | fedora-25-docker-16G-20170713 | active |
+        | d608b269-de15-4852-96b0-2dda15466cb6 | Centos 6 - 1612               | active |
+        | b241c7ea-63f5-4a77-86de-e18a1e8bee45 | Centos 7 - 1612               | active |
+        | 2326063c-5a0f-4430-b76c-e977100a3e0d | Scientific Linux 7.2          | active |
+        | b3bb4c27-ec69-4115-a02e-dfe9e8e65acb | Ubuntu 14.04 Spark 1.3.1      | active |
+        | 21649978-8542-4b5b-88c0-d1cde75b8516 | Ubuntu 14.04 Vanilla 2.7.1    | active |
+        | 039046a1-0a88-4a5b-b997-b18fa2264e0b | Ubuntu 14.04                  | active |
+        | 65a5d008-5d58-48f9-973a-1fd1e917ba7d | Scientific Linux 6.8          | active |
+        | 909b980e-3514-4589-a250-444e0dcbad04 | Ubuntu 16.04                  | active |
+        +--------------------------------------+-------------------------------+--------+
+
+# -----------------------------------------------------
+# Boot an instance.
+#[root@container]
+
+    openstack \
+        server \
+        create \
+        --format json \
+        --image '78f2f6e8-70c3-440e-bbf3-8ed639808706' \
+        --flavor 4 \
+        --nic 'net-id=0dc77e8e-a97e-411e-94d0-da1b6efc393c' \
+        albert
+
+        +--------------------------------------+----------------------------------------------------------------------+
+        | Field                                | Value                                                                |
+        +--------------------------------------+----------------------------------------------------------------------+
+        | OS-DCF:diskConfig                    | MANUAL                                                               |
+        | OS-EXT-AZ:availability_zone          |                                                                      |
+        | OS-EXT-STS:power_state               | NOSTATE                                                              |
+        | OS-EXT-STS:task_state                | scheduling                                                           |
+        | OS-EXT-STS:vm_state                  | building                                                             |
+        | OS-SRV-USG:launched_at               | None                                                                 |
+        | OS-SRV-USG:terminated_at             | None                                                                 |
+        | accessIPv4                           |                                                                      |
+        | accessIPv6                           |                                                                      |
+        | addresses                            |                                                                      |
+        | adminPass                            | STKb2wqLFx2S                                                         |
+        | config_drive                         |                                                                      |
+        | created                              | 2017-09-20T22:18:51Z                                                 |
+        | flavor                               | m1.large (4)                                                         |
+        | hostId                               |                                                                      |
+        | id                                   | f373405a-46be-432c-84a2-403674d379e4                                 |
+        | image                                | fedora-25-docker-16G-20170713 (78f2f6e8-70c3-440e-bbf3-8ed639808706) |
+        | key_name                             | None                                                                 |
+        | name                                 | albert                                                               |
+        | os-extended-volumes:volumes_attached | []                                                                   |
+        | progress                             | 0                                                                    |
+        | project_id                           | fcef6dd450f64a1ab4ffa5a7234c4161                                     |
+        | properties                           |                                                                      |
+        | security_groups                      | [{u'name': u'default'}]                                              |
+        | status                               | BUILD                                                                |
+        | updated                              | 2017-09-20T22:18:51Z                                                 |
+        | user_id                              | 3d241b5fa2d0b3378901e08e86e10284dc9f9dae3732b99f71f809cf46ccb0d5     |
+        +--------------------------------------+----------------------------------------------------------------------+
+
+# -----------------------------------------------------
+# Show details of our new instance.
+#[root@container]
+
+    openstack \
+        server \
+        show \
+        'f373405a-46be-432c-84a2-403674d379e4'
+
+        +--------------------------------------+----------------------------------------------------------------------+
+        | Field                                | Value                                                                |
+        +--------------------------------------+----------------------------------------------------------------------+
+        | OS-DCF:diskConfig                    | MANUAL                                                               |
+        | OS-EXT-AZ:availability_zone          | nova                                                                 |
+        | OS-EXT-STS:power_state               | Running                                                              |
+        | OS-EXT-STS:task_state                | None                                                                 |
+        | OS-EXT-STS:vm_state                  | active                                                               |
+        | OS-SRV-USG:launched_at               | 2017-09-20T22:19:33.000000                                           |
+        | OS-SRV-USG:terminated_at             | None                                                                 |
+        | accessIPv4                           |                                                                      |
+        | accessIPv6                           |                                                                      |
+        | addresses                            | vm-network-UoE-external=192.168.2.8                                  |
+        | config_drive                         |                                                                      |
+        | created                              | 2017-09-20T22:18:51Z                                                 |
+        | flavor                               | m1.large (4)                                                         |
+        | hostId                               | adfa96e7c6a480660598b4bee5020a5fba8fc1fbb86d56f9b7091402             |
+        | id                                   | f373405a-46be-432c-84a2-403674d379e4                                 |
+        | image                                | fedora-25-docker-16G-20170713 (78f2f6e8-70c3-440e-bbf3-8ed639808706) |
+        | key_name                             | None                                                                 |
+        | name                                 | albert                                                               |
+        | os-extended-volumes:volumes_attached | []                                                                   |
+        | progress                             | 0                                                                    |
+        | project_id                           | fcef6dd450f64a1ab4ffa5a7234c4161                                     |
+        | properties                           |                                                                      |
+        | security_groups                      | [{u'name': u'default'}]                                              |
+        | status                               | ACTIVE                                                               |
+        | updated                              | 2017-09-20T22:19:33Z                                                 |
+        | user_id                              | 3d241b5fa2d0b3378901e08e86e10284dc9f9dae3732b99f71f809cf46ccb0d5     |
+        +--------------------------------------+----------------------------------------------------------------------+
+
+# -----------------------------------------------------
+# Allocate a floating IP address.
+#[root@container]
+
+    openstack \
+        network \
+        list
+
+        +--------------------------------------+--------------------------------------------+--------------------------------------+
+        | ID                                   | Name                                       | Subnets                              |
+        +--------------------------------------+--------------------------------------------+--------------------------------------+
+        | 0dc77e8e-a97e-411e-94d0-da1b6efc393c | vm-network-UoE-external                    | 378f0f3f-a7bc-495d-9b21-3997a10404e8 |
+        | 4f2774d1-dfb8-4833-8374-806e1fc40827 | Floating Network Private (UoE access only) | 6ab469f9-ff01-4aee-af59-5f1da7e26e81 |
+        | cc1bdad0-6b7c-4c7b-8c5b-6d5f4a677368 | vm-network-UoE-internal                    | 9c07390c-dc6e-4a85-a20c-66c370dbff62 |
+        | d1e55e07-6f28-4d98-8116-e11ca10c3e8f | Floating Network Public                    | e1c72964-3276-473f-a169-b60de622c385 |
+        +--------------------------------------+--------------------------------------------+--------------------------------------+
+
+    openstack \
+        floating ip \
+        list
+
+        -
+
+    openstack \
+        floating ip \
+        create \
+        'd1e55e07-6f28-4d98-8116-e11ca10c3e8f'
+
+        +---------------------+--------------------------------------+
+        | Field               | Value                                |
+        +---------------------+--------------------------------------+
+        | created_at          | 2017-09-20T22:25:51Z                 |
+        | description         |                                      |
+        | fixed_ip_address    | None                                 |
+        | floating_ip_address | 129.215.193.76                       |
+        | floating_network_id | d1e55e07-6f28-4d98-8116-e11ca10c3e8f |
+        | headers             |                                      |
+        | id                  | 609f73c5-0390-4f5b-829f-c9ce7e8c4918 |
+        | port_id             | None                                 |
+        | project_id          | fcef6dd450f64a1ab4ffa5a7234c4161     |
+        | project_id          | fcef6dd450f64a1ab4ffa5a7234c4161     |
+        | revision_number     | 1                                    |
+        | router_id           | None                                 |
+        | status              | DOWN                                 |
+        | updated_at          | 2017-09-20T22:25:51Z                 |
+        +---------------------+--------------------------------------+
+
+    openstack \
+        floating ip \
+        list
+
+        +--------------------------------------+---------------------+------------------+------+
+        | ID                                   | Floating IP Address | Fixed IP Address | Port |
+        +--------------------------------------+---------------------+------------------+------+
+        | 609f73c5-0390-4f5b-829f-c9ce7e8c4918 | 129.215.193.76      | None             | None |
+        +--------------------------------------+---------------------+------------------+------+
+
+# -----------------------------------------------------
+# Add our IP address to our instance.
+#[root@container]
+
+    openstack \
+        server \
+        add \
+        floating ip \
+        'f373405a-46be-432c-84a2-403674d379e4' \
+        '129.215.193.76'
+
+    openstack \
+        floating ip \
+        list
+
+        +--------------------------------------+---------------------+------------------+--------------------------------------+
+        | ID                                   | Floating IP Address | Fixed IP Address | Port                                 |
+        +--------------------------------------+---------------------+------------------+--------------------------------------+
+        | 609f73c5-0390-4f5b-829f-c9ce7e8c4918 | 129.215.193.76      | 192.168.2.8      | 262fc592-465e-4f7b-9e8a-f7500e018369 |
+        +--------------------------------------+---------------------+------------------+--------------------------------------+
+
+# -----------------------------------------------------
+# Test the IP address.
+#[user@desktop]
+
+    ssh Stevedore@129.215.193.76
+
+# -----------------------------------------------------
+# Check the network config.
+#[user@virtual]
+
+    ifconfig
+
+        docker0: flags=4099<UP,BROADCAST,MULTICAST>  mtu 1500
+            inet 172.17.0.1  netmask 255.255.0.0  broadcast 0.0.0.0
+            ether 02:42:14:c1:f9:2a  txqueuelen 0  (Ethernet)
+            RX packets 0  bytes 0 (0.0 B)
+            RX errors 0  dropped 0  overruns 0  frame 0
+            TX packets 0  bytes 0 (0.0 B)
+            TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+
+        ens3: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1450
+            inet 192.168.2.8  netmask 255.255.255.0  broadcast 192.168.2.255
+            inet6 fe80::f816:3eff:fe59:7683  prefixlen 64  scopeid 0x20<link>
+            ether fa:16:3e:59:76:83  txqueuelen 1000  (Ethernet)
+            RX packets 9744  bytes 27155234 (25.8 MiB)
+            RX errors 0  dropped 0  overruns 0  frame 0
+            TX packets 8218  bytes 557095 (544.0 KiB)
+            TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+
+        lo: flags=73<UP,LOOPBACK,RUNNING>  mtu 65536
+            inet 127.0.0.1  netmask 255.0.0.0
+            inet6 ::1  prefixlen 128  scopeid 0x10<host>
+            loop  txqueuelen 1000  (Local Loopback)
+            RX packets 0  bytes 0 (0.0 B)
+            RX errors 0  dropped 0  overruns 0  frame 0
+            TX packets 0  bytes 0 (0.0 B)
+            TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+
+# -----------------------------------------------------
+# Check external access.
+#[user@virtual]
+
+    curl -s http://icanhazip.com/
+
+        129.215.193.76
+
+# -----------------------------------------------------
+# Check the project limits.
+#[root@container]
+
+    openstack \
+        limits \
+        show \
+            --absolute
+
+        +--------------------------+-------+
+        | Name                     | Value |
+        +--------------------------+-------+
+        | maxServerMeta            |   128 |
+        | maxTotalInstances        |    20 |
+        | maxPersonality           |     5 |
+        | totalServerGroupsUsed    |     0 |
+        | maxImageMeta             |   128 |
+        | maxPersonalitySize       | 10240 |
+        | maxTotalRAMSize          | 81920 |
+        | maxServerGroups          |    10 |
+        | maxSecurityGroupRules    |   100 |
+        | maxTotalKeypairs         |   100 |
+        | totalCoresUsed           |     4 |
+        | totalRAMUsed             |  8192 |
+        | maxSecurityGroups        |   100 |
+        | totalFloatingIpsUsed     |     0 |
+        | totalInstancesUsed       |     1 |
+        | maxServerGroupMembers    |    10 |
+        | maxTotalFloatingIps      |   100 |
+        | totalSecurityGroupsUsed  |     1 |
+        | maxTotalCores            |    40 |
+        | totalSnapshotsUsed       |     2 |
+        | maxTotalBackups          |    10 |
+        | maxTotalVolumeGigabytes  |  6148 |
+        | maxTotalSnapshots        |    10 |
+        | maxTotalBackupGigabytes  |  1000 |
+        | totalBackupGigabytesUsed |     0 |
+        | maxTotalVolumes          |    30 |
+        | totalVolumesUsed         |     4 |
+        | totalBackupsUsed         |     0 |
+        | totalGigabytesUsed       |  5175 |
+        +--------------------------+-------+
+
+# -----------------------------------------------------
+# Try allocating a volume larger than the available space.
+#[root@container]
+
+    openstack \
+        volume \
+        create \
+        --size 4096 \
+        'dbdata'
+
+    VolumeSizeExceedsAvailableQuota:
+        Requested volume or snapshot exceeds allowed gigabytes quota.
+        Requested 4096G, quota is 6148G and 5175G has been consumed.
+        (HTTP 413) (Request-ID: req-57583509-06e6-407f-8d88-665e9ababc98)
+
+# -----------------------------------------------------
+# Email IT support ...
+
+
+    Hi David,
+
+    We have manually adjusted your quotas. Is it looking better now?
+
+    Best wishes,
+
+    Angela
+
+
+# -----------------------------------------------------
+# Check the project limits.
+#[root@container]
+
+    openstack \
+        limits \
+        show \
+            --absolute
+
+        +--------------------------+-------+
+        | Name                     | Value |
+        +--------------------------+-------+
+        | maxTotalVolumeGigabytes  |  6148 |
+        | maxTotalBackupGigabytes  |  1000 |
+        | totalSnapshotsUsed       |     0 |
+        | totalVolumesUsed         |     0 |
+        | totalBackupsUsed         |     0 |
+        | totalGigabytesUsed       |     0 |
+        | totalBackupGigabytesUsed |     0 |
+        +--------------------------+-------+
+
+# -----------------------------------------------------
+# Try allocating a 4Tbyte volume.
+#[root@container]
+
+    openstack \
+        volume \
+        create \
+        --size 4096 \
+        'dbdata'
+
+        +---------------------+------------------------------------------------------------------+
+        | Field               | Value                                                            |
+        +---------------------+------------------------------------------------------------------+
+        | attachments         | []                                                               |
+        | availability_zone   | nova                                                             |
+        | bootable            | false                                                            |
+        | consistencygroup_id | None                                                             |
+        | created_at          | 2017-09-21T13:03:28.265370                                       |
+        | description         | None                                                             |
+        | encrypted           | False                                                            |
+        | id                  | daf0b4d7-8688-4691-8f07-88b23faad14a                             |
+        | multiattach         | False                                                            |
+        | name                | dbdata                                                           |
+        | properties          |                                                                  |
+        | replication_status  | disabled                                                         |
+        | size                | 4096                                                             |
+        | snapshot_id         | None                                                             |
+        | source_volid        | None                                                             |
+        | status              | creating                                                         |
+        | type                | None                                                             |
+        | updated_at          | None                                                             |
+        | user_id             | 3d241b5fa2d0b3378901e08e86e10284dc9f9dae3732b99f71f809cf46ccb0d5 |
+        +---------------------+------------------------------------------------------------------+
+
+# -----------------------------------------------------
+# Check the project limits.
+#[root@container]
+
+    openstack \
+        limits \
+        show \
+            --absolute
+
+        +--------------------------+-------+
+        | Name                     | Value |
+        +--------------------------+-------+
+        | maxTotalVolumeGigabytes  |  6148 |
+        | maxTotalBackupGigabytes  |  1000 |
+        | totalSnapshotsUsed       |     0 |
+        | totalVolumesUsed         |     1 |
+        | totalBackupsUsed         |     0 |
+        | totalGigabytesUsed       |  4096 |
+        | totalBackupGigabytesUsed |     0 |
+        +--------------------------+-------+
+
+# -----------------------------------------------------
+# Try deleting the new volume.
+#[root@container]
+
+    openstack \
+        volume \
+        delete \
+        'daf0b4d7-8688-4691-8f07-88b23faad14a'
+        
+# -----------------------------------------------------
+# Check the project limits.
+#[root@container]
+
+    openstack \
+        limits \
+        show \
+            --absolute
+
+        +--------------------------+-------+
+        | Name                     | Value |
+        +--------------------------+-------+
+        | maxTotalVolumeGigabytes  |  6148 |
+        | maxTotalBackupGigabytes  |  1000 |
+        | totalSnapshotsUsed       |     0 |
+        | totalVolumesUsed         |     0 |
+        | totalBackupsUsed         |     0 |
+        | totalGigabytesUsed       |     0 |
+        | totalBackupGigabytesUsed |     0 |
+        +--------------------------+-------+
+
+

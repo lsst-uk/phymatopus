@@ -1,0 +1,203 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2017, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+    #
+    # Using command line tools to manage VM images.
+    # https://docs.openstack.org/python-glanceclient/latest/cli/glance.html
+
+# -----------------------------------------------------
+# Configure our secrets function.
+#[user@laptop]
+
+    source "${HOME}/secret.sh"
+    secret frog
+
+# -----------------------------------------------------
+# Configure our image location.
+#[user@laptop]
+
+    imagename=fedora-25-docker-16G-20170713
+    imagefile=${imagename:?}.qcow
+    imagepath=${HOME}/temp/${imagefile:?}
+
+# -----------------------------------------------------
+# Run in the latest Fedora.
+#[user@laptop]
+
+    docker run \
+        --tty \
+        --interactive \
+        --env "OS_USERNAME=$(secret openstack.user)" \
+        --env "OS_PASSWORD=$(secret openstack.pass)" \
+        --env "imagename=${imagename:?}" \
+        --env "imagefile=${imagefile:?}" \
+        --volume "${imagepath:?}:/${imagefile:?}" \
+        fedora \
+        bash
+
+# -----------------------------------------------------
+# Check our user name and password.
+#[root@fedora]
+
+    echo "Username [${OS_USERNAME:?}]"
+    echo "Password [${OS_PASSWORD:?}]"
+
+# -----------------------------------------------------
+# Install the glance client.
+# https://access.redhat.com/documentation/en-US/Red_Hat_Enterprise_Linux_OpenStack_Platform/4/html/End_User_Guide/install_clients.html
+#[root@fedora]
+
+    dnf -y \
+        install \
+        python-glanceclient
+
+# -----------------------------------------------------
+# Check the version.
+#[root@fedora]
+
+    glance --version
+
+        2.5.0
+
+# -----------------------------------------------------
+# Set the V3 project details, from the Openstack Access & Security page.
+# https://horizon.ecdf.ed.ac.uk/dashboard/project/access_and_security/api_access/openrc/
+#[root@fedora]
+
+    export OS_AUTH_URL=https://keystone.ecdf.ed.ac.uk/v3
+
+    export OS_USER_DOMAIN_NAME="ed"
+    export OS_REGION_NAME="Edinburgh"
+
+    export OS_INTERFACE=public
+    export OS_IDENTITY_API_VERSION=3
+
+    #export OS_PROJECT_ID=b397f5c3415945ca94b74bd612210299
+    #export OS_PROJECT_NAME="AstroTROP"
+
+    export OS_PROJECT_ID=c2ff1afa3e874e0eb6f5a48f7e77208b
+    export OS_PROJECT_NAME="virtual-observatory-services"
+
+# -----------------------------------------------------
+# Try listing the available images.
+#[root@fedora]
+
+    glance \
+        image-list
+
+        +--------------------------------------+----------------------------+
+        | ID                                   | Name                       |
+        +--------------------------------------+----------------------------+
+        | d608b269-de15-4852-96b0-2dda15466cb6 | Centos 6 - 1612            |
+        | b241c7ea-63f5-4a77-86de-e18a1e8bee45 | Centos 7 - 1612            |
+        | 65a5d008-5d58-48f9-973a-1fd1e917ba7d | Scientific Linux 6.8       |
+        | 2326063c-5a0f-4430-b76c-e977100a3e0d | Scientific Linux 7.2       |
+        | 039046a1-0a88-4a5b-b997-b18fa2264e0b | Ubuntu 14.04               |
+        | b3bb4c27-ec69-4115-a02e-dfe9e8e65acb | Ubuntu 14.04 Spark 1.3.1   |
+        | 21649978-8542-4b5b-88c0-d1cde75b8516 | Ubuntu 14.04 Vanilla 2.7.1 |
+        | 909b980e-3514-4589-a250-444e0dcbad04 | Ubuntu 16.04               |
+        +--------------------------------------+----------------------------+
+
+    glance \
+        image-show \
+        'b241c7ea-63f5-4a77-86de-e18a1e8bee45'
+
+        +------------------+----------------------------------------------------------------------------------+
+        | Property         | Value                                                                            |
+        +------------------+----------------------------------------------------------------------------------+
+        | checksum         | 27970114a08b6f33e4899b5b6f8e99a9                                                 |
+        | container_format | bare                                                                             |
+        | created_at       | 2017-02-09T21:54:59Z                                                             |
+        | direct_url       | rbd://294bc494-81ba-4c3c-ac5d-af7b3442a2a5/images/b241c7ea-63f5-4a77-86de-       |
+        |                  | e18a1e8bee45/snap                                                                |
+        | disk_format      | qcow2                                                                            |
+        | id               | b241c7ea-63f5-4a77-86de-e18a1e8bee45                                             |
+        | locations        | [{"url": "rbd://294bc494-81ba-4c3c-ac5d-af7b3442a2a5/images/b241c7ea-63f5-4a77   |
+        |                  | -86de-e18a1e8bee45/snap", "metadata": {}}]                                       |
+        | min_disk         | 10                                                                               |
+        | min_ram          | 0                                                                                |
+        | name             | Centos 7 - 1612                                                                  |
+        | owner            | efa5d1ce80324476b4ce189686dda2d1                                                 |
+        | protected        | True                                                                             |
+        | size             | 1351483392                                                                       |
+        | status           | active                                                                           |
+        | tags             | []                                                                               |
+        | updated_at       | 2017-02-09T21:56:57Z                                                             |
+        | virtual_size     | None                                                                             |
+        | visibility       | public                                                                           |
+        +------------------+----------------------------------------------------------------------------------+
+
+    glance \
+        image-download \
+        --progress \
+        --file centos-07.qcow \
+        b241c7ea-63f5-4a77-86de-e18a1e8bee45
+
+        [=>                            ] 5%
+
+
+# -----------------------------------------------------
+# Try uploading an image.
+#[root@fedora]
+
+    glance image-create \
+        --progress \
+        --disk-format qcow2 \
+        --container-format bare \
+        --name "${imagename:?}" \
+        --file "${imagefile:?}"
+
+
+        [>                             ] 1%
+
+        +------------------+--------------------------------------+
+        | Property         | Value                                |
+        +------------------+--------------------------------------+
+        | checksum         | None                                 |
+        | container_format | bare                                 |
+        | created_at       | 2017-08-28T16:00:07Z                 |
+        | disk_format      | qcow2                                |
+        | id               | c1b6d88c-780e-4c06-bdfe-c88abbbdd670 |
+        | locations        | []                                   |
+        | min_disk         | 0                                    |
+        | min_ram          | 0                                    |
+        | name             | fedora-25-docker-16G-20170713        |
+        | owner            | c2ff1afa3e874e0eb6f5a48f7e77208b     |
+        | protected        | False                                |
+        | size             | None                                 |
+        | status           | queued                               |
+        | tags             | []                                   |
+        | updated_at       | 2017-08-28T16:00:07Z                 |
+        | virtual_size     | None                                 |
+        | visibility       | private                              |
+        +------------------+--------------------------------------+
+        ... terminating glance client
+
+
+    #
+    # Looks good .. made a start, but too slow pushing upstream via ADSL line.
+    # Try using a VM inside ROE ...
+
+
+
+
+

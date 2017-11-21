@@ -1,0 +1,317 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2016, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+
+# -----------------------------------------------------
+# Configuring virtual machines on the Elanor system.
+#
+
+
+Information services page
+http://www.ed.ac.uk/information-services/research-support/research-computing/ecdf/cloud
+
+Research services wiki page
+https://www.wiki.ed.ac.uk/pages/viewpage.action?spaceKey=ResearchServices&title=Eleanor+-+Research+Cloud
+
+Quick start
+https://www.wiki.ed.ac.uk/display/ResearchServices/Cloud+Quickstart
+
+Service login
+http://eleanor.cloud.ed.ac.uk/
+
+Instructions on the quick start page
+
+    Login to the Web Dashboard
+    (the Domain field should be set to 'ed')
+
+    Create an SSH Key Pair
+    (or upload the public part of an existing key)
+
+    Launch an Instance
+    (select instances)
+    (launch instance)
+
+
+        Details             Name  'one'
+                            Zone  'nova'
+        Source              Boot  'image'
+                            Image 'Centos7'
+        Flavour             + m1.small
+        Network             + VM Network Private
+        Ports               -------
+        Security            default
+        SSH key             + mykey
+        Custom              -------
+        Server group        -------
+        Scheduler           -------
+        Metadata            -------
+
+        Create instance
+
+    Action
+
+        Associate floating IP
+
+            Select IP address [+]
+
+                Pool
+                Floating Network Private (UoE access only)
+
+                >> Associate IP
+
+                ....
+
+                >> Associate
+
+        SSH login
+
+            ssh centos@172.16.49.73
+
+
+#---------------------------------------------------------------------
+# Become root (because)
+#[user@virtual]
+
+    sudo -s
+
+#---------------------------------------------------------------------
+# Configure the DNS servers.
+#[root@virtual]
+
+    cat > /etc/resolv.conf << EOF
+search roe.ac.uk
+nameserver 129.215.166.13
+nameserver 129.215.70.239
+EOF
+
+#---------------------------------------------------------------------
+# Prevent DHCP from changing the DNS settings.
+#[root@virtual]
+
+    sed -i '
+        s/^PEERDNS.*$/PEERDNS="no"/
+        ' \
+        /etc/sysconfig/network-scripts/ifcfg-eth0
+
+#---------------------------------------------------------------------
+# Update the system.
+#[root@virtual]
+
+    yum update -y
+
+#---------------------------------------------------------------------
+# Create and attach a volume.
+
+    ....
+    ....
+
+
+#---------------------------------------------------------------------
+# Create a btrfs file system on the new drive.
+# https://www.howtoforge.com/a-beginners-guide-to-btrfs
+#[root@virtual]
+
+    yum install btrfs-progs
+
+    mkfs.btrfs \
+        /dev/vdb
+
+        Label:              (null)
+        UUID:               14dcfad3-d86f-424c-9a7e-1d78e1e29fbb
+        Node size:          16384
+        Sector size:        4096
+        Filesystem size:    256.00GiB
+        Block group profiles:
+          Data:             single            8.00MiB
+          Metadata:         DUP               1.01GiB
+          System:           DUP              12.00MiB
+        SSD detected:       no
+        Incompat features:  extref, skinny-metadata
+        Number of devices:  1
+        Devices:
+           ID        SIZE  PATH
+            1   256.00GiB  /dev/vdb
+
+
+# -----------------------------------------------------
+# List the disks by UUID.
+#[root@virtual]
+
+    ls -al /dev/disk/by-uuid/
+
+        ....
+        lrwxrwxrwx. 1 root root   9 Aug 22 16:34 14dcfad3-d86f-424c-9a7e-1d78e1e29fbb -> ../../vdb
+        lrwxrwxrwx. 1 root root  10 Aug 22 16:22 c48bb53a-9663-49ef-ae50-50792e85ae36 -> ../../vda1
+
+# -----------------------------------------------------
+# Add the new file system to fstab.
+#[root@virtual]
+
+    cat > /etc/fstab << EOF
+UUID=14dcfad3-d86f-424c-9a7e-1d78e1e29fbb /var/lib/docker  btrfs   defaults        0 0
+EOF
+
+# -----------------------------------------------------
+# Mount the Docker volume.
+#[root@virtual]
+
+    mkdir /var/lib/docker
+    mount /var/lib/docker
+
+#---------------------------------------------------------------------
+# Remove old versions of Docker.
+# https://docs.docker.com/engine/installation/linux/docker-ce/centos/#uninstall-old-versions
+#[root@virtual]
+
+    yum remove docker \
+        docker-common \
+        docker-selinux \
+        docker-engine
+
+#---------------------------------------------------------------------
+# Install the Docker repo.
+# https://docs.docker.com/engine/installation/linux/docker-ce/centos/#install-using-the-repository
+#[root@virtual]
+
+    yum -y \
+        install \
+        yum-utils
+
+    yum-config-manager \
+        --add-repo \
+        https://download.docker.com/linux/centos/docker-ce.repo
+
+#---------------------------------------------------------------------
+# Install Docker.
+# https://docs.docker.com/engine/installation/linux/docker-ce/centos/#install-docker-ce
+#[root@virtual]
+
+    yum -y \
+        install \
+        docker-ce
+
+# -----------------------------------------------------
+# Configure Docker to use BTRFS.
+# https://docs.docker.com/engine/userguide/storagedriver/btrfs-driver/
+#[root@virtual]
+
+mkdir /etc/docker
+cat > /etc/docker/daemon.json << EOF
+{
+  "storage-driver": "btrfs"
+}
+EOF
+
+# -----------------------------------------------------
+# Install docker-compose from GitHub
+#[root@virtual]
+
+    yum install -y wget
+    yum install -y curl
+
+    curl -L https://github.com/docker/compose/releases/download/1.11.2/docker-compose-`uname -s`-`uname -m` > /usr/bin/docker-compose
+    chmod +x /usr/bin/docker-compose
+
+# -----------------------------------------------------
+# Install the dockersock SELinux policy.
+# https://github.com/dpw/selinux-dockersock
+
+    yum -y \
+        install \
+            checkpolicy \
+            policycoreutils \
+            policycoreutils-python
+
+    pushd $(mktemp -d)
+
+        wget https://raw.githubusercontent.com/dpw/selinux-dockersock/master/dockersock.te
+        checkmodule -M -m -o dockersock.mod dockersock.te
+        semodule_package -m dockersock.mod -o dockersock.pp
+        semodule -i dockersock.pp
+
+    popd
+
+#---------------------------------------------------------------------
+# Start Docker.
+#[root@virtual]
+
+    systemctl enable docker
+    systemctl start  docker
+
+#---------------------------------------------------------------------
+# Check Docker.
+#[root@virtual]
+
+    docker info
+
+        Containers: 0
+         Running: 0
+         Paused: 0
+         Stopped: 0
+        Images: 1
+        Server Version: 17.06.1-ce
+        Storage Driver: btrfs
+         Build Version: Btrfs v4.4.1
+         Library Version: 101
+        Logging Driver: json-file
+        Cgroup Driver: cgroupfs
+        Plugins:
+         Volume: local
+         Network: bridge host macvlan null overlay
+         Log: awslogs fluentd gcplogs gelf journald json-file logentries splunk syslog
+        Swarm: inactive
+        Runtimes: runc
+        Default Runtime: runc
+        Init Binary: docker-init
+        containerd version: 6e23458c129b551d5c9871e5174f6b1b7f6d1170
+        runc version: 810190ceaa507aa2727d7ae6f4790c76ec150bd2
+        init version: 949e6fa
+        Security Options:
+         seccomp
+          Profile: default
+        Kernel Version: 3.10.0-514.2.2.el7.x86_64
+        Operating System: CentOS Linux 7 (Core)
+        OSType: linux
+        Architecture: x86_64
+        CPUs: 1
+        Total Memory: 1.796GiB
+        Name: one
+        ID: 7KB2:YFAY:GKQW:HG3J:MAJY:2X7X:3JAM:DJFY:7D5N:H3J4:ZB47:5VEY
+        Docker Root Dir: /var/lib/docker
+        Debug Mode (client): false
+        Debug Mode (server): false
+        Registry: https://index.docker.io/v1/
+        Experimental: false
+        Insecure Registries:
+         127.0.0.0/8
+        Live Restore Enabled: false
+
+#---------------------------------------------------------------------
+# Test the system.
+#[root@virtual]
+
+    docker run \
+        -it \
+        fedora bash
+
+
+
+

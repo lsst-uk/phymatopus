@@ -1,0 +1,138 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2017, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+    #
+    # Using command line tools to manage VM images.
+    # https://docs.openstack.org/python-glanceclient/latest/cli/glance.html
+
+
+
+
+
+
+
+# -----------------------------------------------------
+# Install the glance client.
+# https://access.redhat.com/documentation/en-US/Red_Hat_Enterprise_Linux_OpenStack_Platform/4/html/End_User_Guide/install_clients.html
+#[user@laptop]
+
+    dnf install python-glanceclient
+
+# -----------------------------------------------------
+# Configure our secrets function.
+#[user@laptop]
+
+#openstack.user=xxxx
+#openstack.pass=xxxx
+#openstack.project=xxxxxxxx
+
+    source "${HOME}/secret.sh"
+
+    secret test
+
+# -----------------------------------------------------
+# Set the account login details.
+# Note - OS_TENANT_ID is the project ID.
+#[user@laptop]
+
+    export OS_USERNAME=$(secret openstack.user)
+    export OS_PASSWORD=$(secret openstack.pass)
+    export OS_TENANT_ID=$(secret openstack.project)
+    export OS_AUTH_URL=https://keystone.ecdf.ed.ac.uk/v2.0
+
+# -----------------------------------------------------
+# Try listing the available images.
+#[user@laptop]
+
+    glance image-list
+
+        +--------------------------------------+----------------------------+-------------+------------------+------------+--------+
+        | ID                                   | Name                       | Disk Format | Container Format | Size       | Status |
+        +--------------------------------------+----------------------------+-------------+------------------+------------+--------+
+        | d608b269-de15-4852-96b0-2dda15466cb6 | Centos 6 - 1612            | qcow2       | bare             | 770179072  | active |
+        | b241c7ea-63f5-4a77-86de-e18a1e8bee45 | Centos 7 - 1612            | qcow2       | bare             | 1351483392 | active |
+        | 65a5d008-5d58-48f9-973a-1fd1e917ba7d | Scientific Linux 6.8       | raw         | bare             | 8589934592 | active |
+        | 2326063c-5a0f-4430-b76c-e977100a3e0d | Scientific Linux 7.2       | qcow2       | bare             | 738553344  | active |
+        | 039046a1-0a88-4a5b-b997-b18fa2264e0b | Ubuntu 14.04               | qcow2       | bare             | 260243968  | active |
+        | b3bb4c27-ec69-4115-a02e-dfe9e8e65acb | Ubuntu 14.04 Spark 1.3.1   | qcow2       | bare             | 957378048  | active |
+        | 21649978-8542-4b5b-88c0-d1cde75b8516 | Ubuntu 14.04 Vanilla 2.7.1 | qcow2       | bare             | 1181876224 | active |
+        | 909b980e-3514-4589-a250-444e0dcbad04 | Ubuntu 16.04               | qcow2       | bare             | 309592064  | active |
+        +--------------------------------------+----------------------------+-------------+------------------+------------+--------+
+
+
+    glance image-show \
+        'b241c7ea-63f5-4a77-86de-e18a1e8bee45'
+    id
+
+
+    glance image-download \
+        --file albert.qcow \
+        --progress \
+        b241c7ea-63f5-4a77-86de-e18a1e8bee45
+
+
+    glance image-download 'b241c7ea-63f5-4a77-86de-e18a1e8bee45'
+    404 Not Found: The resource could not be found.: Image with identifier &lt;Image {'properties': {}}&gt; not found (HTTP 404)
+
+    glance image-download 'b241c7ea-63f5-4a77-86de-albert'
+    No image with a name or ID of 'b241c7ea-63f5-4a77-86de-albert' exists.
+
+
+
+
+# -----------------------------------------------------
+# Try creating a new image.
+#[user@laptop]
+
+    imagename=fedora-25-docker-16G-20170713
+    imagefile=${imagename:?}.qcow
+    imagepath=${HOME}/temp/${imagefile:?}
+
+    imagestore='https://swift.ecdf.ed.ac.uk/swift/v1'
+
+    glance image-create \
+        --disk-format qcow2 \
+        --container-format bare \
+        --is-public True \
+        --progress \
+        --human-readable \
+        --name "${imagename:?}" \
+        --file "${imagepath:?}"
+
+
+
+
+
+                            --store <STORE> \
+                           [--owner <TENANT_ID>] [--size <SIZE>]
+                           [--min-disk <DISK_GB>] [--min-ram <DISK_RAM>]
+                           [--location <IMAGE_URL>] []
+                           [--checksum <CHECKSUM>] [--copy-from <IMAGE_URL>]
+                           [--is-public {True,False}]
+                           [--is-protected {True,False}]
+                           [--property <key=value>] [--human-readable]
+                           [--progress]
+
+
+
+
+

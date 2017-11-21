@@ -1,0 +1,1096 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2017, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#  
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+# -----------------------------------------------------
+# Create a new VM to work with.
+#[user@trop]
+
+    createvm
+
+        INFO : Node name [Umiawyth]
+        INFO : Base name [fedora-25-docker-16G-20170713.qcow]
+        INFO : Base path [/var/lib/libvirt/images/base/fedora-25-docker-16G-20170713.qcow]
+        INFO : Disc name [Umiawyth.qcow]
+        INFO : Disc size [16GiB]
+
+# -----------------------------------------------------
+# Login to the new VM.
+#[user@trop]
+
+    ssh Stevedore@Umiawyth
+
+# -----------------------------------------------------
+# Configure our secrets function.
+#[user@virtual]
+
+cat > "${HOME}/secret.sh" << 'EOF'
+....
+....
+EOF
+
+    source "${HOME}/secret.sh"
+    secret frog
+
+# -----------------------------------------------------
+# Run in the latest Fedora.
+#[user@virtual]
+
+    docker run \
+        --rm \
+        --tty \
+        --interactive \
+        --env "OS_USERNAME=$(secret openstack.user)" \
+        --env "OS_PASSWORD=$(secret openstack.pass)" \
+        fedora \
+        bash
+
+# -----------------------------------------------------
+# Check our user name and password.
+#[root@container]
+
+    echo "Username [${OS_USERNAME:?}]"
+    echo "Password [${OS_PASSWORD:?}]"
+
+# -----------------------------------------------------
+# Install the OpenStack clients.
+# https://github.com/openstack/python-novaclient
+# https://docs.openstack.org/python-novaclient/latest/
+# https://access.redhat.com/documentation/en-US/Red_Hat_Enterprise_Linux_OpenStack_Platform/4/html/End_User_Guide/install_clients.html
+#[root@container]
+
+    dnf \
+        install -y \
+        python-novaclient \
+        python-glanceclient \
+        python-cinderclient \
+        python-neutronclient
+
+# -----------------------------------------------------
+# Install our password generator.
+#[root@container]
+
+    dnf \
+        install -y \
+        pwgen
+
+# -----------------------------------------------------
+# Set the V3 project details, from the Openstack Access & Security page.
+# https://horizon.ecdf.ed.ac.uk/dashboard/project/access_and_security/api_access/openrc/
+#[root@container]
+
+    export OS_AUTH_URL=https://keystone.ecdf.ed.ac.uk/v3
+
+    export OS_USER_DOMAIN_NAME="ed"
+    export OS_REGION_NAME="Edinburgh"
+
+    export OS_INTERFACE=public
+    export OS_IDENTITY_API_VERSION=3
+
+    export OS_PROJECT_ID=c2ff1afa3e874e0eb6f5a48f7e77208b
+    export OS_PROJECT_NAME="virtual-observatory-services"
+
+# -----------------------------------------------------
+# Try listing the available images.
+#[root@container]
+
+    glance \
+        image-list
+
+        +--------------------------------------+-------------------------------+
+        | ID                                   | Name                          |
+        +--------------------------------------+-------------------------------+
+        | d608b269-de15-4852-96b0-2dda15466cb6 | Centos 6 - 1612               |
+        | b241c7ea-63f5-4a77-86de-e18a1e8bee45 | Centos 7 - 1612               |
+        | 78f2f6e8-70c3-440e-bbf3-8ed639808706 | fedora-25-docker-16G-20170713 |
+        | 65a5d008-5d58-48f9-973a-1fd1e917ba7d | Scientific Linux 6.8          |
+        | 2326063c-5a0f-4430-b76c-e977100a3e0d | Scientific Linux 7.2          |
+        | 039046a1-0a88-4a5b-b997-b18fa2264e0b | Ubuntu 14.04                  |
+        | b3bb4c27-ec69-4115-a02e-dfe9e8e65acb | Ubuntu 14.04 Spark 1.3.1      |
+        | 21649978-8542-4b5b-88c0-d1cde75b8516 | Ubuntu 14.04 Vanilla 2.7.1    |
+        | 909b980e-3514-4589-a250-444e0dcbad04 | Ubuntu 16.04                  |
+        +--------------------------------------+-------------------------------+
+
+# -----------------------------------------------------
+# Show details of our Docker-Fedora image.
+#[root@container]
+
+    glance \
+        image-show \
+        '78f2f6e8-70c3-440e-bbf3-8ed639808706'
+
+        +------------------+----------------------------------------------------------------------------------+
+        | Property         | Value                                                                            |
+        +------------------+----------------------------------------------------------------------------------+
+        | checksum         | cdb555011185103cf753a1d23379ed7d                                                 |
+        | container_format | bare                                                                             |
+        | created_at       | 2017-08-28T23:40:08Z                                                             |
+        | direct_url       | rbd://294bc494-81ba-4c3c-ac5d-af7b3442a2a5/images/78f2f6e8-70c3-440e-            |
+        |                  | bbf3-8ed639808706/snap                                                           |
+        | disk_format      | qcow2                                                                            |
+        | id               | 78f2f6e8-70c3-440e-bbf3-8ed639808706                                             |
+        | locations        | [{"url": "rbd://294bc494-81ba-4c3c-ac5d-af7b3442a2a5/images/78f2f6e8-70c3-440e-  |
+        |                  | bbf3-8ed639808706/snap", "metadata": {}}]                                        |
+        | min_disk         | 0                                                                                |
+        | min_ram          | 0                                                                                |
+        | name             | fedora-25-docker-16G-20170713                                                    |
+        | owner            | c2ff1afa3e874e0eb6f5a48f7e77208b                                                 |
+        | protected        | False                                                                            |
+        | size             | 763739648                                                                        |
+        | status           | active                                                                           |
+        | tags             | []                                                                               |
+        | updated_at       | 2017-08-28T23:40:34Z                                                             |
+        | virtual_size     | None                                                                             |
+        | visibility       | private                                                                          |
+        +------------------+----------------------------------------------------------------------------------+
+
+# -----------------------------------------------------
+# List our available flavors.
+#[root@container]
+
+    nova \
+        flavor-list
+
+        +--------------------------------------+------------+-----------+------+-----------+------+-------+-------------+-----------+
+        | ID                                   | Name       | Memory_MB | Disk | Ephemeral | Swap | VCPUs | RXTX_Factor | Is_Public |
+        +--------------------------------------+------------+-----------+------+-----------+------+-------+-------------+-----------+
+        | 09086afb-9d80-4719-974c-45e700a795bb | m1.xxlarge | 32768     | 160  | 0         |      | 16    | 1.0         | True      |
+        | 2                                    | m1.small   | 2048      | 20   | 0         |      | 1     | 1.0         | True      |
+        | 2b93be09-8179-4db2-9f27-e98dd0c8fbaf | l1.xxlarge | 98304     | 320  | 0         |      | 16    | 1.0         | True      |
+        | 3                                    | m1.medium  | 4096      | 40   | 0         |      | 2     | 1.0         | True      |
+        | 4                                    | m1.large   | 8192      | 80   | 0         |      | 4     | 1.0         | True      |
+        | 5                                    | m1.xlarge  | 16384     | 160  | 0         |      | 8     | 1.0         | True      |
+        | 6                                    | l1.small   | 6144      | 40   | 0         |      | 1     | 1.0         | True      |
+        | 7                                    | l1.medium  | 12288     | 80   | 0         |      | 2     | 1.0         | True      |
+        | 8                                    | l1.large   | 24576     | 160  | 0         |      | 4     | 1.0         | True      |
+        | 9                                    | l1.xlarge  | 49152     | 320  | 0         |      | 8     | 1.0         | True      |
+        +--------------------------------------+------------+-----------+------+-----------+------+-------+-------------+-----------+
+
+# -----------------------------------------------------
+# List our available networks.
+#[root@container]
+
+    neutron \
+        net-list
+
+        +--------------------------------------+--------------------------------------------+-------------------------------------------------------+
+        | id                                   | name                                       | subnets                                               |
+        +--------------------------------------+--------------------------------------------+-------------------------------------------------------+
+        | 4f2774d1-dfb8-4833-8374-806e1fc40827 | Floating Network Private (UoE access only) | 6ab469f9-ff01-4aee-af59-5f1da7e26e81 172.16.48.0/22   |
+        | 6e5fd378-cc05-4c00-abb2-38bf288b2dba | VM Network Public                          | c1896ce6-efcb-4124-8462-df572b371fee 192.168.2.0/24   |
+        | bfe7eeca-3c9a-4a02-8a79-0f715c14c141 | VM Network Private                         | ecf2027b-6979-4484-8af1-58bd899d09b9 192.168.1.0/24   |
+        | d1e55e07-6f28-4d98-8116-e11ca10c3e8f | Floating Network Public                    | e1c72964-3276-473f-a169-b60de622c385 129.215.193.0/24 |
+        +--------------------------------------+--------------------------------------------+-------------------------------------------------------+
+
+# -----------------------------------------------------
+# Boot an instance.
+#[root@container]
+
+    nova boot \
+        --nic 'net-id=bfe7eeca-3c9a-4a02-8a79-0f715c14c141' \
+        --flavor 4 \
+        --image 78f2f6e8-70c3-440e-bbf3-8ed639808706 \
+        albert
+
+        +--------------------------------------+----------------------------------------------------------------------+
+        | Property                             | Value                                                                |
+        +--------------------------------------+----------------------------------------------------------------------+
+        | OS-DCF:diskConfig                    | MANUAL                                                               |
+        | OS-EXT-AZ:availability_zone          |                                                                      |
+        | OS-EXT-STS:power_state               | 0                                                                    |
+        | OS-EXT-STS:task_state                | scheduling                                                           |
+        | OS-EXT-STS:vm_state                  | building                                                             |
+        | OS-SRV-USG:launched_at               | -                                                                    |
+        | OS-SRV-USG:terminated_at             | -                                                                    |
+        | accessIPv4                           |                                                                      |
+        | accessIPv6                           |                                                                      |
+        | adminPass                            | Mk7Xudk5Upth                                                         |
+        | config_drive                         |                                                                      |
+        | created                              | 2017-09-07T00:39:41Z                                                 |
+        | description                          | -                                                                    |
+        | flavor                               | m1.large (4)                                                         |
+        | hostId                               |                                                                      |
+        | id                                   | 82c41709-227b-42b3-9560-0ee1806572f0                                 |
+        | image                                | fedora-25-docker-16G-20170713 (78f2f6e8-70c3-440e-bbf3-8ed639808706) |
+        | key_name                             | -                                                                    |
+        | locked                               | False                                                                |
+        | metadata                             | {}                                                                   |
+        | name                                 | albert                                                             |
+        | os-extended-volumes:volumes_attached | []                                                                   |
+        | progress                             | 0                                                                    |
+        | security_groups                      | default                                                              |
+        | status                               | BUILD                                                                |
+        | tags                                 | []                                                                   |
+        | tenant_id                            | c2ff1afa3e874e0eb6f5a48f7e77208b                                     |
+        | updated                              | 2017-09-07T00:39:42Z                                                 |
+        | user_id                              | 3d241b5fa2d0b3378901e08e86e10284dc9f9dae3732b99f71f809cf46ccb0d5     |
+        +--------------------------------------+----------------------------------------------------------------------+
+
+# -----------------------------------------------------
+# Show details of our new instance.
+#[root@container]
+
+    nova \
+        show \
+        '82c41709-227b-42b3-9560-0ee1806572f0'
+
+        +--------------------------------------+----------------------------------------------------------------------+
+        | Property                             | Value                                                                |
+        +--------------------------------------+----------------------------------------------------------------------+
+        | OS-DCF:diskConfig                    | MANUAL                                                               |
+        | OS-EXT-AZ:availability_zone          | nova                                                                 |
+        | OS-EXT-STS:power_state               | 1                                                                    |
+        | OS-EXT-STS:task_state                | -                                                                    |
+        | OS-EXT-STS:vm_state                  | active                                                               |
+        | OS-SRV-USG:launched_at               | 2017-09-07T00:40:05.000000                                           |
+        | OS-SRV-USG:terminated_at             | -                                                                    |
+        | VM Network Private network           | 192.168.1.11                                                         |
+        | accessIPv4                           |                                                                      |
+        | accessIPv6                           |                                                                      |
+        | config_drive                         |                                                                      |
+        | created                              | 2017-09-07T00:39:42Z                                                 |
+        | description                          | -                                                                    |
+        | flavor                               | m1.large (4)                                                         |
+        | hostId                               | bb3167bfa94994b7d7a4ae0344b2de9ba73064d5e49a16e0f9aee40a             |
+        | id                                   | 82c41709-227b-42b3-9560-0ee1806572f0                                 |
+        | image                                | fedora-25-docker-16G-20170713 (78f2f6e8-70c3-440e-bbf3-8ed639808706) |
+        | key_name                             | -                                                                    |
+        | locked                               | False                                                                |
+        | metadata                             | {}                                                                   |
+        | name                                 | albert                                                             |
+        | os-extended-volumes:volumes_attached | []                                                                   |
+        | progress                             | 0                                                                    |
+        | security_groups                      | default                                                              |
+        | status                               | ACTIVE                                                               |
+        | tags                                 | []                                                                   |
+        | tenant_id                            | c2ff1afa3e874e0eb6f5a48f7e77208b                                     |
+        | updated                              | 2017-09-07T00:40:05Z                                                 |
+        | user_id                              | 3d241b5fa2d0b3378901e08e86e10284dc9f9dae3732b99f71f809cf46ccb0d5     |
+        +--------------------------------------+----------------------------------------------------------------------+
+
+# -----------------------------------------------------
+# Allocate a floating IP address.
+# https://access.redhat.com/documentation/en-US/Red_Hat_Enterprise_Linux_OpenStack_Platform/2/html/Getting_Started_Guide/sect-Adding_Floating_IP_Addresses_using_the_CLI.html
+#[root@container]
+
+    neutron \
+        net-list
+
+        +--------------------------------------+--------------------------------------------+-------------------------------------------------------+
+        | id                                   | name                                       | subnets                                               |
+        +--------------------------------------+--------------------------------------------+-------------------------------------------------------+
+        | 4f2774d1-dfb8-4833-8374-806e1fc40827 | Floating Network Private (UoE access only) | 6ab469f9-ff01-4aee-af59-5f1da7e26e81 172.16.48.0/22   |
+        | 6e5fd378-cc05-4c00-abb2-38bf288b2dba | VM Network Public                          | c1896ce6-efcb-4124-8462-df572b371fee 192.168.2.0/24   |
+        | bfe7eeca-3c9a-4a02-8a79-0f715c14c141 | VM Network Private                         | ecf2027b-6979-4484-8af1-58bd899d09b9 192.168.1.0/24   |
+        | d1e55e07-6f28-4d98-8116-e11ca10c3e8f | Floating Network Public                    | e1c72964-3276-473f-a169-b60de622c385 129.215.193.0/24 |
+        +--------------------------------------+--------------------------------------------+-------------------------------------------------------+
+
+    neutron \
+        floatingip-list
+
+        -
+
+    neutron \
+        floatingip-create \
+        '4f2774d1-dfb8-4833-8374-806e1fc40827'
+
+        Created a new floatingip:
+        +---------------------+--------------------------------------+
+        | Field               | Value                                |
+        +---------------------+--------------------------------------+
+        | created_at          | 2017-09-07T00:41:44Z                 |
+        | description         |                                      |
+        | fixed_ip_address    |                                      |
+        | floating_ip_address | 172.16.49.57                         |
+        | floating_network_id | 4f2774d1-dfb8-4833-8374-806e1fc40827 |
+        | id                  | 78790f33-3834-4be2-b7c6-94feef1abd4e |
+        | port_id             |                                      |
+        | project_id          | c2ff1afa3e874e0eb6f5a48f7e77208b     |
+        | revision_number     | 1                                    |
+        | router_id           |                                      |
+        | status              | DOWN                                 |
+        | tenant_id           | c2ff1afa3e874e0eb6f5a48f7e77208b     |
+        | updated_at          | 2017-09-07T00:41:44Z                 |
+        +---------------------+--------------------------------------+
+
+    neutron \
+        floatingip-list
+
+        +--------------------------------------+------------------+---------------------+---------+
+        | id                                   | fixed_ip_address | floating_ip_address | port_id |
+        +--------------------------------------+------------------+---------------------+---------+
+        | 78790f33-3834-4be2-b7c6-94feef1abd4e |                  | 172.16.49.57        |         |
+        +--------------------------------------+------------------+---------------------+---------+
+
+# -----------------------------------------------------
+# Associate our new IP address with our instance.
+# http://superuser.openstack.org/articles/everything-you-need-to-know-to-get-started-with-neutron-f90e2797-26b7-4d1c-84d8-effef03f11d2/
+#[root@container]
+
+    nova \
+        interface-list \
+        '82c41709-227b-42b3-9560-0ee1806572f0'
+
+        +------------+--------------------------------------+--------------------------------------+--------------+-------------------+
+        | Port State | Port ID                              | Net ID                               | IP addresses | MAC Addr          |
+        +------------+--------------------------------------+--------------------------------------+--------------+-------------------+
+        | ACTIVE     | 54ce1525-3723-4161-a658-ecc0b90acddf | bfe7eeca-3c9a-4a02-8a79-0f715c14c141 | 192.168.1.11 | fa:16:3e:1c:0d:da |
+        +------------+--------------------------------------+--------------------------------------+--------------+-------------------+
+
+#   neutron \
+#       floatingip-associate \
+#       <ADDRESS>
+#       <PORT>
+
+    neutron \
+        floatingip-associate \
+        '78790f33-3834-4be2-b7c6-94feef1abd4e' \
+        '54ce1525-3723-4161-a658-ecc0b90acddf'
+
+    neutron \
+        floatingip-list
+
+        +--------------------------------------+------------------+---------------------+--------------------------------------+
+        | id                                   | fixed_ip_address | floating_ip_address | port_id                              |
+        +--------------------------------------+------------------+---------------------+--------------------------------------+
+        | 78790f33-3834-4be2-b7c6-94feef1abd4e | 192.168.1.11     | 172.16.49.57        | 54ce1525-3723-4161-a658-ecc0b90acddf |
+        +--------------------------------------+------------------+---------------------+--------------------------------------+
+
+# -----------------------------------------------------
+# List our current volumes.
+#[root@container]
+
+    cinder \
+        list
+
+        +----+--------+------+------+-------------+----------+-------------+
+        | ID | Status | Name | Size | Volume Type | Bootable | Attached to |
+        +----+--------+------+------+-------------+----------+-------------+
+        +----+--------+------+------+-------------+----------+-------------+
+
+# -----------------------------------------------------
+# Allocate two new volumes.
+# https://access.redhat.com/documentation/en-US/Red_Hat_Enterprise_Linux_OpenStack_Platform/2/html/Getting_Started_Guide/ch15s02.html
+#[root@container]
+
+    cinder \
+        create \
+            --name 'dbdata' \
+            250
+
+        +------------------------------+------------------------------------------------------------------+
+        | Property                     | Value                                                            |
+        +------------------------------+------------------------------------------------------------------+
+        | attachments                  | []                                                               |
+        | availability_zone            | nova                                                             |
+        | bootable                     | false                                                            |
+        | consistencygroup_id          | None                                                             |
+        | created_at                   | 2017-09-07T00:49:50.000000                                       |
+        | description                  | None                                                             |
+        | encrypted                    | False                                                            |
+        | id                           | adb80e1b-319f-458f-824a-66c09cbadcf7                             |
+        | metadata                     | {}                                                               |
+        | multiattach                  | False                                                            |
+        | name                         | dbdata                                                           |
+        | os-vol-tenant-attr:tenant_id | c2ff1afa3e874e0eb6f5a48f7e77208b                                 |
+        | replication_status           | disabled                                                         |
+        | size                         | 250                                                              |
+        | snapshot_id                  | None                                                             |
+        | source_volid                 | None                                                             |
+        | status                       | creating                                                         |
+        | updated_at                   | None                                                             |
+        | user_id                      | 3d241b5fa2d0b3378901e08e86e10284dc9f9dae3732b99f71f809cf46ccb0d5 |
+        | volume_type                  | None                                                             |
+        +------------------------------+------------------------------------------------------------------+
+
+    cinder \
+        create \
+            --name 'gzdata' \
+            250
+
+        +------------------------------+------------------------------------------------------------------+
+        | Property                     | Value                                                            |
+        +------------------------------+------------------------------------------------------------------+
+        | attachments                  | []                                                               |
+        | availability_zone            | nova                                                             |
+        | bootable                     | false                                                            |
+        | consistencygroup_id          | None                                                             |
+        | created_at                   | 2017-09-07T01:58:43.000000                                       |
+        | description                  | None                                                             |
+        | encrypted                    | False                                                            |
+        | id                           | 3895a410-b1ed-47a2-91b3-3478183dc408                             |
+        | metadata                     | {}                                                               |
+        | multiattach                  | False                                                            |
+        | name                         | gzdata                                                           |
+        | os-vol-tenant-attr:tenant_id | c2ff1afa3e874e0eb6f5a48f7e77208b                                 |
+        | replication_status           | disabled                                                         |
+        | size                         | 250                                                              |
+        | snapshot_id                  | None                                                             |
+        | source_volid                 | None                                                             |
+        | status                       | creating                                                         |
+        | updated_at                   | None                                                             |
+        | user_id                      | 3d241b5fa2d0b3378901e08e86e10284dc9f9dae3732b99f71f809cf46ccb0d5 |
+        | volume_type                  | None                                                             |
+        +------------------------------+------------------------------------------------------------------+
+
+# -----------------------------------------------------
+# List our current volumes.
+#[root@container]
+
+    cinder \
+        list
+
+        +--------------------------------------+-----------+--------+------+-------------+----------+-------------+
+        | ID                                   | Status    | Name   | Size | Volume Type | Bootable | Attached to |
+        +--------------------------------------+-----------+--------+------+-------------+----------+-------------+
+        | 3895a410-b1ed-47a2-91b3-3478183dc408 | available | gzdata | 250  | -           | false    |             |
+        | adb80e1b-319f-458f-824a-66c09cbadcf7 | available | dbdata | 250  | -           | false    |             |
+        +--------------------------------------+-----------+--------+------+-------------+----------+-------------+
+
+# -----------------------------------------------------
+# List the volumes attached to our instance.
+#[root@container]
+
+    nova \
+        volume-attachments \
+        '82c41709-227b-42b3-9560-0ee1806572f0'
+
+        +----+--------+-----------+-----------+
+        | ID | DEVICE | SERVER ID | VOLUME ID |
+        +----+--------+-----------+-----------+
+        +----+--------+-----------+-----------+
+
+# -----------------------------------------------------
+# Attach the volume to our instance.
+#[root@container]
+
+#   nova \
+#       volume-attach \
+#       <INSTANCE> \
+#       <VOLUME>
+
+    nova \
+        volume-attach \
+        '82c41709-227b-42b3-9560-0ee1806572f0' \
+        'adb80e1b-319f-458f-824a-66c09cbadcf7'
+
+        +----------+--------------------------------------+
+        | Property | Value                                |
+        +----------+--------------------------------------+
+        | device   | /dev/vdb                             |
+        | id       | adb80e1b-319f-458f-824a-66c09cbadcf7 |
+        | serverId | 82c41709-227b-42b3-9560-0ee1806572f0 |
+        | volumeId | adb80e1b-319f-458f-824a-66c09cbadcf7 |
+        +----------+--------------------------------------+
+
+    nova \
+        volume-attach \
+        '82c41709-227b-42b3-9560-0ee1806572f0' \
+        '3895a410-b1ed-47a2-91b3-3478183dc408'
+
+        +----------+--------------------------------------+
+        | Property | Value                                |
+        +----------+--------------------------------------+
+        | device   | /dev/vdc                             |
+        | id       | 3895a410-b1ed-47a2-91b3-3478183dc408 |
+        | serverId | 82c41709-227b-42b3-9560-0ee1806572f0 |
+        | volumeId | 3895a410-b1ed-47a2-91b3-3478183dc408 |
+        +----------+--------------------------------------+
+
+# -----------------------------------------------------
+# Exit our container.
+#[root@container]
+
+    exit
+
+# -----------------------------------------------------
+# Login to our VM instance.
+#[user@trop]
+
+    #
+    # Need to send ServerAlive packets
+    # to prevent connection timeout
+    # during the database load.
+    #
+
+    ssh \
+        root@172.16.49.57 \
+        -o 'ServerAliveInterval 20'
+
+        The authenticity of host '172.16.49.87 (172.16.49.87)' can't be established.
+        ECDSA key fingerprint is SHA256:5wBnKeaQTsfl7CwQpLM5BL0syp6swkX+FaPcuJvhE6c.
+        ECDSA key fingerprint is MD5:62:b6:d0:79:d5:45:5a:61:06:e6:10:43:0a:b7:5e:3b.
+        Are you sure you want to continue connecting (yes/no)? yes
+        Warning: Permanently added '172.16.49.87' (ECDSA) to the list of known hosts.
+
+# -----------------------------------------------------
+# Check the mounted disks.
+#[root@virtual]
+
+    cat /etc/fstab
+
+        UUID=6a6a5a64-889b-4d96-883c-6e0b93589ceb /                       btrfs   subvol=root     0 0
+        UUID=8ca95cee-09e1-4f47-a076-49e1c048bdd1 /boot                   ext4    defaults        1 2
+        UUID=99cb7a36-04ad-4edf-bb93-2f14d2cda8d1 swap                    swap    defaults        0 0
+
+    cat /etc/mtab | grep '^/dev'
+
+        /dev/vda3 / btrfs rw,seclabel,relatime,space_cache,subvolid=257,subvol=/root 0 0
+        /dev/vda1 /boot ext4 rw,seclabel,relatime,data=ordered 0 0
+        /dev/vda3 /var/lib/docker/btrfs btrfs rw,seclabel,relatime,space_cache,subvolid=257,subvol=/root/var/lib/docker/btrfs 0 0
+
+# -----------------------------------------------------
+# Check the available disks.
+#[root@virtual]
+
+    ls -al /dev/disk/by-uuid/
+
+        lrwxrwxrwx. 1 root root  10 Sep  7 00:40 6a6a5a64-889b-4d96-883c-6e0b93589ceb -> ../../vda3
+        lrwxrwxrwx. 1 root root  10 Sep  7 00:40 8ca95cee-09e1-4f47-a076-49e1c048bdd1 -> ../../vda1
+        lrwxrwxrwx. 1 root root  10 Sep  7 00:40 99cb7a36-04ad-4edf-bb93-2f14d2cda8d1 -> ../../vda2
+
+    ls -al /dev/disk/by-id/
+
+        lrwxrwxrwx. 1 root root   9 Sep  7 00:57 virtio-adb80e1b-319f-458f-8 -> ../../vdb
+        lrwxrwxrwx. 1 root root   9 Sep  7 00:57 virtio-3895a410-b1ed-47a2-9 -> ../../vdc
+
+#---------------------------------------------------------------------
+# Create btrfs file systems on our volumes.
+# https://www.howtoforge.com/a-beginners-guide-to-btrfs
+#[root@virtual]
+
+    dnf \
+        install -y \
+        btrfs-progs
+
+    mkfs.btrfs \
+        /dev/vdb
+
+        Label:              (null)
+        UUID:               ba1e73dc-6533-4a3a-85e4-f37c9fe9fec1
+        Node size:          16384
+        Sector size:        4096
+        Filesystem size:    250.00GiB
+        Block group profiles:
+          Data:             single            8.00MiB
+          Metadata:         DUP               1.01GiB
+          System:           DUP              12.00MiB
+        SSD detected:       no
+        Incompat features:  extref, skinny-metadata
+        Number of devices:  1
+        Devices:
+           ID        SIZE  PATH
+            1   250.00GiB  /dev/vdb
+
+    mkfs.btrfs \
+        /dev/vdc
+
+        Label:              (null)
+        UUID:               0bd13dca-755f-42f0-9202-6c980d7b9595
+        Node size:          16384
+        Sector size:        4096
+        Filesystem size:    250.00GiB
+        Block group profiles:
+          Data:             single            8.00MiB
+          Metadata:         DUP               1.01GiB
+          System:           DUP              12.00MiB
+        SSD detected:       no
+        Incompat features:  extref, skinny-metadata
+        Number of devices:  1
+        Devices:
+           ID        SIZE  PATH
+            1   250.00GiB  /dev/vdc
+
+# -----------------------------------------------------
+# Create our mount points.
+#[root@virtual]
+
+    mkdir /dbdata
+
+    mkdir /gzdata
+
+# -----------------------------------------------------
+# Add the new file systems to fstab.
+#[root@virtual]
+
+    cat >> /etc/fstab << 'EOF'
+UUID=ba1e73dc-6533-4a3a-85e4-f37c9fe9fec1 /dbdata                 btrfs   defaults        0 0
+UUID=0bd13dca-755f-42f0-9202-6c980d7b9595 /gzdata                 btrfs   defaults        0 0
+EOF
+
+# -----------------------------------------------------
+# Mount the new volumes.
+#[root@virtual]
+
+    mount /dbdata
+
+    mount /gzdata
+
+# -----------------------------------------------------
+# Check the mounted disks.
+#[root@virtual]
+
+    df -h /dbdata
+
+        Filesystem      Size  Used Avail Use% Mounted on
+        /dev/vdb        250G   17M  248G   1% /dbdata
+
+    df -h /gzdata
+
+        Filesystem      Size  Used Avail Use% Mounted on
+        /dev/vdc        250G   17M  248G   1% /gzdata
+
+# -----------------------------------------------------
+# Check the mounted disks.
+#[root@virtual]
+
+    cat /etc/fstab
+
+        UUID=6a6a5a64-889b-4d96-883c-6e0b93589ceb /                       btrfs   subvol=root     0 0
+        UUID=8ca95cee-09e1-4f47-a076-49e1c048bdd1 /boot                   ext4    defaults        1 2
+        UUID=99cb7a36-04ad-4edf-bb93-2f14d2cda8d1 swap                    swap    defaults        0 0
+        UUID=ba1e73dc-6533-4a3a-85e4-f37c9fe9fec1 /dbdata                 btrfs   defaults        0 0
+        UUID=0bd13dca-755f-42f0-9202-6c980d7b9595 /gzdata                 btrfs   defaults        0 0
+
+    cat /etc/mtab | grep '^/dev'
+
+        /dev/vda3 / btrfs rw,seclabel,relatime,space_cache,subvolid=257,subvol=/root 0 0
+        /dev/vda1 /boot ext4 rw,seclabel,relatime,data=ordered 0 0
+        /dev/vda3 /var/lib/docker/btrfs btrfs rw,seclabel,relatime,space_cache,subvolid=257,subvol=/root/var/lib/docker/btrfs 0 0
+        /dev/vdb /dbdata btrfs rw,seclabel,relatime,space_cache,subvolid=5,subvol=/ 0 0
+        /dev/vdc /gzdata btrfs rw,seclabel,relatime,space_cache,subvolid=5,subvol=/ 0 0
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+# Import our database dump.
+#[user@shep]
+
+    pushd /disk63/astrotrop/
+
+        scp backup_ps1ss_20170320.sql.gz root@172.16.49.57:/gzdata
+
+    popd
+
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+# Check our database dump.
+#[root@virtual]
+
+    pushd /gzdata
+        
+        gunzip --stdout \
+            backup_ps1ss_20170320.sql.gz |
+            less
+
+    popd
+
+# -----------------------------------------------------
+# Create our database config.
+#[root@virtual]
+
+    cat > "${HOME}/database.config" << EOF
+adminuser=helen
+adminpass=$(pwgen 10 1)
+databasename=testdb
+databaseuser=stephany
+databasepass=$(pwgen 10 1)
+EOF
+
+# -----------------------------------------------------
+# Run our database service.
+#[root@virtual]
+
+    docker run \
+        --detach \
+        --name 'mariadb' \
+        --volume "/gzdata:/gzdata" \
+        --volume "/dbdata:/var/lib/mysql" \
+        --volume "${HOME}/database.config:/database.config" \
+       'cosmopterix/mariadb-base:10.0-1.1'                
+
+# -----------------------------------------------------
+# Check the database logs.
+#[root@virtual]
+
+    docker logs 'mariadb'
+
+# -----------------------------------------------------
+# Run our database client.
+#[root@virtual]
+
+    docker exec \
+        --tty \
+        --interactive \
+        'mariadb' \
+        'mariadb-client'
+
+            SHOW DATABASES ;
+            SHOW TABLES ;
+
+            SELECT version();
+
+                +-----------------+
+                | version()       |
+                +-----------------+
+                | 10.0.27-MariaDB |
+                +-----------------+
+            
+            \q
+
+# -----------------------------------------------------
+# Import our database dump.
+#[root@virtual]
+
+    docker exec \
+        --tty \
+        --interactive \
+        'mariadb' \
+        'bash'
+
+        date --utc --iso-8601=s
+        zcat /gzdata/backup_ps1ss_20170320.sql.gz | mariadb-client
+        date --utc --iso-8601=s
+
+        # 2017-09-07T10:09:16+0000
+        # Running database client
+        # ERROR 1142 (42000) at line 48616: ANY command denied to user 'stephany'@'%' for table 'tcs_2mass_psc_cat'
+        # 2017-09-07T12:32:38+0000
+
+# -----------------------------------------------------
+# Check grant permissions.
+#[root@container]
+
+        source /database.config
+
+        mysql \
+            --user=${adminuser:?} \
+            --password=${adminpass:?} \
+            ${databasename:?}
+
+            SHOW GRANTS FOR stephany;
+
+                +---------------------------------------------------------------------------------------------------------+
+                | Grants for stephany@%                                                                                   |
+                +---------------------------------------------------------------------------------------------------------+
+                | GRANT USAGE ON *.* TO 'stephany'@'%' IDENTIFIED BY PASSWORD '*A07C807CF0C5E5501E4659C32F475566FF82F0F2' |
+                | GRANT ALL PRIVILEGES ON `testdb`.* TO 'stephany'@'%'                                                    |
+                +---------------------------------------------------------------------------------------------------------+
+
+# -----------------------------------------------------
+# Bug is caused by ALGORITHM and DEFINER statements.
+# https://stackoverflow.com/questions/25924796/mysqldump-without-create-algorithm-and-definer
+#[root@container]
+
+        zcat /gzdata/backup_ps1ss_20170320.sql.gz |
+            sed -n '
+                /CREATE ALGORITHM/p
+                /DEFINER/p
+                '
+
+            /*!50001 CREATE ALGORITHM=UNDEFINED */
+            /*!50013 DEFINER=`ssuser`@`%` SQL SECURITY DEFINER */
+            /*!50001 CREATE ALGORITHM=UNDEFINED */
+            /*!50013 DEFINER=`ssuser`@`%` SQL SECURITY DEFINER */
+
+
+
+        zcat /gzdata/backup_ps1ss_20170320.sql.gz |
+            sed -n '
+                s|![0-9]* DEFINER| DEFINER|p
+                '
+
+            /* DEFINER=`ssuser`@`%` SQL SECURITY DEFINER */
+            /* DEFINER=`ssuser`@`%` SQL SECURITY DEFINER */
+
+
+# -----------------------------------------------------
+# Import our database dump.
+#[root@container]
+
+        date --utc --iso-8601=s
+
+        zcat /gzdata/backup_ps1ss_20170320.sql.gz |
+            sed -n '
+                s|![0-9]* DEFINER| DEFINER|p
+                ' |
+            mariadb-client
+
+        date --utc --iso-8601=s
+
+        # 2017-09-07T16:51:49+0000
+        # Running database client
+        # 2017-09-07T16:59:21+0000
+
+        #
+        # Load 59149431 rows in 452 seconds.
+        # 59149431/452=130861
+        # 130,861 rows per second
+        #
+
+# -----------------------------------------------------
+# Check the database contents.
+# https://stackoverflow.com/questions/9620198/how-to-get-the-sizes-of-the-tables-of-a-mysql-database
+# https://stackoverflow.com/a/9620273
+#[root@container]
+
+        mariadb-client
+
+            SHOW DATABASES ;
+            SHOW TABLES ;
+
+                +----------------------------------------+
+                | Tables_in_testdb                       |
+                +----------------------------------------+
+                | tcs_2mass_xsc_cat                      |
+                | tcs_cat_deep2dr3                       |
+                | tcs_cat_kepler_k2                      |
+                | .... .... .... ....                    |
+                | .... .... .... ....                    |
+                | tcs_transient_reobservations           |
+                | tcs_veron_cat                          |
+                | tcs_zoo_requests                       |
+                +----------------------------------------+
+
+            SELECT 
+                table_name AS 'Table name', 
+                table_rows AS 'Row count', 
+                round(((data_length + index_length) / (1024 * 1024)), 2) AS 'Size (MB)'
+            FROM
+                information_schema.TABLES 
+            WHERE
+                table_schema = "testdb"
+            AND
+                table_rows > 0
+            ORDER BY
+                table_name
+                ;
+
+                +------------------------------------+-----------+-----------+
+                | Table name                         | Row count | Size (MB) |
+                +------------------------------------+-----------+-----------+
+                | tcs_catalogue_tables               |        55 |      0.00 |
+                | tcs_cfa_detections                 |     30895 |     13.20 |
+                | tcs_cfa_to_ipp_lookup              |     30895 |      2.33 |
+                | tcs_classification_flags           |         9 |      0.00 |
+                | tcs_classification_history         |    119736 |     14.90 |
+                | tcs_cmf_metadata                   |    243570 |    152.53 |
+                | tcs_cross_matches                  |   3679433 |    365.40 |
+                | tcs_cross_matches_external         |       111 |      0.04 |
+                | tcs_detection_lists                |         7 |      0.00 |
+                | tcs_followup_photometry            |        83 |      0.01 |
+                | tcs_followup_telescopes            |        11 |      0.00 |
+                | tcs_followup_telescope_instruments |        11 |      0.00 |
+                | tcs_forced_photometry              |      1515 |      0.35 |
+                | tcs_images                         |    121264 |     40.01 |
+                | tcs_image_groups                   |    631977 |     72.94 |
+                | tcs_ipp_to_cfa_lookup              |      9875 |      0.69 |
+                | tcs_latest_object_stats            |    442545 |     73.87 |
+                | tcs_object_groups                  |      3345 |      0.26 |
+                | tcs_object_group_definitions       |        27 |      0.00 |
+                | tcs_parameter_definitions          |        36 |      0.00 |
+                | tcs_postage_stamp_images           |   1895896 |    415.54 |
+                | tcs_postage_stamp_requests         |     17469 |      1.62 |
+                | tcs_postage_stamp_status_codes     |         8 |      0.00 |
+                | tcs_processing_status              |       193 |      0.02 |
+                | tcs_search_parameters              |         3 |      0.00 |
+                | tcs_transient_objects              |  13697733 |   7027.90 |
+                | tcs_transient_reobservations       |  59149431 |  24324.85 |
+                +------------------------------------+-----------+-----------+
+
+            DESCRIBE tcs_transient_objects ;
+
+                +---------------------------+----------------------+------+-----+---------+-------+
+                | Field                     | Type                 | Null | Key | Default | Extra |
+                +---------------------------+----------------------+------+-----+---------+-------+
+                | ipp_idet                  | int(10) unsigned     | YES  | MUL | NULL    |       |
+                | x_psf                     | float                | YES  |     | NULL    |       |
+                | y_psf                     | float                | YES  |     | NULL    |       |
+                | x_psf_sig                 | float                | YES  |     | NULL    |       |
+                | y_psf_sig                 | float                | YES  |     | NULL    |       |
+                | ra_psf                    | double               | NO   | MUL | NULL    |       |
+                | dec_psf                   | double               | NO   |     | NULL    |       |
+                | posangle                  | float                | YES  |     | NULL    |       |
+                | pltscale                  | float                | YES  |     | NULL    |       |
+                | psf_inst_mag              | float                | YES  |     | NULL    |       |
+                | psf_inst_mag_sig          | float                | YES  |     | NULL    |       |
+                | ap_mag                    | float                | YES  |     | NULL    |       |
+                | ap_mag_radius             | float                | YES  |     | NULL    |       |
+                | peak_flux_as_mag          | float                | YES  |     | NULL    |       |
+                | cal_psf_mag               | float                | YES  |     | NULL    |       |
+                | cal_psf_mag_sig           | float                | YES  |     | NULL    |       |
+                | sky                       | float                | YES  |     | NULL    |       |
+                | sky_sigma                 | float                | YES  |     | NULL    |       |
+                | psf_chisq                 | float                | YES  |     | NULL    |       |
+                | cr_nsigma                 | float                | YES  |     | NULL    |       |
+                | ext_nsigma                | float                | YES  |     | NULL    |       |
+                | psf_major                 | float                | YES  |     | NULL    |       |
+                | psf_minor                 | float                | YES  |     | NULL    |       |
+                | psf_theta                 | float                | YES  |     | NULL    |       |
+                | psf_qf                    | float                | YES  |     | NULL    |       |
+                | psf_ndof                  | int(11)              | YES  |     | NULL    |       |
+                | psf_npix                  | int(11)              | YES  |     | NULL    |       |
+                | moments_xx                | float                | YES  |     | NULL    |       |
+                | moments_xy                | float                | YES  |     | NULL    |       |
+                | moments_yy                | float                | YES  |     | NULL    |       |
+                | flags                     | int(10) unsigned     | YES  |     | NULL    |       |
+                | n_frames                  | smallint(5) unsigned | YES  |     | NULL    |       |
+                | padding                   | smallint(6)          | YES  |     | NULL    |       |
+                | local_designation         | varchar(40)          | YES  | UNI | NULL    |       |
+                | local_comments            | varchar(255)         | YES  |     | NULL    |       |
+                | htm20ID                   | bigint(20) unsigned  | YES  | MUL | NULL    |       |
+                | htm16ID                   | bigint(20) unsigned  | YES  | MUL | NULL    |       |
+                | cx                        | double               | YES  |     | NULL    |       |
+                | cy                        | double               | YES  |     | NULL    |       |
+                | cz                        | double               | YES  |     | NULL    |       |
+                | id                        | bigint(20) unsigned  | NO   | PRI | NULL    |       |
+                | tcs_cmf_metadata_id       | bigint(20) unsigned  | YES  | MUL | NULL    |       |
+                | tcs_images_id             | bigint(20) unsigned  | YES  | MUL | NULL    |       |
+                | date_inserted             | datetime             | NO   | MUL | NULL    |       |
+                | date_modified             | datetime             | YES  | MUL | NULL    |       |
+                | object_classification     | int(10) unsigned     | YES  | MUL | NULL    |       |
+                | followup_priority         | int(10) unsigned     | YES  | MUL | NULL    |       |
+                | external_reference_id     | varchar(40)          | YES  | MUL | NULL    |       |
+                | followup_id               | int(10) unsigned     | YES  | MUL | NULL    |       |
+                | postage_stamp_request_id  | bigint(20) unsigned  | YES  | MUL | NULL    |       |
+                | image_group_id            | bigint(20) unsigned  | YES  | MUL | NULL    |       |
+                | detection_list_id         | smallint(5) unsigned | YES  | MUL | NULL    |       |
+                | followup_flag_date        | date                 | YES  | MUL | NULL    |       |
+                | survey_field              | varchar(10)          | YES  | MUL | NULL    |       |
+                | followup_counter          | int(10) unsigned     | YES  | MUL | NULL    |       |
+                | ps1_designation           | varchar(40)          | YES  | MUL | NULL    |       |
+                | other_designation         | varchar(40)          | YES  | MUL | NULL    |       |
+                | confidence_factor         | float                | YES  | MUL | NULL    |       |
+                | quality_threshold_pass    | tinyint(1)           | YES  | MUL | NULL    |       |
+                | locally_calculated_mag    | float                | YES  |     | NULL    |       |
+                | zoo_request_id            | bigint(20) unsigned  | YES  |     | NULL    |       |
+                | psf_inst_flux             | float                | YES  |     | NULL    |       |
+                | psf_inst_flux_sig         | float                | YES  |     | NULL    |       |
+                | diff_npos                 | int(11)              | YES  |     | NULL    |       |
+                | diff_fratio               | float                | YES  |     | NULL    |       |
+                | diff_nratio_bad           | float                | YES  |     | NULL    |       |
+                | diff_nratio_mask          | float                | YES  |     | NULL    |       |
+                | diff_nratio_all           | float                | YES  |     | NULL    |       |
+                | ap_flux                   | float                | YES  |     | NULL    |       |
+                | ap_flux_sig               | float                | YES  |     | NULL    |       |
+                | ap_mag_raw                | float                | YES  |     | NULL    |       |
+                | diff_r_m                  | float                | YES  |     | NULL    |       |
+                | diff_r_p                  | float                | YES  |     | NULL    |       |
+                | diff_sn_m                 | float                | YES  |     | NULL    |       |
+                | diff_sn_p                 | float                | YES  |     | NULL    |       |
+                | flags2                    | int(10) unsigned     | YES  |     | NULL    |       |
+                | kron_flux                 | float                | YES  |     | NULL    |       |
+                | kron_flux_err             | float                | YES  |     | NULL    |       |
+                | kron_flux_inner           | float                | YES  |     | NULL    |       |
+                | kron_flux_outer           | float                | YES  |     | NULL    |       |
+                | moments_r1                | float                | YES  |     | NULL    |       |
+                | moments_rh                | float                | YES  |     | NULL    |       |
+                | psf_qf_perfect            | float                | YES  |     | NULL    |       |
+                | current_trend             | varchar(40)          | YES  |     | NULL    |       |
+                | observation_status        | varchar(40)          | YES  | MUL | NULL    |       |
+                | deprecated                | tinyint(1)           | YES  |     | NULL    |       |
+                | tti_pair                  | tinyint(1)           | YES  | MUL | NULL    |       |
+                | processing_flags          | int(10) unsigned     | YES  | MUL | NULL    |       |
+                | sherlockClassification    | varchar(40)          | YES  | MUL | NULL    |       |
+                | classification_confidence | float                | YES  | MUL | NULL    |       |
+                | classification_type       | tinyint(3) unsigned  | YES  | MUL | NULL    |       |
+                +---------------------------+----------------------+------+-----+---------+-------+
+
+            DESCRIBE tcs_transient_reobservations ;
+
+                +--------------------------+----------------------+------+-----+---------+----------------+
+                | Field                    | Type                 | Null | Key | Default | Extra          |
+                +--------------------------+----------------------+------+-----+---------+----------------+
+                | ipp_idet                 | int(10) unsigned     | YES  | MUL | NULL    |                |
+                | x_psf                    | float                | YES  |     | NULL    |                |
+                | y_psf                    | float                | YES  |     | NULL    |                |
+                | x_psf_sig                | float                | YES  |     | NULL    |                |
+                | y_psf_sig                | float                | YES  |     | NULL    |                |
+                | ra_psf                   | double               | NO   | MUL | NULL    |                |
+                | dec_psf                  | double               | NO   |     | NULL    |                |
+                | posangle                 | float                | YES  |     | NULL    |                |
+                | pltscale                 | float                | YES  |     | NULL    |                |
+                | psf_inst_mag             | float                | YES  |     | NULL    |                |
+                | psf_inst_mag_sig         | float                | YES  |     | NULL    |                |
+                | ap_mag                   | float                | YES  |     | NULL    |                |
+                | ap_mag_radius            | float                | YES  |     | NULL    |                |
+                | peak_flux_as_mag         | float                | YES  |     | NULL    |                |
+                | cal_psf_mag              | float                | YES  |     | NULL    |                |
+                | cal_psf_mag_sig          | float                | YES  |     | NULL    |                |
+                | sky                      | float                | YES  |     | NULL    |                |
+                | sky_sigma                | float                | YES  |     | NULL    |                |
+                | psf_chisq                | float                | YES  |     | NULL    |                |
+                | cr_nsigma                | float                | YES  |     | NULL    |                |
+                | ext_nsigma               | float                | YES  |     | NULL    |                |
+                | psf_major                | float                | YES  |     | NULL    |                |
+                | psf_minor                | float                | YES  |     | NULL    |                |
+                | psf_theta                | float                | YES  |     | NULL    |                |
+                | psf_qf                   | float                | YES  |     | NULL    |                |
+                | psf_ndof                 | int(11)              | YES  |     | NULL    |                |
+                | psf_npix                 | int(11)              | YES  |     | NULL    |                |
+                | moments_xx               | float                | YES  |     | NULL    |                |
+                | moments_xy               | float                | YES  |     | NULL    |                |
+                | moments_yy               | float                | YES  |     | NULL    |                |
+                | flags                    | int(10) unsigned     | YES  |     | NULL    |                |
+                | n_frames                 | smallint(5) unsigned | YES  |     | NULL    |                |
+                | padding                  | smallint(6)          | YES  |     | NULL    |                |
+                | htm20ID                  | bigint(20) unsigned  | NO   | MUL | NULL    |                |
+                | htm16ID                  | bigint(20) unsigned  | NO   | MUL | NULL    |                |
+                | cx                       | double               | NO   |     | NULL    |                |
+                | cy                       | double               | NO   |     | NULL    |                |
+                | cz                       | double               | NO   |     | NULL    |                |
+                | id                       | bigint(20) unsigned  | NO   | PRI | NULL    | auto_increment |
+                | tcs_cmf_metadata_id      | bigint(20) unsigned  | NO   | MUL | NULL    |                |
+                | tcs_images_id            | bigint(20) unsigned  | YES  | MUL | NULL    |                |
+                | transient_object_id      | bigint(20) unsigned  | NO   | MUL | NULL    |                |
+                | date_inserted            | datetime             | NO   | MUL | NULL    |                |
+                | date_modified            | datetime             | YES  | MUL | NULL    |                |
+                | local_comments           | varchar(255)         | YES  |     | NULL    |                |
+                | postage_stamp_request_id | bigint(20) unsigned  | YES  | MUL | NULL    |                |
+                | image_group_id           | bigint(20) unsigned  | YES  | MUL | NULL    |                |
+                | quality_threshold_pass   | tinyint(1)           | YES  | MUL | NULL    |                |
+                | locally_calculated_mag   | float                | YES  |     | NULL    |                |
+                | psf_inst_flux            | float                | YES  |     | NULL    |                |
+                | psf_inst_flux_sig        | float                | YES  |     | NULL    |                |
+                | diff_npos                | int(11)              | YES  |     | NULL    |                |
+                | diff_fratio              | float                | YES  |     | NULL    |                |
+                | diff_nratio_bad          | float                | YES  |     | NULL    |                |
+                | diff_nratio_mask         | float                | YES  |     | NULL    |                |
+                | diff_nratio_all          | float                | YES  |     | NULL    |                |
+                | ap_flux                  | float                | YES  |     | NULL    |                |
+                | ap_flux_sig              | float                | YES  |     | NULL    |                |
+                | ap_mag_raw               | float                | YES  |     | NULL    |                |
+                | diff_r_m                 | float                | YES  |     | NULL    |                |
+                | diff_r_p                 | float                | YES  |     | NULL    |                |
+                | diff_sn_m                | float                | YES  |     | NULL    |                |
+                | diff_sn_p                | float                | YES  |     | NULL    |                |
+                | flags2                   | int(10) unsigned     | YES  |     | NULL    |                |
+                | kron_flux                | float                | YES  |     | NULL    |                |
+                | kron_flux_err            | float                | YES  |     | NULL    |                |
+                | kron_flux_inner          | float                | YES  |     | NULL    |                |
+                | kron_flux_outer          | float                | YES  |     | NULL    |                |
+                | moments_r1               | float                | YES  |     | NULL    |                |
+                | moments_rh               | float                | YES  |     | NULL    |                |
+                | psf_qf_perfect           | float                | YES  |     | NULL    |                |
+                | deprecated               | tinyint(1)           | YES  |     | NULL    |                |
+                | confidence_factor        | float                | YES  | MUL | NULL    |                |
+                +--------------------------+----------------------+------+-----+---------+----------------+
+
