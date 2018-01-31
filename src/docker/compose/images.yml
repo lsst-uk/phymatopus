@@ -1,0 +1,48 @@
+version: '2.1'
+
+services:
+
+    fedora:
+        image:
+            "phymatopus/fedora:${buildtag}"
+        labels:
+            uk.ac.roe.phymatopus.buildtag: "${buildtag}"
+        build:
+            context: '../fedora'
+
+    java:
+        image:
+            "phymatopus/java:${buildtag}"
+        labels:
+            uk.ac.roe.phymatopus.buildtag: "${buildtag}"
+        build:
+            context: '../java'
+        depends_on:
+            - fedora
+
+    tomcat:
+        image:
+            "phymatopus/tomcat:${buildtag}"
+        labels:
+            uk.ac.roe.phymatopus.buildtag: "${buildtag}"
+        build:
+            context: '../tomcat'
+        depends_on:
+            - java
+
+    tester:
+        image:
+           "phymatopus/tester:${buildtag}"
+        build:
+            context: '../tester'
+        depends_on:
+            - java
+
+    builder:
+        image:
+           "phymatopus/builder:${buildtag}"
+        build:
+            context: '../builder'
+        depends_on:
+            - java
+
