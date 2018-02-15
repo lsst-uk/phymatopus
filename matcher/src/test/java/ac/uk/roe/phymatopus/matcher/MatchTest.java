@@ -21,11 +21,13 @@ package ac.uk.roe.phymatopus.matcher;
 import ac.uk.roe.wfau.phymatopus.matcher.Matcher;
 import edu.jhu.htm.core.HTMException;
 import junit.framework.TestCase;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * 
  * 
  */
+@Slf4j
 public class MatchTest extends TestCase
     {
 
@@ -41,7 +43,11 @@ public class MatchTest extends TestCase
         {
         final Matcher matcher = new Matcher();
         
-        matcher.cone(123.0, 8.5, 0.0025);
+        final Iterable<Long> iter = matcher.cone(123.0, 8.5, 0.0025);
 
+        for (Long htmid : iter)
+            {
+            log.debug(htmid.toString());
+            }
         }
     }

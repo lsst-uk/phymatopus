@@ -27,11 +27,13 @@ import edu.jhu.htm.core.HTMindexImp;
 import edu.jhu.htm.core.HTMrange;
 import edu.jhu.htm.core.HTMrangeIterator;
 import edu.jhu.htm.geometry.Circle;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * 
  * 
  */
+@Slf4j
 public class Matcher
     {
 
@@ -40,45 +42,74 @@ public class Matcher
      */
     public Matcher()
         {
+        log.debug("Matcher - start");
+        this.index = new HTMindexImp(depth);
+        log.debug("Matcher - done");
         }
 
+    final int depth = 20 ;
+    final HTMindex index ;         
     
     /**
      * Cone search ..
      * @throws HTMException 
      * 
      */
-    public void cone(double ra, double dec, double radius)
+    public HTMRangeIterable cone(double ra, double dec, double radius)
     throws HTMException
         {
-        final int depth = 20 ;
-        final HTMindex index = new HTMindexImp(depth);        
+        log.debug("cone - start");
         final HTMrange range = new HTMrange();
-
         final Circle circle = new Circle(
             ra,
             dec,
             radius
             ); 
         final Domain domain = circle.getDomain();
-
         domain.setOlevel(depth);
         
+        log.debug("intersect - start");
         domain.intersect(
             (HTMindexImp) index,
             range,
             false
             );        
-
-        @SuppressWarnings("unchecked")
-        final Iterator<Long> iter = new HTMrangeIterator(
-            range,
-            false
+        log.debug("intersect - done");
+        log.debug("cone - done");
+        return new HTMRangeIterable(
+            range
             );
+        }
 
-        while (iter.hasNext())
+    public static class HTMRangeIterable
+    implements Iterable<Long>
+        {
+        /**
+         * Public constructor.
+         * 
+         */
+        public HTMRangeIterable(final HTMrange range)
             {
-            System.out.println(iter.next());        
+            this.range = range;
+            }
+        
+        private final HTMrange range; 
+        
+        @Override
+        @SuppressWarnings("unchecked")
+        public Iterator<Long> iterator()
+            {
+            try {
+                return new HTMrangeIterator(
+                    range,
+                    false
+                    );
+                }
+            catch (HTMException ouch)
+                {
+                ouch.printStackTrace();
+                throw new RuntimeException(ouch);
+                }
             }
         }
     }
