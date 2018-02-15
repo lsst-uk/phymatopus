@@ -16,9 +16,9 @@
  *
  */
 
-package ac.uk.roe.phymatopus.matcher;
+package ac.uk.roe.wfau.phymatopus.index;
 
-import ac.uk.roe.wfau.phymatopus.matcher.Matcher;
+import ac.uk.roe.wfau.phymatopus.index.Indexer;
 import edu.jhu.htm.core.HTMException;
 import junit.framework.TestCase;
 import lombok.extern.slf4j.Slf4j;
@@ -28,22 +28,22 @@ import lombok.extern.slf4j.Slf4j;
  * 
  */
 @Slf4j
-public class MatchTest extends TestCase
+public class IndexerTest extends TestCase
     {
 
     /**
      * 
      */
-    public MatchTest()
+    public IndexerTest()
         {
         }
 
     public void testCone()
     throws HTMException
         {
-        final Matcher matcher = new Matcher();
+        final Indexer matcher = new Indexer();
         
-        final Iterable<Long> iter = matcher.cone(123.0, 8.5, 0.0025);
+        final Iterable<Long> iter = matcher.circle(123.0, 8.5, 0.0025);
 
         for (Long htmid : iter)
             {

@@ -21,7 +21,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>uk.ac.roe.wfau</groupId>
-    <artifactId>phymatopus-matcher</artifactId>
+    <artifactId>phymatopus-indexer</artifactId>
     <packaging>war</packaging>
 
     <version>1.0</version>
@@ -30,10 +30,11 @@
         <maven>3.3.1</maven>
     </prerequisites>
 
-    <name>matcher</name>
+    <name>Triodia</name>
     <description>
         <![CDATA[
-        HTMID matcher.
+        HTM indexing and matching service.
+        Named after the Orange Swift <i><a href='https://www.ukmoths.org.uk/species/triodia-sylvina'>Triodia Sylvina</a></i> moth.
         ]]>
     </description>
 
@@ -84,6 +85,18 @@
             +-->
         <project.javaversion>1.7</project.javaversion>
         <project.build.sourceencoding>UTF-8</project.build.sourceencoding>
+
+        <!--+
+            | Docker host.
+            | Making it a propery means it can be overridden on the command line.
+            | mvn -D "docker.host=http://172.17.0.2:2375/" ....
+            +-->
+        <docker.host>unix:///var/run/docker.sock</docker.host>
+
+        <!--+
+            | Docker container tag.
+            +-->
+        <docker.buildtag>${project.version}</docker.buildtag>
 
     </properties>
 
@@ -192,6 +205,17 @@
             <version>3.8.1</version>
     	</dependency>
 
+        <!--+
+            | os-platform-finder
+            | https://github.com/aurbroszniowski/os-platform-finder
+            | * Not available in Maven central, need to compile from source.
+            +-->
+        <dependency>
+            <groupId>org.jsoftbiz</groupId>
+            <artifactId>os-platform-finder</artifactId>
+            <version>1.0</version>
+        </dependency>
+
     </dependencies>
 
     <build>
@@ -212,156 +236,54 @@
 
         </resources>
 
-        <!--+
-            | This section defines the versions and configuration for the plugins.
-            | http://mojo.codehaus.org/versions-maven-plugin/
-            | mvn versions:display-plugin-updates
-            +-->
-        <pluginManagement>
-
-            <plugins>
-
-                <!-- ======== Build plugins ======== -->
-
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-clean-plugin</artifactId>
-                    <version>3.0.0</version>
-                </plugin>
-
-                <plugin>
-                    <artifactId>maven-compiler-plugin</artifactId>
-                    <version>3.7.0</version>
-                    <configuration>
-                        <source>${project.javaversion}</source>
-                        <target>${project.javaversion}</target>
-                        <encoding>${project.build.sourceencoding}</encoding>
-                    </configuration>
-                </plugin>
-
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-install-plugin</artifactId>
-                    <version>2.5.2</version>
-                </plugin>
-
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-resources-plugin</artifactId>
-                    <version>3.0.2</version>
-                    <configuration>
-                        <encoding>UTF-8</encoding>
-                    </configuration>
-                </plugin>
-
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-eclipse-plugin</artifactId>
-                    <version>2.10</version>
-                    <configuration>
-                        <downloadsources>true</downloadsources>
-                        <downloadjavadocs>true</downloadjavadocs>
-                        <wtpversion>2.0</wtpversion>
-                    </configuration>
-                </plugin>
-
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-jar-plugin</artifactId>
-                    <version>3.0.2</version>
-                </plugin>
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-war-plugin</artifactId>
-                    <version>3.2.0</version>
-                </plugin>
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-source-plugin</artifactId>
-                    <version>3.0.1</version>
-                </plugin>
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-dependency-plugin</artifactId>
-                    <version>3.0.2</version>
-                </plugin>
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-surefire-plugin</artifactId>
-                    <version>2.20.1</version>
-                </plugin>
-                <plugin>
-                    <groupId>org.codehaus.mojo</groupId>
-                    <artifactId>buildnumber-maven-plugin</artifactId>
-                    <version>1.4</version>
-                </plugin>
-
-                <plugin>
-                    <groupId>org.basepom.maven</groupId>
-                    <artifactId>duplicate-finder-maven-plugin</artifactId>
-                    <version>1.2.1</version>
-                    <executions>
-                        <execution>
-                            <id>default</id>
-                            <phase>verify</phase>
-                            <goals>
-                                <goal>check</goal>
-                            </goals>
-                        </execution>
-                    </executions>
-                    <configuration>
-                        <printEqualFiles>false</printEqualFiles>
-                        <failBuildInCaseOfDifferentContentConflict>false</failBuildInCaseOfDifferentContentConflict>
-                        <failBuildInCaseOfEqualContentConflict>false</failBuildInCaseOfEqualContentConflict>
-                        <failBuildInCaseOfConflict>false</failBuildInCaseOfConflict>
-                        <checkCompileClasspath>true</checkCompileClasspath>
-                        <checkRuntimeClasspath>true</checkRuntimeClasspath>
-                        <checkTestClasspath>true</checkTestClasspath>
-                        <skip>false</skip>
-                        <quiet>false</quiet>
-                        <preferLocal>true</preferLocal>
-                        <useResultFile>true</useResultFile>
-                        <resultFileMinClasspathCount>2</resultFileMinClasspathCount>
-                        <resultFile>${project.build.directory}/duplicate-finder-result.xml</resultFile>
-                    </configuration>
-                </plugin>
-
-            </plugins>
-        </pluginManagement>
-
-        <!--+
-            | This section defines which plugins are used by this project.
-            +-->
         <plugins>
 
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-clean-plugin</artifactId>
+                <version>3.0.0</version>
             </plugin>
 
             <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.7.0</version>
+                <configuration>
+                    <source>${project.javaversion}</source>
+                    <target>${project.javaversion}</target>
+                    <encoding>${project.build.sourceencoding}</encoding>
+                </configuration>
             </plugin>
 
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-install-plugin</artifactId>
+                <version>2.5.2</version>
             </plugin>
 
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-resources-plugin</artifactId>
+                <version>3.0.2</version>
+                <configuration>
+                    <encoding>UTF-8</encoding>
+                </configuration>
             </plugin>
 
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-eclipse-plugin</artifactId>
+                <version>2.10</version>
+                <configuration>
+                    <downloadsources>true</downloadsources>
+                    <downloadjavadocs>true</downloadjavadocs>
+                    <wtpversion>2.0</wtpversion>
+                </configuration>
             </plugin>
 
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-jar-plugin</artifactId>
+                <version>3.0.2</version>
                 <configuration>
                     <archive>
                         <manifest>
@@ -371,10 +293,10 @@
                     </archive>
                 </configuration>
             </plugin>
-
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-war-plugin</artifactId>
+                <version>3.2.0</version>
                 <configuration>
                     <archiveClasses>true</archiveClasses>
                     <archive>
@@ -386,10 +308,25 @@
                     </archive>
                 </configuration>
             </plugin>
-
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+                <version>3.0.1</version>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <version>3.0.2</version>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>2.20.1</version>
+            </plugin>
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>buildnumber-maven-plugin</artifactId>
+                <version>1.4</version>
                 <configuration>
                     <doCheck>false</doCheck>
                     <doUpdate>false</doUpdate>
@@ -403,20 +340,51 @@
                     </execution>
                 </executions>
             </plugin>
-                
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-source-plugin</artifactId>
-            </plugin>
-
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-surefire-plugin</artifactId>
-            </plugin>
 
             <plugin>
                 <groupId>org.basepom.maven</groupId>
                 <artifactId>duplicate-finder-maven-plugin</artifactId>
+                <version>1.2.1</version>
+                <executions>
+                    <execution>
+                        <id>default</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <printEqualFiles>false</printEqualFiles>
+                    <failBuildInCaseOfDifferentContentConflict>false</failBuildInCaseOfDifferentContentConflict>
+                    <failBuildInCaseOfEqualContentConflict>false</failBuildInCaseOfEqualContentConflict>
+                    <failBuildInCaseOfConflict>false</failBuildInCaseOfConflict>
+                    <checkCompileClasspath>true</checkCompileClasspath>
+                    <checkRuntimeClasspath>true</checkRuntimeClasspath>
+                    <checkTestClasspath>true</checkTestClasspath>
+                    <skip>false</skip>
+                    <quiet>false</quiet>
+                    <preferLocal>true</preferLocal>
+                    <useResultFile>true</useResultFile>
+                    <resultFileMinClasspathCount>2</resultFileMinClasspathCount>
+                    <resultFile>${project.build.directory}/duplicate-finder-result.xml</resultFile>
+                </configuration>
+            </plugin>
+
+            <!--+
+                | Maven Docker plugin.
+                | https://github.com/alexec/docker-maven-plugin
+                | Version 2.2.0 tries to connect to TCP loalhost.
+                +-->
+            <plugin>
+                <groupId>com.alexecollins.docker</groupId>
+                <artifactId>docker-maven-plugin</artifactId>
+                <version>2.11.24</version>
+                <configuration>
+                    <host>${docker.host}</host>
+                    <removeIntermediateImages>true</removeIntermediateImages>
+                    <cache>true</cache>
+                </configuration>
             </plugin>
 
         </plugins>

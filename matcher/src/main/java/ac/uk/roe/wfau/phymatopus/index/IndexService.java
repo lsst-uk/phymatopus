@@ -16,10 +16,9 @@
  *
  */
 
-package ac.uk.roe.phymatopus.matcher;
+package ac.uk.roe.wfau.phymatopus.index;
 
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -27,57 +26,28 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 
-import ac.uk.roe.wfau.phymatopus.matcher.Matcher;
 import edu.jhu.htm.core.HTMException;
 import lombok.extern.slf4j.Slf4j;
 
 
 /**
- * 
+ * Indexing service that looks up HTM triangle IDs.
  * 
  */
 @Slf4j
 @Controller
-@RequestMapping("/matcher")
-public class MatcherService
+@RequestMapping(ServiceModel.INDEX_PATH)
+public class IndexService
+implements ServiceModel
     {
 
-    /**
-     * HTTP content type for JSON.
-     * 
-     */
-    public static final String JSON_MIME = MediaType.APPLICATION_JSON_VALUE ;
-
-    /**
-     * HTTP content type for URL encoded form fields.
-     * 
-     */
-    public static final String FORM_MIME = MediaType.APPLICATION_FORM_URLENCODED_VALUE;
-
-    /**
-     * MVC property for the matcher 'ra' parameter.
-     *
-     */
-    public static final String MATCH_PARAM_RA = "phymatopus.matcher.ra" ;
-
-    /**
-     * MVC property for the matcher 'dec' parameter.
-     *
-     */
-    public static final String MATCH_PARAM_DEC = "phymatopus.matcher.dec" ;
-
-    /**
-     * MVC property for the matcher 'radius' parameter.
-     *
-     */
-    public static final String MATCH_PARAM_RADIUS = "phymatopus.matcher.radius" ;
 
     @SuppressWarnings("serial")
-    @ResponseStatus(value = HttpStatus.NOT_FOUND)
-    public static class HtmMatcherException
+    @ResponseStatus(value = HttpStatus.INTERNAL_SERVER_ERROR)
+    public static class IndexerException
     extends Exception
         {
-        public HtmMatcherException(Exception ouch)
+        public IndexerException(Exception ouch)
             {
             super(ouch);
             }
@@ -87,43 +57,53 @@ public class MatcherService
      * Public constructor.
      *   
      */
-    public MatcherService()
+    public IndexService()
         {
-        log.debug("MatcherService() - constructor");
-        this.matcher = new Matcher();
+        log.debug("IndexService() - constructor");
+        this.indexer = new Indexer();
         }
 
     /**
-     * Our matcher.
+     * Our indexer.
      * 
      */
-    final Matcher matcher ;
-    
-    @RequestMapping(method=RequestMethod.POST, produces=JSON_MIME)
-    public ResponseEntity<Iterable<Long>> match(
+    final Indexer indexer ;
 
-        @RequestParam(value=MATCH_PARAM_RA, required=true)
+    /**
+     * Find the HTM triangles that intersect a circle.
+     * 
+     * @param ra  The circle position.
+     * @param dec The circle position.
+     * @param radius The circle radius.
+     * @return An Iterable set of HTM triangle IDs.
+     * @throws IndexerException
+     * 
+     */
+    @RequestMapping(value=CIRCLE_PATH, params={PARAM_RA, PARAM_DEC, PARAM_RADIUS}, method=RequestMethod.POST, produces=JSON_MIME)
+    public ResponseEntity<Iterable<Long>> circle(
+        @RequestParam(value=PARAM_RA, required=true)
         final Double ra,
-        @RequestParam(value=MATCH_PARAM_DEC, required=true)
+        @RequestParam(value=PARAM_DEC, required=true)
         final Double dec,
-        @RequestParam(value=MATCH_PARAM_RADIUS, required=true)
+        @RequestParam(value=PARAM_RADIUS, required=true)
         final Double radius
-        
-        ) throws HtmMatcherException
+        ) throws IndexerException
         {
         try {
-            Iterable<Long> iter;
-            iter = matcher.cone(ra, dec, radius);
             return new ResponseEntity<Iterable<Long>>(
-                iter,
+                indexer.circle(
+                    ra,
+                    dec,
+                    radius
+                    ),
                 HttpStatus.OK
                 );
             }
         catch (HTMException ouch)
             {
-            log.debug("HTMException while processing match");
+            log.debug("HTMException while processing circle");
             log.debug("  Message [{}]", ouch.getMessage());
-            throw new HtmMatcherException(
+            throw new IndexerException(
                 ouch
                 );
             }

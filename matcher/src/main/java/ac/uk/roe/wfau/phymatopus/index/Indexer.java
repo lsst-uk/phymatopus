@@ -16,16 +16,14 @@
  *
  */
 
-package ac.uk.roe.wfau.phymatopus.matcher;
+package ac.uk.roe.wfau.phymatopus.index;
 
-import java.util.Iterator;
-
+import ac.uk.roe.wfau.phymatopus.util.HTMRangeIterable;
 import edu.jhu.htm.core.Domain;
 import edu.jhu.htm.core.HTMException;
 import edu.jhu.htm.core.HTMindex;
 import edu.jhu.htm.core.HTMindexImp;
 import edu.jhu.htm.core.HTMrange;
-import edu.jhu.htm.core.HTMrangeIterator;
 import edu.jhu.htm.geometry.Circle;
 import lombok.extern.slf4j.Slf4j;
 
@@ -34,31 +32,51 @@ import lombok.extern.slf4j.Slf4j;
  * 
  */
 @Slf4j
-public class Matcher
+public class Indexer
     {
-
     /**
+     * Default depth.
      * 
      */
-    public Matcher()
+    public static final int DEFAULT_DEPTH = 20 ;
+
+    /**
+     * Public constructor.
+     * 
+     */
+    public Indexer()
+        {
+        this(
+            DEFAULT_DEPTH
+            );
+        }
+    /**
+     * Public constructor.
+     * 
+     */
+    public Indexer(final int depth)
         {
         log.debug("Matcher - start");
+        this.depth = depth;
         this.index = new HTMindexImp(depth);
         log.debug("Matcher - done");
         }
 
-    final int depth = 20 ;
+    final int depth ;
     final HTMindex index ;         
     
     /**
-     * Cone search ..
+     * Get a list of HTM triangles that intersect a circle. 
+     * @param ra  The circle position.
+     * @param dec The circle position.
+     * @param radius The circle radius.
      * @throws HTMException 
      * 
      */
-    public HTMRangeIterable cone(double ra, double dec, double radius)
+    public HTMRangeIterable circle(double ra, double dec, double radius)
     throws HTMException
         {
-        log.debug("cone - start");
+        log.debug("circle - start");
         final HTMrange range = new HTMrange();
         final Circle circle = new Circle(
             ra,
@@ -75,41 +93,9 @@ public class Matcher
             false
             );        
         log.debug("intersect - done");
-        log.debug("cone - done");
+        log.debug("circle - done");
         return new HTMRangeIterable(
             range
             );
-        }
-
-    public static class HTMRangeIterable
-    implements Iterable<Long>
-        {
-        /**
-         * Public constructor.
-         * 
-         */
-        public HTMRangeIterable(final HTMrange range)
-            {
-            this.range = range;
-            }
-        
-        private final HTMrange range; 
-        
-        @Override
-        @SuppressWarnings("unchecked")
-        public Iterator<Long> iterator()
-            {
-            try {
-                return new HTMrangeIterator(
-                    range,
-                    false
-                    );
-                }
-            catch (HTMException ouch)
-                {
-                ouch.printStackTrace();
-                throw new RuntimeException(ouch);
-                }
-            }
         }
     }
