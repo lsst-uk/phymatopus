@@ -51,7 +51,8 @@ public class Matcher
     public void cone(double ra, double dec, double radius)
     throws HTMException
         {
-        final HTMindex index = new HTMindexImp(20);        
+        final int depth = 20 ;
+        final HTMindex index = new HTMindexImp(depth);        
         final HTMrange range = new HTMrange();
 
         final Circle circle = new Circle(
@@ -61,7 +62,7 @@ public class Matcher
             ); 
         final Domain domain = circle.getDomain();
 
-        domain.setOlevel(20);
+        domain.setOlevel(depth);
         
         domain.intersect(
             (HTMindexImp) index,
