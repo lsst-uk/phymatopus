@@ -41,9 +41,9 @@ public class IndexerTest extends TestCase
     public void testCone()
     throws HTMException
         {
-        final Indexer matcher = new Indexer();
+        final Indexer indexer = new Indexer();
         
-        final Iterable<Long> iter = matcher.circle(123.0, 8.5, 0.0025);
+        final Iterable<Long> iter = indexer.circle(123.0, 8.5, 0.0025);
 
         for (Long htmid : iter)
             {
