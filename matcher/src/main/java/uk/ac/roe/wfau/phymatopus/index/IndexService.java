@@ -16,7 +16,7 @@
  *
  */
 
-package ac.uk.roe.wfau.phymatopus.index;
+package uk.ac.roe.wfau.phymatopus.index;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -36,9 +36,9 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 @Controller
-@RequestMapping(ServiceModel.INDEX_PATH)
+@RequestMapping(IndexModel.INDEX_PATH)
 public class IndexService
-implements ServiceModel
+implements IndexModel
     {
 
 
@@ -70,8 +70,42 @@ implements ServiceModel
     final Indexer indexer ;
 
     /**
-     * Find the HTM triangles that intersect a circle.
+     * Find the HTM triangle for a point.
+     * @param ra  The point position.
+     * @param dec The point position.
+     * @return The HTM triangle ID.
+     * @throws IndexerException
      * 
+     */
+    @RequestMapping(params={PARAM_RA, PARAM_DEC}, method=RequestMethod.POST, produces=JSON_MIME)
+    public ResponseEntity<Long> point(
+        @RequestParam(value=PARAM_RA, required=true)
+        final Double ra,
+        @RequestParam(value=PARAM_DEC, required=true)
+        final Double dec
+        ) throws IndexerException
+        {
+        try {
+            return new ResponseEntity<Long>(
+                indexer.point(
+                    ra,
+                    dec
+                    ),
+                HttpStatus.OK
+                );
+            }
+        catch (HTMException ouch)
+            {
+            log.debug("HTMException while processing point");
+            log.debug("  Message [{}]", ouch.getMessage());
+            throw new IndexerException(
+                ouch
+                );
+            }
+        }
+    
+    /**
+     * Find the HTM triangles for a circle.
      * @param ra  The circle position.
      * @param dec The circle position.
      * @param radius The circle radius.
@@ -79,7 +113,7 @@ implements ServiceModel
      * @throws IndexerException
      * 
      */
-    @RequestMapping(value=CIRCLE_PATH, params={PARAM_RA, PARAM_DEC, PARAM_RADIUS}, method=RequestMethod.POST, produces=JSON_MIME)
+    @RequestMapping(params={PARAM_RA, PARAM_DEC, PARAM_RADIUS}, method=RequestMethod.POST, produces=JSON_MIME)
     public ResponseEntity<Iterable<Long>> circle(
         @RequestParam(value=PARAM_RA, required=true)
         final Double ra,

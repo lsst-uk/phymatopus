@@ -16,7 +16,7 @@
  *
  */
 
-package ac.uk.roe.wfau.phymatopus.index;
+package uk.ac.roe.wfau.phymatopus.webapp;
 
 import org.springframework.http.MediaType;
 
@@ -24,7 +24,7 @@ import org.springframework.http.MediaType;
  * ModelViewController service paths and parameter names. 
  * 
  */
-public interface ServiceModel
+public interface WebappModel
     {
     /**
      * HTTP content type for JSON.
@@ -42,30 +42,18 @@ public interface ServiceModel
      * MVC property for the 'ra' parameter.
      *
      */
-    public static final String PARAM_RA = "phymatopus.param.ra" ;
+    public static final String PARAM_RA = "phymatopus.point.ra" ;
 
     /**
      * MVC property for the 'dec' parameter.
      *
      */
-    public static final String PARAM_DEC = "phymatopus.param.dec" ;
+    public static final String PARAM_DEC = "phymatopus.point.dec" ;
 
     /**
      * MVC property for the 'radius' parameter.
      *
      */
-    public static final String PARAM_RADIUS = "phymatopus.param.radius" ;
-
-    /**
-     * Request path for the index service.
-     *
-     */
-    public static final String INDEX_PATH = "/index" ;
-
-    /**
-     * Request path for the circle method.
-     *
-     */
-    public static final String CIRCLE_PATH = "circle" ;
-
+    public static final String PARAM_RADIUS = "phymatopus.circle.radius" ;
+    
     }

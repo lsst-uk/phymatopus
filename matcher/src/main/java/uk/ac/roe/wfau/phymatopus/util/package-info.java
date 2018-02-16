@@ -20,4 +20,4 @@
  * 
  * 
  */
-package ac.uk.roe.wfau.phymatopus.util;
+package uk.ac.roe.wfau.phymatopus.util;

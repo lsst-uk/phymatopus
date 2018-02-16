@@ -16,12 +16,12 @@
  *
  */
 
-package ac.uk.roe.wfau.phymatopus.index;
+package uk.ac.roe.wfau.phymatopus.index;
 
-import ac.uk.roe.wfau.phymatopus.index.Indexer;
 import edu.jhu.htm.core.HTMException;
 import junit.framework.TestCase;
 import lombok.extern.slf4j.Slf4j;
+import uk.ac.roe.wfau.phymatopus.index.Indexer;
 
 /**
  * 

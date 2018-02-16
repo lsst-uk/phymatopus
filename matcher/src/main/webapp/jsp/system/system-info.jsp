@@ -18,7 +18,7 @@ final Properties props = new Properties();
 try {
     props.load(
         this.getClass().getResourceAsStream(
-            "/firethorn-build.properties"
+            "/phymatopus-build.properties"
             )
         );
     }
@@ -38,10 +38,10 @@ catch (Exception ouch)
         }
     },
 "build": {
-    "name" : "<%= props.get("firethorn.build.name") %>",
-    "version" : "<%= props.get("firethorn.build.version") %>",
-    "timestamp" : "<%= props.get("firethorn.build.timestamp") %>",
-    "changeset" : "<%= props.get("firethorn.build.changeset").toString().replace("+", "") %>"
+    "name" : "<%= props.get("phymatopus.build.name") %>",
+    "version" : "<%= props.get("phymatopus.build.version") %>",
+    "timestamp" : "<%= props.get("phymatopus.build.timestamp") %>",
+    "changeset" : "<%= props.get("phymatopus.build.changeset").toString().replace("+", "") %>"
     },
 "system": {
     "time" : "<%= formatter.print(new DateTime()) %>",

@@ -16,9 +16,8 @@
  *
  */
 
-package ac.uk.roe.wfau.phymatopus.index;
+package uk.ac.roe.wfau.phymatopus.index;
 
-import ac.uk.roe.wfau.phymatopus.util.HTMRangeIterable;
 import edu.jhu.htm.core.Domain;
 import edu.jhu.htm.core.HTMException;
 import edu.jhu.htm.core.HTMindex;
@@ -26,6 +25,7 @@ import edu.jhu.htm.core.HTMindexImp;
 import edu.jhu.htm.core.HTMrange;
 import edu.jhu.htm.geometry.Circle;
 import lombok.extern.slf4j.Slf4j;
+import uk.ac.roe.wfau.phymatopus.util.HTMRangeIterable;
 
 /**
  * 
@@ -64,6 +64,23 @@ public class Indexer
 
     final int depth ;
     final HTMindex index ;         
+
+    /**
+     * Get a  HTM triangle that contains a point. 
+     * @param ra  The point position.
+     * @param dec The point position.
+     * @throws HTMException 
+     * 
+     */
+    public Long point(double ra, double dec)
+    throws HTMException
+        {
+        log.debug("point [{}][{}]", ra, dec);
+        return index.lookupId(
+            ra,
+            dec
+            );
+        }
     
     /**
      * Get a list of HTM triangles that intersect a circle. 
@@ -76,7 +93,7 @@ public class Indexer
     public HTMRangeIterable circle(double ra, double dec, double radius)
     throws HTMException
         {
-        log.debug("circle - start");
+        log.debug("circle [{}][{}][{}]", ra, dec, radius);
         final HTMrange range = new HTMrange();
         final Circle circle = new Circle(
             ra,
@@ -93,7 +110,6 @@ public class Indexer
             false
             );        
         log.debug("intersect - done");
-        log.debug("circle - done");
         return new HTMRangeIterable(
             range
             );

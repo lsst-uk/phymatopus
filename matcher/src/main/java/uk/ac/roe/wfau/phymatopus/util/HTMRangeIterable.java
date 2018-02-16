@@ -16,7 +16,7 @@
  *
  */
 
-package ac.uk.roe.wfau.phymatopus.util;
+package uk.ac.roe.wfau.phymatopus.util;
 
 import java.util.Iterator;
 
