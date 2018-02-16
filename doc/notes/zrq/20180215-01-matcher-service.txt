@@ -1,0 +1,316 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2018, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#  
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+    #
+    # HTM indexer
+    1) point() ra,dec -> htmid 
+    2) circle() ra,dec,radius -> htmid[]
+
+    #
+    # Source matcher
+    3) sources() htmid -> match[]
+    4) sources() ra,dec,radius -> match[]
+
+
+    interface Match
+        {
+        public String catalog();  // ATLASDR1
+        public String sourceid(); // 0123456789
+        public long   htmid();
+        public double ra();
+        public double dec();
+        public double delta();
+        public double[3] position();
+        }
+
+    interface MatchBean
+        {
+        public String getCatalogName();
+        public String getSourceId();
+        public long   getHtmid();
+        public double getRa();
+        public double getDec();
+        public double getDelta();
+        public double[3] getPosition();
+        }
+
+
+    docker-compose \
+        --file "docker/compose/tests/caffralis.yml" \
+        run \
+            tester
+        
+    curl \
+        --head \
+        --silent \
+        "${endpointurl:?}/system/info"
+        
+        
+    curl \
+        --silent \
+        "${endpointurl:?}/system/info"
+
+
+    curl \
+        --silent \
+        --data   "phymatopus.point.ra=123.0" \
+        --data   "phymatopus.point.dec=8.5" \
+        "${endpointurl:?}/index"
+
+        16076381049119
+
+
+    curl \
+        --silent \
+        --data   "phymatopus.point.ra=123.0" \
+        --data   "phymatopus.point.dec=8.5" \
+        --data   "phymatopus.circle.radius=0.0025" \
+        "${endpointurl:?}/index"
+
+        [16076381049109,16076381049110,16076381049111,16076381049116,16076381049118,16076381049119]
+
+
+    curl \
+        --verbose \
+        --trace-time \
+        --data   "phymatopus.point.ra=123.0" \
+        --data   "phymatopus.point.dec=8.5" \
+        --data   "phymatopus.circle.radius=0.0025" \
+        "${endpointurl:?}/index" \
+        "${endpointurl:?}/index" \
+        "${endpointurl:?}/index" \
+        "${endpointurl:?}/index" \
+        "${endpointurl:?}/index" \
+        "${endpointurl:?}/index" \
+        "${endpointurl:?}/index" \
+        "${endpointurl:?}/index" \
+        "${endpointurl:?}/index" \
+        "${endpointurl:?}/index"
+
+
+        06:48:56.293109 *   Trying 172.19.0.2...
+        06:48:56.293343 * TCP_NODELAY set
+        06:48:56.293500 * Connected to nikolina (172.19.0.2) port 8080 (#0)
+        06:48:56.293572 > POST /indexer/index HTTP/1.1
+        06:48:56.293572 > Host: nikolina:8080
+        06:48:56.293572 > User-Agent: curl/7.55.1
+        06:48:56.293572 > Accept: */*
+        06:48:56.293572 > Content-Length: 81
+        06:48:56.293572 > Content-Type: application/x-www-form-urlencoded
+        06:48:56.293572 > 
+        06:48:56.293735 * upload completely sent off: 81 out of 81 bytes
+        06:48:56.296303 < HTTP/1.1 200 
+        06:48:56.296373 < Content-Type: application/json;charset=UTF-8
+        06:48:56.296399 < Transfer-Encoding: chunked
+        06:48:56.296424 < Date: Fri, 16 Feb 2018 06:48:56 GMT
+        06:48:56.296447 < 
+        06:48:56.299516 * Connection #0 to host nikolina left intact
+        [16076381049109,16076381049110,16076381049111,16076381049116,16076381049118,16076381049119]06:48:56.299802 * Found bundle for host nikolina: 0x55daaafe39b0 [can pipeline]
+
+        06:48:56.299833 * Re-using existing connection! (#0) with host nikolina
+        06:48:56.299861 * Connected to nikolina (172.19.0.2) port 8080 (#0)
+        06:48:56.299929 > POST /indexer/index HTTP/1.1
+        06:48:56.299929 > Host: nikolina:8080
+        06:48:56.299929 > User-Agent: curl/7.55.1
+        06:48:56.299929 > Accept: */*
+        06:48:56.299929 > Content-Length: 81
+        06:48:56.299929 > Content-Type: application/x-www-form-urlencoded
+        06:48:56.299929 > 
+        06:48:56.300328 * upload completely sent off: 81 out of 81 bytes
+        06:48:56.306168 < HTTP/1.1 200 
+        06:48:56.306227 < Content-Type: application/json;charset=UTF-8
+        06:48:56.306246 < Transfer-Encoding: chunked
+        06:48:56.306262 < Date: Fri, 16 Feb 2018 06:48:56 GMT
+        06:48:56.306280 < 
+        06:48:56.306528 * Connection #0 to host nikolina left intact
+        [16076381049109,16076381049110,16076381049111,16076381049116,16076381049118,16076381049119]06:48:56.306640 * Found bundle for host nikolina: 0x55daaafe39b0 [can pipeline]
+
+        06:48:56.306671 * Re-using existing connection! (#0) with host nikolina
+        06:48:56.306699 * Connected to nikolina (172.19.0.2) port 8080 (#0)
+        06:48:56.306755 > POST /indexer/index HTTP/1.1
+        06:48:56.306755 > Host: nikolina:8080
+        06:48:56.306755 > User-Agent: curl/7.55.1
+        06:48:56.306755 > Accept: */*
+        06:48:56.306755 > Content-Length: 81
+        06:48:56.306755 > Content-Type: application/x-www-form-urlencoded
+        06:48:56.306755 > 
+        06:48:56.307998 * upload completely sent off: 81 out of 81 bytes
+        06:48:56.310467 < HTTP/1.1 200 
+        06:48:56.310588 < Content-Type: application/json;charset=UTF-8
+        06:48:56.310809 < Transfer-Encoding: chunked
+        06:48:56.310835 < Date: Fri, 16 Feb 2018 06:48:56 GMT
+        06:48:56.310911 < 
+        06:48:56.311384 * Connection #0 to host nikolina left intact
+        [16076381049109,16076381049110,16076381049111,16076381049116,16076381049118,16076381049119]06:48:56.311548 * Found bundle for host nikolina: 0x55daaafe39b0 [can pipeline]
+
+        06:48:56.311599 * Re-using existing connection! (#0) with host nikolina
+        06:48:56.311627 * Connected to nikolina (172.19.0.2) port 8080 (#0)
+        06:48:56.311722 > POST /indexer/index HTTP/1.1
+        06:48:56.311722 > Host: nikolina:8080
+        06:48:56.311722 > User-Agent: curl/7.55.1
+        06:48:56.311722 > Accept: */*
+        06:48:56.311722 > Content-Length: 81
+        06:48:56.311722 > Content-Type: application/x-www-form-urlencoded
+        06:48:56.311722 > 
+        06:48:56.312373 * upload completely sent off: 81 out of 81 bytes
+        06:48:56.314628 < HTTP/1.1 200 
+        06:48:56.314704 < Content-Type: application/json;charset=UTF-8
+        06:48:56.314745 < Transfer-Encoding: chunked
+        06:48:56.314792 < Date: Fri, 16 Feb 2018 06:48:56 GMT
+        06:48:56.314842 < 
+        06:48:56.315305 * Connection #0 to host nikolina left intact
+        [16076381049109,16076381049110,16076381049111,16076381049116,16076381049118,16076381049119]06:48:56.315447 * Found bundle for host nikolina: 0x55daaafe39b0 [can pipeline]
+
+        06:48:56.315515 * Re-using existing connection! (#0) with host nikolina
+        06:48:56.315574 * Connected to nikolina (172.19.0.2) port 8080 (#0)
+        06:48:56.315666 > POST /indexer/index HTTP/1.1
+        06:48:56.315666 > Host: nikolina:8080
+        06:48:56.315666 > User-Agent: curl/7.55.1
+        06:48:56.315666 > Accept: */*
+        06:48:56.315666 > Content-Length: 81
+        06:48:56.315666 > Content-Type: application/x-www-form-urlencoded
+        06:48:56.315666 > 
+        06:48:56.315960 * upload completely sent off: 81 out of 81 bytes
+        06:48:56.319985 < HTTP/1.1 200 
+        06:48:56.320230 < Content-Type: application/json;charset=UTF-8
+        06:48:56.320412 < Transfer-Encoding: chunked
+        06:48:56.321053 < Date: Fri, 16 Feb 2018 06:48:56 GMT
+        06:48:56.321420 < 
+        06:48:56.322463 * Connection #0 to host nikolina left intact
+        [16076381049109,16076381049110,16076381049111,16076381049116,16076381049118,16076381049119]06:48:56.322637 * Found bundle for host nikolina: 0x55daaafe39b0 [can pipeline]
+
+        06:48:56.322685 * Re-using existing connection! (#0) with host nikolina
+        06:48:56.322714 * Connected to nikolina (172.19.0.2) port 8080 (#0)
+        06:48:56.322769 > POST /indexer/index HTTP/1.1
+        06:48:56.322769 > Host: nikolina:8080
+        06:48:56.322769 > User-Agent: curl/7.55.1
+        06:48:56.322769 > Accept: */*
+        06:48:56.322769 > Content-Length: 81
+        06:48:56.322769 > Content-Type: application/x-www-form-urlencoded
+        06:48:56.322769 > 
+        06:48:56.322866 * upload completely sent off: 81 out of 81 bytes
+        06:48:56.325198 < HTTP/1.1 200 
+        06:48:56.325278 < Content-Type: application/json;charset=UTF-8
+        06:48:56.325303 < Transfer-Encoding: chunked
+        06:48:56.325331 < Date: Fri, 16 Feb 2018 06:48:56 GMT
+        06:48:56.325356 < 
+        06:48:56.325450 * Connection #0 to host nikolina left intact
+        [16076381049109,16076381049110,16076381049111,16076381049116,16076381049118,16076381049119]06:48:56.325562 * Found bundle for host nikolina: 0x55daaafe39b0 [can pipeline]
+
+        06:48:56.325593 * Re-using existing connection! (#0) with host nikolina
+        06:48:56.325624 * Connected to nikolina (172.19.0.2) port 8080 (#0)
+        06:48:56.325689 > POST /indexer/index HTTP/1.1
+        06:48:56.325689 > Host: nikolina:8080
+        06:48:56.325689 > User-Agent: curl/7.55.1
+        06:48:56.325689 > Accept: */*
+        06:48:56.325689 > Content-Length: 81
+        06:48:56.325689 > Content-Type: application/x-www-form-urlencoded
+        06:48:56.325689 > 
+        06:48:56.325830 * upload completely sent off: 81 out of 81 bytes
+        06:48:56.328436 < HTTP/1.1 200 
+        06:48:56.328527 < Content-Type: application/json;charset=UTF-8
+        06:48:56.328569 < Transfer-Encoding: chunked
+        06:48:56.328613 < Date: Fri, 16 Feb 2018 06:48:56 GMT
+        06:48:56.328664 < 
+        06:48:56.328762 * Connection #0 to host nikolina left intact
+        [16076381049109,16076381049110,16076381049111,16076381049116,16076381049118,16076381049119]06:48:56.328932 * Found bundle for host nikolina: 0x55daaafe39b0 [can pipeline]
+
+        06:48:56.328968 * Re-using existing connection! (#0) with host nikolina
+        06:48:56.329023 * Connected to nikolina (172.19.0.2) port 8080 (#0)
+        06:48:56.329111 > POST /indexer/index HTTP/1.1
+        06:48:56.329111 > Host: nikolina:8080
+        06:48:56.329111 > User-Agent: curl/7.55.1
+        06:48:56.329111 > Accept: */*
+        06:48:56.329111 > Content-Length: 81
+        06:48:56.329111 > Content-Type: application/x-www-form-urlencoded
+        06:48:56.329111 > 
+        06:48:56.329280 * upload completely sent off: 81 out of 81 bytes
+        06:48:56.335125 < HTTP/1.1 200 
+        06:48:56.335498 < Content-Type: application/json;charset=UTF-8
+        06:48:56.336587 < Transfer-Encoding: chunked
+        06:48:56.338184 < Date: Fri, 16 Feb 2018 06:48:56 GMT
+        06:48:56.338281 < 
+        06:48:56.338421 * Connection #0 to host nikolina left intact
+        [16076381049109,16076381049110,16076381049111,16076381049116,16076381049118,16076381049119]06:48:56.338738 * Found bundle for host nikolina: 0x55daaafe39b0 [can pipeline]
+
+        06:48:56.338875 * Re-using existing connection! (#0) with host nikolina
+        06:48:56.338962 * Connected to nikolina (172.19.0.2) port 8080 (#0)
+        06:48:56.339269 > POST /indexer/index HTTP/1.1
+        06:48:56.339269 > Host: nikolina:8080
+        06:48:56.339269 > User-Agent: curl/7.55.1
+        06:48:56.339269 > Accept: */*
+        06:48:56.339269 > Content-Length: 81
+        06:48:56.339269 > Content-Type: application/x-www-form-urlencoded
+        06:48:56.339269 > 
+        06:48:56.339394 * upload completely sent off: 81 out of 81 bytes
+        06:48:56.343526 < HTTP/1.1 200 
+        06:48:56.343608 < Content-Type: application/json;charset=UTF-8
+        06:48:56.343655 < Transfer-Encoding: chunked
+        06:48:56.343700 < Date: Fri, 16 Feb 2018 06:48:56 GMT
+        06:48:56.343744 < 
+        06:48:56.343863 * Connection #0 to host nikolina left intact
+        [16076381049109,16076381049110,16076381049111,16076381049116,16076381049118,16076381049119]06:48:56.343981 * Found bundle for host nikolina: 0x55daaafe39b0 [can pipeline]
+
+        06:48:56.344062 * Re-using existing connection! (#0) with host nikolina
+        06:48:56.344110 * Connected to nikolina (172.19.0.2) port 8080 (#0)
+        06:48:56.344186 > POST /indexer/index HTTP/1.1
+        06:48:56.344186 > Host: nikolina:8080
+        06:48:56.344186 > User-Agent: curl/7.55.1
+        06:48:56.344186 > Accept: */*
+        06:48:56.344186 > Content-Length: 81
+        06:48:56.344186 > Content-Type: application/x-www-form-urlencoded
+        06:48:56.344186 > 
+        06:48:56.344349 * upload completely sent off: 81 out of 81 bytes
+        06:48:56.346356 < HTTP/1.1 200 
+        06:48:56.346424 < Content-Type: application/json;charset=UTF-8
+        06:48:56.346453 < Transfer-Encoding: chunked
+        06:48:56.346478 < Date: Fri, 16 Feb 2018 06:48:56 GMT
+        06:48:56.346505 < 
+        06:48:56.346586 * Connection #0 to host nikolina left intact
+        [16076381049109,16076381049110,16076381049111,16076381049116,16076381049118,16076381049119]
+
+        299516-293109=6407
+        306528-299833=6695
+        311384-306671=4713
+        315305-311599=3706
+        322463-315515=6948
+        325450-322685=2765
+        328762-325593=3169
+        338421-328968=9453
+        343863-338875=4988
+        346586-344062=2524
+
+        ((299516-293109)+
+        (306528-299833)+
+        (311384-306671)+
+        (315305-311599)+
+        (322463-315515)+
+        (325450-322685)+
+        (328762-325593)+
+        (338421-328968)+
+        (343863-338875)+
+        (346586-344062))/10
+
+            0.005136 ~5ms?
+
+
+
