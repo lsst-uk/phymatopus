@@ -68,4 +68,10 @@ public interface WebappModel
      */
     public static final String PARAM_CIRCLE = "phymatopus.circle" ;
 
+    /**
+     * MVC property for the 'htmid' parameter.
+     *
+     */
+    public static final String PARAM_HTMID = "phymatopus.htmid" ;
+
     }

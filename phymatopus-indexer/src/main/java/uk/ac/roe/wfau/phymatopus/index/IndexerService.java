@@ -18,6 +18,7 @@
 
 package uk.ac.roe.wfau.phymatopus.index;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
@@ -36,9 +37,9 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 @Controller
-@RequestMapping(IndexModel.INDEX_PATH)
-public class IndexService
-implements IndexModel
+@RequestMapping(IndexerModel.INDEX_PATH)
+public class IndexerService
+implements IndexerModel
     {
 
 
@@ -57,17 +58,17 @@ implements IndexModel
      * Public constructor.
      *   
      */
-    public IndexService()
+    public IndexerService()
         {
         log.debug("IndexService() - constructor");
-        this.indexer = new Indexer();
         }
 
     /**
      * Our indexer.
      * 
      */
-    final Indexer indexer ;
+    @Autowired
+    private Indexer indexer ;
 
     /**
      * Find the HTM triangle for a point.
@@ -124,8 +125,8 @@ implements IndexModel
         }
 
     /**
-     * Find the HTM triangle for a point.
-     * @param point  The point position.
+     * Find the HTM triangles in a circle.
+     * @param circle The circle position and radius.
      * @return The HTM triangle ID.
      * @throws IndexerException
      * 
@@ -144,8 +145,9 @@ implements IndexModel
         }
     
     /**
-     * Find the HTM triangle for a point.
-     * @param point  The point position.
+     * Find the HTM triangles in a circle.
+     * @param point  The circle position.
+     * @param radius The circle  radius.
      * @return The HTM triangle ID.
      * @throws IndexerException
      * 
@@ -166,7 +168,7 @@ implements IndexModel
         }
     
     /**
-     * Find the HTM triangles for a circle.
+     * Find the HTM triangles in a circle.
      * @param ra  The circle position.
      * @param dec The circle position.
      * @param radius The circle radius.

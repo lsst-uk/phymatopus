@@ -18,20 +18,20 @@
 
 package uk.ac.roe.wfau.phymatopus.match;
 
-public interface Match
-extends Source
+public interface MatchBean
+extends SourceBean
     {
 
     /**
      * The distance between the source and match target.
      * 
      */
-    public double delta();
+    public double getDelta();
 
     /**
      * The source position and delta combined in one array.
      * 
      */
-    public double[] combined();
+    public double[] getCombined();
 
     }

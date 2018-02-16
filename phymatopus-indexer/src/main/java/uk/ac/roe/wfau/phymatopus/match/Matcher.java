@@ -59,7 +59,7 @@ public class Matcher
     protected String databasetype;
     protected String databasetype()
         {
-        return this.databasetype;
+        return this.databasetype.trim();
         }
 
     /**
@@ -70,7 +70,7 @@ public class Matcher
     protected String databasehost;
     protected String databasehost()
         {
-        return this.databasehost;
+        return this.databasehost.trim();
         }
 
     /**
@@ -81,7 +81,7 @@ public class Matcher
     protected String databaseport;
     protected String databaseport()
         {
-        return this.databaseport;
+        return this.databaseport.trim();
         }
     
     /**
@@ -92,7 +92,7 @@ public class Matcher
     protected String databasename;
     protected String databasename()
         {
-        return this.databasename;
+        return this.databasename.trim();
         }
 
     /**
@@ -103,7 +103,7 @@ public class Matcher
     protected String databaseuser;
     protected String databaseuser()
         {
-        return this.databaseuser;
+        return this.databaseuser.trim();
         }
 
     /**
@@ -114,7 +114,7 @@ public class Matcher
     protected String databasepass;
     protected String databasepass()
         {
-        return this.databasepass;
+        return this.databasepass.trim();
         }
 
     /**
@@ -125,7 +125,7 @@ public class Matcher
     protected String tablename;
     protected String tablename()
         {
-        return this.tablename;
+        return this.tablename.trim();
         }
     
     /**
@@ -149,18 +149,24 @@ public class Matcher
      */
     public String url()
         {
+        log.debug("url()");
         final StringBuilder builder = new StringBuilder(); 
 
         builder.append("jdbc:hsqldb:hsql://");
         builder.append(this.databasehost());
         if (this.databaseport() != null)
             {
-            builder.append(":");
-            builder.append(this.databaseport());
+            if (this.databaseport().length() > 0)
+                {
+                builder.append(":");
+                builder.append(this.databaseport());
+                }
             }
         builder.append("/");
         builder.append(this.databasename());
-        
+
+        log.debug("  url [{}]", builder.toString());
+
         return builder.toString();
         }
 
@@ -170,6 +176,12 @@ public class Matcher
      */
     public DataSource source()
         {
+        log.debug("source()");
+        log.debug(" databasehost [{}]", databasehost());
+        log.debug(" databaseport [{}]", databaseport());
+        log.debug(" databasename [{}]", databasename());
+        log.debug(" databaseuser [{}]", databaseuser());
+        log.debug(" databasepass [{}]", databasepass());
         if (null == this.source)
             {
             this.source = new SimpleDriverDataSource(
@@ -205,11 +217,141 @@ public class Matcher
     public Connection connect()
     throws SQLException
         {
+        log.debug("connect()");
         return source().getConnection();
         }
 
+    /**
+     * 
+     * 
+     */
+    public Iterable<SourceBean> match(final long htmid)
+    throws SQLException
+        {
+        log.debug("match(long) [{}]", htmid);
+
+        final List<SourceBean> list = new ArrayList<SourceBean>();
+        
+        log.debug("connecting");
+        final Connection connection = this.connect();        
+        log.debug("connected");
+        try {
+            final String template =
+                    " SELECT" +
+                    "    catalog," +
+                    "    sourceid," +
+                    "    htmid," +
+                    "    ra," +
+                    "    decl" +
+                    " FROM" +
+                    "    {tablename}" +
+                    " WHERE" +
+                    "    htmid = ?"
+                    ;
+            
+            final String albert = template.replace(
+                "{tablename}",
+                this.tablename()
+                );
+            log.debug(albert);
+
+            log.debug("preparing");
+            final PreparedStatement statement = connection.prepareStatement(
+                albert 
+                );
+            statement.setLong(
+                1,
+                htmid
+                );
+            log.debug("prepared");
+    
+            log.debug("query begin");
+            final ResultSet results = statement.executeQuery();        
+            while (results.next())
+                {
+                list.add(
+                    new SourceImpl(
+                        results
+                        )
+                    );
+                }
+            log.debug("query done");
+            }
+        finally {
+            connection.close();
+            }
+        return list;
+        }
+
+    /**
+     * 
+     * 
+     */
+    public Iterable<SourceBean> match(final Iterable<Long> htmids)
+    throws SQLException
+        {
+        log.debug("match(Iterable<Long>)");
+
+        final List<SourceBean> list = new ArrayList<SourceBean>();
+        
+        log.debug("connecting");
+        final Connection connection = this.connect();        
+        log.debug("connected");
+        try {
+            final String template =
+                    " SELECT" +
+                    "    catalog," +
+                    "    sourceid," +
+                    "    htmid," +
+                    "    ra," +
+                    "    decl" +
+                    " FROM" +
+                    "    {tablename}" +
+                    " WHERE" +
+                    "    htmid = ?"
+                    ;
+            
+            final String albert = template.replace(
+                "{tablename}",
+                this.tablename()
+                );
+            log.debug(albert);
+
+            log.debug("preparing");
+            final PreparedStatement statement = connection.prepareStatement(
+                albert 
+                );
+            log.debug("prepared");
+
+            for (Long htmid : htmids)
+                {
+                log.debug("htmid [{}]", htmid);
+                statement.setLong(
+                    1,
+                    htmid
+                    );
+                log.debug("querying");
+                final ResultSet results = statement.executeQuery();        
+                while (results.next())
+                    {
+                    list.add(
+                        new SourceImpl(
+                            results
+                            )
+                        );
+                    }
+                log.debug("query done");
+                }
+
+            }
+        finally {
+            connection.close();
+            }
+        return list;
+        }
+
     public static class SourceImpl
-    implements Source
+    implements SourceBean
         {
         public SourceImpl(final ResultSet results)
         throws SQLException
@@ -222,98 +364,49 @@ public class Matcher
 
             this.position = new double[2];
             this.position[0] = this.ra;
-            this.position[2] = this.dec;
+            this.position[1] = this.dec;
             }
         
         protected String catalog;
         @Override
-        public String catalog()
+        public String getCatalog()
             {
             return this.catalog;
             }
 
         protected String source;
         @Override
-        public String source()
+        public String getSource()
             {
             return this.source;
             }
 
         protected long htmid;
         @Override
-        public long htmid()
+        public long getHtmid()
             {
             return this.htmid;
             }
 
         protected double ra;
         @Override
-        public double ra()
+        public double getRa()
             {
             return this.ra;
             }
 
         protected double dec;
         @Override
-        public double dec()
+        public double getDec()
             {
             return this.dec;
             }
 
         protected double[] position;
         @Override
-        public double[] position()
+        public double[] getPosition()
             {
             return this.position;
             }
-        }
-    
-    /**
-     * 
-     * 
-     */
-    public Iterable<Source> match(final long htmid)
-    throws SQLException
-        {
-        log.debug("match [{}]", htmid);
-
-        final Connection connection  = this.connect();        
-        final String template =
-                " SELECT" +
-                "    catalog," +
-                "    sourceid," +
-                "    htmid," +
-                "    ra," +
-                "    dec" +
-                " FROM" +
-                "    {tablename}" +
-                " WHERE" +
-                "    htmid = ?"
-                ;
-        
-        final PreparedStatement statement = connection.prepareStatement(
-            template.replace(
-                "{tablename}",
-                this.tablename()
-                )
-            );
-        
-        statement.setLong(
-            1,
-            htmid
-            );
-
-        final ResultSet results = statement.executeQuery();        
-        final List<Source> list = new ArrayList<Source>();
-        while (results.next())
-            {
-            list.add(
-                new SourceImpl(
-                    results
-                    )
-                );
-            }
-        
-        return list;
         }
     }

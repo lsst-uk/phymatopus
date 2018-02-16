@@ -93,58 +93,141 @@ EOF
                 tester
 
 
-    curl \
-        --silent \
-        "${endpointurl:?}/system/info"
+        curl \
+            --silent \
+            "${endpointurl:?}/system/info"
 
-    curl \
-        --silent \
-        --data   "phymatopus.ra=123.0" \
-        --data   "phymatopus.dec=8.5" \
-        "${endpointurl:?}/index"
+        curl \
+            --silent \
+            --data   "phymatopus.ra=123.0" \
+            --data   "phymatopus.dec=8.5" \
+            "${endpointurl:?}/index"
 
-    curl \
-        --silent \
-        --data   "phymatopus.ra=123.0" \
-        --data   "phymatopus.dec=8.5" \
-        --data   "phymatopus.radius=0.0025" \
-        "${endpointurl:?}/index"
+        curl \
+            --silent \
+            --data   "phymatopus.ra=123.0" \
+            --data   "phymatopus.dec=8.5" \
+            --data   "phymatopus.radius=0.0025" \
+            "${endpointurl:?}/index"
 
-    curl \
-        --silent \
-        --data   "phymatopus.point=123.0,8.5" \
-        "${endpointurl:?}/index"
+        curl \
+            --silent \
+            --data   "phymatopus.point=123.0,8.5" \
+            "${endpointurl:?}/index"
 
-    curl \
-        --silent \
-        --data   "phymatopus.point=123.0,8.5" \
-        --data   "phymatopus.radius=0.0025" \
-        "${endpointurl:?}/index"
+        curl \
+            --silent \
+            --data   "phymatopus.point=123.0,8.5" \
+            --data   "phymatopus.radius=0.0025" \
+            "${endpointurl:?}/index"
 
-    curl \
-        --silent \
-        --data   "phymatopus.circle=123.0,8.5,0.0025" \
-        "${endpointurl:?}/index"
+        curl \
+            --silent \
+            --data   "phymatopus.circle=123.0,8.5,0.0025" \
+            "${endpointurl:?}/index"
 
 
-    matchid=0
-    for coord in $(
-        gawk '
-          BEGIN{
-            for (x = 120.00000; x < 120.01000; x+= 0.00025)
-              for (y = 60.00000; y < 60.01000; y+= 0.00025)
-                printf "%4.5f,%4.5f\n", x, y
-            }
-          '
-        )
-    do
-        let matchid+=1
-        htmid=$(
-            curl \
-                --silent \
-                --data   "phymatopus.point=${coord}" \
-                "${endpointurl:?}/index"
+        echo "catalog|sourceid|htmid|ra|decl" > /dbinit/sources.dat
+        matchid=0
+        for coord in $(
+            gawk '
+              BEGIN{
+                for (x = 120.00000; x < 120.01000; x+= 0.00025)
+                  for (y = 60.00000; y < 60.01000; y+= 0.00025)
+                    printf "%4.5f,%4.5f\n", x, y
+                }
+              '
             )
-        echo "'test','${matchid}',${htmid},${coord}"
-    done
+        do
+            let matchid+=1
+            htmid=$(
+                curl \
+                    --silent \
+                    --data   "phymatopus.point=${coord}" \
+                    "${endpointurl:?}/index"
+                )
+            echo "'test'|'${matchid}'|${htmid}|${coord}" | sed 's/,/|/g' >> /dbinit/sources.dat
+        done
+
+
+
+
+
+
+
+
+
+
+
+
+
+        docker-compose \
+            --file "docker/compose/tests/burellus.yml" \
+            down
+
+        mvn clean install docker:package
+        
+        docker-compose \
+            --file "docker/compose/tests/burellus.yml" \
+            run \
+                tester
+
+
+
+
+        docker \
+            exec -it \
+            tests_burellus_1 \
+            hsqldb-client
+
+            DROP TABLE sources ;
+
+            \a true
+                        
+            \i /dbinit/sources.sql
+
+            \m /dbinit/sources.dat
+
+            SELECT * FROM sources ;
+
+            SELECT
+                htmid,
+                COUNT(sourceid)
+            FROM
+                sources
+            GROUP BY
+                htmid
+                ;
+
+
+
+        curl \
+            --silent \
+            "${endpointurl:?}/system/info"
+
+        curl \
+            --silent \
+            --data   "phymatopus.htmid=15762418482990" \
+            "${endpointurl:?}/match"
+
+            [
+                {
+                "catalog":"'test'",
+                "source":"'30'",
+                "htmid":15762418482990,
+                "ra":120.0,
+                "dec":60.00725,
+                "position": [120.0,60.00725]
+                }
+            ]
+
+        curl \
+            --silent \
+            --data   "phymatopus.htmid=15762418482990" \
+            "${endpointurl:?}/match"
+
+
+
+
+
 

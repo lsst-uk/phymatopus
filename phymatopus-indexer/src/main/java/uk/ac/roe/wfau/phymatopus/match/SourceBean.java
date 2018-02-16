@@ -16,33 +16,47 @@
  *
  */
 
-package uk.ac.roe.wfau.phymatopus.index;
-
-import uk.ac.roe.wfau.phymatopus.webapp.WebappModel;
+package uk.ac.roe.wfau.phymatopus.match;
 
 /**
- * ModelViewController service paths and parameter names. 
+ * Bean class to represent a source.
  * 
+ *
  */
-public interface IndexModel
-extends WebappModel
+public interface SourceBean
     {
     /**
-     * Request path for the index service.
-     *
+     * The name of the catalog containing the source.
+     * 
      */
-    public static final String INDEX_PATH = "/index" ;
-
+    public String getCatalog();
     /**
-     * Request path for the point method.
-     *
-    public static final String POINT_PATH = "point" ;
+     * The source ID within the catalog.
+     * 
      */
-
+    public String getSource();
     /**
-     * Request path for the circle method.
-     *
-    public static final String CIRCLE_PATH = "circle" ;
+     * The HTM triangle that contains the source.
+     * 
      */
-
+    public long getHtmid();
+    
+    /**
+     * The source position ra.
+     * 
+     */
+    public double getRa();
+    
+    /**
+     * The source position dec.
+     * 
+     */
+    public double getDec();
+    
+    /**
+     * The source position.
+     * 
+     */
+    public double[] getPosition();
+    
     }

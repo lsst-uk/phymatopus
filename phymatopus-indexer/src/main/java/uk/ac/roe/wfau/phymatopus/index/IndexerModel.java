@@ -16,42 +16,22 @@
  *
  */
 
-package uk.ac.roe.wfau.phymatopus.match;
+package uk.ac.roe.wfau.phymatopus.index;
 
-public interface Source
-{
-/**
- * The name of the catalog containing the source.
- * 
- */
-public String catalog();
-/**
- * The source ID within the catalog.
- * 
- */
-public String source();
-/**
- * The HTM triangle that contains the source.
- * 
- */
-public long htmid();
+import uk.ac.roe.wfau.phymatopus.webapp.WebappModel;
 
 /**
- * The source position ra.
+ * ModelViewController service paths and parameter names. 
  * 
  */
-public double ra();
+public interface IndexerModel
+extends WebappModel
+    {
+    /**
+     * Request path for the index service.
+     *
+     */
+    public static final String INDEX_PATH = "/index" ;
 
-/**
- * The source position dec.
- * 
- */
-public double dec();
 
-/**
- * The source position.
- * 
- */
-public double[] position();
-
-}
+    }

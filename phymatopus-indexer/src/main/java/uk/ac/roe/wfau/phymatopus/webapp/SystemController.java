@@ -21,7 +21,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 
-import uk.ac.roe.wfau.phymatopus.index.IndexModel;
+import uk.ac.roe.wfau.phymatopus.index.IndexerModel;
 
 /**
  *
@@ -30,7 +30,7 @@ import uk.ac.roe.wfau.phymatopus.index.IndexModel;
 @Controller
 @RequestMapping(SystemController.SERVICE_PATH)
 public class SystemController
-implements IndexModel
+implements IndexerModel
     {
 
     public static final String SERVICE_PATH = "/system" ;

@@ -18,6 +18,8 @@
 
 package uk.ac.roe.wfau.phymatopus.index;
 
+import org.springframework.stereotype.Component;
+
 import edu.jhu.htm.core.Domain;
 import edu.jhu.htm.core.HTMException;
 import edu.jhu.htm.core.HTMindex;
@@ -32,6 +34,7 @@ import uk.ac.roe.wfau.phymatopus.util.HTMRangeIterable;
  * 
  */
 @Slf4j
+@Component
 public class Indexer
     {
     /**
