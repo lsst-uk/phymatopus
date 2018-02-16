@@ -1,0 +1,83 @@
+version: '2.1'
+# https://en.wikipedia.org/wiki/Aphomia_burellus
+
+networks:
+
+    miriam:
+
+volumes:
+
+    hsqldb:
+
+services:
+
+    nikolina:
+        image:
+           "phymatopus/indexer:1.0"
+        read_only:
+            false
+        stdin_open:
+            true
+        tty:
+            true
+        tmpfs:
+            - /run
+            - /tmp
+        networks:
+            - miriam
+        environment:
+            databasetype: "hsqldb"
+            databasehost: "burellus"
+            databasename: "${buredata}"
+            databaseuser: "${bureuser}"
+            databasepass: "${burepass}"
+        depends_on:
+            burellus:
+                condition: service_started            
+
+    tester:
+        image:
+           "firethorn/fedora:2.1.14"
+        read_only:
+            false
+        stdin_open:
+            true
+        tty:
+            true
+        tmpfs:
+            - /run
+            - /tmp
+        volumes:
+            - ./dbinit:/dbinit
+        networks:
+            - miriam
+        environment:
+            endpointurl: "http://nikolina:8080/indexer"
+        depends_on:
+            burellus:
+                condition: service_started            
+            nikolina:
+                condition: service_started            
+        command:
+            [bash]
+
+    burellus:
+        image:
+           "cosmopterix/hsqldb:20180208"
+        read_only:
+            false
+        tmpfs:
+            - '/run'
+            - '/tmp'
+        volumes:
+            - ./dbinit:/dbinit
+            - hsqldb:/var/lib/hsqldb
+        networks:
+            - miriam
+        environment:
+            servertype: 'mem'
+            databasename: "${buredata}"
+            databaseuser: "${bureuser}"
+            databasepass: "${burepass}"
+            databaseinit: "/dbinit"
+            

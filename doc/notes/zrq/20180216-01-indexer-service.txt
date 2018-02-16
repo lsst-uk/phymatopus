@@ -1,0 +1,150 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2018, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#  
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+    #
+    # Local database connection.
+    # Cosmo HSQLDB
+
+    interface Source
+        {
+        public String catalog();  // ATLASDR1
+        public String sourceid(); // 0123456789
+        public long   htmid();
+        public double ra();
+        public double dec();
+        public double[3] position();
+        }
+
+    interface Match
+    extends Source
+        {
+        public double delta();
+        public double[4] complex();
+        }
+
+    interface MatchBean
+        {
+        public String getCatalogName();
+        public String getSourceId();
+        public long   getHtmid();
+        public double getRa();
+        public double getDec();
+        public double getDelta();
+        public double[3] getPosition();
+        }
+
+ 
+    1) Matcher and Database in separate containers.
+       Using network JDBC to connect.
+       * Works for any database type.
+
+    2) Configurable Matcher.
+       * table name 
+       * column names
+       * JSON mapping file
+
+    3) Firethorn insert activity
+       * jdbc.tablename ADQL|AUTO -- use the adql table name, or use a generated unique name.
+       * jdbc.colnames  ADQL|AUTO -- use the adql column names, or use generated unique names.
+       * jdbc.tablemode create|append|both -- create a new table, append to an existing table, or both as required
+
+    4) Database in-process as part of Matcher.
+       Webapp controller to call start/stop/status on the Server.
+       * Webapp auth using admin username and password from config.
+       * Database auth using admin username and password from config.
+       * Database auth using configurable username and password.
+       * Status page gives connection details, including URL and IP address.
+
+    5) Separate this into two parts
+       a) Database webapp, creating HSQLDB {mem|file} database using JSON/REST interface.
+       b) Matcher webapp, build on top of Database webapp.
+
+
+        cat > burellus.env << EOF
+buredata=frumble
+bureuser=emplagu
+burepass=cojecti
+EOF
+
+        ln -s burellus.env .env
+
+        docker-compose \
+            --file "docker/compose/tests/burellus.yml" \
+            run \
+                tester
+
+
+    curl \
+        --silent \
+        "${endpointurl:?}/system/info"
+
+    curl \
+        --silent \
+        --data   "phymatopus.ra=123.0" \
+        --data   "phymatopus.dec=8.5" \
+        "${endpointurl:?}/index"
+
+    curl \
+        --silent \
+        --data   "phymatopus.ra=123.0" \
+        --data   "phymatopus.dec=8.5" \
+        --data   "phymatopus.radius=0.0025" \
+        "${endpointurl:?}/index"
+
+    curl \
+        --silent \
+        --data   "phymatopus.point=123.0,8.5" \
+        "${endpointurl:?}/index"
+
+    curl \
+        --silent \
+        --data   "phymatopus.point=123.0,8.5" \
+        --data   "phymatopus.radius=0.0025" \
+        "${endpointurl:?}/index"
+
+    curl \
+        --silent \
+        --data   "phymatopus.circle=123.0,8.5,0.0025" \
+        "${endpointurl:?}/index"
+
+
+    matchid=0
+    for coord in $(
+        gawk '
+          BEGIN{
+            for (x = 120.00000; x < 120.01000; x+= 0.00025)
+              for (y = 60.00000; y < 60.01000; y+= 0.00025)
+                printf "%4.5f,%4.5f\n", x, y
+            }
+          '
+        )
+    do
+        let matchid+=1
+        htmid=$(
+            curl \
+                --silent \
+                --data   "phymatopus.point=${coord}" \
+                "${endpointurl:?}/index"
+            )
+        echo "'test','${matchid}',${htmid},${coord}"
+    done
+

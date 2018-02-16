@@ -71,6 +71,25 @@ implements IndexModel
 
     /**
      * Find the HTM triangle for a point.
+     * @param point  The point position.
+     * @return The HTM triangle ID.
+     * @throws IndexerException
+     * 
+     */
+    @RequestMapping(params={PARAM_POINT}, method=RequestMethod.POST, produces=JSON_MIME)
+    public ResponseEntity<Long> point(
+        @RequestParam(value=PARAM_POINT, required=true)
+        final Double[] point
+        ) throws IndexerException
+        {
+        return this.point(
+            point[0],
+            point[1]
+            );
+        }
+    
+    /**
+     * Find the HTM triangle for a point.
      * @param ra  The point position.
      * @param dec The point position.
      * @return The HTM triangle ID.
@@ -102,6 +121,48 @@ implements IndexModel
                 ouch
                 );
             }
+        }
+
+    /**
+     * Find the HTM triangle for a point.
+     * @param point  The point position.
+     * @return The HTM triangle ID.
+     * @throws IndexerException
+     * 
+     */
+    @RequestMapping(params={PARAM_CIRCLE}, method=RequestMethod.POST, produces=JSON_MIME)
+    public ResponseEntity<Iterable<Long>> circle(
+        @RequestParam(value=PARAM_CIRCLE, required=true)
+        final Double[] circle
+        ) throws IndexerException
+        {
+        return this.circle(
+            circle[0],
+            circle[1],
+            circle[2]
+            );
+        }
+    
+    /**
+     * Find the HTM triangle for a point.
+     * @param point  The point position.
+     * @return The HTM triangle ID.
+     * @throws IndexerException
+     * 
+     */
+    @RequestMapping(params={PARAM_POINT, PARAM_RADIUS}, method=RequestMethod.POST, produces=JSON_MIME)
+    public ResponseEntity<Iterable<Long>> circle(
+        @RequestParam(value=PARAM_POINT, required=true)
+        final Double[] point,
+        @RequestParam(value=PARAM_RADIUS, required=true)
+        final Double radius
+        ) throws IndexerException
+        {
+        return this.circle(
+            point[0],
+            point[1],
+            radius
+            );
         }
     
     /**
@@ -142,4 +203,5 @@ implements IndexModel
                 );
             }
         }
+
     }

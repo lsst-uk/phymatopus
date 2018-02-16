@@ -42,18 +42,30 @@ public interface WebappModel
      * MVC property for the 'ra' parameter.
      *
      */
-    public static final String PARAM_RA = "phymatopus.point.ra" ;
+    public static final String PARAM_RA = "phymatopus.ra" ;
 
     /**
      * MVC property for the 'dec' parameter.
      *
      */
-    public static final String PARAM_DEC = "phymatopus.point.dec" ;
+    public static final String PARAM_DEC = "phymatopus.dec" ;
+
+    /**
+     * MVC property for the 'position' parameter.
+     *
+     */
+    public static final String PARAM_POINT = "phymatopus.point" ;
 
     /**
      * MVC property for the 'radius' parameter.
      *
      */
-    public static final String PARAM_RADIUS = "phymatopus.circle.radius" ;
-    
+    public static final String PARAM_RADIUS = "phymatopus.radius" ;
+
+    /**
+     * MVC property for the 'circle' parameter.
+     *
+     */
+    public static final String PARAM_CIRCLE = "phymatopus.circle" ;
+
     }
