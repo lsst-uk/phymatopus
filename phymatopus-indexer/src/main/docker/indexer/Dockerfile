@@ -20,6 +20,6 @@ MAINTAINER Dave Morris <docker-admin@metagrid.co.uk>
 
 #
 # ADD our webapp.
-ADD ${project.build.finalName} /var/local/tomcat/webapps/indexer
+ADD ${project.build.finalName} /var/local/tomcat/webapps/htm-sql
 
 
