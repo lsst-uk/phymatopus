@@ -79,75 +79,89 @@
        b) Matcher webapp, build on top of Database webapp.
 
 
-        cat > burellus.env << EOF
+    source "${HOME}/phymatopus.settings"
+    pushd "${PHYMATOPUS_CODE:?}"
+        pushd 'htm-sql-indexer'
+
+            mvn clean install
+            mvn docker:package
+
+        popd
+    popd
+
+    source "${HOME}/phymatopus.settings"
+    pushd "${PHYMATOPUS_CODE:?}"
+        pushd 'htm-sql-indexer'
+
+            cat > target/burellus.env << EOF
 buredata=frumble
 bureuser=emplagu
 burepass=cojecti
 EOF
 
-        ln -s burellus.env .env
+            rm .env
+            ln -s target/burellus.env .env
 
-        docker-compose \
-            --file "docker/compose/tests/burellus.yml" \
-            run \
-                tester
+            docker-compose \
+                --file "docker/compose/tests/burellus/docker-compose.yml" \
+                run \
+                    tester
 
-
-        curl \
-            --silent \
-            "${endpointurl:?}/system/info"
-
-        curl \
-            --silent \
-            --data   "phymatopus.ra=123.0" \
-            --data   "phymatopus.dec=8.5" \
-            "${endpointurl:?}/index"
-
-        curl \
-            --silent \
-            --data   "phymatopus.ra=123.0" \
-            --data   "phymatopus.dec=8.5" \
-            --data   "phymatopus.radius=0.0025" \
-            "${endpointurl:?}/index"
-
-        curl \
-            --silent \
-            --data   "phymatopus.point=123.0,8.5" \
-            "${endpointurl:?}/index"
-
-        curl \
-            --silent \
-            --data   "phymatopus.point=123.0,8.5" \
-            --data   "phymatopus.radius=0.0025" \
-            "${endpointurl:?}/index"
-
-        curl \
-            --silent \
-            --data   "phymatopus.circle=123.0,8.5,0.0025" \
-            "${endpointurl:?}/index"
-
-
-        echo "catalog|sourceid|htmid|ra|decl" > /dbinit/sources.dat
-        matchid=0
-        for coord in $(
-            gawk '
-              BEGIN{
-                for (x = 120.00000; x < 120.01000; x+= 0.00025)
-                  for (y = 60.00000; y < 60.01000; y+= 0.00025)
-                    printf "%4.5f,%4.5f\n", x, y
-                }
-              '
-            )
-        do
-            let matchid+=1
-            htmid=$(
                 curl \
                     --silent \
-                    --data   "phymatopus.point=${coord}" \
+                    "${endpointurl:?}/system/info"
+
+                curl \
+                    --silent \
+                    --data   "phymatopus.ra=123.0" \
+                    --data   "phymatopus.dec=8.5" \
                     "${endpointurl:?}/index"
-                )
-            echo "'test'|'${matchid}'|${htmid}|${coord}" | sed 's/,/|/g' >> /dbinit/sources.dat
-        done
+
+                curl \
+                    --silent \
+                    --data   "phymatopus.ra=123.0" \
+                    --data   "phymatopus.dec=8.5" \
+                    --data   "phymatopus.radius=0.0025" \
+                    "${endpointurl:?}/index"
+
+                curl \
+                    --silent \
+                    --data   "phymatopus.point=123.0,8.5" \
+                    "${endpointurl:?}/index"
+
+                curl \
+                    --silent \
+                    --data   "phymatopus.point=123.0,8.5" \
+                    --data   "phymatopus.radius=0.0025" \
+                    "${endpointurl:?}/index"
+
+                curl \
+                    --silent \
+                    --data   "phymatopus.circle=123.0,8.5,0.0025" \
+                    "${endpointurl:?}/index"
+
+
+                echo "catalog|sourceid|htmid|ra|decl" > /dbinit/sources.dat
+                matchid=0
+                for coord in $(
+                    gawk '
+                      BEGIN{
+                        for (x = 120.00000; x < 120.01000; x+= 0.00025)
+                          for (y = 60.00000; y < 60.01000; y+= 0.00025)
+                            printf "%4.5f,%4.5f\n", x, y
+                        }
+                      '
+                    )
+                do
+                    let matchid+=1
+                    htmid=$(
+                        curl \
+                            --silent \
+                            --data   "phymatopus.point=${coord}" \
+                            "${endpointurl:?}/index"
+                        )
+                    echo "'test'|'${matchid}'|${htmid}|${coord}" | sed 's/,/|/g' >> /dbinit/sources.dat
+                done
 
 
 
@@ -157,604 +171,599 @@ EOF
 
 
 
+            docker-compose \
+                --file "docker/compose/tests/burellus/docker-compose.yml" \
+                down
 
-
-
-
-        docker-compose \
-            --file "docker/compose/tests/burellus.yml" \
-            down
-
-        mvn clean install docker:package
-        
-        docker-compose \
-            --file "docker/compose/tests/burellus.yml" \
-            run \
-                tester
-
-
-
-
-        docker \
-            exec -it \
-            tests_burellus_1 \
-            hsqldb-client
-
-            DROP TABLE sources ;
-
-            \a true
-                        
-            \i /dbinit/sources.sql
-
-            \m /dbinit/sources.dat
-
-            SELECT * FROM sources ;
-
-            SELECT
-                htmid,
-                COUNT(sourceid)
-            FROM
-                sources
-            GROUP BY
-                htmid
-                ;
-
-
-
-        curl \
-            --silent \
-            "${endpointurl:?}/system/info"
-
-        curl \
-            --silent \
-            --data   "phymatopus.htmid=15762418482990" \
-            "${endpointurl:?}/match" \
-          | jq '.'
-
-            [
-                {
-                "catalog":"'test'",
-                "source":"'30'",
-                "htmid":15762418482990,
-                "ra":120.0,
-                "dec":60.00725,
-                "position": [120.0,60.00725]
-                }
-            ]
-
-        curl \
-            --silent \
-            --data   "phymatopus.point=120.00500,60.00500" \
-            --data   "phymatopus.radius=0.0025" \
-            "${endpointurl:?}/match" \
-          | jq '.'
-
-            [
-                {
-                "catalog":"'test'",
-                "source":"'821'",
-                "htmid":15762418469825,
-                "ra":120.005,
-                "dec":60.005,
-                "position":[120.005,60.005]
-                }
-            ]
-
-        curl \
-            --silent \
-            --data   "phymatopus.point=120.00500,60.00500" \
-            --data   "phymatopus.radius=0.005" \
-            "${endpointurl:?}/match" \
-          | jq '.'
-
-            [
-                {
-                "catalog":"'test'",
-                "source":"'821'",
-                "htmid":15762418469825,
-                "ra":120.005,
-                "dec":60.005,
-                "position":[120.005,60.005]
-                },
-                {
-                "catalog":"'test'",
-                "source":"'781'",
-                "htmid":15762418469827,
-                "ra":120.00475,
-                "dec":60.005,
-                "position":[120.00475,60.005]
-                },
-                {
-                "catalog":"'test'",
-                "source":"'861'",
-                "htmid":15762418469830,
-                "ra":120.00525,
-                "dec":60.005,
-                "position":[120.00525,60.005]
-                }
-            ]
+            mvn clean install docker:package
             
-        curl \
-            --silent \
-            --data   "phymatopus.point=120.00500,60.00500" \
-            --data   "phymatopus.radius=0.0075" \
-            "${endpointurl:?}/match" \
-          | jq '.'
-
-            [
-              {
-                "catalog": "'test'",
-                "source": "'821'",
-                "htmid": 15762418469825,
-                "ra": 120.005,
-                "dec": 60.005,
-                "position": [
-                  120.005,
-                  60.005
-                ]
-              },
-              {
-                "catalog": "'test'",
-                "source": "'781'",
-                "htmid": 15762418469827,
-                "ra": 120.00475,
-                "dec": 60.005,
-                "position": [
-                  120.00475,
-                  60.005
-                ]
-              },
-              {
-                "catalog": "'test'",
-                "source": "'861'",
-                "htmid": 15762418469830,
-                "ra": 120.00525,
-                "dec": 60.005,
-                "position": [
-                  120.00525,
-                  60.005
-                ]
-              }
-            ]
+            docker-compose \
+                --file "docker/compose/tests/burellus/docker-compose.yml" \
+                run \
+                    tester
 
 
-        curl \
-            --silent \
-            --data   "phymatopus.point=120.00500,60.00500" \
-            --data   "phymatopus.radius=0.01" \
-            "${endpointurl:?}/match" \
-          | jq '.'
 
-            [
-              {
-                "catalog": "'test'",
-                "source": "'741'",
-                "htmid": 15762418469715,
-                "ra": 120.0045,
-                "dec": 60.005,
-                "position": [
-                  120.0045,
-                  60.005
-                ]
-              },
-              {
-                "catalog": "'test'",
-                "source": "'821'",
-                "htmid": 15762418469825,
-                "ra": 120.005,
-                "dec": 60.005,
-                "position": [
-                  120.005,
-                  60.005
-                ]
-              },
-              {
-                "catalog": "'test'",
-                "source": "'781'",
-                "htmid": 15762418469827,
-                "ra": 120.00475,
-                "dec": 60.005,
-                "position": [
-                  120.00475,
-                  60.005
-                ]
-              },
-              {
-                "catalog": "'test'",
-                "source": "'861'",
-                "htmid": 15762418469830,
-                "ra": 120.00525,
-                "dec": 60.005,
-                "position": [
-                  120.00525,
-                  60.005
-                ]
-              }
-            ]
+    docker \
+        exec -it \
+        tests_burellus_1 \
+        hsqldb-client
 
-        curl \
-            --silent \
-            --data   "phymatopus.point=120.00500,60.00500" \
-            --data   "phymatopus.radius=0.02" \
-            "${endpointurl:?}/match" \
-          | jq '.'
+        DROP TABLE sources ;
 
-            [
-              {
-                "catalog": "'test'",
-                "source": "'939'",
-                "htmid": 15762418468928,
-                "ra": 120.00575,
-                "dec": 60.0045,
-                "position": [
-                  120.00575,
-                  60.0045
-                ]
-              },
-              {
-                "catalog": "'test'",
-                "source": "'899'",
-                "htmid": 15762418468930,
-                "ra": 120.0055,
-                "dec": 60.0045,
-                "position": [
-                  120.0055,
-                  60.0045
-                ]
-              },
-              {
-                "catalog": "'test'",
-                "source": "'859'",
-                "htmid": 15762418468943,
-                "ra": 120.00525,
-                "dec": 60.0045,
-                "position": [
-                  120.00525,
-                  60.0045
-                ]
-              },
-              {
-                "catalog": "'test'",
-                "source": "'740'",
-                "htmid": 15762418468950,
-                "ra": 120.0045,
-                "dec": 60.00475,
-                "position": [
-                  120.0045,
-                  60.00475
-                ]
-              },
-              {
-                "catalog": "'test'",
-                "source": "'820'",
-                "htmid": 15762418468955,
-                "ra": 120.005,
-                "dec": 60.00475,
-                "position": [
-                  120.005,
-                  60.00475
-                ]
-              },
-              {
-                "catalog": "'test'",
-                "source": "'780'",
-                "htmid": 15762418468959,
-                "ra": 120.00475,
-                "dec": 60.00475,
-                "position": [
-                  120.00475,
-                  60.00475
-                ]
-              },
-              {
-                "catalog": "'test'",
-                "source": "'699'",
-                "htmid": 15762418468969,
-                "ra": 120.00425,
-                "dec": 60.0045,
-                "position": [
-                  120.00425,
-                  60.0045
-                ]
-              },
-              {
-                "catalog": "'test'",
-                "source": "'739'",
-                "htmid": 15762418468970,
-                "ra": 120.0045,
-                "dec": 60.0045,
-                "position": [
-                  120.0045,
-                  60.0045
-                ]
-              },
-              {
-                "catalog": "'test'",
-                "source": "'819'",
-                "htmid": 15762418468981,
-                "ra": 120.005,
-                "dec": 60.0045,
-                "position": [
-                  120.005,
-                  60.0045
-                ]
-              },
-              {
-                "catalog": "'test'",
-                "source": "'779'",
-                "htmid": 15762418468982,
-                "ra": 120.00475,
-                "dec": 60.0045,
-                "position": [
-                  120.00475,
-                  60.0045
-                ]
-              },
-              {
-                "catalog": "'test'",
-                "source": "'662'",
-                "htmid": 15762418469703,
-                "ra": 120.004,
-                "dec": 60.00525,
-                "position": [
-                  120.004,
-                  60.00525
-                ]
-              },
-              {
-                "catalog": "'test'",
-                "source": "'741'",
-                "htmid": 15762418469715,
-                "ra": 120.0045,
-                "dec": 60.005,
-                "position": [
-                  120.0045,
-                  60.005
-                ]
-              },
-              {
-                "catalog": "'test'",
-                "source": "'823'",
-                "htmid": 15762418469731,
-                "ra": 120.005,
-                "dec": 60.0055,
-                "position": [
-                  120.005,
-                  60.0055
-                ]
-              },
-              {
-                "catalog": "'test'",
-                "source": "'783'",
-                "htmid": 15762418469734,
-                "ra": 120.00475,
-                "dec": 60.0055,
-                "position": [
-                  120.00475,
-                  60.0055
-                ]
-              },
-              {
-                "catalog": "'test'",
-                "source": "'782'",
-                "htmid": 15762418469744,
-                "ra": 120.00475,
-                "dec": 60.00525,
-                "position": [
-                  120.00475,
-                  60.00525
-                ]
-              },
-              {
-                "catalog": "'test'",
-                "source": "'702'",
-                "htmid": 15762418469754,
-                "ra": 120.00425,
-                "dec": 60.00525,
-                "position": [
-                  120.00425,
-                  60.00525
-                ]
-              },
-              {
-                "catalog": "'test'",
-                "source": "'742'",
-                "htmid": 15762418469757,
-                "ra": 120.0045,
-                "dec": 60.00525,
-                "position": [
-                  120.0045,
-                  60.00525
-                ]
-              },
-              {
-                "catalog": "'test'",
-                "source": "'980'",
-                "htmid": 15762418469764,
-                "ra": 120.006,
-                "dec": 60.00475,
-                "position": [
-                  120.006,
-                  60.00475
-                ]
-              },
-              {
-                "catalog": "'test'",
-                "source": "'940'",
-                "htmid": 15762418469765,
-                "ra": 120.00575,
-                "dec": 60.00475,
-                "position": [
-                  120.00575,
-                  60.00475
-                ]
-              },
-              {
-                "catalog": "'test'",
-                "source": "'1021'",
-                "htmid": 15762418469778,
-                "ra": 120.00625,
-                "dec": 60.005,
-                "position": [
-                  120.00625,
-                  60.005
-                ]
-              },
-              {
-                "catalog": "'test'",
-                "source": "'941'",
-                "htmid": 15762418469783,
-                "ra": 120.00575,
-                "dec": 60.005,
-                "position": [
-                  120.00575,
-                  60.005
-                ]
-              },
-              {
-                "catalog": "'test'",
-                "source": "'981'",
-                "htmid": 15762418469791,
-                "ra": 120.006,
-                "dec": 60.005,
-                "position": [
-                  120.006,
-                  60.005
-                ]
-              },
-              {
-                "catalog": "'test'",
-                "source": "'860'",
-                "htmid": 15762418469796,
-                "ra": 120.00525,
-                "dec": 60.00475,
-                "position": [
-                  120.00525,
-                  60.00475
-                ]
-              },
-              {
-                "catalog": "'test'",
-                "source": "'901'",
-                "htmid": 15762418469808,
-                "ra": 120.0055,
-                "dec": 60.005,
-                "position": [
-                  120.0055,
-                  60.005
-                ]
-              },
-              {
-                "catalog": "'test'",
-                "source": "'900'",
-                "htmid": 15762418469813,
-                "ra": 120.0055,
-                "dec": 60.00475,
-                "position": [
-                  120.0055,
-                  60.00475
-                ]
-              },
-              {
-                "catalog": "'test'",
-                "source": "'821'",
-                "htmid": 15762418469825,
-                "ra": 120.005,
-                "dec": 60.005,
-                "position": [
-                  120.005,
-                  60.005
-                ]
-              },
-              {
-                "catalog": "'test'",
-                "source": "'781'",
-                "htmid": 15762418469827,
-                "ra": 120.00475,
-                "dec": 60.005,
-                "position": [
-                  120.00475,
-                  60.005
-                ]
-              },
-              {
-                "catalog": "'test'",
-                "source": "'861'",
-                "htmid": 15762418469830,
-                "ra": 120.00525,
-                "dec": 60.005,
-                "position": [
-                  120.00525,
-                  60.005
-                ]
-              },
-              {
-                "catalog": "'test'",
-                "source": "'942'",
-                "htmid": 15762418469845,
-                "ra": 120.00575,
-                "dec": 60.00525,
-                "position": [
-                  120.00575,
-                  60.00525
-                ]
-              },
-              {
-                "catalog": "'test'",
-                "source": "'982'",
-                "htmid": 15762418469846,
-                "ra": 120.006,
-                "dec": 60.00525,
-                "position": [
-                  120.006,
-                  60.00525
-                ]
-              },
-              {
-                "catalog": "'test'",
-                "source": "'863'",
-                "htmid": 15762418469856,
-                "ra": 120.00525,
-                "dec": 60.0055,
-                "position": [
-                  120.00525,
-                  60.0055
-                ]
-              },
-              {
-                "catalog": "'test'",
-                "source": "'902'",
-                "htmid": 15762418469873,
-                "ra": 120.0055,
-                "dec": 60.00525,
-                "position": [
-                  120.0055,
-                  60.00525
-                ]
-              },
-              {
-                "catalog": "'test'",
-                "source": "'822'",
-                "htmid": 15762418469876,
-                "ra": 120.005,
-                "dec": 60.00525,
-                "position": [
-                  120.005,
-                  60.00525
-                ]
-              },
-              {
-                "catalog": "'test'",
-                "source": "'862'",
-                "htmid": 15762418469878,
-                "ra": 120.00525,
-                "dec": 60.00525,
-                "position": [
-                  120.00525,
-                  60.00525
-                ]
-              }
-            ]
+        \a true
+                    
+        \i /dbinit/sources.sql
+
+        \m /dbinit/sources.dat
+
+        SELECT * FROM sources ;
+
+        SELECT
+            htmid,
+            COUNT(sourceid)
+        FROM
+            sources
+        GROUP BY
+            htmid
+            ;
+
+
+
+                curl \
+                    --silent \
+                    "${endpointurl:?}/system/info"
+
+                curl \
+                    --silent \
+                    --data   "phymatopus.htmid=15762418482990" \
+                    "${endpointurl:?}/match" \
+                  | jq '.'
+
+                    [
+                        {
+                        "catalog":"'test'",
+                        "source":"'30'",
+                        "htmid":15762418482990,
+                        "ra":120.0,
+                        "dec":60.00725,
+                        "position": [120.0,60.00725]
+                        }
+                    ]
+
+                curl \
+                    --silent \
+                    --data   "phymatopus.point=120.00500,60.00500" \
+                    --data   "phymatopus.radius=0.0025" \
+                    "${endpointurl:?}/match" \
+                  | jq '.'
+
+                    [
+                        {
+                        "catalog":"'test'",
+                        "source":"'821'",
+                        "htmid":15762418469825,
+                        "ra":120.005,
+                        "dec":60.005,
+                        "position":[120.005,60.005]
+                        }
+                    ]
+
+                curl \
+                    --silent \
+                    --data   "phymatopus.point=120.00500,60.00500" \
+                    --data   "phymatopus.radius=0.005" \
+                    "${endpointurl:?}/match" \
+                  | jq '.'
+
+                    [
+                        {
+                        "catalog":"'test'",
+                        "source":"'821'",
+                        "htmid":15762418469825,
+                        "ra":120.005,
+                        "dec":60.005,
+                        "position":[120.005,60.005]
+                        },
+                        {
+                        "catalog":"'test'",
+                        "source":"'781'",
+                        "htmid":15762418469827,
+                        "ra":120.00475,
+                        "dec":60.005,
+                        "position":[120.00475,60.005]
+                        },
+                        {
+                        "catalog":"'test'",
+                        "source":"'861'",
+                        "htmid":15762418469830,
+                        "ra":120.00525,
+                        "dec":60.005,
+                        "position":[120.00525,60.005]
+                        }
+                    ]
+                    
+                curl \
+                    --silent \
+                    --data   "phymatopus.point=120.00500,60.00500" \
+                    --data   "phymatopus.radius=0.0075" \
+                    "${endpointurl:?}/match" \
+                  | jq '.'
+
+                    [
+                      {
+                        "catalog": "'test'",
+                        "source": "'821'",
+                        "htmid": 15762418469825,
+                        "ra": 120.005,
+                        "dec": 60.005,
+                        "position": [
+                          120.005,
+                          60.005
+                        ]
+                      },
+                      {
+                        "catalog": "'test'",
+                        "source": "'781'",
+                        "htmid": 15762418469827,
+                        "ra": 120.00475,
+                        "dec": 60.005,
+                        "position": [
+                          120.00475,
+                          60.005
+                        ]
+                      },
+                      {
+                        "catalog": "'test'",
+                        "source": "'861'",
+                        "htmid": 15762418469830,
+                        "ra": 120.00525,
+                        "dec": 60.005,
+                        "position": [
+                          120.00525,
+                          60.005
+                        ]
+                      }
+                    ]
+
+
+                curl \
+                    --silent \
+                    --data   "phymatopus.point=120.00500,60.00500" \
+                    --data   "phymatopus.radius=0.01" \
+                    "${endpointurl:?}/match" \
+                  | jq '.'
+
+                    [
+                      {
+                        "catalog": "'test'",
+                        "source": "'741'",
+                        "htmid": 15762418469715,
+                        "ra": 120.0045,
+                        "dec": 60.005,
+                        "position": [
+                          120.0045,
+                          60.005
+                        ]
+                      },
+                      {
+                        "catalog": "'test'",
+                        "source": "'821'",
+                        "htmid": 15762418469825,
+                        "ra": 120.005,
+                        "dec": 60.005,
+                        "position": [
+                          120.005,
+                          60.005
+                        ]
+                      },
+                      {
+                        "catalog": "'test'",
+                        "source": "'781'",
+                        "htmid": 15762418469827,
+                        "ra": 120.00475,
+                        "dec": 60.005,
+                        "position": [
+                          120.00475,
+                          60.005
+                        ]
+                      },
+                      {
+                        "catalog": "'test'",
+                        "source": "'861'",
+                        "htmid": 15762418469830,
+                        "ra": 120.00525,
+                        "dec": 60.005,
+                        "position": [
+                          120.00525,
+                          60.005
+                        ]
+                      }
+                    ]
+
+                curl \
+                    --silent \
+                    --data   "phymatopus.point=120.00500,60.00500" \
+                    --data   "phymatopus.radius=0.02" \
+                    "${endpointurl:?}/match" \
+                  | jq '.'
+
+                    [
+                      {
+                        "catalog": "'test'",
+                        "source": "'939'",
+                        "htmid": 15762418468928,
+                        "ra": 120.00575,
+                        "dec": 60.0045,
+                        "position": [
+                          120.00575,
+                          60.0045
+                        ]
+                      },
+                      {
+                        "catalog": "'test'",
+                        "source": "'899'",
+                        "htmid": 15762418468930,
+                        "ra": 120.0055,
+                        "dec": 60.0045,
+                        "position": [
+                          120.0055,
+                          60.0045
+                        ]
+                      },
+                      {
+                        "catalog": "'test'",
+                        "source": "'859'",
+                        "htmid": 15762418468943,
+                        "ra": 120.00525,
+                        "dec": 60.0045,
+                        "position": [
+                          120.00525,
+                          60.0045
+                        ]
+                      },
+                      {
+                        "catalog": "'test'",
+                        "source": "'740'",
+                        "htmid": 15762418468950,
+                        "ra": 120.0045,
+                        "dec": 60.00475,
+                        "position": [
+                          120.0045,
+                          60.00475
+                        ]
+                      },
+                      {
+                        "catalog": "'test'",
+                        "source": "'820'",
+                        "htmid": 15762418468955,
+                        "ra": 120.005,
+                        "dec": 60.00475,
+                        "position": [
+                          120.005,
+                          60.00475
+                        ]
+                      },
+                      {
+                        "catalog": "'test'",
+                        "source": "'780'",
+                        "htmid": 15762418468959,
+                        "ra": 120.00475,
+                        "dec": 60.00475,
+                        "position": [
+                          120.00475,
+                          60.00475
+                        ]
+                      },
+                      {
+                        "catalog": "'test'",
+                        "source": "'699'",
+                        "htmid": 15762418468969,
+                        "ra": 120.00425,
+                        "dec": 60.0045,
+                        "position": [
+                          120.00425,
+                          60.0045
+                        ]
+                      },
+                      {
+                        "catalog": "'test'",
+                        "source": "'739'",
+                        "htmid": 15762418468970,
+                        "ra": 120.0045,
+                        "dec": 60.0045,
+                        "position": [
+                          120.0045,
+                          60.0045
+                        ]
+                      },
+                      {
+                        "catalog": "'test'",
+                        "source": "'819'",
+                        "htmid": 15762418468981,
+                        "ra": 120.005,
+                        "dec": 60.0045,
+                        "position": [
+                          120.005,
+                          60.0045
+                        ]
+                      },
+                      {
+                        "catalog": "'test'",
+                        "source": "'779'",
+                        "htmid": 15762418468982,
+                        "ra": 120.00475,
+                        "dec": 60.0045,
+                        "position": [
+                          120.00475,
+                          60.0045
+                        ]
+                      },
+                      {
+                        "catalog": "'test'",
+                        "source": "'662'",
+                        "htmid": 15762418469703,
+                        "ra": 120.004,
+                        "dec": 60.00525,
+                        "position": [
+                          120.004,
+                          60.00525
+                        ]
+                      },
+                      {
+                        "catalog": "'test'",
+                        "source": "'741'",
+                        "htmid": 15762418469715,
+                        "ra": 120.0045,
+                        "dec": 60.005,
+                        "position": [
+                          120.0045,
+                          60.005
+                        ]
+                      },
+                      {
+                        "catalog": "'test'",
+                        "source": "'823'",
+                        "htmid": 15762418469731,
+                        "ra": 120.005,
+                        "dec": 60.0055,
+                        "position": [
+                          120.005,
+                          60.0055
+                        ]
+                      },
+                      {
+                        "catalog": "'test'",
+                        "source": "'783'",
+                        "htmid": 15762418469734,
+                        "ra": 120.00475,
+                        "dec": 60.0055,
+                        "position": [
+                          120.00475,
+                          60.0055
+                        ]
+                      },
+                      {
+                        "catalog": "'test'",
+                        "source": "'782'",
+                        "htmid": 15762418469744,
+                        "ra": 120.00475,
+                        "dec": 60.00525,
+                        "position": [
+                          120.00475,
+                          60.00525
+                        ]
+                      },
+                      {
+                        "catalog": "'test'",
+                        "source": "'702'",
+                        "htmid": 15762418469754,
+                        "ra": 120.00425,
+                        "dec": 60.00525,
+                        "position": [
+                          120.00425,
+                          60.00525
+                        ]
+                      },
+                      {
+                        "catalog": "'test'",
+                        "source": "'742'",
+                        "htmid": 15762418469757,
+                        "ra": 120.0045,
+                        "dec": 60.00525,
+                        "position": [
+                          120.0045,
+                          60.00525
+                        ]
+                      },
+                      {
+                        "catalog": "'test'",
+                        "source": "'980'",
+                        "htmid": 15762418469764,
+                        "ra": 120.006,
+                        "dec": 60.00475,
+                        "position": [
+                          120.006,
+                          60.00475
+                        ]
+                      },
+                      {
+                        "catalog": "'test'",
+                        "source": "'940'",
+                        "htmid": 15762418469765,
+                        "ra": 120.00575,
+                        "dec": 60.00475,
+                        "position": [
+                          120.00575,
+                          60.00475
+                        ]
+                      },
+                      {
+                        "catalog": "'test'",
+                        "source": "'1021'",
+                        "htmid": 15762418469778,
+                        "ra": 120.00625,
+                        "dec": 60.005,
+                        "position": [
+                          120.00625,
+                          60.005
+                        ]
+                      },
+                      {
+                        "catalog": "'test'",
+                        "source": "'941'",
+                        "htmid": 15762418469783,
+                        "ra": 120.00575,
+                        "dec": 60.005,
+                        "position": [
+                          120.00575,
+                          60.005
+                        ]
+                      },
+                      {
+                        "catalog": "'test'",
+                        "source": "'981'",
+                        "htmid": 15762418469791,
+                        "ra": 120.006,
+                        "dec": 60.005,
+                        "position": [
+                          120.006,
+                          60.005
+                        ]
+                      },
+                      {
+                        "catalog": "'test'",
+                        "source": "'860'",
+                        "htmid": 15762418469796,
+                        "ra": 120.00525,
+                        "dec": 60.00475,
+                        "position": [
+                          120.00525,
+                          60.00475
+                        ]
+                      },
+                      {
+                        "catalog": "'test'",
+                        "source": "'901'",
+                        "htmid": 15762418469808,
+                        "ra": 120.0055,
+                        "dec": 60.005,
+                        "position": [
+                          120.0055,
+                          60.005
+                        ]
+                      },
+                      {
+                        "catalog": "'test'",
+                        "source": "'900'",
+                        "htmid": 15762418469813,
+                        "ra": 120.0055,
+                        "dec": 60.00475,
+                        "position": [
+                          120.0055,
+                          60.00475
+                        ]
+                      },
+                      {
+                        "catalog": "'test'",
+                        "source": "'821'",
+                        "htmid": 15762418469825,
+                        "ra": 120.005,
+                        "dec": 60.005,
+                        "position": [
+                          120.005,
+                          60.005
+                        ]
+                      },
+                      {
+                        "catalog": "'test'",
+                        "source": "'781'",
+                        "htmid": 15762418469827,
+                        "ra": 120.00475,
+                        "dec": 60.005,
+                        "position": [
+                          120.00475,
+                          60.005
+                        ]
+                      },
+                      {
+                        "catalog": "'test'",
+                        "source": "'861'",
+                        "htmid": 15762418469830,
+                        "ra": 120.00525,
+                        "dec": 60.005,
+                        "position": [
+                          120.00525,
+                          60.005
+                        ]
+                      },
+                      {
+                        "catalog": "'test'",
+                        "source": "'942'",
+                        "htmid": 15762418469845,
+                        "ra": 120.00575,
+                        "dec": 60.00525,
+                        "position": [
+                          120.00575,
+                          60.00525
+                        ]
+                      },
+                      {
+                        "catalog": "'test'",
+                        "source": "'982'",
+                        "htmid": 15762418469846,
+                        "ra": 120.006,
+                        "dec": 60.00525,
+                        "position": [
+                          120.006,
+                          60.00525
+                        ]
+                      },
+                      {
+                        "catalog": "'test'",
+                        "source": "'863'",
+                        "htmid": 15762418469856,
+                        "ra": 120.00525,
+                        "dec": 60.0055,
+                        "position": [
+                          120.00525,
+                          60.0055
+                        ]
+                      },
+                      {
+                        "catalog": "'test'",
+                        "source": "'902'",
+                        "htmid": 15762418469873,
+                        "ra": 120.0055,
+                        "dec": 60.00525,
+                        "position": [
+                          120.0055,
+                          60.00525
+                        ]
+                      },
+                      {
+                        "catalog": "'test'",
+                        "source": "'822'",
+                        "htmid": 15762418469876,
+                        "ra": 120.005,
+                        "dec": 60.00525,
+                        "position": [
+                          120.005,
+                          60.00525
+                        ]
+                      },
+                      {
+                        "catalog": "'test'",
+                        "source": "'862'",
+                        "htmid": 15762418469878,
+                        "ra": 120.00525,
+                        "dec": 60.00525,
+                        "position": [
+                          120.00525,
+                          60.00525
+                        ]
+                      }
+                    ]
 
 
         2018-02-16 17:39:33,293 DEBUG [http-nio-8080-exec-4] [Matcher] match(Iterable<Long>) 
