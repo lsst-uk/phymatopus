@@ -21,42 +21,31 @@
 #
 version: '2.1'
 
+networks:
+
+    iprala:
+
 services:
-
-    fedora:
-        image:
-            "phymatopus/fedora:${buildtag}"
-        labels:
-            uk.ac.roe.phymatopus.buildtag: "${buildtag}"
-        build:
-            context: '../fedora'
-
-    java:
-        image:
-            "phymatopus/java:${buildtag}"
-        labels:
-            uk.ac.roe.phymatopus.buildtag: "${buildtag}"
-        build:
-            context: '../java'
-        depends_on:
-            - fedora
-
-    tomcat:
-        image:
-            "phymatopus/tomcat:${buildtag}"
-        labels:
-            uk.ac.roe.phymatopus.buildtag: "${buildtag}"
-        build:
-            context: '../tomcat'
-        depends_on:
-            - java
 
     zookeeper:
         image:
-            "confluentinc/cp-zookeeper:3.2.0"
+            confluentinc/cp-zookeeper:4.0.0
+        networks:
+            - iprala
+        environment:
+            - ZOOKEEPER_CLIENT_PORT=32181
+            - ZOOKEEPER_TICK_TIME=2000
 
     kafka:
         image:
-            "confluentinc/cp-kafka:3.2.0"
+            confluentinc/cp-kafka:4.0.0
+        networks:
+            - iprala
+        depends_on:
+            - zookeeper
+        environment:
+            - KAFKA_BROKER_ID=1
+            - KAFKA_ZOOKEEPER_CONNECT=zookeeper:32181
+            - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
 
 
