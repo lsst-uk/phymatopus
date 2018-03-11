@@ -16,22 +16,38 @@
  *
  */
 
-package uk.ac.roe.wfau.phymatopus.match;
+package uk.ac.roe.wfau.phymatopus.htmsql.index;
 
-public interface MatchBean
-extends SourceBean
+import edu.jhu.htm.core.HTMException;
+import junit.framework.TestCase;
+import lombok.extern.slf4j.Slf4j;
+import uk.ac.roe.wfau.phymatopus.htmsql.index.Indexer;
+
+/**
+ * 
+ * 
+ */
+@Slf4j
+public class IndexerTest extends TestCase
     {
 
     /**
-     * The distance between the source and match target.
      * 
      */
-    public double getDelta();
+    public IndexerTest()
+        {
+        }
 
-    /**
-     * The source position and delta combined in one array.
-     * 
-     */
-    public double[] getCombined();
+    public void testCone()
+    throws HTMException
+        {
+        final Indexer indexer = new Indexer();
+        
+        final Iterable<Long> iter = indexer.circle(123.0, 8.5, 0.0025);
 
+        for (Long htmid : iter)
+            {
+            log.debug(htmid.toString());
+            }
+        }
     }

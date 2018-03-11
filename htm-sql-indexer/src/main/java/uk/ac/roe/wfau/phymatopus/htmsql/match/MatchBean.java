@@ -16,22 +16,22 @@
  *
  */
 
-package uk.ac.roe.wfau.phymatopus.index;
+package uk.ac.roe.wfau.phymatopus.htmsql.match;
 
-import uk.ac.roe.wfau.phymatopus.webapp.WebappModel;
-
-/**
- * ModelViewController service paths and parameter names. 
- * 
- */
-public interface IndexerModel
-extends WebappModel
+public interface MatchBean
+extends SourceBean
     {
-    /**
-     * Request path for the index service.
-     *
-     */
-    public static final String INDEX_PATH = "/index" ;
 
+    /**
+     * The distance between the source and match target.
+     * 
+     */
+    public double getDelta();
+
+    /**
+     * The source position and delta combined in one array.
+     * 
+     */
+    public double[] getCombined();
 
     }

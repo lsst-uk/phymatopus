@@ -16,7 +16,7 @@
  *
  */
 
-package uk.ac.roe.wfau.phymatopus.webapp;
+package uk.ac.roe.wfau.phymatopus.htmsql.webapp;
 
 import org.springframework.http.MediaType;
 

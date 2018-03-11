@@ -16,7 +16,7 @@
  *
  */
 
-package uk.ac.roe.wfau.phymatopus.match;
+package uk.ac.roe.wfau.phymatopus.htmsql.match;
 
 /**
  * Bean class to represent a source.

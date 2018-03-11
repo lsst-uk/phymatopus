@@ -16,7 +16,7 @@
  *
  */
 
-package uk.ac.roe.wfau.phymatopus.match;
+package uk.ac.roe.wfau.phymatopus.htmsql.match;
 
 import java.sql.SQLException;
 
@@ -31,8 +31,8 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 
 import edu.jhu.htm.core.HTMException;
 import lombok.extern.slf4j.Slf4j;
-import uk.ac.roe.wfau.phymatopus.index.Indexer;
-import uk.ac.roe.wfau.phymatopus.index.IndexerService.IndexerException;
+import uk.ac.roe.wfau.phymatopus.htmsql.index.Indexer;
+import uk.ac.roe.wfau.phymatopus.htmsql.index.IndexerService.IndexerException;
 
 /**
  * Matcher service that looks up HTM triangle IDs.

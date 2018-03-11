@@ -16,7 +16,7 @@
  *
  */
 
-package uk.ac.roe.wfau.phymatopus.index;
+package uk.ac.roe.wfau.phymatopus.htmsql.index;
 
 import org.springframework.stereotype.Component;
 
@@ -27,7 +27,7 @@ import edu.jhu.htm.core.HTMindexImp;
 import edu.jhu.htm.core.HTMrange;
 import edu.jhu.htm.geometry.Circle;
 import lombok.extern.slf4j.Slf4j;
-import uk.ac.roe.wfau.phymatopus.util.HTMRangeIterable;
+import uk.ac.roe.wfau.phymatopus.htmsql.util.HTMRangeIterable;
 
 /**
  * 

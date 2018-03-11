@@ -16,7 +16,7 @@
  *
  */
 
-package uk.ac.roe.wfau.phymatopus.match;
+package uk.ac.roe.wfau.phymatopus.htmsql.match;
 
 import java.sql.Connection;
 import java.sql.Driver;

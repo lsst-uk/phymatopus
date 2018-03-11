@@ -16,9 +16,9 @@
  *
  */
 
-package uk.ac.roe.wfau.phymatopus.match;
+package uk.ac.roe.wfau.phymatopus.htmsql.match;
 
-import uk.ac.roe.wfau.phymatopus.webapp.WebappModel;
+import uk.ac.roe.wfau.phymatopus.htmsql.webapp.WebappModel;
 
 /**
  * 

@@ -16,38 +16,22 @@
  *
  */
 
-package uk.ac.roe.wfau.phymatopus.index;
+package uk.ac.roe.wfau.phymatopus.htmsql.index;
 
-import edu.jhu.htm.core.HTMException;
-import junit.framework.TestCase;
-import lombok.extern.slf4j.Slf4j;
-import uk.ac.roe.wfau.phymatopus.index.Indexer;
+import uk.ac.roe.wfau.phymatopus.htmsql.webapp.WebappModel;
 
 /**
- * 
+ * ModelViewController service paths and parameter names. 
  * 
  */
-@Slf4j
-public class IndexerTest extends TestCase
+public interface IndexerModel
+extends WebappModel
     {
-
     /**
-     * 
+     * Request path for the index service.
+     *
      */
-    public IndexerTest()
-        {
-        }
+    public static final String INDEX_PATH = "/index" ;
 
-    public void testCone()
-    throws HTMException
-        {
-        final Indexer indexer = new Indexer();
-        
-        final Iterable<Long> iter = indexer.circle(123.0, 8.5, 0.0025);
 
-        for (Long htmid : iter)
-            {
-            log.debug(htmid.toString());
-            }
-        }
     }

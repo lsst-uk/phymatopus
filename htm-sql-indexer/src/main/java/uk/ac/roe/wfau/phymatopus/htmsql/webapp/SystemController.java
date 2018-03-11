@@ -15,13 +15,13 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
-package uk.ac.roe.wfau.phymatopus.webapp;
+package uk.ac.roe.wfau.phymatopus.htmsql.webapp;
 
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 
-import uk.ac.roe.wfau.phymatopus.index.IndexerModel;
+import uk.ac.roe.wfau.phymatopus.htmsql.index.IndexerModel;
 
 /**
  *
