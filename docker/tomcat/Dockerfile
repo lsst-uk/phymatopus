@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-FROM phymatopus/java:2018.03.10
+FROM phymatopus/java:2018.03.20
 MAINTAINER [Dave Morris <docker-admin@metagrid.co.uk>]
 
 # https://tomcat.apache.org/whichversion.html

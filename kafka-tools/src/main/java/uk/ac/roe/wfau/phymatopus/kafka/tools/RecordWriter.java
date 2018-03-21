@@ -26,19 +26,25 @@ import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
+
+import org.apache.avro.Schema; 
+import org.apache.avro.SchemaBuilder ;
+import org.apache.avro.generic.GenericData;
+import org.apache.avro.generic.GenericRecordBuilder;
 import org.apache.kafka.common.serialization.LongSerializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 
+import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
+import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
+import io.confluent.kafka.serializers.KafkaAvroSerializer;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * First attempts at a Java producer.
- * Based on Cloudurable tutorial:
- * http://cloudurable.com/blog/kafka-tutorial-kafka-producer/index.html 
+ * First attempt at a schema structure writer.
  * 
  */
 @Slf4j
-public class StringWriter
+public class RecordWriter
 extends BaseWriter
     {
 
@@ -46,7 +52,7 @@ extends BaseWriter
      * Public constructor.
      * 
      */
-    public StringWriter(final String servers, final String topic)
+    public RecordWriter(final String servers, final String topic)
         {
         super(
             servers,
@@ -54,11 +60,15 @@ extends BaseWriter
             );
         }
 
+
+    
+    
+    
     /**
      * Create our {@link Producer}. 
      * 
      */
-    protected Producer<Long, String> producer()
+    protected Producer<Long, Object> producer()
         {
         Properties properties = new Properties();
         properties.put(
@@ -67,15 +77,62 @@ extends BaseWriter
             );
         properties.put(
             ProducerConfig.CLIENT_ID_CONFIG,
-            "KafkaExampleProducer"
+            "AvroExampleProducer"
             );
-        return new KafkaProducer<Long, String>(
+
+        SchemaRegistryClient reg = new MockSchemaRegistryClient();
+        KafkaAvroSerializer ser = new KafkaAvroSerializer(
+            reg
+            );
+        return new KafkaProducer<Long, Object>(
             properties,
             new LongSerializer(),
-            new StringSerializer()
+            ser
             );
         }
 
+    /**
+     * Our Avro {@link Schema}.
+     * 
+     */
+    protected Schema schema;
+    protected Schema schema()
+        {
+        if (null == schema)
+            {
+            schema = SchemaBuilder.builder()
+                .record("test001")
+                .namespace("uk.ac.roe.wfau.phymatopus")
+                .fields()
+                    .requiredDouble("ra")
+                    .requiredDouble("dec")
+                    .optionalDouble("cx")
+                    .optionalDouble("cy")
+                    .optionalDouble("cz")
+                    .endRecord();
+            }
+        return schema ;
+        }
+
+    /**
+     * Create a new Avro {@link Record}.
+     * 
+     */
+    protected GenericData.Record record()
+        {
+        final GenericRecordBuilder builder = new GenericRecordBuilder(
+            schema()
+            );
+        builder.set("ra",  new Double(1.0));
+        builder.set("dec", new Double(2.0));
+
+        builder.set("cx", new Double(3.0));
+        builder.set("cy", new Double(4.0));
+        builder.set("cz", new Double(5.0));
+        
+        return builder.build();
+        }
+    
     /**
      * Write a series of records to the stream. 
      * 
@@ -83,8 +140,8 @@ extends BaseWriter
     public void write(final int count)
         {
         log.debug("Creating Producer<Long, String>");
-        final Producer<Long, String> producer = producer(); 
-
+        final Producer<Long, Object> producer = producer(); 
+        
         log.debug("Starting write [{}]", count);
         long start = System.currentTimeMillis();
         
@@ -92,10 +149,10 @@ extends BaseWriter
             for (int index = 0 ; index < count ; index++)
                 {
                 log.debug("Loop [{}]", index);
-                final ProducerRecord<Long, String> record = new ProducerRecord<Long, String>(
+                final ProducerRecord<Long, Object> record = new ProducerRecord<Long, Object>(
                     topic(),
                     (start + index),
-                    "Hello Mum [" + index + "]"
+                    record()
                     );
                 log.debug("Record   [{}][{}]", record.key(), record.value());
                 final RecordMetadata metadata = producer.send(
@@ -115,10 +172,13 @@ extends BaseWriter
             {
             log.debug("ExecutionException during loop", ouch);
             }
+        catch (Exception ouch)
+            {
+            log.debug("Exception during loop", ouch);
+            }
         finally {
             producer.flush();
             producer.close();
             }
         }
-
     }

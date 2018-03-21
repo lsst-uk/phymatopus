@@ -41,7 +41,7 @@ import lombok.extern.slf4j.Slf4j;
         "classpath:component-config.xml"
         }
     )
-public class ReaderTest
+public class KafkaTestBase
     {
 
     /**
@@ -61,7 +61,7 @@ public class ReaderTest
     /**
      * 
      */
-    public ReaderTest()
+    public KafkaTestBase()
         {
         }
 
@@ -83,22 +83,5 @@ public class ReaderTest
     public void after()
         {
         log.debug("After test ..");
-        }
-
-    /**
-     * Test our {@link StringReader}.
-     * 
-     */
-    @Test
-    public void read()
-        {
-        log.debug("Read test ..");
-        final StringReader reader = new StringReader(
-            servers,
-            topic
-            ); 
-        reader.read(
-            100
-            );
         }
     }

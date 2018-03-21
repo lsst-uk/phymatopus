@@ -33,56 +33,16 @@ import lombok.extern.slf4j.Slf4j;
  * 
  */
 @Slf4j
-@RunWith(
-    SpringJUnit4ClassRunner.class
-    )
-@ContextConfiguration(
-    locations = {
-        "classpath:component-config.xml"
-        }
-    )
-public class WriterTest
+public class StringWriterTest
+extends KafkaTestBase 
     {
 
     /**
-     * The target kafka servers.
      * 
      */
-    @Value("${phymatopus.kafka.servers:}")
-    protected String servers;
-
-    /**
-     * The target kafka topic.
-     * 
-     */
-    @Value("${phymatopus.kafka.topic:}")
-    protected String topic;
-
-    /**
-     * 
-     */
-    public WriterTest()
+    public StringWriterTest()
         {
-        }
-
-    /**
-     * 
-     * 
-     */
-    @Before
-    public void before()
-        {
-        log.debug("Before test ..");
-        }
-
-    /**
-     * 
-     * 
-     */
-    @After
-    public void after()
-        {
-        log.debug("After test ..");
+        super();
         }
 
     /**
@@ -98,7 +58,7 @@ public class WriterTest
             topic
             ); 
         writer.write(
-            100
+            10000
             );
         }
     }
