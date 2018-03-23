@@ -1,0 +1,46 @@
+version: '2.1'
+# https://en.wikipedia.org/wiki/Aphomia_caffralis
+
+networks:
+
+    miriam:
+
+services:
+
+    nikolina:
+        image:
+           "phymatopus/htm-sql:1.0"
+        read_only:
+            false
+        stdin_open:
+            true
+        tty:
+            true
+        tmpfs:
+            - /run
+            - /tmp
+        networks:
+            - miriam
+
+    tester:
+        image:
+           "firethorn/fedora:2.1.14"
+        read_only:
+            false
+        stdin_open:
+            true
+        tty:
+            true
+        tmpfs:
+            - /run
+            - /tmp
+        networks:
+            - miriam
+        environment:
+            endpointurl: "http://nikolina:8080/htm-sql"
+        depends_on:
+            nikolina:
+                condition: service_healthy            
+        command:
+            [bash]
+

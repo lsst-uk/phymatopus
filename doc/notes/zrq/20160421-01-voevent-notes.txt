@@ -1,0 +1,168 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2016, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#  
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+    Data Products Definition Document (DPD)
+    http://ls.st/dpdd
+
+        This document describes the data products and processing services
+        to be delivered by the Large Synoptic Survey Telescope (LSST).
+
+        4.5.1 Information Contained in Each Alert
+
+            For each detected DIASource, LSST will emit an “Event Alert” within 60
+            seconds of the end of visit (defined as the end of image readout from the
+            LSST Camera). These alerts will be issued in VOEvent format 53 , and should
+            be readable by VOEvent-compliant clients.
+
+            ....
+            ....
+
+            The items above are meant to represent the information transmitted with
+            each alert; the content of the alert packet itself will be formatted to confirm
+            to VOEvent (or other relevant) standard. Where the existing standard is
+            inadequate for LSST needs, LSST will propose extensions and work with the
+            community to reach a common solution.
+
+    Slides about the DPD Review (DPDR)
+    https://project.lsst.org/reviews/sites/lsst.org.reviews.dpdr/files/talks/LSST-DPDR-Level1-Final.pdf
+
+        Page 17
+        
+            We plan to use VOEvent as the format for alert transmission    
+
+            The packet will be transmijed to VOEvent Brokers    
+
+            We expect the community to provide sophis1cated brokers with classifica1on    
+            engines, cross-­‐match capabili1es to other catalogs, etc.    
+
+            LSST will provide a default, limited, broker    
+            (to be discussed later)
+
+
+        Page 24
+
+            It has been understood for a number of years (da1ng back to pre-­‐PDR) that    
+            it is outside the scope of the LSST Project to develop and provide advanced
+            event brokering facilies.
+            
+            For example, brokers employing machine learning classifiers to filter the
+            most interes1ng events in the event stream.
+            
+            Nevertheless,  the Project does have a mandate to provide a basic filtering facility
+
+        Page 25
+
+            To directly serve the end-­‐users, LSST will provide a basic, limited capacity,    
+            alert filtering service. This service will run at the LSST U.S. Archive Center.    
+            It will let astronomers create simple filters that limit what alerts are    
+            ul1mately forwarded to them.
+            These user defined filters will be possible to specify using an SQL-­‐like declara1ve
+            language, or short snippets of (likely Python) code.
+
+
+    Data Products Definition Review - Response
+    (page 8 raises concerns abaout VOEvent format)
+    https://project.lsst.org/reviews/sites/lsst.org.reviews.dpdr/files/Data%20Products%20Review%20Project%20Response.pdf
+
+        Page 8
+
+            While the XML based VOEvent format is currently a standard way of packaging 
+            alerts for public distribution, it is very inefficient with respect to
+            storage capacity and  network bandwidth. If a suitable, more compact format
+            standard emerges, we recommend considering it.
+
+
+
+    RFC-163 - Meeting about 'What goes in a VOEvent'
+    https://jira.lsstcorp.org/browse/RFC-163
+
+        Discussion before the meeting
+        Planned date - Tuesday April 5    
+
+    RFC-163 - Example event
+    http://data.metagrid.co.uk/temp/ivo__servo.aob.rs_alertsim85224405_35.xml
+
+    RFC-163 - Meeting agenda
+    https://docs.google.com/document/d/1pxvQyRkch2aqpcvbcozQOnonTqyA5Ze9gBUZ9JLWyZU/edit
+    
+    Sketches for event architecture    
+    https://drive.google.com/file/d/0B4ji6e1g-McdYW9WTHZmLW15R3M/view
+    
+    RFC-163 - Notes from meeting - What goes in a VOEvent
+    https://community.lsst.org/t/notes-from-rfc-163-what-goes-in-a-voevent/667
+
+        Executive summary:
+        The original intent was to capture any thoughts on what should go in a
+        VOEvent that is sent out to the public. This was predicated on the
+        assumption that all subscribers would see identical VOEvents. Since
+        we expect to send ~10 million alerts per night, it is important to
+        optimize the contents.
+
+        The conversation ended up being focused instead on the architecture
+        of the event generation pipelines. @mjuric pointed out that the alert
+        is not the VOEvent packet. Instead, we should think of the alert as
+        the DIASource and all ancillary data. In this view, the filtering
+        mechanism provided by LSST could be able to both cull alerts and format
+        the resultant VOEvent. If this is the case, users will naturally only
+        send on the minimum amount of data to get their science done. The
+        question then becomes what else we can provide the filter to be useful
+        (opposite of the previous question what can we avoid sending).
+
+        @gpdf pointed out that allowing all alerts to be packaged independently
+        in many different ways makes it very difficult to find all VOEvents
+        derived from a given alert. It seems like this concern could be
+        alleviated by producing a "master VOEvent" at the beginning of the
+        pipeline for each alert which would be signed by LSST and referenced
+        by any child VOEvent.
+
+
+        Actions:
+        There were three major actions taken from the discussion.
+        Action 1: It would be very useful to make the full Object record
+        associated with a DIASource available to the filtering mechanism.
+        The current baseline is to just provide an ObjectId. This has a cost
+        implication and requires a change to the DPDD. @connolly and @ivezic
+        are asked to draft a proposal to send the the CCB. This will need
+        input from @ktl.
+
+        Action 2: @KSK and @connolly will take the sketch of the architecture
+        presented by @mjuric and incorporate a fleshed out version in LDM-151.
+
+        Action 3: @KSK and @connolly need to plan how to determine the optimal
+        way of associating Objects with DIASources.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
