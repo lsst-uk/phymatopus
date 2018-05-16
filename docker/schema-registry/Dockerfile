@@ -17,15 +17,8 @@
 
 #
 # Extend the original Dockerfile from Confluent.
-# https://github.com/confluentinc/cp-docker-images/blob/4.0.x/debian/kafka/Dockerfile
-FROM confluentinc/cp-kafka:4.0.0-3
+# https://github.com/confluentinc/cp-docker-images/blob/4.0.x/debian/schema-registry/Dockerfile
+FROM confluentinc/schema-registry:4.0.0-3
 MAINTAINER Dave Morris <docker-admin@metagrid.co.uk>
 
-#
-# Install our scripts.
-COPY bin/phymatopus /bin/phymatopus
-RUN chmod a+x /bin/phymatopus/*
 
-#
-# Override the original command.
-CMD ["/bin/phymatopus/configure"]

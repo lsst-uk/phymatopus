@@ -1,0 +1,1096 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2017, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+# -----------------------------------------------------
+# Create a new VM to work with.
+#[user@trop]
+
+    createvm
+
+        INFO : Node name [Etalema]
+        INFO : Base name [fedora-25-docker-16G-20170713.qcow]
+        INFO : Base path [/var/lib/libvirt/images/base/fedora-25-docker-16G-20170713.qcow]
+        INFO : Disc name [Etalema.qcow]
+        INFO : Disc size [16GiB]
+
+# -----------------------------------------------------
+# Login to the new VM.
+#[user@trop]
+
+    ssh Etalema
+
+    # -----------------------------------------------------
+    # Configure our secrets function.
+    #[user@virtual]
+
+        mkdir "${HOME}/bin"
+        pushd "${HOME}/bin"
+
+            cat > "secret.sh" << 'EOF'
+    ....
+    ....
+    EOF
+
+            chmod u=rwx,og= "secret.sh"
+            ln -s "secret.sh" "secret"
+        popd
+
+        secret frog
+
+    # -----------------------------------------------------
+    # Configure our OpenStack settings.
+    # https://horizon.ecdf.ed.ac.uk/dashboard/project/access_and_security/api_access/openrc/
+    #[user@virtual]
+
+        cat > "${HOME}/openstack.settings" << EOF
+
+export OS_INTERFACE=public
+export OS_IDENTITY_API_VERSION=3
+
+export OS_AUTH_URL=https://keystone.ecdf.ed.ac.uk/v3
+
+export OS_USER_DOMAIN_NAME="ed"
+export OS_REGION_NAME="Edinburgh"
+
+export OS_USERNAME=$(secret openstack.user)
+export OS_PASSWORD=$(secret openstack.pass)
+
+#export OS_PROJECT_ID=c2ff1afa3e874e0eb6f5a48f7e77208b
+#export OS_PROJECT_NAME=virtual-observatory-services
+
+export OS_PROJECT_ID=fcef6dd450f64a1ab4ffa5a7234c4161
+export OS_PROJECT_NAME=lsst
+
+EOF
+
+    # -----------------------------------------------------
+    # Create a container to work with.
+    #[user@virtual]
+
+        docker run \
+            --rm \
+            --tty \
+            --interactive \
+            --hostname openstacker \
+            --env SSH_AUTH_SOCK=/tmp/ssh_auth_sock \
+            --volume "${HOME}/openstack.settings:/openstack.settings" \
+            --volume ${SSH_AUTH_SOCK}:/tmp/ssh_auth_sock \
+            fedora \
+            bash
+
+        # -----------------------------------------------------
+        # Load our settings.
+        #[root@openstacker]
+
+            source /openstack.settings
+
+        # -----------------------------------------------------
+        # Check our user name and password.
+        #[root@openstacker]
+
+            cat << EOF
+Username [${OS_USERNAME:?}]
+Password [${OS_PASSWORD:?}]
+Project  [${OS_PROJECT_NAME:?}]
+Project  [${OS_PROJECT_ID:?}]
+EOF
+
+        # -----------------------------------------------------
+        # Install the SSH client.
+        #[root@openstacker]
+
+            dnf \
+                install -y \
+                openssh-clients
+
+        # -----------------------------------------------------
+        # Install the OpenStack client.
+        # https://docs.openstack.org/python-openstackclient/latest/
+        #[root@openstacker]
+
+            dnf \
+                install -y \
+                python-openstackclient
+
+        # -----------------------------------------------------
+        # Install the jq JSON parser.
+        # https://stedolan.github.io/jq/
+        #[root@openstacker]
+
+            dnf \
+                install -y \
+                jq
+
+
+        # -----------------------------------------------------
+        # Install the ipcalc tools.
+        # http://jodies.de/ipcalc
+        #[root@openstacker]
+
+            dnf \
+                install -y \
+                ipcalc
+
+        # -----------------------------------------------------
+        # Show our project details.
+        #[root@openstacker]
+
+            openstack \
+                project \
+                show \
+                --format json \
+                ${OS_PROJECT_ID:?} \
+                | jq '.' \
+                | tee /tmp/project-info.json
+
+            {
+              "is_domain": false,
+              "description": "",
+              "enabled": true,
+              "domain_id": "450db9c9d59f4e888f9f44c4a9904118",
+              "parent_id": "450db9c9d59f4e888f9f44c4a9904118",
+              "id": "fcef6dd450f64a1ab4ffa5a7234c4161",
+              "name": "lsst"
+            }
+
+        # -----------------------------------------------------
+        # List our project volumes.
+        #[root@openstacker]
+
+            openstack \
+                volume \
+                list \
+                --format json \
+                | jq '.' \
+                | tee /tmp/project-list.json
+
+            []
+
+        # -----------------------------------------------------
+        # List our project snapshots.
+        #[root@openstacker]
+
+            openstack \
+                volume \
+                 snapshot list \
+                --format json \
+                | jq '.' \
+                | tee /tmp/snapshot-list.json
+
+            []
+
+        # -----------------------------------------------------
+        # List our project floating addresses.
+        #[root@openstacker]
+
+            openstack \
+                floating ip \
+                list \
+                --format json \
+                | jq '.' \
+                | tee /tmp/floating-list.json
+
+            []
+
+        # -----------------------------------------------------
+        # List our project instances.
+        #[root@openstacker]
+
+            openstack \
+                server \
+                 list \
+                --format json \
+                | jq '.' \
+                | tee /tmp/server-list.json
+
+            []
+
+        # -----------------------------------------------------
+        # Show our project limits.
+        #[root@openstacker]
+
+            openstack \
+                limits \
+                show \
+                --absolute \
+                --format json \
+                | jq '.' \
+                | tee /tmp/project-limits.json
+
+            [
+              {
+                "Name": "maxServerMeta",
+                "Value": 128
+              },
+              ....
+              ....
+              {
+                "Name": "totalGigabytesUsed",
+                "Value": 0
+              }
+            ]
+
+        # -----------------------------------------------------
+        # List the available flavors.
+        #[root@openstacker]
+
+            openstack \
+                flavor \
+                list \
+                --format json \
+                | jq '.' \
+                | tee /tmp/flavor-list.json
+
+            [
+              {
+                "Name": "m1.small",
+                "RAM": 2048,
+                "Ephemeral": 0,
+                "VCPUs": 1,
+                "Is Public": true,
+                "Disk": 20,
+                "ID": "2"
+              },
+              ....
+              ....
+              {
+                "Name": "l1.xlarge",
+                "RAM": 49152,
+                "Ephemeral": 0,
+                "VCPUs": 8,
+                "Is Public": true,
+                "Disk": 320,
+                "ID": "9"
+              }
+            ]
+
+        # -----------------------------------------------------
+        # List the available networks.
+        #[root@openstacker]
+
+            openstack \
+                network \
+                list \
+                --format json \
+                | jq '.' \
+                | tee /tmp/network-list.json
+
+            [
+              {
+                "Subnets": "378f0f3f-a7bc-495d-9b21-3997a10404e8",
+                "ID": "0dc77e8e-a97e-411e-94d0-da1b6efc393c",
+                "Name": "vm-network-UoE-external"
+              },
+              {
+                "Subnets": "6ab469f9-ff01-4aee-af59-5f1da7e26e81",
+                "ID": "4f2774d1-dfb8-4833-8374-806e1fc40827",
+                "Name": "Floating Network Private (UoE access only)"
+              },
+              {
+                "Subnets": "9c07390c-dc6e-4a85-a20c-66c370dbff62",
+                "ID": "cc1bdad0-6b7c-4c7b-8c5b-6d5f4a677368",
+                "Name": "vm-network-UoE-internal"
+              },
+              {
+                "Subnets": "e1c72964-3276-473f-a169-b60de622c385",
+                "ID": "d1e55e07-6f28-4d98-8116-e11ca10c3e8f",
+                "Name": "Floating Network Public"
+              }
+            ]
+
+        # -----------------------------------------------------
+        # List the available images.
+        #[root@openstacker]
+
+            openstack \
+                image \
+                list \
+                --format json \
+                | jq '.' \
+                | tee /tmp/image-list.json
+
+            [
+              {
+              "Status": "active",
+              "ID": "d608b269-de15-4852-96b0-2dda15466cb6",
+              "Name": "Centos 6 - 1612"
+              },
+              ....
+              ....
+              {
+              "Status": "active",
+              "ID": "407a5d09-cd97-455f-9bdb-4fb7f54dd4ff",
+              "Name": "fedora-27-docker-base-20180129"
+              }
+            ]
+
+        # -----------------------------------------------------
+        # Select our target flavor.
+        #[root@openstacker]
+
+            match='^m1.small'
+
+            flavorident=$(
+                jq -r "
+                    [
+                    .[] |
+                    if (.Name | test(\"${match:?}\"))
+                    then
+                        .
+                    else
+                        empty
+                    end
+                    ] |
+                    .[0].ID
+                    " /tmp/flavor-list.json
+                    )
+
+        # -----------------------------------------------------
+        # Select our target image.
+        #[root@openstacker]
+
+            match='^fedora-27-docker'
+
+            imageident=$(
+                jq -r "
+                    [
+                    .[] |
+                    if (.Name | test(\"${match:?}\"))
+                    then
+                        .
+                    else
+                        empty
+                    end
+                    ] |
+                    .[0].ID
+                    " /tmp/image-list.json
+                    )
+
+        # -----------------------------------------------------
+        # Get the external network identifier.
+        #[root@openstacker]
+
+            match='^vm-network-UoE-external'
+
+            externalnet=$(
+                jq -r "
+                    [
+                    .[] |
+                    if (.Name | test(\"${match:?}\"))
+                    then
+                        .
+                    else
+                        empty
+                    end
+                    ] |
+                    .[0].ID
+                    " /tmp/network-list.json
+                    )
+
+        # -----------------------------------------------------
+        # Get the internal network identifier.
+        #[root@openstacker]
+
+            match='^vm-network-UoE-internal'
+
+            internalnet=$(
+                jq -r "
+                    [
+                    .[] |
+                    if (.Name | test(\"${match:?}\"))
+                    then
+                        .
+                    else
+                        empty
+                    end
+                    ] |
+                    .[0].ID
+                    " /tmp/network-list.json
+                    )
+
+        # -----------------------------------------------------
+        # Get the private network identifier.
+        #[root@openstacker]
+
+            match='^Floating Network Private'
+
+            privatenet=$(
+                jq -r "
+                    [
+                    .[] |
+                    if (.Name | test(\"${match:?}\"))
+                    then
+                        .
+                    else
+                        empty
+                    end
+                    ] |
+                    .[0].ID
+                    " /tmp/network-list.json
+                    )
+
+        # -----------------------------------------------------
+        # Get the public network identifier.
+        #[root@openstacker]
+
+            match='^Floating Network Public'
+
+            publicnet=$(
+                jq -r "
+                    [
+                    .[] |
+                    if (.Name | test(\"${match:?}\"))
+                    then
+                        .
+                    else
+                        empty
+                    end
+                    ] |
+                    .[0].ID
+                    " /tmp/network-list.json
+                    )
+
+        # -----------------------------------------------------
+        # Create a private address.
+        #[root@openstacker]
+
+            openstack \
+                floating ip \
+                create \
+                --format json \
+                "${privatenet:?}" \
+                | jq '.' \
+                | tee /tmp/privateip-info.json
+
+                {
+                  "router_id": null,
+                  "status": "DOWN",
+                  "description": "",
+                  "created_at": "2018-04-30T16:00:03Z",
+                  "updated_at": "2018-04-30T16:00:03Z",
+                  "floating_network_id": "4f2774d1-dfb8-4833-8374-806e1fc40827",
+                  "fixed_ip_address": null,
+                  "floating_ip_address": "172.16.49.192",
+                  "revision_number": 1,
+                  "project_id": "fcef6dd450f64a1ab4ffa5a7234c4161",
+                  "port_id": null,
+                  "id": "70951fbd-e4e9-4b02-ace5-c8016825b173",
+                  "name": "172.16.49.192"
+                }
+
+        # -----------------------------------------------------
+        # Get our private address.
+        #[root@openstacker]
+
+            privateip=$(
+                jq -r "
+                    .floating_ip_address
+                    " /tmp/privateip-info.json
+                    )
+
+        # -----------------------------------------------------
+        # Create a public address.
+        #[root@openstacker]
+
+            openstack \
+                floating ip \
+                create \
+                --format json \
+                "${publicnet:?}" \
+                | jq '.' \
+                | tee /tmp/publicip-info.json
+
+                {
+                  "router_id": null,
+                  "status": "DOWN",
+                  "description": "",
+                  "created_at": "2018-04-30T16:00:32Z",
+                  "updated_at": "2018-04-30T16:00:32Z",
+                  "floating_network_id": "d1e55e07-6f28-4d98-8116-e11ca10c3e8f",
+                  "fixed_ip_address": null,
+                  "floating_ip_address": "129.215.193.116",
+                  "revision_number": 1,
+                  "project_id": "fcef6dd450f64a1ab4ffa5a7234c4161",
+                  "port_id": null,
+                  "id": "8f9edec8-de4d-427b-a046-41fecf64c36f",
+                  "name": "129.215.193.116"
+                }
+
+        # -----------------------------------------------------
+        # Get our public address.
+        #[root@openstacker]
+
+            publicip=$(
+                jq -r "
+                    .floating_ip_address
+                    " /tmp/publicip-info.json
+                    )
+
+        # -----------------------------------------------------
+        # Check the private address.
+        #[root@openstacker]
+
+            ipcalc --class-prefix \
+                "${privateip:?}"
+
+                Address:	172.16.49.191
+                Network:	172.16.0.0/16
+                Netmask:	255.255.0.0 = 16
+                Broadcast:	172.16.255.255
+
+                Address space:	Private Use
+                Address class:	Class B
+                HostMin:	172.16.0.1
+                HostMax:	172.16.255.254
+                Hosts/Net:	65534
+
+        # -----------------------------------------------------
+        # Check the public address.
+        #[root@openstacker]
+
+            ipcalc --class-prefix \
+                "${publicip:?}"
+
+                Address:	129.215.193.82
+                Network:	129.215.0.0/16
+                Netmask:	255.255.0.0 = 16
+                Broadcast:	129.215.255.255
+
+                Address space:	Internet
+                Address class:	Class B
+                HostMin:	129.215.0.1
+                HostMax:	129.215.255.254
+                Hosts/Net:	65534
+
+        # -----------------------------------------------------
+        # -----------------------------------------------------
+        # Boot an instance with just the private network.
+        #[root@openstacker]
+
+            vmname=albert
+
+            openstack \
+                server \
+                create \
+                --format json \
+                --image "${imageident:?}" \
+                --flavor "${flavorident:?}" \
+                --nic "net-id=${internalnet:?}" \
+                --key-name dmr \
+                "${vmname:?}" \
+                | jq '.' \
+                | tee /tmp/vm-info.json
+
+                {
+                ....
+                "name": "albert",
+                "image": "fedora-27-docker-base-20180129 (407a5d09-cd97-455f-9bdb-4fb7f54dd4ff)",
+                "flavor": "m1.small (2)",
+                "addresses": "",
+                "id": "d54aee24-8cb7-4855-878f-e7bec5497851",
+                "status": "BUILD",
+                ....
+                }
+
+        # -----------------------------------------------------
+        # Get our instance identifier.
+        #[root@openstacker]
+
+            vmident=$(
+                jq -r "
+                    .id
+                    " /tmp/vm-info.json
+                )
+
+        # -----------------------------------------------------
+        # Show the details for our new instance.
+        #[root@openstacker]
+
+            openstack \
+                server \
+                show \
+                --format json \
+                "${vmident:?}" \
+                | jq '.' \
+                | tee /tmp/vm-info.json
+
+                {
+                ....
+                "name": "albert",
+                "image": "fedora-27-docker-base-20180129 (407a5d09-cd97-455f-9bdb-4fb7f54dd4ff)",
+                "flavor": "m1.small (2)",
+                "addresses": "vm-network-UoE-internal=192.168.1.6",
+                "id": "d54aee24-8cb7-4855-878f-e7bec5497851",
+                "status": "ACTIVE",
+                ....
+                }
+
+        # -----------------------------------------------------
+        # Get the internal address for our instance.
+        #[root@openstacker]
+
+            internalip=$(
+                jq -r "
+                    .addresses
+                    " /tmp/vm-info.json \
+                | sed -n '
+                    s/.*internal=\([0-9.]*\).*/\1/p
+                    '
+                )
+
+        # -----------------------------------------------------
+        # Connect our private address to our internal address.
+        #[root@openstacker]
+
+            openstack \
+                server \
+                add \
+                floating ip \
+                --fixed-ip-address "${internalip:?}" \
+                "${vmident:?}" \
+                "${privateip:?}"
+
+        # -----------------------------------------------------
+        # Test our private address.
+        #[root@openstacker]
+
+            ssh Stevedore@"${privateip:?}"
+
+            # -----------------------------------------------------
+            # Check the network config.
+            #[user@virtual]
+
+                ifconfig
+
+                    docker0: flags=4099<UP,BROADCAST,MULTICAST>  mtu 1500
+                        inet 172.17.0.1  netmask 255.255.0.0  broadcast 172.17.255.255
+                        ....
+
+                    ens3: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1450
+                        inet 192.168.1.6  netmask 255.255.255.0  broadcast 192.168.1.255
+                        ....
+
+                    lo: flags=73<UP,LOOPBACK,RUNNING>  mtu 65536
+                        inet 127.0.0.1  netmask 255.0.0.0
+                        ....
+
+
+            # -----------------------------------------------------
+            # Check external access.
+            #[user@virtual]
+
+                curl -s http://icanhazip.com/
+
+                    129.215.255.235
+
+            # -----------------------------------------------------
+            # Exit from our instance.
+            #[user@virtual]
+
+                exit
+
+        # -----------------------------------------------------
+        # Delete our instance.
+        #[root@openstacker]
+
+            openstack \
+                server \
+                delete \
+                "${vmident:?}"
+
+
+        # -----------------------------------------------------
+        # -----------------------------------------------------
+        # Boot an instance with just the public network.
+        #[root@openstacker]
+
+            vmname=victoria
+
+            openstack \
+                server \
+                create \
+                --format json \
+                --image "${imageident:?}" \
+                --flavor "${flavorident:?}" \
+                --nic "net-id=${externalnet:?}" \
+                --key-name dmr \
+                "${vmname:?}" \
+                | jq '.' \
+                | tee /tmp/vm-info.json
+
+                {
+                  ....
+                  "name": "victoria",
+                  "image": "fedora-27-docker-base-20180129 (407a5d09-cd97-455f-9bdb-4fb7f54dd4ff)",
+                  "flavor": "m1.small (2)",
+                  "addresses": "",
+                  "id": "405feae3-bd4c-49c3-94c7-5465e5046533",
+                  "status": "BUILD",
+                  ....
+                }
+
+        # -----------------------------------------------------
+        # Get our instance identifier.
+        #[root@openstacker]
+
+            vmident=$(
+                jq -r "
+                    .id
+                    " /tmp/vm-info.json
+                )
+
+        # -----------------------------------------------------
+        # Show details for our new instance.
+        #[root@openstacker]
+
+            openstack \
+                server \
+                show \
+                --format json \
+                "${vmident:?}" \
+                | jq '.' \
+                | tee /tmp/vm-info.json
+
+                {
+                  ....
+                  "name": "victoria",
+                  "image": "fedora-27-docker-base-20180129 (407a5d09-cd97-455f-9bdb-4fb7f54dd4ff)",
+                  "flavor": "m1.small (2)",
+                  "addresses": "vm-network-UoE-external=192.168.2.5",
+                  "id": "405feae3-bd4c-49c3-94c7-5465e5046533",
+                  "status": "ACTIVE",
+                  ....
+                }
+
+        # -----------------------------------------------------
+        # Get the external address for our instance.
+        #[root@openstacker]
+
+            externalip=$(
+                jq -r "
+                    .addresses
+                    " /tmp/vm-info.json \
+                | sed -n '
+                    s/.*external=\([0-9.]*\).*/\1/p
+                    '
+                )
+
+        # -----------------------------------------------------
+        # Connect our public address to our external address.
+        #[root@openstacker]
+
+            openstack \
+                server \
+                add \
+                floating ip \
+                --fixed-ip-address "${externalip:?}" \
+                "${vmident:?}" \
+                "${publicip:?}"
+
+        # -----------------------------------------------------
+        # Test our public address.
+        #[root@openstacker]
+
+            ssh Stevedore@"${publicip:?}"
+
+            # -----------------------------------------------------
+            # Check the network config.
+            #[user@virtual]
+
+                ifconfig
+
+                    docker0: flags=4099<UP,BROADCAST,MULTICAST>  mtu 1500
+                        inet 172.17.0.1  netmask 255.255.0.0  broadcast 172.17.255.255
+                        ....
+
+                    ens3: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1450
+                        inet 192.168.2.5  netmask 255.255.255.0  broadcast 192.168.2.255
+                        ....
+
+                    lo: flags=73<UP,LOOPBACK,RUNNING>  mtu 65536
+                        inet 127.0.0.1  netmask 255.0.0.0
+                        ....
+
+            # -----------------------------------------------------
+            # Check external access.
+            #[user@virtual]
+
+                curl -s http://icanhazip.com/
+
+                    129.215.193.116
+
+            # -----------------------------------------------------
+            # Exit from our vm instance.
+            #[user@virtual]
+
+                exit
+
+        # -----------------------------------------------------
+        # Delete our instance.
+        #[root@openstacker]
+
+            openstack \
+                server \
+                delete \
+                "${vmident:?}"
+
+
+        # -----------------------------------------------------
+        # -----------------------------------------------------
+        # Boot an instance with both public and private networks.
+        #[root@openstacker]
+
+            vmname=victorialbert
+
+            openstack \
+                server \
+                create \
+                --format json \
+                --image "${imageident:?}" \
+                --flavor "${flavorident:?}" \
+                --nic "net-id=${externalnet:?}" \
+                --nic "net-id=${internalnet:?}" \
+                --key-name dmr \
+                "${vmname:?}" \
+                | jq '.' \
+                | tee /tmp/vm-info.json
+
+                {
+                  ....
+                  "name": "victorialbert",
+                  "image": "fedora-27-docker-base-20180129 (407a5d09-cd97-455f-9bdb-4fb7f54dd4ff)",
+                  "flavor": "m1.small (2)",
+                  "addresses": "",
+                  "id": "fe55beb2-5e56-402e-a1c3-7fbb5edb7bde",
+                  "status": "BUILD",
+                  ....
+                }
+
+        # -----------------------------------------------------
+        # Get our instance identifier.
+        #[root@openstacker]
+
+            vmident=$(
+                jq -r "
+                    .id
+                    " /tmp/vm-info.json
+                )
+
+        # -----------------------------------------------------
+        # Show details for our new instance.
+        #[root@openstacker]
+
+            openstack \
+                server \
+                show \
+                --format json \
+                "${vmident:?}" \
+                | jq '.' \
+                | tee /tmp/vm-info.json
+
+                {
+                  ....
+                  "name": "victorialbert",
+                  "image": "fedora-27-docker-base-20180129 (407a5d09-cd97-455f-9bdb-4fb7f54dd4ff)",
+                  "flavor": "m1.small (2)",
+                  "addresses": "vm-network-UoE-internal=192.168.1.8; vm-network-UoE-external=192.168.2.10",
+                  "id": "fe55beb2-5e56-402e-a1c3-7fbb5edb7bde",
+                  "status": "ACTIVE",
+                  ....
+                }
+
+        # -----------------------------------------------------
+        # Get the external address for our instance.
+        #[root@openstacker]
+
+            externalip=$(
+                jq -r "
+                    .addresses
+                    " /tmp/vm-info.json \
+                | sed -n '
+                    s/.*external=\([0-9.]*\).*/\1/p
+                    '
+                )
+
+        # -----------------------------------------------------
+        # Get the internal address for our instance.
+        #[root@openstacker]
+
+            internalip=$(
+                jq -r "
+                    .addresses
+                    " /tmp/vm-info.json \
+                | sed -n '
+                    s/.*internal=\([0-9.]*\).*/\1/p
+                    '
+                )
+
+        # -----------------------------------------------------
+        # Connect our private address to our internal address.
+        #[root@openstacker]
+
+            openstack \
+                server \
+                add \
+                floating ip \
+                --fixed-ip-address "${internalip:?}" \
+                "${vmident:?}" \
+                "${privateip:?}"
+
+        # -----------------------------------------------------
+        # Connect our public address to our external address.
+        #[root@openstacker]
+
+            openstack \
+                server \
+                add \
+                floating ip \
+                --fixed-ip-address "${externalip:?}" \
+                "${vmident:?}" \
+                "${publicip:?}"
+
+        # -----------------------------------------------------
+        # Test our private address.
+        #[root@openstacker]
+
+            ssh Stevedore@"${privateip:?}"
+
+            # -----------------------------------------------------
+            # Check the network config.
+            #[user@virtual]
+
+                ifconfig
+
+                    docker0: flags=4099<UP,BROADCAST,MULTICAST>  mtu 1500
+                        inet 172.17.0.1  netmask 255.255.0.0  broadcast 172.17.255.255
+                        ....
+
+                    ens3: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1450
+                        inet 192.168.2.10  netmask 255.255.255.0  broadcast 192.168.2.255
+                        ....
+
+                    ens4: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1450
+                        inet 192.168.1.8  netmask 255.255.255.0  broadcast 192.168.1.255
+                        ....
+
+                    lo: flags=73<UP,LOOPBACK,RUNNING>  mtu 65536
+                        inet 127.0.0.1  netmask 255.0.0.0
+                        ....
+
+            # -----------------------------------------------------
+            # Check external access.
+            #[user@virtual]
+
+                curl -s http://icanhazip.com/
+
+                    129.215.255.235
+
+            # -----------------------------------------------------
+            # Check the routing tables.
+            #[user@virtual]
+
+                ip route
+
+                    default via 192.168.1.254 dev ens4 proto static metric 100 
+                    default via 192.168.2.254 dev ens3 proto static metric 101 
+                    169.254.169.254 via 192.168.1.254 dev ens4 proto dhcp metric 100 
+                    172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown 
+                    192.168.1.0/24 dev ens4 proto kernel scope link src 192.168.1.8 metric 100 
+                    192.168.2.0/24 dev ens3 proto kernel scope link src 192.168.2.10 metric 100 
+
+            # -----------------------------------------------------
+            # Exit from our vm instance.
+            #[user@virtual]
+
+                exit
+
+        # -----------------------------------------------------
+        # SSH access to our public address fails.
+        # I suspect default routing via internal address means packets get lost. 
+        #[root@openstacker]
+
+            ssh Stevedore@"${publicip:?}"
+
+
+        # -----------------------------------------------------
+        # Delete our vm instance.
+        #[root@openstacker]
+
+            openstack \
+                server \
+                delete \
+                "${vmident:?}"
+
+
+        # -----------------------------------------------------
+        # Delete our private address.
+        #[root@openstacker]
+
+            openstack \
+                floating ip \
+                delete \
+                "${privateip:?}"
+
+        # -----------------------------------------------------
+        # Delete our public address.
+        #[root@openstacker]
+
+            openstack \
+                floating ip \
+                delete \
+                "${publicip:?}"
+
+        # -----------------------------------------------------
+        # Exit from our working container.
+        #[root@openstacker]
+
+            exit
+
+    # -----------------------------------------------------
+    # Exit from our working VM.
+    #[user@virtual]
+
+        exit
+
+# -----------------------------------------------------
+# Delete our working VM.
+#[user@trop]
+
+    source "${HOME:?}/ischnura.settings"
+
+    virsh \
+        --quiet \
+        --connect "${connection:?}" \
+        destroy \
+            "Etalema"
+    
+    virsh \
+        --quiet \
+        --connect "${connection:?}" \
+        undefine \
+            "Etalema" \
+            --remove-all-storage
+
+
+
+
+

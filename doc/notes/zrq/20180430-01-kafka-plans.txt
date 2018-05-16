@@ -1,0 +1,267 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2018, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#  
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+
+    Deployment
+
+        * Docker compose sets
+            * LSST configuration
+            * Confluent configuration
+            * Custom configuration (build our own)
+                1) Simple single partition no replication test
+                2) Tbyte disc, 24hr buffer, 3 partitions, 2 replicas
+
+        * Install scripts for Docker compose sets
+            * Create a standard VM environment (fedora-docker image)
+                1) Move base Fedora container out of Firethorn into separate GitHub project
+                2) Use the same base container for Firethorn, Cosmpoterix, Phymatopus etc.
+                
+        * Data import
+            * Stream from a producer
+                1) Deploy Maria's producer in a container.
+                2) Deploy Maria's data sim producer in a container.
+                
+            * File dump as a BLOB
+                1) Can we dump a backup BLOB into Kafka ?
+
+    Data transport
+
+        * Wide Area Network (WAN) connection
+            * QUB deploying Kafka service publishing QUB events
+                * Docker based receiver for QUB events on Elanor and/or trop.
+                    1) Simple single partition no replication test
+                    2) Data buffer, 3 partitions, 2 replicas
+
+            * Cloud based WAN testing (today I'm in Singapore)
+                * Transient receiver/producer in the cloud, DigitalOcean, Linode etc.
+                * Transient producer/receiver on Elanor and/or trop.
+                    1) Simple single partition no replication test
+                    2) Data buffer, 3 partitions, 2 replicas
+
+       * Connection
+            * Can we connect Kafka to Kafka ?
+                1) Experimental with two Kafka services
+            * Do we need a proxy/gateway ?
+                1) Experiment with the Confluent mirror/proxy.
+                2) Develop our own mirror/proxy.
+
+    Data storage
+
+        * Logistics
+
+            * How do we backup an archive ?
+                1) Can we dump a backup BLOB into Kafka ?
+            * Can we compress an archive ?
+                1) Does Avro compress much ?
+
+            * Active archive format
+                * A data partition and a Kafka container to stream it. 
+                * Can we just put a partition backup in the right place and go ?
+                    * Are BTRFS snapshots useful ?
+                    * Backups from http URL
+                    * Backups from rsync
+
+    Data sources
+
+        * QUB
+
+        * Firethorn
+            * Send the results of a query to a Kafka service (in progress)
+                1) No schema - GenericRecord
+                2) Message schema - Confluent Connect classes
+                3) Registered schema - Confluent registry
+                4) Registered schema - Firethorn registry ?
+
+    * Configuring
+        * How do we create topics ?
+        * How do we configure partitions ?
+
+    * Monitoring
+        * Kafdrop is a UI for monitoring Apache Kafka clusters
+          https://github.com/HomeAdvisor/Kafdrop
+            1) Deploy Kafdrop to see what it does
+
+    * Scaling
+        * How do we deploy multiple services
+
+            * docker-compose
+              https://docs.docker.com/compose/
+              1) Can we create multiple services
+              2) Can we spread over multiple hosts
+
+            * docker-swarm
+              https://docs.docker.com/engine/swarm/
+              1) Multiple services
+              2) Multiple hosts
+              
+            * Kubernetes
+              https://kubernetes.io/
+              1) Multiple services
+              2) Multiple hosts
+
+            * OpenStack
+              https://www.openstack.org/  
+              https://wiki.openstack.org/wiki/Magnum
+                
+            * OpenShift
+              https://www.openshift.com/
+
+        * How do we coordinate multiple services
+
+        * How do we manage the networks
+          https://docs.docker.com/network/
+          
+
+    * Data architecture
+
+        * Everyone listens to one Uber stream (with images)
+            * Bandwidth calculations
+
+        * Smaller streams
+            * with-images/without-images
+            * postition
+            * postition + matches
+
+        * Micro streams
+            * User defined micro streams, based on micro-services
+
+        * Schema
+            * No schema, generic records
+            * Fixed schema, source control
+            * Registered schema, schema registry
+          
+        * Filtering
+            * In-process filtering in Kafka
+            * External filtering (export, filter, import).
+
+        * Monitoring
+            * Python code in JPnb monitoring activity in Java services
+            * Python code in JPnb 'peeking' at events in a stream
+
+        * Workflow
+            * Connecting processors with streams
+
+            * Follow the trail of Spring things ..
+                Spring Cloud Data Flow
+                http://cloud.spring.io/spring-cloud-dataflow/
+                Spring Cloud Stream
+                https://cloud.spring.io/spring-cloud-stream/
+                Kafka Client Compatibility
+                https://github.com/spring-cloud/spring-cloud-stream/wiki/Kafka-Client-Compatibility
+                Spring Cloud Stream Binder for Apache Kafka
+                https://github.com/spring-cloud/spring-cloud-stream-binder-kafka
+                Spring Cloud Stream App Starters (tensorflow example)
+                https://cloud.spring.io/spring-cloud-stream-app-starters/
+                Spring Cloud Stream Sample Applications
+                https://github.com/spring-cloud/spring-cloud-stream-samples
+
+        * Streams in Python
+
+        * Streams in JPnb
+            * Monitoring streams
+            * Visualising streams
+        
+
+        * Streaming SQL for Apache Kafka
+          https://www.confluent.io/product/ksql/
+
+
+
+
+    * Cross matching
+    
+        * Create a set of services with the same API,
+          each implementing a different algorithm.
+
+            * Hierarchical Triangular Mesh (HTM)
+                1) HTM with database on disc
+                2) HTM with database in memory
+                3) HTM with tree in memory
+
+            * “zoned” neighbours combined with cartesian unit vectors
+              https://arxiv.org/pdf/cs/0408031.pdf
+                1) Zones in database on disc
+                2) Zones in database in memory
+                3) Zones with tree in memory
+
+        CQEngine - Collection Query Engine
+        https://github.com/npgall/cqengine
+
+        * Service interfaces
+            1) REST/JSON webservice query API
+            2) REST/JSON webservice control API
+            3) Kafka Stream annotator
+
+        * Data import from Firethorn query
+            * Large archive data sets
+            * Small user result sets
+            1) Load from Kafka Stream
+         
+        * Replacement for existing cone-search services
+            1) VO cone search API
+
+        * Paper describing the algorithms, implementations and results
+            1) Initial draft outline 
+            2) ....
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    Data processing
+
+        Microservice architecture
+
+        Components linked via data streams
+
+        Components controlled via JSON/REST webservice API
+
+
+
+
+
+https://www.confluent.io/product/ksql/
+https://hub.docker.com/r/confluentinc/ksql-cli/
+https://docs.confluent.io/current/ksql/docs/tutorials/basics-docker.html#ksql-quickstart-docker
+
+
+
+
+
