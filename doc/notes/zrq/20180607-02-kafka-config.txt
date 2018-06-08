@@ -1,0 +1,177 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2018, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#  
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+    #
+    # VM contains KafkaBroker and MirrorMaker instance, plus one instance of Zookeeper.
+    # https://community.hortonworks.com/articles/79891/kafka-mirror-maker-best-practices.html
+
+#----------------------------------------------------------------
+# Create a VM for each node.
+    
+        #
+        # Download our compose file.
+
+        #
+        # Create our local env file.
+        cat > compose-env << EOF
+        kflogdir=
+        kfbrokerid=
+        kfbrokerrack=
+        zookeeperhost=
+        EOF
+
+        ln -sf compose-env .env
+            
+        #
+        # Run our service(s).
+        docker-compose -file kafka-broker.yml
+
+
+
+docker run -d \
+  --net=host \
+  --name=kafka-rest \
+  -e KAFKA_REST_ZOOKEEPER_CONNECT=kafka1.example.com:2181,kafka2.example.com:2181,kafka3.example.com:2181 \
+  -e KAFKA_REST_BOOTSTRAP_SERVERS=kafka1.example.com:9092,kafka2.example.com:9092,kafka3.example.com:9092 \
+  -e KAFKA_REST_HOST_NAME=proxy-kafka.example.com \
+  confluentinc/cp-kafka-rest:3.3.0
+
+#----------------------------------------------------------------
+#
+
+    [Kafka] inside [container] inside [virtual machine], inside [OpenStack]
+    Can't access the outer IP address, unless we run an 'echo' service.
+
+    Deploy a 'whoami' service to return the calling VM's IP address.
+
+    Use whoami to get our own address
+
+    How to get a list of the others ?
+
+    How to dynamically add new nodes ?
+
+
+
+#----------------------------------------------------------------
+# Zookeeper config
+# https://kafka.apache.org/documentation/#brokerconfigs
+
+    For replicated mode, a minimum of three servers are required, and it is
+    strongly recommended that you have an odd number of servers.
+    If you only have two servers, then you are in a situation where if one
+    of them fails, there are not enough machines to form a majority quorum.
+    Two servers is inherently less stable than a single server, because there
+    are two single points of failure. 
+
+
+    The new entry, initLimit is timeouts ZooKeeper uses to limit the length of
+    time the ZooKeeper servers in quorum have to connect to a leader. The entry
+    syncLimit limits how far out of date a server can be from a leader.
+
+    With both of these timeouts, you specify the unit of time using tickTime.
+    In this example, the timeout for initLimit is 5 ticks at 2000 milleseconds
+    a tick, or 10 seconds.
+
+    The entries of the form server.X list the servers that make up the ZooKeeper
+    service. When the server starts up, it knows which server it is by looking
+    for the file myid in the data directory. That file has the contains the
+    server number, in ASCII.
+
+    Finally, note the two port numbers after each server name: " 2888" and "3888".
+    Peers use the former port to connect to other peers. Such a connection is
+    necessary so that peers can communicate, for example, to agree upon the order
+    of updates. More specifically, a ZooKeeper server uses this port to connect
+    followers to the leader. When a new leader arises, a follower opens a TCP
+    connection to the leader using this port. Because the default leader election
+    also uses TCP, we currently require another port for leader election.
+    This is the second port in the server entry. 
+
+        tickTime=2000
+        dataDir=/var/lib/zookeeper
+        clientPort=2181
+        initLimit=5
+        syncLimit=2
+        server.1=zoo1:2888:3888
+        server.2=zoo2:2888:3888
+        server.3=zoo3:2888:3888
+
+
+
+
+    Minimum of three Zookeeper instances
+    Recomended to have odd number
+
+
+#----------------------------------------------------------------
+# Kafka broker config
+# https://kafka.apache.org/documentation/#brokerconfigs
+
+
+        # ZooKeeper
+        zookeeper.connect=[list of ZooKeeper servers]
+         
+        # Log configuration
+        num.partitions=16
+        default.replication.factor=3
+        log.dir=[List of directories. Kafka should have its own dedicated disk(s) or SSD(s).]
+
+        # Make log retention permanent
+        # https://stackoverflow.com/questions/39735036/make-kafka-topic-log-retention-permanent
+        # https://stackoverflow.com/a/39735773
+        log.retention.ms = -1
+        log.retention.bytes = -1
+         
+        # Broker configurations
+        broker.id=[Start with 0 and increment by 1 for each new broker.]
+        broker.rack=[]
+        # Which interfaces and ports to connect to.
+        # https://community.hortonworks.com/articles/90895/how-to-configure-multiple-listeners-in-kafka.html
+        # https://community.cloudera.com/t5/Data-Ingestion-Integration/Kafka-properties-override-for-listeners-property-fails/td-p/37931
+        listeners=[PLAINTEXT://0.0.0.0:9092]
+
+        # Topics
+        auto.create.topics.enable=true
+
+        # Messages
+        # Max message size (10Mbyte)
+        message.max.bytes=10485760
+
+
+        # advertised.listeners ?
+
+#----------------------------------------------------------------
+# MirrorMaker config
+
+
+        bin/kafka-mirror-maker.sh \
+            --num.streams 2 \
+            --consumer.config sourceCluster1Consumer.config \
+            --consumer.config sourceCluster2Consumer.config \
+            --producer.config targetClusterProducer.config \
+            --whitelist=".*"
+
+
+
+
+
+
+
