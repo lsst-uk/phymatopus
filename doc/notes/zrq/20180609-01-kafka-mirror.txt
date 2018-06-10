@@ -219,46 +219,6 @@ EOF
                 | jq '.' \
                 | tee /tmp/flavor-list.json
 
-                [
-                  {
-                    "Name": "m1.small",
-                    "RAM": 2048,
-                    "VCPUs": 1,
-                    "Disk": 20,
-                    "ID": "2"
-                  },
-                  {
-                    "Name": "m1.medium",
-                    "RAM": 4096,
-                    "VCPUs": 2,
-                    "Disk": 40,
-                    "ID": "3"
-                  },
-                  {
-                    "Name": "m1.large",
-                    "RAM": 8192,
-                    "VCPUs": 4,
-                    "Disk": 80,
-                    "ID": "4"
-                  },
-                  {
-                    "Name": "m1.xlarge",
-                    "RAM": 16384,
-                    "VCPUs": 8,
-                    "Disk": 160,
-                    "ID": "5"
-                  },
-                  {
-                    "Name": "m1.xxlarge",
-                    "RAM": 32768,
-                    "VCPUs": 16,
-                    "Disk": 160,
-                    "ID": "09086afb-9d80-4719-974c-45e700a795bb"
-                  },
-                  ....
-                  ....
-                ]
-
         # -----------------------------------------------------
         # Extract the m1 flavor identifiers.
         #[root@openstacker]
@@ -481,7 +441,7 @@ EOF
                 }
 
         # -----------------------------------------------------
-        # Create a floating IP address.
+        # Function to create a floating IP address.
         #[root@openstacker]
 
             makefloat()
@@ -511,7 +471,7 @@ EOF
                 }
 
         # -----------------------------------------------------
-        # Connect a floating address to an instances.
+        # Function to connect a floating address to an instances.
         #[root@openstacker]
 
             linkvmfloat()
@@ -573,7 +533,7 @@ EOF
                 }
 
         # -----------------------------------------------------
-        # Display a JSON summary of a VM.
+        # Function to display a JSON summary of a VM.
         #[root@openstacker]
 
         vmsummary()
@@ -671,6 +631,9 @@ EOF
         # Assign floating IP addresess to each of our Kafka nodes.
         #[root@openstacker]
 
+            echo ""
+            echo "Adding floating addresses to Kafka nodes"
+
             for ident in ${kfidents[@]}
             do
                 echo "Ident [${ident}]"
@@ -687,10 +650,139 @@ EOF
 
 
 
+# -----------------------------------------------------
+# Re-building our lists.
+#
+
+        # -----------------------------------------------------
+        # Initialize our arrays.
+        #[root@openstacker]
+
+            unset kfidents
+            kfidents=()
+
+            unset mmidents
+            mmidents=()
+
+            unset zkidents
+            zkidents=()
+
+        # -----------------------------------------------------
+        # Iterate through our nodes.
+        #[root@openstacker]
+
+            echo ""
+            echo "Processing OpenStack nodes"
+            
+            for ident in $(
+                openstack \
+                    server list \
+                    --format json \
+                | jq -r '.[] | .ID'
+                )
+                do
+                    echo "Ident [$ident]"
+                    getvminfo "${ident:?}"
+
+                    name=$(getvmname)
+                    echo "Name  [$name]"
+
+                    case "${name}" in
+
+                        zookeeper*)
+                            echo "Match zookeeper"
+                            zkidents+=(${ident})
+                            ;;
+                            
+                        mirror*)
+                            echo "Match mirror"
+                            mmidents+=(${ident})
+                            ;;
+
+                        kafka*)
+                            echo "Match kafka"
+                            kfidents+=(${ident})
+                            ;;
+                        *)
+                            echo "unknown"
+                            ;;
+                    esac
+                done
+
+# -----------------------------------------------------
+# List our virtual machines.
+#
+
+            echo ""
+            echo "Listing Kafka nodes"
+            for ident in ${kfidents[@]}
+            do
+                echo "Ident [${ident}]"
+                getvminfo "${ident:?}"
+                name=$(getvmname)
+                echo "Name  [$name]"
+            done
+
+            echo ""
+            echo "Listing Mirror nodes"
+            for ident in ${mmidents[@]}
+            do
+                echo "Ident [${ident}]"
+                getvminfo "${ident:?}"
+                name=$(getvmname)
+                echo "Name  [$name]"
+            done
+
+            echo ""
+            echo "Listing Zookeeper nodes"
+            for ident in ${zkidents[@]}
+            do
+                echo "Ident [${ident}]"
+                getvminfo "${ident:?}"
+                name=$(getvmname)
+                echo "Name  [$name]"
+            done
 
 
+# -----------------------------------------------------
+# Testing the connection chain.
+#
 
+    # Desktop to trop 
+    ssh trop02
 
+        # Uni network to kafka-0
+        ssh -A Stevedore@172.16.49.74
+
+            # kafka-0 to mirror-0
+            ssh -A Stevedore@192.168.1.16 
+
+                # mirror-0 to zookeeper-0
+                ssh -A Stevedore@192.168.1.8 
+
+                    # zookeeper-0 to zookeeper-1
+                    ssh -A Stevedore@192.168.1.13
+                        exit
+                    exit
+                exit
+
+            # kafka-0 to zookeeper-0
+            ssh -A Stevedore@192.168.1.8
+                # zookeeper-0 to zookeeper-1
+                ssh -A Stevedore@192.168.1.13
+                    exit
+                exit
+            
+            # kafka-0 to zookeeper-1
+            ssh -A Stevedore@192.168.1.13
+                # zookeeper-1 to zookeeper-0
+                ssh -A Stevedore@192.168.1.8
+                    exit
+                exit
+
+# -----------------------------------------------------
+# Tidying up after an experiment.
+#
 
         # -----------------------------------------------------
         # List all our nodes.
@@ -745,44 +837,3 @@ EOF
                 done
 
 
-
-
-
-
-            
-# -----------------------------------------------------
-# Testing the connection chain.
-#[user@desktop]
-
-    # Desktop to trop 
-    ssh trop02
-
-        # Uni network to kafka-0
-        ssh -A Stevedore@172.16.49.74
-
-            # kafka-0 to mirror-0
-            ssh -A Stevedore@192.168.1.16 
-
-                # mirror-0 to zookeeper-0
-                ssh -A Stevedore@192.168.1.8 
-
-                    # zookeeper-0 to zookeeper-1
-                    ssh -A Stevedore@192.168.1.13
-                        exit
-                    exit
-                exit
-
-            # kafka-0 to zookeeper-0
-            ssh -A Stevedore@192.168.1.8
-                # zookeeper-0 to zookeeper-1
-                ssh -A Stevedore@192.168.1.13
-                    exit
-                exit
-            
-            # kafka-0 to zookeeper-1
-            ssh -A Stevedore@192.168.1.13
-                # zookeeper-1 to zookeeper-0
-                ssh -A Stevedore@192.168.1.8
-                    exit
-                exit
-            
