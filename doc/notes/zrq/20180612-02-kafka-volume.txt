@@ -104,7 +104,7 @@ EOSH
             done
 
         # -----------------------------------------------------
-        # For each of our Kafka nodes.
+        # Create and attach a new volume to each of our Kafka nodes.
         #[root@openstacker]
 
             for vmident in ${kfidents[@]}
@@ -113,9 +113,6 @@ EOSH
                 getvminfo "${vmident:?}"
                 echo "Name  [$(getvmname)]"
                 echo "Ident [${vmident}]"
-
-            # -----------------------------------------------------
-            # Create a new volume.
 
                 volname=$(getvmname)-data-01
                 volsize=1024
@@ -126,9 +123,6 @@ EOSH
                        ${volsize:?} 
                     )
 
-            # -----------------------------------------------------
-            # Attach the new volume to our instance.
-
                 voldevice=/dev/vdb
 
                 openstack \
@@ -137,13 +131,10 @@ EOSH
                     "${volident:?}" \
                     --device "${voldevice:?}"
 
-        # -----------------------------------------------------
-        # Loop done.
-
             done
 
         # -----------------------------------------------------
-        # Login to each kafka node and execute our volume init script.
+        # Login and run our volume init script on each of our Kafka nodes.
         #[root@openstacker]
 
             for vmident in ${kfidents[@]}
@@ -169,19 +160,9 @@ EOSH
                     fspath=${fspath:?}
                     " \
                     | cat - /tmp/volume-init.sh \
-                    | ssh ${sshargs:?} \
-                        "${vmuser:?}@${floating:?}"
-
-
-        # -----------------------------------------------------
-        # Loop done.
+                    | ssh ${phym_sshopts[@]} \
+                        "${phym_sshuser:?}@${floating:?}" \
 
             done
-
-# ssh Stevedore@172.16.49.208 hostname
-# ssh Stevedore@172.16.49.74  hostname
-# ssh Stevedore@172.16.49.215 hostname
-# ssh Stevedore@172.16.49.213 hostname
-# ssh Stevedore@172.16.49.216 hostname <-- fails
 
 

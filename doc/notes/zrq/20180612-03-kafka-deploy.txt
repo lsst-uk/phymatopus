@@ -112,7 +112,7 @@ EOF
             source eleanor-init.sh
 
         # -----------------------------------------------------
-        # Initialize our project settings.
+        # Initialize our cluster settings.
         #[root@openstacker]
 
 if [ ! -e '/etc/phymatopus/cluster.settings' ]
@@ -125,6 +125,12 @@ then
     phym_image=\${fedora27:?}
     phym_flavor=\${m1small:?}
 
+    phym_sshuser=Stevedore
+    phym_sshopts=(
+        '-o CheckHostIP=no'
+        '-o UserKnownHostsFile=/dev/null'
+        '-o StrictHostKeyChecking=no'
+        )
 
 EOF
 fi
@@ -161,7 +167,7 @@ fi
             echo ""
             echo "Creating Kafka nodes"
 
-            for i in {0..6}
+            for i in {0..3}
             do
                 echo "Node [${i}]"
                 kfidents+=(
@@ -185,7 +191,6 @@ fi
                 mmidents+=(
                     "$(makevm "mirror-${i}")"
                     )
-                sleep 30
             done
 
         # -----------------------------------------------------
@@ -201,7 +206,6 @@ fi
                 zkidents+=(
                     "$(makevm "zookeeper-${i}")"
                     )
-                sleep 30
             done
 
         # -----------------------------------------------------
@@ -242,8 +246,6 @@ fi
         # Test login to each of our Kafka nodes.
         #[root@openstacker]
 
-            vmuser=Stevedore
-
             sshargs=(
                 '-o CheckHostIP=no'
                 '-o UserKnownHostsFile=/dev/null'
@@ -262,11 +264,10 @@ fi
                     $(eleanorinternal)
                     )
                 floating=${internals[1]}
-
                 echo "Address [${floating:?}]"
 
-                ssh ${sshargs[@]} \
-                    "${vmuser:?}@${floating:?}" \
+                ssh ${phym_sshopts[@]} \
+                    "${phym_sshuser:?}@${floating:?}" \
                     hostname
 
             done
