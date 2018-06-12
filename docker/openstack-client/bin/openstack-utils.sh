@@ -31,10 +31,10 @@
     makevm()
         {
         local vmname=${1:?}
-        local vmproject=${2:-${project:?}}
-        local vmimage=${3:-${fedora27:?}}
-        local vmflavor=${4:-${m1small:?}}
-        local keyid=${5:-${sshkey:?}}
+        local vmflavor=${2:-${phym_flavor:?}}
+        local vmimage=${3:-${phym_image:?}}
+        local projid=${4:-${phym_project:?}}
+        local keyid=${5:-${phym_userkey:?}}
         local netid=${6:-${internalnet:?}}
         local jsonfile=${7:-$(vmjsonpath)}
 
@@ -48,7 +48,7 @@
             --flavor "${vmflavor:?}" \
             --nic "net-id=${netid:?}" \
             --key-name "${keyid:?}" \
-            "${vmproject:?}-${vmname:?}" \
+            "${projid:?}-${vmname:?}" \
             | jq '.' \
             > "${jsonfile:?}"
 
@@ -155,5 +155,26 @@
             --fixed-ip-address "${vmaddress:?}" \
             "${vmident:?}" \
             "${floatip:?}"
+        }
+
+# -----------------------------------------------------
+# Function to create a new volume.
+
+    makevolume()
+        {
+        local volname=${1:?}
+        local volsize=${2:?}
+
+        openstack \
+            volume create \
+             --size "${volsize:?}"  \
+             --format json  \
+            "${volname:?}"  \
+            | jq '.' \
+            > /tmp/volume-info.json
+
+        jq -r "
+            .id
+            " /tmp/volume-info.json
         }
 
