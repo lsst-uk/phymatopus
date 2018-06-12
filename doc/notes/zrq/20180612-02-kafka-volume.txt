@@ -20,29 +20,6 @@
 #
 #
 
-
-        # -----------------------------------------------------
-        # Function to create a new volume.
-        #[root@openstacker]
-
-            makevolume()
-                {
-                local volname=${1:?}
-                local volsize=${2:?}
-
-                openstack \
-                    volume create \
-                     --size "${volsize:?}"  \
-                     --format json  \
-                    "${volname:?}"  \
-                    | jq '.' \
-                    > /tmp/volume-info.json
-
-                jq -r "
-                    .id
-                    " /tmp/volume-info.json
-                }
-
         # -----------------------------------------------------
         # Script to configure a volume.
         #[root@openstacker]
@@ -145,28 +122,28 @@ EOSH
                 echo "Name  [$(getvmname)]"
                 echo "Ident [${vmident}]"
 
-                # -----------------------------------------------------
-                # Create a new volume.
+            # -----------------------------------------------------
+            # Create a new volume.
 
-                    volname=$(getvmname)-data-01
-                    volsize=1024
+                volname=$(getvmname)-data-01
+                volsize=1024
 
-                    volident=$(
-                        makevolume \
-                           ${volname:?} \
-                           ${volsize:?} 
-                        )
+                volident=$(
+                    makevolume \
+                       ${volname:?} \
+                       ${volsize:?} 
+                    )
 
-                # -----------------------------------------------------
-                # Attach the new volume to our instance.
+            # -----------------------------------------------------
+            # Attach the new volume to our instance.
 
-                    voldevice=/dev/vdb
+                voldevice=/dev/vdb
 
-                    openstack \
-                        server add volume \
-                        "${vmident:?}" \
-                        "${volident:?}" \
-                        --device "${voldevice:?}"
+                openstack \
+                    server add volume \
+                    "${vmident:?}" \
+                    "${volident:?}" \
+                    --device "${voldevice:?}"
 
         # -----------------------------------------------------
         # Loop done.
@@ -185,9 +162,9 @@ EOSH
                 echo "Name  [$(getvmname)]"
                 echo "Ident [${vmident}]"
 
-                # -----------------------------------------------------
-                # Login using the floating address and
-                # execute our volume config script.
+            # -----------------------------------------------------
+            # Login using the floating address and
+            # execute our volume config script.
 
                 vmuser=Stevedore
                 
