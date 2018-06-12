@@ -28,6 +28,9 @@
 # -----------------------------------------------------
 # Function to create a virtual machine.
 
+    # OpenStack fails if create calls are too rapid.
+    makevmdelay=30
+
     makevm()
         {
         local vmname=${1:?}
@@ -52,6 +55,11 @@
             | jq '.' \
             > "${jsonfile:?}"
 
+        if [[ -v makevmdelay ]]
+        then
+            sleep "${makevmdelay}"
+        fi
+        
         jq -r "
             .id
             " "${jsonfile:?}"

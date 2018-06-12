@@ -50,9 +50,9 @@
         pushd "${HOME}/bin"
 
             cat > "secret" << 'EOF'
-    ....
-    ....
-    EOF
+....
+....
+EOF
 
             chmod u=rwx,og= "secret"
         popd
@@ -136,6 +136,12 @@ fi
             source '/etc/phymatopus/cluster.settings'
 
         # -----------------------------------------------------
+        # Create our controller instance.
+        #[root@openstacker]
+
+            controller=$(makevm "control")
+
+        # -----------------------------------------------------
         # Initialize our arrays.
         #[root@openstacker]
 
@@ -149,19 +155,13 @@ fi
             zkidents=()
 
         # -----------------------------------------------------
-        # Create our controller instance.
-        #[root@openstacker]
-
-            controller=$(makevm "control")
-
-        # -----------------------------------------------------
         # Create our Kafka instances.
         #[root@openstacker]
 
             echo ""
             echo "Creating Kafka nodes"
 
-            for i in {0..3}
+            for i in {0..6}
             do
                 echo "Node [${i}]"
                 kfidents+=(
@@ -185,6 +185,7 @@ fi
                 mmidents+=(
                     "$(makevm "mirror-${i}")"
                     )
+                sleep 30
             done
 
         # -----------------------------------------------------
@@ -200,6 +201,7 @@ fi
                 zkidents+=(
                     "$(makevm "zookeeper-${i}")"
                     )
+                sleep 30
             done
 
         # -----------------------------------------------------
@@ -225,9 +227,9 @@ fi
             for ident in ${kfidents[@]}
             do
                 echo "---- ---- ---- ----"
-                getvminfo "${vmident:?}"
+                getvminfo "${ident:?}"
                 echo "Name    [$(getvmname)]"
-                echo "Ident   [${vmident}]"
+                echo "Ident   [${ident}]"
 
                 floating=$(
                     addinternalfloat "${ident:?}"
@@ -248,21 +250,22 @@ fi
                 '-o StrictHostKeyChecking=no'
                 )
 
-            for vmident in ${kfidents[@]}
+            for ident in ${kfidents[@]}
             do
+
+                echo "---- ---- ---- ----"
+                getvminfo "${ident:?}"
+                echo "Name    [$(getvmname)]"
+                echo "Ident   [${ident:?}]"
 
                 internals=(
                     $(eleanorinternal)
                     )
                 floating=${internals[1]}
 
-                echo "---- ---- ---- ----"
-                getvminfo "${vmident:?}"
-                echo "Name    [$(getvmname)]"
-                echo "Ident   [${vmident}]"
-                echo "Address [${floating}]"
+                echo "Address [${floating:?}]"
 
-                ssh ${sshargs:?} \
+                ssh ${sshargs[@]} \
                     "${vmuser:?}@${floating:?}" \
                     hostname
 
