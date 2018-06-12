@@ -38,11 +38,11 @@ export OS_REGION_NAME="Edinburgh"
 export OS_USERNAME=$(secret openstack.user)
 export OS_PASSWORD=$(secret openstack.pass)
 
-#export OS_PROJECT_ID=fcef6dd450f64a1ab4ffa5a7234c4161
-#export OS_PROJECT_NAME=lsst
+export OS_PROJECT_ID=fcef6dd450f64a1ab4ffa5a7234c4161
+export OS_PROJECT_NAME=lsst
 
-export OS_PROJECT_ID=c2ff1afa3e874e0eb6f5a48f7e77208b
-export OS_PROJECT_NAME=virtual-observatory-services
+#export OS_PROJECT_ID=c2ff1afa3e874e0eb6f5a48f7e77208b
+#export OS_PROJECT_NAME=virtual-observatory-services
 
 EOF
 
@@ -75,6 +75,12 @@ EOF
             source eleanor-utils.sh
             source eleanor-init.sh
 
+#
+# Bug - the virtual-observatory-services project
+# can't see the fedora27 image from lsst.
+# Need to share the image - but can't do that from the UI.
+#
+
         # -----------------------------------------------------
         # Initialize our cluster settings.
         #[root@openstacker]
@@ -84,7 +90,7 @@ then
     cat > '/etc/phymatopus/cluster.settings' << EOF
 
     phym_userkey=dmr
-    phym_project=Raminiara
+    phym_project=create-bug
 
     phym_image=\${fedora27:?}
     phym_flavor=\${m1small:?}
@@ -116,10 +122,13 @@ fi
         # Create our instances.
         #[root@openstacker]
 
+unset makevmdelay
+#makevmdelay=30
+
             echo ""
             echo "Creating Kafka nodes"
 
-            for i in {0..9}
+            for i in {0..7}
             do
                 echo "Node [${i}]"
                 kfidents+=(
@@ -128,8 +137,50 @@ fi
                         "${m1medium}"
                         )"
                     )
-                sleep 30
             done
 
+        # -----------------------------------------------------
+        # Test login to each instance.
+        #[root@openstacker]
+
+            for ident in ${kfidents[@]}
+            do
+
+                echo "---- ---- ---- ----"
+                getvminfo "${ident:?}"
+                echo "Name    [$(getvmname)]"
+                echo "Ident   [${ident:?}]"
+
+                internals=(
+                    $(eleanorinternal)
+                    )
+                address=${internals[0]}
+                echo "Address [${address:?}]"
+
+                ssh ${phym_sshopts[@]} \
+                    "${phym_sshuser:?}@${address:?}" \
+                    hostname
+
+            done
+
+        # -----------------------------------------------------
+        # Delete nodes that match our project name.
+        #[root@openstacker]
+
+            match="^${phym_project:?}*"
+
+            for ident in $(
+                openstack \
+                    server list \
+                    --format json \
+                | jq -r ".[] | select(.Name | test(\"${match:?}\")) | .ID"
+                )
+                do
+                    echo "ID [$ident]"
+                    openstack \
+                        server \
+                        delete \
+                            "${ident}"
+                done
 
 
