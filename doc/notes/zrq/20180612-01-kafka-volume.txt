@@ -1,0 +1,392 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2018, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#  
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+
+    #
+    # Assign a data volume to one of our Kafka nodes.
+    #
+
+
+        # -----------------------------------------------------
+        # List our Kafka nodes.
+        #[root@openstacker]
+
+            for ident in ${kfidents[@]}
+            do
+                echo "Ident [${ident}]"
+                getvminfo "${ident:?}"
+                name=$(getvmname)
+                echo "Name  [$name]"
+            done
+
+        # -----------------------------------------------------
+        # List the availability zones ?
+        #[root@openstacker]
+
+            openstack availability zone list
+
+                +-----------+---------------+
+                | Zone Name | Zone Status   |
+                +-----------+---------------+
+                | nova      | available     |
+                | gpu       | not available |
+                | nova      | available     |
+                | nova      | available     |
+                | nova      | available     |
+                +-----------+---------------+
+
+        # -----------------------------------------------------
+        # List the available volume types.
+        #[root@openstacker]
+
+            openstack \
+                volume type \
+                list \
+                 --format json
+
+                []
+
+
+        # -----------------------------------------------------
+        # List the current volumes.
+        #[root@openstacker]
+
+            openstack \
+                volume list \
+                 --format json
+
+                []
+
+
+        # -----------------------------------------------------
+        # Create a new volume.
+        #[root@openstacker]
+
+            volname=data-01
+            volsize=1024
+
+            openstack \
+                volume create \
+                 --size "${volsize:?}"  \
+                 --format json  \
+                "${volname:?}"  \
+                | jq '.' \
+                | tee /tmp/volume-info.json
+
+            volident=$(
+                jq -r "
+                    .id
+                    " /tmp/volume-info.json
+                    )
+
+        # -----------------------------------------------------
+        # Display the new volume.
+        #[root@openstacker]
+
+            openstack \
+                volume show \
+                 --format json  \
+                "${volident:?}" \
+                | jq '.' \
+                | tee /tmp/volume-info.json
+
+                {
+                  "status": "in-use",
+                  "properties": "attached_mode='rw', readonly='False'",
+                  "user_id": "3d241b5fa2d0b3378901e08e86e10284dc9f9dae3732b99f71f809cf46ccb0d5",
+                  "description": null,
+                  "availability_zone": "nova",
+                  "bootable": "false",
+                  "encrypted": false,
+                  "created_at": "2018-06-12T02:24:46.000000",
+                  "multiattach": false,
+                  "updated_at": "2018-06-12T02:42:59.000000",
+                  "source_volid": null,
+                  "name": "data-01",
+                  "snapshot_id": null,
+                  "consistencygroup_id": null,
+                  "replication_status": null,
+                  "os-vol-tenant-attr:tenant_id": "fcef6dd450f64a1ab4ffa5a7234c4161",
+                  "size": 1024,
+                  "type": null,
+                  "id": "390ed85f-258a-4d4f-aa95-0455cc86bc3f",
+                  "attachments": [
+                    {
+                      "server_id": "8cf89447-0613-4d45-a43f-929fec087e49",
+                      "attachment_id": "179a226c-1626-44d2-8511-8835bf014dd1",
+                      "attached_at": "2018-06-12T02:42:59.000000",
+                      "host_name": null,
+                      "volume_id": "390ed85f-258a-4d4f-aa95-0455cc86bc3f",
+                      "device": "/dev/vdb",
+                      "id": "390ed85f-258a-4d4f-aa95-0455cc86bc3f"
+                    }
+                  ]
+                }
+
+        # -----------------------------------------------------
+        # Attach the new volume to our instance.
+        #[root@openstacker]
+
+            vmident=8cf89447-0613-4d45-a43f-929fec087e49
+            voldevice=/dev/vdb
+
+            openstack \
+                server add volume \
+                "${vmident:?}" \
+                "${volident:?}" \
+                --device /dev/vdb
+
+        # -----------------------------------------------------
+        # Check the instance.
+        #[root@openstacker]
+
+            openstack \
+                server show \
+                 --format json \
+                "${vmident:?}" \
+                | jq '.'
+
+                {
+                  "OS-EXT-STS:task_state": null,
+                  "addresses": "vm-network-UoE-internal=192.168.1.10, 172.16.49.214",
+                  "image": "fedora-27-docker-base-20180129 (407a5d09-cd97-455f-9bdb-4fb7f54dd4ff)",
+                  "OS-EXT-STS:vm_state": "active",
+                  "OS-SRV-USG:launched_at": "2018-06-11T18:31:13.000000",
+                  "flavor": "m1.small (2)",
+                  "id": "8cf89447-0613-4d45-a43f-929fec087e49",
+                  "security_groups": "name='default'",
+                  "volumes_attached": "id='390ed85f-258a-4d4f-aa95-0455cc86bc3f'",
+                  "user_id": "3d241b5fa2d0b3378901e08e86e10284dc9f9dae3732b99f71f809cf46ccb0d5",
+                  "OS-DCF:diskConfig": "MANUAL",
+                  "accessIPv4": "",
+                  "accessIPv6": "",
+                  "progress": 0,
+                  "OS-EXT-STS:power_state": "Running",
+                  "project_id": "fcef6dd450f64a1ab4ffa5a7234c4161",
+                  "config_drive": "",
+                  "status": "ACTIVE",
+                  "updated": "2018-06-11T18:31:13Z",
+                  "hostId": "adfa96e7c6a480660598b4bee5020a5fba8fc1fbb86d56f9b7091402",
+                  "OS-SRV-USG:terminated_at": null,
+                  "key_name": "dmr",
+                  "properties": "",
+                  "OS-EXT-AZ:availability_zone": "nova",
+                  "name": "gomenflute-kafka-0",
+                  "created": "2018-06-11T18:30:37Z"
+                }
+
+        # -----------------------------------------------------
+        # Check the volume.
+        #[root@openstacker]
+
+            openstack \
+                volume show \
+                 --format json \
+                "${volident:?}" \
+                | jq '.'
+
+                {
+                  "status": "in-use",
+                  "properties": "attached_mode='rw', readonly='False'",
+                  "user_id": "3d241b5fa2d0b3378901e08e86e10284dc9f9dae3732b99f71f809cf46ccb0d5",
+                  "description": null,
+                  "availability_zone": "nova",
+                  "bootable": "false",
+                  "encrypted": false,
+                  "created_at": "2018-06-12T02:24:46.000000",
+                  "multiattach": false,
+                  "updated_at": "2018-06-12T02:42:59.000000",
+                  "source_volid": null,
+                  "name": "data-01",
+                  "snapshot_id": null,
+                  "consistencygroup_id": null,
+                  "replication_status": null,
+                  "os-vol-tenant-attr:tenant_id": "fcef6dd450f64a1ab4ffa5a7234c4161",
+                  "size": 1024,
+                  "type": null,
+                  "id": "390ed85f-258a-4d4f-aa95-0455cc86bc3f",
+                  "attachments": [
+                    {
+                      "server_id": "8cf89447-0613-4d45-a43f-929fec087e49",
+                      "attachment_id": "179a226c-1626-44d2-8511-8835bf014dd1",
+                      "attached_at": "2018-06-12T02:42:59.000000",
+                      "host_name": null,
+                      "volume_id": "390ed85f-258a-4d4f-aa95-0455cc86bc3f",
+                      "device": "/dev/vdb",
+                      "id": "390ed85f-258a-4d4f-aa95-0455cc86bc3f"
+                    }
+                  ]
+                }
+
+        # -----------------------------------------------------
+        # Login to our instamce.
+        #[root@openstacker]
+
+            ssh Stevedore@172.16.49.214
+
+                sudo -s 
+
+            #---------------------------------------------------------------------
+            # Create a BTRFS filesystem on the volume.
+            #[root@virtual]
+
+                fsdev=/dev/vdb
+
+                mkfs.btrfs \
+                    --force \
+                    "${fsdev:?}"
+
+                    btrfs-progs v4.11.1
+                    See http://btrfs.wiki.kernel.org for more information.
+
+                    Label:              (null)
+                    UUID:               5b38942b-facf-4a63-936d-1eef366e4826
+                    Node size:          16384
+                    Sector size:        4096
+                    Filesystem size:    1.00TiB
+                    Block group profiles:
+                      Data:             single            8.00MiB
+                      Metadata:         DUP               1.00GiB
+                      System:           DUP               8.00MiB
+                    SSD detected:       no
+                    Incompat features:  extref, skinny-metadata
+                    Number of devices:  1
+                    Devices:
+                       ID        SIZE  PATH
+                        1     1.00TiB  /dev/vdb
+
+                btrfs \
+                    filesystem show \
+                    "${fsdev:?}"
+
+                    Label: none  uuid: 5b38942b-facf-4a63-936d-1eef366e4826
+	                    Total devices 1 FS bytes used 112.00KiB
+	                    devid    1 size 1.00TiB used 2.02GiB path /dev/vdb
+
+
+            #---------------------------------------------------------------------
+            # Create our mount point.
+            #[root@virtual]
+
+                fspath=/logs/volume-00
+
+                mkdir -p "${fspath:?}"
+                touch "${fspath:?}/mount-failed"
+
+            #---------------------------------------------------------------------
+            # Add the volume to our FileSystemTABle.
+            # https://www.howtoforge.com/reducing-disk-io-by-mounting-partitions-with-noatime
+            #[root@virtual]
+               
+                fsuuid=$(
+                    lsblk --noheadings --output UUID "${fsdev:?}"
+                    )
+
+cat >> /etc/fstab << EOF
+UUID=${fsuuid:?} ${fspath:?}    btrfs    defaults,noatime    0  0
+EOF
+
+            #---------------------------------------------------------------------
+            # Mount the new volume.
+            #[root@virtual]
+
+                mount "${fspath:?}"
+
+            #---------------------------------------------------------------------
+            # Check the new volume.
+            #[root@virtual]
+
+                df -h "${fspath:?}"
+
+                    Filesystem      Size  Used Avail Use% Mounted on
+                    /dev/vdb        1.0T   17M 1022G   1% /logs/disk-00
+
+                lsblk
+
+                    NAME   MAJ:MIN RM  SIZE RO TYPE MOUNTPOINT
+                    vda    252:0    0   20G  0 disk 
+                    ├─vda1 252:1    0  256M  0 part /boot
+                    ├─vda2 252:2    0    1G  0 part [SWAP]
+                    └─vda3 252:3    0 18.8G  0 part /var/lib/docker/btrfs
+                    vdb    252:16   0    1T  0 disk /logs/disk-00
+
+            #---------------------------------------------------------------------
+            # Ext back to our controller.
+            #[root@virtual]
+
+                exit
+
+        # -----------------------------------------------------
+        # Login to our instance and check the volumes.
+        #[root@openstacker]
+
+            fspath=/logs/volume-00
+
+            ssh Stevedore@172.16.49.214 << EOF
+
+sudo -s 
+df -h "${fspath:?}"
+lsblk
+
+EOF
+
+        # -----------------------------------------------------
+        # Login to our instance and unmount our volume.
+        #[root@openstacker]
+
+            fspath=/logs/volume-00
+            fsmatch=$(echo "${fspath}" | sed 's|/|\\/|g')
+
+            getvminfo "${vmident}"
+            internals=(
+                $(eleanorinternal)
+                )
+            floating=${internals[1]}
+
+            ssh "Stevedore@${floating:?}" << EOF
+
+sudo umount "${fspath:?}" 
+sed -n '
+    /${fsmatch}/d
+    ' /etc/fstab
+EOF
+
+        # -----------------------------------------------------
+        # Detach the volume from our instance.
+        #[root@openstacker]
+
+            vmident=8cf89447-0613-4d45-a43f-929fec087e49
+            voldevice=/dev/vdb
+
+            openstack \
+                server remove volume \
+                "${vmident:?}" \
+                "${volident:?}"
+
+        # -----------------------------------------------------
+        # Delete the volume.
+        #[root@openstacker]
+
+            openstack \
+                volume delete \
+                "${volident:?}"
+

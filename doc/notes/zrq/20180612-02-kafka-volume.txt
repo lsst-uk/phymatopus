@@ -1,0 +1,372 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2018, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#  
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+
+        # -----------------------------------------------------
+        # Function to create a new volume.
+        #[root@openstacker]
+
+            makevolume()
+                {
+                local volname=${1:?}
+                local volsize=${2:?}
+
+                openstack \
+                    volume create \
+                     --size "${volsize:?}"  \
+                     --format json  \
+                    "${volname:?}"  \
+                    | jq '.' \
+                    > /tmp/volume-info.json
+
+                jq -r "
+                    .id
+                    " /tmp/volume-info.json
+                }
+
+        # -----------------------------------------------------
+        # Script to configure a volume.
+        #[root@openstacker]
+
+            fsdev=/dev/vdb
+            fspath=/logs/volume-00
+
+cat > /tmp/volume-init.sh << EOSH
+
+#---------------------------------------------------------------------
+# Execute as root.
+#[user@node]
+
+    sudo -s
+
+#---------------------------------------------------------------------
+# Create a BTRFS filesystem on the volume.
+#[root@node]
+
+    echo ""
+    echo "Creating filesystem"
+    mkfs.btrfs \\
+        --force \\
+        "${fsdev:?}"
+
+    echo ""
+    echo "Checking filesystem"
+    btrfs \\
+        filesystem show \\
+        "${fsdev:?}"
+
+#---------------------------------------------------------------------
+# Create our mount point.
+#[root@node]
+
+    echo "Creating mount point"
+
+    mkdir -p "${fspath:?}"
+    touch "${fspath:?}/mount-failed"
+
+#---------------------------------------------------------------------
+# Add the volume to our FileSystemTABle.
+# https://www.howtoforge.com/reducing-disk-io-by-mounting-partitions-with-noatime
+#[root@node]
+
+    echo "Updating fstab"
+   
+    fsuuid=\$(
+        lsblk --noheadings --output UUID "${fsdev:?}"
+        )
+
+cat >> /etc/fstab << EOTAB
+UUID=\${fsuuid:?} ${fspath:?}    btrfs    defaults,noatime    0  0
+EOTAB
+
+#---------------------------------------------------------------------
+# Mount the new volume.
+#[root@node]
+
+    echo "Mounting new filesystem"
+
+    mount "${fspath:?}"
+
+#---------------------------------------------------------------------
+# Check the new volume.
+#[root@node]
+
+    echo ""
+    echo "free"
+
+    df -h "${fspath:?}"
+
+    echo ""
+    echo "lsblk"
+
+    lsblk
+
+EOSH
+
+        # -----------------------------------------------------
+        # List our Kafka nodes.
+        #[root@openstacker]
+
+            for ident in ${kfidents[@]}
+            do
+                getvminfo "${ident:?}"
+                name=$(getvmname)
+                echo "Name  [$name]"
+                echo "Ident [${ident}]"
+            done
+
+        # -----------------------------------------------------
+        # For each of our Kafka nodes.
+        #[root@openstacker]
+
+            for vmident in ${kfidents[@]}
+            do
+
+                getvminfo "${vmident:?}"
+                echo "Name  [$(getvmname)]"
+                echo "Ident [${vmident}]"
+
+                # -----------------------------------------------------
+                # Create a new volume.
+
+                    volname=$(getvmname)-data-01
+                    volsize=1024
+
+                    volident=$(
+                        makevolume \
+                           ${volname:?} \
+                           ${volsize:?} 
+                        )
+
+                # -----------------------------------------------------
+                # Attach the new volume to our instance.
+
+                    voldevice=/dev/vdb
+
+                    openstack \
+                        server add volume \
+                        "${vmident:?}" \
+                        "${volident:?}" \
+                        --device "${voldevice:?}"
+
+        # -----------------------------------------------------
+        # Loop done.
+
+            done
+
+        # -----------------------------------------------------
+        # For each of our Kafka nodes.
+        #[root@openstacker]
+
+            for vmident in ${kfidents[@]}
+            do
+
+                echo "---- ---- ---- ----"
+                getvminfo "${vmident:?}"
+                echo "Name  [$(getvmname)]"
+                echo "Ident [${vmident}]"
+
+                # -----------------------------------------------------
+                # Login using the floating address and
+                # execute our volume config script.
+
+                vmuser=Stevedore
+                
+                internals=(
+                    $(eleanorinternal)
+                    )
+                floating=${internals[1]}
+
+                ssh "${vmuser:?}@${floating:?}" \
+                    -o 'CheckHostIP=no' \
+                    -o 'UserKnownHostsFile=/dev/null' \
+                    -o 'StrictHostKeyChecking=no' \
+                    < /tmp/volume-init.sh
+
+        # -----------------------------------------------------
+        # Loop done.
+
+            done
+
+
+
+ssh Stevedore@172.16.49.208 hostname
+
+ssh Stevedore@172.16.49.74  hostname
+ssh Stevedore@172.16.49.215 hostname
+ssh Stevedore@172.16.49.213 hostname
+ssh Stevedore@172.16.49.216 hostname <-- fails
+
+# -----------------------------------------------------
+# Tidying up after an experiment.
+#
+
+        # -----------------------------------------------------
+        # Reboot our Kafka nodes.
+        #[root@openstacker]
+
+            for ident in ${kfidents[@]}
+            do
+                getvminfo "${ident:?}"
+                name=$(getvmname)
+                echo "Name  [$name]"
+                echo "Ident [${ident}]"
+                openstack \
+                    server reboot \
+                    "${ident}"
+            done
+
+
+        # -----------------------------------------------------
+        # List all our nodes.
+        #[root@openstacker]
+
+            openstack \
+                server list
+
+        # -----------------------------------------------------
+        # List all our floating addresses.
+        #[root@openstacker]
+
+            openstack \
+                floating ip list
+
+        # -----------------------------------------------------
+        # List all our volumes.
+        #[root@openstacker]
+
+            openstack \
+                volume list
+
+        # -----------------------------------------------------
+        # Delete nodes that match our project name.
+        #[root@openstacker]
+
+            match="^${project:?}*"
+
+            for ident in $(
+                openstack \
+                    server list \
+                    --format json \
+                | jq -r ".[] | select(.Name | test(\"${match:?}\")) | .ID"
+                )
+                do
+                    echo "ID [$ident]"
+                    openstack \
+                        server \
+                        delete \
+                            "${ident}"
+                done
+
+        # -----------------------------------------------------
+        # Delete unattached floating addresses.
+        #[root@openstacker]
+
+            for ident in $(
+                openstack \
+                    floating ip list \
+                    --format json \
+                | jq -r '.[] | select(.Port == null) | .ID'
+                )
+                do
+                    echo "ID [$ident]"
+                    openstack \
+                        floating ip \
+                        delete \
+                            "${ident}"
+                done
+
+        # -----------------------------------------------------
+        # Delete unattached volumes.
+        #[root@openstacker]
+
+            for ident in $(
+                openstack \
+                    volume list \
+                    --format json \
+                | jq -r '.[] | select(.Status == "available") | .ID'
+                )
+                do
+                    echo "ID [$ident]"
+                    openstack \
+                        volume \
+                        delete \
+                            "${ident}"
+                done
+
+        # -----------------------------------------------------
+        # Delete *all* our nodes.
+        # WARNING - use with care - this will do what it says.
+        #[root@openstacker]
+
+            for ident in $(
+                openstack \
+                    server list \
+                    --format json \
+                | jq -r '.[] | .ID'
+                )
+                do
+                    echo "ID [$ident]"
+                    openstack \
+                        server \
+                        delete \
+                            "${ident}"
+                done
+
+        # -----------------------------------------------------
+        # Delete *ALL* our floating addresses.
+        # WARNING - use with care - this will do what it says.
+        #[root@openstacker]
+
+            for ident in $(
+                openstack \
+                    floating ip list \
+                    --format json \
+                | jq -r '.[] | .ID'
+                )
+                do
+                    echo "ID [$ident]"
+                    openstack \
+                        floating ip \
+                        delete \
+                            "${ident}"
+                done
+
+        # -----------------------------------------------------
+        # Delete *ALL* our volumes.
+        # WARNING - use with care - this will do what it says.
+        #[root@openstacker]
+
+            for ident in $(
+                openstack \
+                    volume list \
+                    --format json \
+                | jq -r '.[] | .ID'
+                )
+                do
+                    echo "ID [$ident]"
+                    openstack \
+                        volume \
+                        delete \
+                            "${ident}"
+                done
+

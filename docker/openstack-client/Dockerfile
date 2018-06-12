@@ -18,9 +18,27 @@
 FROM phymatopus/fedora:2018.06.12
 MAINTAINER Dave Morris <docker-admin@metagrid.co.uk>
 
-ENV JAVA_VERSION 9
+#
+# Install the SSH client.
+RUN dnf install -y openssh-clients
 
 #
-# Install Java
-RUN dnf -y install java-${JAVA_VERSION}-openjdk-headless
+# Install the OpenStack client.
+# https://docs.openstack.org/python-openstackclient/latest/
+RUN dnf install -y python-openstackclient
+
+#
+# Install the jq JSON parser.
+# https://stedolan.github.io/jq/
+RUN dnf install -y jq
+
+#
+# Install the ipcalc tools.
+# http://jodies.de/ipcalc
+RUN dnf install -y ipcalc
+
+#
+# Add our util scripts. 
+COPY bin /usr/local/bin/
+RUN chmod a+x /usr/local/bin/*.sh
 
