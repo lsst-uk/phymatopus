@@ -1,0 +1,312 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2018, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#  
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+    #
+    # Deploy Zookeeper on the Zookeeper nodes.
+    #
+
+    # -----------------------------------------------------
+    # Create our deploy script.
+    #[root@openstacker]
+
+cat > /tmp/zookeeper-init.sh << 'EOSH'
+
+    #---------------------------------------------------------------------
+    # Fetch our docker-compose file.
+    curl ... kfmirror-zookeeper.yml
+
+    #
+    # Run our Zookeeper service.
+    docker-compose \
+        --detach \
+        --file "kfmirror-zookeeper.yml" \
+        up zookeeper
+
+EOSH
+
+
+
+ZOOKEEPER_CLIENT_PORT=2181
+ZOOKEEPER_SERVER_ID=
+ZOOKEEPER_SERVERS= ; delimited list
+
+cat > /tmp/zookeeper-init.sh << 'EOSH'
+
+    cat > zookeeper.yml << EOYML
+
+version: '3'
+
+services:
+
+    courtney:
+        image:
+            confluentinc/cp-zookeeper:4.1.1
+        ports:
+            - "${ZOOKEEPER_CLIENT_PORT}:${ZOOKEEPER_CLIENT_PORT}"
+            - "2888:2888"
+            - "3888:3888"
+        environment:
+            - ZOOKEEPER_CLIENT_PORT=2181
+            - ZOOKEEPER_TICK_TIME=2000
+            - ZOOKEEPER_INIT_LIMIT=5
+            - ZOOKEEPER_SYNC_LIMIT=2
+            - ZOOKEEPER_SERVER_ID=${ZOOKEEPER_SERVER_ID}
+            - ZOOKEEPER_SERVERS=${ZOOKEEPER_SERVERS}
+
+EOYML
+
+
+
+EOSH
+
+
+
+
+
+    # -----------------------------------------------------
+    # Get the internal (192*) address for our zookeper node. 
+    #[root@openstacker]
+
+        ident=${zkidents[0]}
+        echo "${ident:?}"
+        
+        getvminfo "${ident:?}"
+        cat $(vmjsonpath)
+
+        internals=(
+            $(eleanorinternal)
+            )
+        echo "${internals[*]}"
+
+            192.168.1.15
+
+        internal=${internals[0]}
+        echo "${zkinternal}"
+
+            192.168.1.15
+
+
+        ident=${zkidents[1]}
+        echo "${ident:?}"
+        
+        getvminfo "${ident:?}"
+        cat $(vmjsonpath)
+
+        internals=(
+            $(eleanorinternal)
+            )
+        echo "${internals[*]}"
+
+            192.168.1.11
+
+        internal=${internals[0]}
+        echo "${zkinternal}"
+
+            192.168.1.11
+
+
+    # -----------------------------------------------------
+    # Get the internal (172*) address for our controller node. 
+    #[root@openstacker]
+
+        ident=${controller}
+        echo "${ident:?}"
+        
+        getvminfo "${ident:?}"
+        cat $(vmjsonpath)
+
+        internals=(
+            $(eleanorinternal)
+            )
+        echo "${internals[*]}"
+
+            192.168.1.13 172.16.49.46
+
+        control=${internals[1]}
+        echo "${control}"
+
+            172.16.49.46
+
+    # -----------------------------------------------------
+    # Test login from openstack-client to controller. 
+    #[root@openstacker]
+
+        sshuser=Stevedore
+
+        sshopts=(
+            '-q'
+            '-A'
+            '-o CheckHostIP=no'
+            '-o UserKnownHostsFile=/dev/null'
+            '-o StrictHostKeyChecking=no'
+            )
+        echo "${sshopts[*]}"
+
+        ssh ${sshopts[*]} "${sshuser:?}@${control:?}" '
+            hostname
+            '
+
+            raminiara-control.novalocal
+
+        internal=192.168.1.15
+        internal=192.168.1.11
+
+        echo "ssh ${sshopts[*]} ${sshuser:?}@${internal:?} hostname" | ssh ${sshopts[*]} ${sshuser:?}@${control:?}
+
+            192.168.1.15
+            raminiara-zookeeper-1.novalocal
+
+            192.168.1.11
+            Stevedore@192.168.1.11: Permission denied (publickey,gssapi-keyex,gssapi-with-mic).
+
+    #
+    # ** Re-built zookeeper-0 (twice) to get a healthy instance. **
+    # ** Creating instances has about 20-10% failure rate at the moment. **
+    #
+
+    # -----------------------------------------------------
+    # Using mc in ssh proxy command throws an error "bash: nc: command not found"
+    # Install 'nc' on the controller to enable it to act as a ssh proxy.
+    #[root@openstacker]
+
+        ssh ${sshopts[*]} "${sshuser:?}@${control:?}" '
+            sudo dnf install -y nc
+            '
+
+            Installed:
+              nmap-ncat.x86_64 2:7.60-8.fc27
+  
+    # -----------------------------------------------------
+    # Test login from openstack-client to zookeeper, using controller as a proxy. 
+    #[root@openstacker]
+
+        sshproxy="ssh ${sshopts[*]} ${sshuser}@${control} nc %h %p"
+        echo "sshproxy [${sshproxy}]"
+
+        sshproxyopt="-o ProxyCommand=\"${sshproxy}\""
+        echo "sshproxyopt [${sshproxyopt}]"
+
+        sshproxyopts=(
+            ${sshopts[*]}
+            ${sshproxyopt}
+            )
+        echo ${sshproxyopts[*]}
+
+        for i in ${sshproxyopts[*]}
+        do
+            echo "proxyopt [$i]"
+        done
+
+        # PASS
+        ssh \
+            ${sshopts[*]} \
+            -o ProxyCommand="${sshproxy}" \
+            ${sshuser:?}@${zkinternal:?} \
+            '
+            hostname
+            '
+        
+        # FAIL
+        ssh \
+            -v \
+            ${sshopts[*]} \
+            "${sshproxyopt}" \
+            ${sshuser:?}@${zkinternal:?} \
+            '
+            hostname
+            '
+
+        # FAIL
+        ssh \
+            -v \
+            ${sshproxyopts[*]} \
+            ${sshuser:?}@${zkinternal:?} \
+            '
+            hostname
+            '
+
+    # -----------------------------------------------------
+    # Test login to each node.
+    #[root@openstacker]
+
+        for vmident in ${kfidents[@]}
+        for vmident in ${mmidents[@]}
+        for vmident in ${zkidents[@]}
+        do
+
+            echo "---- ---- ---- ----"
+            getvminfo "${vmident:?}"
+            echo "Name    [$(getvmname)]"
+            echo "Ident   [${vmident}]"
+
+            internals=(
+                $(eleanorinternal)
+                )
+            internal=${internals[0]}
+            #echo "${internals[*]}"
+            #echo "${internal}"
+
+            echo "
+                hostname
+                " \
+                | ssh \
+                    ${sshopts[*]} \
+                    -o ProxyCommand="${sshproxy}" \
+                    ${sshuser:?}@${internal:?}
+
+        done
+
+    # -----------------------------------------------------
+    # Login and run our init script on each node.
+    #[root@openstacker]
+
+        for vmident in ${kfidents[@]}
+        for vmident in ${mmidents[@]}
+        for vmident in ${zkidents[@]}
+        do
+
+            echo "---- ---- ---- ----"
+            vmident=${zkidents[$i]}
+            getvminfo "${vmident:?}"
+            echo "Index [${i}]"
+            echo "Name  [$(getvmname)]"
+            echo "Ident [${vmident}]"
+
+            internals=(
+                $(eleanorinternal)
+                )
+            internal=${internals[0]}
+
+            echo "
+                hostname
+                alpha=${OS_PROJECT_ID}
+                " \
+                | cat - /tmp/zookeeper-init.sh \
+                | ssh \
+                    ${sshopts[*]} \
+                    -o ProxyCommand="${sshproxy}" \
+                    ${sshuser:?}@${internal:?}
+
+        done
+
+
+
