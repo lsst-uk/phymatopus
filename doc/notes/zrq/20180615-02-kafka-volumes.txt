@@ -20,35 +20,48 @@
 #
 #
 
+# PASS-Eeshue2o
 
-# -----------------------------------------------------
-# Create our volume mount script.
-#[root@openstacker]
+        # -----------------------------------------------------
+        # Data volume settings.
+        #[root@openstacker]
 
-cat > /tmp/volume-init.sh << 'EOSH'
+            volsize=512
+            volpath=/var/local/outer/kafka
+
+            voldevice=/dev/vdb
+            volname=data-00
+
+            voldevice=/dev/vdc
+            volname=data-01
+
+        # -----------------------------------------------------
+        # Create our volume mount script.
+        #[root@openstacker]
+
+        cat > /tmp/volume-init.sh << 'EOSH'
 
 #---------------------------------------------------------------------
-# Create a filesystem.
+# Create a filesystem on the new device.
 
     echo ""
     echo "Creating filesystem"
     mkfs.btrfs \
-        --force \
-        "${fsdev:?}"
+        "${voldevice:?}"
 
     echo ""
     echo "Checking filesystem"
     btrfs \
         filesystem show \
-        "${fsdev:?}"
+        "${voldevice:?}"
 
 #---------------------------------------------------------------------
 # Create our mount point.
 
     echo "Creating mount point"
 
-    mkdir -p "${fspath:?}"
-    touch "${fspath:?}/mount-failed"
+    mkdir -p "${volpath:?}/${volname:?}"
+    touch "${volpath:?}/mount-failed"
 
 #---------------------------------------------------------------------
 # Add the volume to our FileSystemTABle.
@@ -57,11 +70,11 @@ cat > /tmp/volume-init.sh << 'EOSH'
     echo "Updating fstab"
    
     fsuuid=$(
-        lsblk --noheadings --output UUID "${fsdev:?}"
+        lsblk --noheadings --output UUID "${voldevice:?}"
         )
 
 cat >> /etc/fstab << EOTAB
-UUID=${fsuuid:?} ${fspath:?}    btrfs    defaults,noatime    0  0
+UUID=${fsuuid:?} ${volpath:?}/${volname:?}    btrfs    defaults,noatime    0  0
 EOTAB
 
 #---------------------------------------------------------------------
@@ -69,7 +82,7 @@ EOTAB
 
     echo "Mounting new filesystem"
 
-    mount "${fspath:?}"
+    mount "${volpath:?}/${volname:?}"
 
 #---------------------------------------------------------------------
 # Check the new volume.
@@ -77,7 +90,7 @@ EOTAB
     echo ""
     echo "free"
 
-    df -h "${fspath:?}"
+    df -h "${volpath:?}/${volname:?}"
 
     echo ""
     echo "lsblk"
@@ -109,16 +122,11 @@ EOSH
                 echo "Name  [$(getvmname)]"
                 echo "Ident [${vmident}]"
 
-                volname=$(getvmname)-data-01
-                volsize=1024
-
                 volident=$(
                     makevolume \
-                       ${volname:?} \
-                       ${volsize:?} 
+                       "$(getvmname)-${volname:?}" \
+                       "${volsize:?}" 
                     )
-
-                voldevice=/dev/vdb
 
                 openstack \
                     server add volume \
@@ -135,28 +143,24 @@ EOSH
             for vmident in ${kfidents[@]}
             do
 
-                internals=(
-                    $(eleanorinternal)
-                    )
-                ipaddress=${internals[1]}
-
-                fsdev=/dev/vdb
-                fspath=/logs/volume-00
-
                 echo "---- ---- ---- ----"
                 getvminfo "${vmident:?}"
-                echo "Name    [$(getvmname)]"
-                echo "Ident   [${vmident}]"
-                echo "Address [${ipaddress}]"
+                echo "Name     [$(getvmname)]"
+                echo "Ident    [${vmident}]"
+
+                internalip=$(geteleanor192)
+                echo "Internal [${internalip}]"
 
                 echo "
                     sudo -s
-                    fsdev=${fsdev:?}
-                    fspath=${fspath:?}
+                    export voldevice=${voldevice:?}
+                    export volpath=${volpath:?}
+                    export volname=${volname:?}
                     " \
                     | cat - /tmp/volume-init.sh \
-                    | ssh ${phym_sshopts[@]} \
-                        "${phym_sshuser:?}@${ipaddress:?}" \
+                    | ssh ${sshopts[*]} \
+                        -o ProxyCommand="${sshproxy}" \
+                        "${sshuser:?}@${internalip:?}" \
 
             done
 

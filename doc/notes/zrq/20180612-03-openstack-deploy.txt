@@ -20,6 +20,8 @@
 #
 #
 
+# PASS-Eeshue2o
+
 # -----------------------------------------------------
 # Create an external VM to work with.
 #[user@trop]
@@ -148,17 +150,22 @@ fi
             controller=$(makevm "control")
 
         # -----------------------------------------------------
-        # Initialize our arrays.
+        # Create our Zookeeper instances.
         #[root@openstacker]
 
-            unset kfidents
-            kfidents=()
-
-            unset mmidents
-            mmidents=()
+            echo ""
+            echo "Creating Zookeeper nodes"
 
             unset zkidents
             zkidents=()
+
+            for i in {0..2}
+            do
+                echo "Node [${i}]"
+                zkidents+=(
+                    "$(makevm "zookeeper-${i}")"
+                    )
+            done
 
         # -----------------------------------------------------
         # Create our Kafka instances.
@@ -166,6 +173,9 @@ fi
 
             echo ""
             echo "Creating Kafka nodes"
+
+            unset kfidents
+            kfidents=()
 
             for i in {0..3}
             do
@@ -185,26 +195,14 @@ fi
             echo ""
             echo "Creating MirrorMaker nodes"
 
+            unset mmidents
+            mmidents=()
+
             for i in {0..3}
             do
                 echo "Node [${i}]"
                 mmidents+=(
                     "$(makevm "mirror-${i}")"
-                    )
-            done
-
-        # -----------------------------------------------------
-        # Create our Zookeeper instances.
-        #[root@openstacker]
-
-            echo ""
-            echo "Creating Zookeeper nodes"
-
-            for i in {0..2}
-            do
-                echo "Node [${i}]"
-                zkidents+=(
-                    "$(makevm "zookeeper-${i}")"
                     )
             done
 
@@ -243,6 +241,87 @@ fi
             done
 
         # -----------------------------------------------------
+        # Create our Kafka security group.
+        #[root@openstacker]
+
+            openstack \
+                security group \
+                create \
+                --format json \
+                --description "Kafka broker service" \
+                "${phym_project}-kafka" \
+                | jq '.' \
+                > /tmp/security-info.json
+
+            groupid=$(
+                jq -r "
+                    .id
+                    " /tmp/security-info.json
+                )
+
+            openstack \
+                security group rule \
+                create \
+                --format json \
+                --description "Kafka broker ipv4" \
+                --ingress \
+                --protocol  'tcp' \
+                --ethertype 'IPv4' \
+                --remote-ip '0.0.0.0/0' \
+                --dst-port  '9092' \
+                "${groupid}" \
+                | jq '.'
+
+            openstack \
+                security group rule \
+                create \
+                --format json \
+                --description "Kafka broker ipv6" \
+                --ingress \
+                --protocol  'tcp' \
+                --ethertype 'IPv6' \
+                --remote-ip '::/0' \
+                --dst-port  '9092' \
+                "${groupid}" \
+                | jq '.'
+
+        # -----------------------------------------------------
+        # Remove the default egress rules ?
+
+            for ident in $(
+                openstack \
+                    security group \
+                    rule list \
+                    --format json \
+                    "${groupid}" \
+                | jq -r '.[] | select((."IP Protocol" == null) and (."IP Range" == null)) | .ID'
+                )
+                do
+                    openstack \
+                        security group rule \
+                        delete \
+                        "${ident}"
+                done
+
+        # -----------------------------------------------------
+        # Add the security group to our Kafka nodes.
+        #[root@openstacker]
+
+            for ident in ${kfidents[@]}
+            do
+
+                echo "---- ---- ---- ----"
+                getvminfo "${ident:?}"
+                echo "Name    [$(getvmname)]"
+                echo "Ident   [${ident:?}]"
+
+                openstack \
+                    server add security group \
+                    "${ident:?}" \
+                    "${groupid}"
+            done
+
+        # -----------------------------------------------------
         # Test login to each of our Kafka nodes.
         #[root@openstacker]
 
@@ -254,14 +333,11 @@ fi
                 echo "Name    [$(getvmname)]"
                 echo "Ident   [${ident:?}]"
 
-                internals=(
-                    $(eleanorinternal)
-                    )
-                ipaddress=${internals[1]}
-                echo "Address [${ipaddress:?}]"
+                externalip=$(geteleanor172)
+                echo "Address [${externalip:?}]"
 
                 ssh ${phym_sshopts[@]} \
-                    "${phym_sshuser:?}@${ipaddress:?}" \
+                    "${phym_sshuser:?}@${externalip:?}" \
                     hostname
 
             done
@@ -271,7 +347,7 @@ fi
         #[root@openstacker]
 
             ....
-            gedit doc/notes/zrq/20180612-02-kafka-volume.txt
+            gedit doc/notes/zrq/20180615-02-kafka-volumes.txt
             ....
 
 

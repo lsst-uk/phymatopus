@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-FROM phymatopus/fedora:2018.06.12
+FROM phymatopus/fedora:2018.06.15
 MAINTAINER Dave Morris <docker-admin@metagrid.co.uk>
 
 #

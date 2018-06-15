@@ -108,3 +108,23 @@
         echo "${floating:?}"    
         }
 
+# -----------------------------------------------------
+# Functions to get Eleanor addresses.
+# This assumes one 192 address followed by one 172 address.
+
+        geteleanor192()
+            {
+            local internals=(
+                $(eleanorinternal)
+                )
+            echo "${internals[0]}"
+            }
+
+        geteleanor172()
+            {
+            local internals=(
+                $(eleanorinternal)
+                )
+            echo "${internals[1]}"
+            }
+

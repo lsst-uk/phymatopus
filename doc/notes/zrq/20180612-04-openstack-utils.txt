@@ -20,6 +20,8 @@
 #
 #
 
+# PASS-Eeshue2o
+
 # -----------------------------------------------------
 # List all our nodes.
 #[root@openstacker]
@@ -45,7 +47,8 @@
 # Delete nodes that match our project name.
 #[root@openstacker]
 
-    match="^${project:?}*"
+    match="^${phym_project:?}*"
+    match="^${phym_project:?}-kafka*"
 
     for ident in $(
         openstack \
@@ -87,12 +90,32 @@
         openstack \
             volume list \
             --format json \
-        | jq -r '.[] | select(.Status == "available") | .ID'
+        | jq -r '.[] | select((.Status == "available") or (.Status == "error")) | .ID'
         )
         do
             echo "ID [$ident]"
             openstack \
                 volume \
+                delete \
+                    "${ident}"
+        done
+
+# -----------------------------------------------------
+# Delete security grups that match our project name.
+#[root@openstacker]
+
+    match="^${phym_project:?}*"
+
+    for ident in $(
+        openstack \
+            security group list \
+            --format json \
+        | jq -r ".[] | select(.Name | test(\"${match:?}\")) | .ID"
+        )
+        do
+            echo "ID [$ident]"
+            openstack \
+                security group \
                 delete \
                     "${ident}"
         done
