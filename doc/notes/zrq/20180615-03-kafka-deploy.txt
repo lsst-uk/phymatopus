@@ -178,7 +178,7 @@ Test login to controller node.
                 '
 
         # -----------------------------------------------------
-        # Build the ssh proxy command.
+        # Configure our ssh proxy command.
         #[root@openstacker]
 
             sshproxy="ssh ${sshopts[*]} ${sshuser:?}@${controlip:?} nc %h %p"
@@ -196,9 +196,6 @@ Installing nmap-ncat on controller node.
                 sudo dnf install -y nc
                 '
 
-                Installed:
-                  nmap-ncat.x86_64 2:7.60-8.fc27
-
         # -----------------------------------------------------
         # Create our Zookeeper instances.
         #[root@openstacker]
@@ -212,7 +209,9 @@ Creating Zookeeper nodes.
 
             for i in {0..2}
             do
-                echo "Node [${i}]"
+echo "
+Node [${i}]
+"
                 zkidents+=(
                     "$(makevm "zookeeper-$(($i+1))")"
                     )
@@ -301,7 +300,7 @@ Address [${internalip}]
             do
 echo "
 Ident [${i}]
-List   [${zkserverlists[${i}]}]
+List  [${zkserverlists[${i}]}]
 "
             done
 
@@ -363,7 +362,7 @@ EOYL
 EOSH
 
         # -----------------------------------------------------
-        # Login and run our Zookeeper deploy script on each node.
+        # Run our Zookeeper deploy script on each node.
         #[root@openstacker]
 
 echo "
@@ -626,7 +625,7 @@ btrfs \
 echo ""
 echo "Creating mount point"
 
-mkdir -p "${volpath:?}/${volname:?}"
+mkdir -p "${volpath:?}"
 touch "${volpath:?}/mount-failed"
 
 #---------------------------------------------------------------------
@@ -641,7 +640,7 @@ fsuuid=$(
     )
 
 cat >> /etc/fstab << EOTAB
-UUID=${fsuuid:?} ${volpath:?}/${volname:?}    btrfs    defaults,noatime    0  0
+UUID=${fsuuid:?} ${volpath:?}    btrfs    defaults,noatime    0  0
 EOTAB
 
 #---------------------------------------------------------------------
@@ -650,7 +649,7 @@ EOTAB
 echo ""
 echo "Mounting new filesystem"
 
-mount "${volpath:?}/${volname:?}"
+mount "${volpath:?}"
 
 #---------------------------------------------------------------------
 # Check the new volume.
@@ -658,7 +657,7 @@ mount "${volpath:?}/${volname:?}"
 echo ""
 echo "Checking new filesystem"
 
-df -h "${volpath:?}/${volname:?}"
+df -h "${volpath:?}"
 
 lsblk
 
@@ -849,7 +848,7 @@ EOYL
 EOSH
 
     # -----------------------------------------------------
-    # Login and run our Kafka deploy script on each node.
+    # Run our Kafka deploy script on each node.
     #[root@openstacker]
 
 echo "
@@ -878,8 +877,8 @@ External [${externalip}]
             echo "
                 cat > kafka.env << EOENV
 KAFKA_LOG_DIRS=${logdirs:?}
-KAFKA_BROKER_ID=$(($i))
-KAFKA_BROKER_RACK=$(($i))
+KAFKA_BROKER_ID=$(($i+1))
+KAFKA_BROKER_RACK=$(($i+1))
 KAFKA_ZOOKEEPER_CONNECT=${zkconnect:?}
 
 internalip=${internalip}
@@ -935,10 +934,10 @@ Creating MirrorMaker nodes.
 
     ssh trop03
         ssh Umiawyth
-            ssh -A 172.16.49.206
-                ssh -A 192.168.1.15
-                ssh -A 192.168.1.10
+            ssh -A 172.16.49.211
+                ssh -A 192.168.1.11
                 ssh -A 192.168.1.16
+                ssh -A 192.168.1.14
 
                     docker logs -f stevedore_courtney_1
 
@@ -949,11 +948,11 @@ Creating MirrorMaker nodes.
 
     ssh trop03
         ssh Umiawyth
-            ssh -A 172.16.49.206
-                ssh -A 192.168.1.17
-                ssh -A 192.168.1.6
-                ssh -A 192.168.1.9
-                ssh -A 192.168.1.12
+            ssh -A 172.16.49.211
+                ssh -A 192.168.1.10
+                ssh -A 192.168.1.15
+                ssh -A 192.168.1.8
+                ssh -A 192.168.1.5
 
                     docker logs -f stevedore_emily_1
 
