@@ -26,10 +26,10 @@
 
     createvm
 
-        INFO : Node name [Etalema]
+        INFO : Node name [Umiawyth]
         INFO : Base name [fedora-27-docker-base-20180129.qcow]
         INFO : Base path [/var/lib/libvirt/images/base/fedora-27-docker-base-20180129.qcow]
-        INFO : Disc name [Etalema.qcow]
+        INFO : Disc name [Umiawyth.qcow]
         INFO : Disc size [16GiB]
 
         INFO : MAC  [52:54:00:02:03:09]
@@ -40,7 +40,7 @@
 # Login to our external VM.
 #[user@trop]
 
-    ssh Etalema
+    ssh Umiawyth
 
     # -----------------------------------------------------
     # Configure our secrets function.
@@ -138,7 +138,7 @@ EOF
 fi
 
         # -----------------------------------------------------
-        # Load our project settings.
+        # Load our cluster settings.
         #[root@openstacker]
 
             source '/etc/phymatopus/cluster.settings'
@@ -147,12 +147,10 @@ fi
         # Create our controller instance.
         #[root@openstacker]
 
-echo << EOF
+echo "
 ---- ---- ---- ---- ----
 Creating controller node.
-
-EOF
-
+"
             controlvm=$(makevm "control")
 
         # -----------------------------------------------------
@@ -163,17 +161,19 @@ EOF
                 addinternalfloat "${controlvm:?}"
                 )
 
-echo << EOF
+echo "
 Control VM [${controlvm:?}]
 Control IP [${controlip:?}]
-
-EOF
-
+"
         # -----------------------------------------------------
         # Test login to our control node.
         #[root@openstacker]
 
-            ssh ${sshopts[*]} "${sshuser:?}@${control:?}" '
+echo "
+---- ---- ---- ---- ----
+Test login to controller node.
+"
+            ssh ${sshopts[*]} "${sshuser:?}@${controlip:?}" '
                 hostname
                 '
 
@@ -181,19 +181,17 @@ EOF
         # Build the ssh proxy command.
         #[root@openstacker]
 
-            sshproxy="ssh ${sshopts[*]} ${sshuser}@${controlip} nc %h %p"
+            sshproxy="ssh ${sshopts[*]} ${sshuser:?}@${controlip:?} nc %h %p"
 
         # -----------------------------------------------------
         # Using mc in ssh proxy command throws an error "bash: nc: command not found"
         # Install 'nc' on the controller to enable it to act as a ssh proxy.
         #[root@openstacker]
 
-echo << EOF
+echo "
 ---- ---- ---- ---- ----
 Installing nmap-ncat on controller node.
-
-EOF
-
+"
             ssh ${sshopts[*]} "${sshuser:?}@${controlip:?}" '
                 sudo dnf install -y nc
                 '
@@ -205,12 +203,10 @@ EOF
         # Create our Zookeeper instances.
         #[root@openstacker]
 
-echo << EOF
+echo "
 ---- ---- ---- ---- ----
 Creating Zookeeper nodes.
-
-EOF
-
+"
             unset zkidents
             zkidents=()
 
@@ -218,39 +214,34 @@ EOF
             do
                 echo "Node [${i}]"
                 zkidents+=(
-                    "$(makevm "zookeeper-${i}")"
+                    "$(makevm "zookeeper-$(($i+1))")"
                     )
             done
 
-
         # -----------------------------------------------------
-        # Test internal login to each of our Zookeeper nodes.
+        # Test internal access to each of our Zookeeper nodes.
         #[root@openstacker]
 
-echo << EOF
+echo "
 ---- ---- ---- ---- ----
 Testing internal access to Zookeeper nodes.
-
-EOF
-
+"
             for vmident in ${zkidents[@]}
             do
                 getvminfo "${vmident:?}"
-
-echo << EOF
+                internalip=$(geteleanor192)
+echo "
 Node    [${vmident}]
 Name    [$(getvmname)]
-Address [$(geteleanor192)]
-
-EOF
-
+Address [${internalip}]
+"
                 echo "
                     hostname
                     " \
                     | ssh \
                         ${sshopts[*]} \
                         -o ProxyCommand="${sshproxy}" \
-                        "${sshuser:?}@$(geteleanor192)"
+                        "${sshuser:?}@${internalip:?}"
             done
 
         # -----------------------------------------------------
@@ -259,11 +250,10 @@ EOF
         # listen on all interfaces for inter zookeeper communications.
         #[root@openstacker]
 
-echo << EOF
+echo "
 ---- ---- ---- ---- ----
-Generating Zookeeper listener lists.
-
-EOF
+Generating Zookeeper listener list(s).
+"
 
             unset zkservers
             zkservers=()
@@ -274,12 +264,11 @@ EOF
                 getvminfo "${vmident:?}"
                 internalip=$(geteleanor192)
 
-echo << EOF
+echo "
 Node    [${vmident}]
 Name    [$(getvmname)]
 Address [${internalip}]
-
-EOF
+"
 
                 zkservers+=(${internalip:?})
 
@@ -288,7 +277,7 @@ EOF
             unset zkserverlists
             zkserverlists=()
 
-            for i in {!zkservers[@]}
+            for i in ${!zkservers[@]}
             do
 
                 delim=''
@@ -308,24 +297,22 @@ EOF
                 zkserverlists+=(${zkserverlist})
             done
 
-            for i in {!zkserverlists[@]}
+            for i in ${!zkserverlists[@]}
             do
-echo << EOF
+echo "
 Ident [${i}]
 List   [${zkserverlists[${i}]}]
-
-EOF
+"
             done
 
         # -----------------------------------------------------
         # Create our Zookeeper deploy script.
         #[root@openstacker]
 
-echo << EOF
+echo "
 ---- ---- ---- ---- ----
 Creating Zookeeper deploy script.
-
-EOF
+"
 
         cat > /tmp/zookeeper-init.sh << 'EOSH'
 
@@ -376,14 +363,13 @@ EOYL
 EOSH
 
         # -----------------------------------------------------
-        # Login and run our init script on each node.
+        # Login and run our Zookeeper deploy script on each node.
         #[root@openstacker]
 
-echo << EOF
+echo "
 ---- ---- ---- ---- ----
 Executing Zookeeper deploy script.
-
-EOF
+"
 
             for i in ${!zkidents[@]}
             do
@@ -393,15 +379,15 @@ EOF
 
                 internalip=$(geteleanor192)
 
-echo << EOF
+echo "
 Index   [${i}]
 Ident   [${vmident}]
 Name    [$(getvmname)]
 Address [${internalip}]
-EOF
+"
                 echo "
-                    export ZOOKEEPER_SERVER_ID=$(($i+1))
-                    export ZOOKEEPER_SERVERS=${zkserverlists[${i}]}
+                    export ZOOKEEPER_SERVER_ID='$(($i+1))'
+                    export ZOOKEEPER_SERVERS='${zkserverlists[${i}]}'
                 " \
                 | cat - /tmp/zookeeper-init.sh \
                 | ssh \
@@ -412,14 +398,14 @@ EOF
         done
 
         # -----------------------------------------------------
+        # -----------------------------------------------------
         # Create our Kafka instances.
         #[root@openstacker]
 
-echo << EOF
+echo "
 ---- ---- ---- ---- ----
 Creating Kafka nodes.
-
-EOF
+"
 
             unset kfidents
             kfidents=()
@@ -429,7 +415,7 @@ EOF
                 echo "Node [${i}]"
                 kfidents+=(
                     "$(makevm \
-                        "kafka-${i}" \
+                        "kafka-$((${i}+1))" \
                         "${m1medium}"
                         )"
                     )
@@ -439,11 +425,10 @@ EOF
         # Assign floating IP addresess to each of our Kafka nodes.
         #[root@openstacker]
 
-            echo << EOF
+echo "
 ---- ---- ---- ---- ----
 Adding floating IP addresses to Kafka nodes.
-
-EOF
+"
 
             for ident in ${kfidents[@]}
             do
@@ -453,10 +438,9 @@ EOF
                     addinternalfloat "${ident:?}"
                     )
 
-echo << EOF
+echo "
 Address [${floating}]
-
-EOF
+"
 
             done
 
@@ -464,11 +448,10 @@ EOF
         # Create our Kafka security group.
         #[root@openstacker]
 
-echo << EOF
+echo "
 ---- ---- ---- ---- ----
 Creating Kafka security group.
-
-EOF
+"
 
             openstack \
                 security group \
@@ -485,9 +468,9 @@ EOF
                     " /tmp/security-info.json
                 )
 
-echo << EOF
+echo "
 Adding Kafka security rules.
-EOF
+"
 
             openstack \
                 security group rule \
@@ -518,9 +501,9 @@ EOF
         # -----------------------------------------------------
         # Remove the default egress rules ?
 
-echo << EOF
+echo "
 Removing default security rules.
-EOF
+"
 
             for ident in $(
                 openstack \
@@ -541,12 +524,10 @@ EOF
         # Add the security group to our Kafka nodes.
         #[root@openstacker]
 
-echo << EOF
-
+echo "
 ---- ---- ---- ---- ----
 Adding Kafka security group to Kafka nodes.
-
-EOF
+"
 
             for ident in ${kfidents[@]}
             do
@@ -558,75 +539,68 @@ EOF
             done
 
         # -----------------------------------------------------
-        # Test internal login to each of our Kafka nodes.
+        # Test internal access to each of our Kafka nodes.
         #[root@openstacker]
 
-echo << EOF
+echo "
 ---- ---- ---- ---- ----
 Testing internal access to Kafka nodes.
-
-EOF
+"
 
             for vmident in ${kfidents[@]}
             do
-                echo "---- ---- ---- ----"
                 getvminfo "${vmident:?}"
+                internalip=$(geteleanor192)
 
-echo << EOF
+echo "
 Node    [${vmident}]
 Name    [$(getvmname)]
-Address [$(geteleanor192)]
-
-EOF
-
+Address [${internalip}]
+"
                 echo "
                     hostname
                     " \
                     | ssh \
                         ${sshopts[*]} \
                         -o ProxyCommand="${sshproxy}" \
-                        "${sshuser:?}@$(geteleanor192)"
+                        "${sshuser:?}@${internalip:?}"
             done
 
         # -----------------------------------------------------
-        # Test external login to each of our Kafka nodes.
+        # Test external access to each of our Kafka nodes.
         #[root@openstacker]
 
-echo << EOF
+echo "
 ---- ---- ---- ---- ----
 Testing external access to Kafka nodes.
-
-EOF
+"
 
             for vmident in ${kfidents[@]}
             do
-                echo "---- ---- ---- ----"
                 getvminfo "${vmident:?}"
+                externalip=$(geteleanor172)
 
-echo << EOF
+echo "
 Node    [${vmident}]
 Name    [$(getvmname)]
-Address [$(geteleanor172)]
-
-EOF
-
+Address [${externalip}]
+"
                 echo "
                     hostname
                     " \
                     | ssh \
                         ${sshopts[*]} \
-                        "${sshuser:?}@$(geteleanor172)"
+                        "${sshuser:?}@${externalip:?}"
             done
 
         # -----------------------------------------------------
-        # Create our volume mount script.
+        # Create our volume config script.
         #[root@openstacker]
 
-echo << EOF
+echo "
 ---- ---- ---- ---- ----
-Creating data volume config script.
-
-EOF
+Creating volume config script.
+"
 
             cat > /tmp/volume-init.sh << 'EOSH'
 
@@ -709,39 +683,34 @@ EOSH
             outerpath=/var/local/outer/kafka
 
         # -----------------------------------------------------
-        # Create and attach a new volume to each of our Kafka nodes.
+        # Create new log volumes and attach them to our Kafka nodes.
         #[root@openstacker]
 
-echo << EOF
+echo "
 ---- ---- ---- ---- ----
-Creating Kafka data volumes.
-
-EOF
+Creating Kafka log volumes.
+"
 
             for vmident in ${kfidents[@]}
             do
 
                 getvminfo "${vmident:?}"
 
-echo << EOF
+echo "
 Node   [${vmident}]
 Name   [$(getvmname)]
-
-EOF
-
+"
                 for i in ${!voldevices[*]}
                 do
                 
                     volname=${volnames[$i]}
                     volpath=${outerpath}/${volname}
-                    voldevice=${voldevice[$i]}
+                    voldevice=${voldevices[$i]}
 
-echo << EOF
+echo "
 Device [${voldevice}]
 Target [${volpath}]
-
-EOF
-
+"
                     volident=$(
                         makevolume \
                            "$(getvmname)-${volname:?}" \
@@ -769,34 +738,64 @@ EOF
             done
 
     # -----------------------------------------------------
-    # Build a list of data volumes.
+    # Build a list of our log directories.
     #[root@openstacker]
 
-echo << EOF
+echo "
 ---- ---- ---- ---- ----
 Generating Kafka log directories list.
-
-EOF
+"
 
         delim=''
         logdirs=''
-        for name in ${volumes[@]}
+        for name in ${volnames[@]}
         do
             logdirs=${logdirs}${delim}${innerpath}/${name}
             delim=','
         done
 
-        echo "Logdirs [${logdirs}]"
-        
+echo "
+Logdirs [${logdirs}]
+"
+
+    # -----------------------------------------------------
+    # Build a list of Zookeeper addresses.
+    #[root@openstacker]
+
+echo "
+---- ---- ---- ---- ----
+Generating Kafka Zookeeper connect list.
+"
+
+        delim=''
+        port='2181'
+        path='kafka'
+        zkconnect=''
+            
+        for vmident in ${zkidents[@]}
+        do
+
+            getvminfo "${vmident:?}"
+            internalip=$(geteleanor192)
+
+            zkconnect="${zkconnect}${delim}${internalip}:${port}/${path}"
+
+            delim=','
+
+        done
+
+echo "
+Zookeepers [${zkconnect}]
+"
+       
     # -----------------------------------------------------
     # Create our deploy script.
     #[root@openstacker]
 
-echo << EOF
+echo "
 ---- ---- ---- ---- ----
 Creating Kafka deploy script.
-
-EOF
+"
 
 cat > /tmp/kafka-init.sh << 'EOSH'
 
@@ -850,14 +849,13 @@ EOYL
 EOSH
 
     # -----------------------------------------------------
-    # Login and run our init script on each node.
+    # Login and run our Kafka deploy script on each node.
     #[root@openstacker]
 
-echo << EOF
+echo "
 ---- ---- ---- ---- ----
 Executing Kafka deploy script.
-
-EOF
+"
 
         for i in ${!kfidents[@]}
         do
@@ -865,32 +863,30 @@ EOF
             vmident=${kfidents[$i]}
             getvminfo "${vmident:?}"
 
-echo << EOF
+echo "
 Node  [${i}]
 Ident [${vmident}]
 Name  [$(getvmname)]
-EOF
-
+"
             internalip=$(geteleanor192)
             externalip=$(geteleanor172)
 
-echo << EOF
+echo "
 Internal [${internalip}]
 External [${externalip}]
-
-EOF
+"
             echo "
-                cat > kafka.env << EOF
+                cat > kafka.env << EOENV
 KAFKA_LOG_DIRS=${logdirs:?}
-KAFKA_BROKER_ID=$(($i+1))
-KAFKA_BROKER_RACK=$(($i+1))
+KAFKA_BROKER_ID=$(($i))
+KAFKA_BROKER_RACK=$(($i))
 KAFKA_ZOOKEEPER_CONNECT=${zkconnect:?}
 
 internalip=${internalip}
 externalip=${externalip}
 innerpath=${innerpath:?}
 outerpath=${outerpath:?}
-EOF
+EOENV
                 ln -sf kafka.env .env
                 " \
                 | cat - /tmp/kafka-init.sh \
@@ -903,15 +899,14 @@ EOF
 
 
         # -----------------------------------------------------
+        # -----------------------------------------------------
         # Create our MirrorMaker instances.
         #[root@openstacker]
 
-echo << EOF
+echo "
 ---- ---- ---- ---- ----
 Creating MirrorMaker nodes.
-
-EOF
-
+"
             unset mmidents
             mmidents=()
 
@@ -939,11 +934,11 @@ EOF
 #[root@openstacker]
 
     ssh trop03
-        ssh Etalema
-            ssh -A 172.16.49.46
-                ssh -A 192.168.1.xx
-                ssh -A 192.168.1.xx
-                ssh -A 192.168.1.xx
+        ssh Umiawyth
+            ssh -A 172.16.49.206
+                ssh -A 192.168.1.15
+                ssh -A 192.168.1.10
+                ssh -A 192.168.1.16
 
                     docker logs -f stevedore_courtney_1
 
@@ -953,12 +948,12 @@ EOF
 #[root@openstacker]
 
     ssh trop03
-        ssh Etalema
-            ssh -A 172.16.49.46
-                ssh -A 192.168.1.xx
-                ssh -A 192.168.1.xx
-                ssh -A 192.168.1.xx
-                ssh -A 192.168.1.xx
+        ssh Umiawyth
+            ssh -A 172.16.49.206
+                ssh -A 192.168.1.17
+                ssh -A 192.168.1.6
+                ssh -A 192.168.1.9
+                ssh -A 192.168.1.12
 
                     docker logs -f stevedore_emily_1
 
