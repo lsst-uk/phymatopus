@@ -31,16 +31,17 @@ RUN dnf -y makecache
 
 #
 # Install common admin tools.
-RUN dnf install -y sed
-RUN dnf install -y tar
-RUN dnf install -y zip
-RUN dnf install -y less
-RUN dnf install -y wget
-RUN dnf install -y nano
-RUN dnf install -y gzip
-RUN dnf install -y pwgen
-RUN dnf install -y gnupg
-RUN dnf install -y which
+RUN dnf install -y \
+    sed \
+    tar \
+    zip \
+    less \
+    wget \
+    nano \
+    gzip \
+    pwgen \
+    gnupg \
+    which
 
 #
 # Set the terminal type for exec.

@@ -1,0 +1,119 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2018, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#  
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+# -----------------------------------------------------
+# Make a clone of kafkacat.
+# https://github.com/edenhill/kafkacat
+#[user@desktop]
+
+    source "${HOME}/phymatopus.settings"
+    pushd "${PHYMATOPUS_BASE}/external"
+
+        if [ ! -e 'kafkacat' ]
+        then
+            git clone https://github.com/edenhill/kafkacat.git
+        else
+            pushd 'kafkacat'
+                git pull
+            popd
+        fi
+
+    popd
+
+# -----------------------------------------------------
+# Build our Docker image of kafkacat.
+# https://github.com/edenhill/kafkacat
+#[user@desktop]
+
+    source "${HOME}/phymatopus.settings"
+    pushd "${PHYMATOPUS_BASE}/external"
+
+        export buildtag=$(date '+%Y.%m.%d')
+
+        docker build \
+            --tag phymatopus/kafkacat:${buildtag:?} \
+            kafkacat
+
+    popd
+
+# -----------------------------------------------------
+# Build our own containers.
+#[user@desktop]
+
+    source "${HOME}/phymatopus.settings"
+    pushd "${PHYMATOPUS_CODE:?}"
+
+        source bin/util.sh
+        dockerfiles ${buildtag}
+
+        docker build \
+            --tag phymatopus/fedora:${buildtag:?} \
+            docker/fedora
+
+        docker build \
+            --tag phymatopus/openstack-client:${buildtag:?} \
+            docker/openstack-client
+
+        docker build \
+            --tag phymatopus/java:${buildtag:?} \
+            docker/java
+
+        docker build \
+            --tag phymatopus/kafka-core:${buildtag:?} \
+            docker/kafka/kafka-core
+
+    popd
+
+# -----------------------------------------------------
+# Login to the Docker registry.
+#[user@desktop]
+
+    docker login \
+        --username $(secret docker.io.user) \
+        --password $(secret docker.io.pass)
+
+# -----------------------------------------------------
+# Tag and push our containers.
+#[user@desktop]
+
+    docker tag  "phymatopus/kafkacat:${buildtag:?}" "phymatopus/kafkacat:latest"
+    docker push "phymatopus/kafkacat:${buildtag:?}"
+    docker push "phymatopus/kafkacat:latest"
+
+    docker tag  "phymatopus/fedora:${buildtag:?}" "phymatopus/fedora:latest"
+    docker push "phymatopus/fedora:${buildtag:?}"
+    docker push "phymatopus/fedora:latest"
+
+    docker tag  "phymatopus/java:${buildtag:?}" "phymatopus/java:latest"
+    docker push "phymatopus/java:${buildtag:?}"
+    docker push "phymatopus/java:latest"
+
+    docker tag  "phymatopus/kafka-core:${buildtag:?}" "phymatopus/kafka-core:latest"
+    docker push "phymatopus/kafka-core:${buildtag:?}"
+    docker push "phymatopus/kafka-core:latest"
+
+    docker tag  "phymatopus/openstack-client:${buildtag:?}" "phymatopus/openstack-client:latest"
+    docker push "phymatopus/openstack-client:${buildtag:?}"
+    docker push "phymatopus/openstack-client:latest"
+
+
+

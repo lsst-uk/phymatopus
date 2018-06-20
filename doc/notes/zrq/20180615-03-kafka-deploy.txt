@@ -315,7 +315,7 @@ Creating Zookeeper deploy script.
 
         cat > /tmp/zookeeper-init.sh << 'EOSH'
 
-    cat > zookeeper.yml << EOYL
+    cat > zookeeper.yml << EOYML
 
 version: '3'
 
@@ -349,7 +349,7 @@ services:
         networks:
             - zookeeper
 
-EOYL
+EOYML
 
     echo "---- ----"
 
@@ -385,8 +385,11 @@ Name    [$(getvmname)]
 Address [${internalip}]
 "
                 echo "
-                    export ZOOKEEPER_SERVER_ID='$(($i+1))'
-                    export ZOOKEEPER_SERVERS='${zkserverlists[${i}]}'
+                    cat > zookeeper.env << EOENV
+ZOOKEEPER_SERVER_ID='$(($i+1))'
+ZOOKEEPER_SERVERS='${zkserverlists[${i}]}'
+EOENV
+                ln -sf zookeeper.env .env
                 " \
                 | cat - /tmp/zookeeper-init.sh \
                 | ssh \
@@ -894,12 +897,6 @@ EOENV
                     -o ProxyCommand="${sshproxy}" \
                     ${sshuser:?}@${internalip:?}
         done
-
-
-
-
-
-
 
 
 
