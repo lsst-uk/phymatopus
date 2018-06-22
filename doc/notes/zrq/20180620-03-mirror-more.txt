@@ -1,0 +1,491 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2018, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#  
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+
+    # -----------------------------------------------------
+    # Login to each MirrorMaker instance and stop the process.
+    #[root@openstacker]
+
+        for vmident in ${mmidents[@]}
+        do
+
+            getvminfo ${vmident}
+            internalip=$(geteleanor192)
+
+echo "
+Name    [$(getvmname)]
+Address [${internalip}]
+"
+
+            echo "
+                docker-compose \
+                    --file mirror.yml \
+                    down
+                " \
+            | ssh \
+                ${sshopts[*]} \
+                -o ProxyCommand="${sshproxy}" \
+                ${sshuser:?}@${internalip:?}
+
+        done
+
+    # -----------------------------------------------------
+    # Create our new compose file.
+    #[root@openstacker]
+
+        cat > /tmp/mirror-init.sh << 'EOSH'
+
+cat > mirror.yml << 'EOYML'
+
+version: "3.2"
+
+networks:
+    kafka:
+    
+services:
+
+    tina:
+        image:
+            phymatopus/kafka-core
+        networks:
+            - kafka
+        volumes:
+            - ${HOME}/producer.config:/etc/mirror/producer.config
+            - ${HOME}/consumer.config:/etc/mirror/consumer.config
+        environment:
+                KAFKA_HEAP_OPTS: -Xmx1G
+        command: [
+             "bin/kafka-mirror-maker.sh",
+             "--num.streams",
+             "${streamnum}",
+             "--consumer.config",
+             "/etc/mirror/consumer.config",
+             "--producer.config",
+             "/etc/mirror/producer.config",
+             "--whitelist",
+             "${topiclist}"
+             ]
+
+EOYML
+EOSH
+
+    # -----------------------------------------------------
+    # Create our new topic list.
+    #[root@openstacker]
+
+        topiclist='^ztf_[0-9]++_programid1$'
+
+    # -----------------------------------------------------
+    # Login to each MirrorMaker instance and update the compose file.
+    #[root@openstacker]
+
+        for vmident in ${mmidents[@]}
+        do
+
+            getvminfo ${vmident}
+            internalip=$(geteleanor192)
+
+echo "
+Name    [$(getvmname)]
+Address [${internalip}]
+"
+
+            echo "
+                cat > mirror.env << EOENV
+groupid=${groupid:?}
+streamnum=${streamnum:?}
+topiclist='${topiclist:?}'
+roeconnect=${roeconnect:?}
+ztfconnect=${ztfconnect:?}
+EOENV
+                source mirror.env
+                ln -sf mirror.env .env
+                " \
+                | cat - /tmp/mirror-init.sh \
+                | ssh \
+                    ${sshopts[*]} \
+                    -o ProxyCommand="${sshproxy}" \
+                    ${sshuser:?}@${internalip:?}
+
+        done
+
+
+
+    # -----------------------------------------------------
+    # Login to each MirrorMaker instance and start our process.
+    #[root@openstacker]
+
+        topiclist='ztf_20180610.+|ztf_20180611.+|ztf_20180615.+|ztf_20180616.+'
+        topiclist='ztf_20180615.+|ztf_20180616.+'
+        topiclist='ztf_20180616.+'
+        topiclist='ztf_20180616.+,ztf_20180617.+'
+        topiclist='ztf_20180616.+'
+        topiclist='ztf_20180617.+'
+        topiclist='ztf_20180618.+'
+        topiclist='ztf_20180619.+'
+
+        topiclist='ztf_20180616.+,ztf_20180619.+'
+        topiclist='ztf_20180616.+,ztf_2018062.+'
+
+        topiclist='ztf_201806.+'
+
+        topiclist='ztf_20180616.+,ztf_2018062.+'
+        topiclist='ztf_2018062.+'
+
+        for i in {0..3}
+        do
+
+            vmident=${mmidents[${i}]}
+            getvminfo ${vmident}
+            internalip=$(geteleanor192)
+
+echo "
+Index   [${i}]
+Name    [$(getvmname)]
+Address [${internalip}]
+"
+
+                echo "
+                    echo "---- ----"
+
+                    docker-compose \
+                        --file mirror.yml \
+                        down
+
+                    sed -i \"
+                        s/^topiclist=.*/topiclist=${topiclist:?}/
+                        \" mirror.env
+
+                    ln -sf mirror.env .env    
+                    cat mirror.env
+
+                    docker-compose \
+                        --file mirror.yml \
+                        up -d
+
+                    echo "---- ----"
+                " \
+                | ssh \
+                    ${sshopts[*]} \
+                    -o ProxyCommand="${sshproxy}" \
+                    ${sshuser:?}@${internalip:?}
+
+
+        done
+
+    # -----------------------------------------------------
+    # Login to our controller node and check the offsets.
+    #[root@openstacker]
+
+        echo "
+            docker run --rm phymatopus/kafka-core \
+                bin/kafka-consumer-groups.sh \
+                    --bootstrap-server "${ztfconnect}" \
+                    --group "${groupid}" \
+                    --describe
+            " \
+        | ssh \
+            ${sshopts[*]} \
+            ${sshuser:?}@${controlip:?} | tee lits.txt
+
+
+    # -----------------------------------------------------
+    # Login to each MirrorMaker instance and check the log.
+    #[root@openstacker]
+
+        for vmident in ${mmidents[@]}
+        do
+
+            getvminfo ${vmident}
+            internalip=$(geteleanor192)
+
+echo "
+Name    [$(getvmname)]
+Address [${internalip}]
+"
+
+                echo "
+                    echo "---- ----"
+
+                    docker ps -a
+                    docker logs stevedore_tina_1
+
+                    echo "---- ----"
+                " \
+                | ssh \
+                    ${sshopts[*]} \
+                    -o ProxyCommand="${sshproxy}" \
+                    ${sshuser:?}@${internalip:?}
+
+
+        done
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# -----------------------------------------------------
+# Login and tail the MirrorMaker logs.
+#[root@openstacker]
+
+    ssh trop03
+        ssh Umiawyth
+            ssh -A 172.16.49.211
+                ssh -A 192.168.1.25
+                ssh -A 192.168.1.22
+                ssh -A 192.168.1.7
+                ssh -A 192.168.1.9
+
+                    docker ps -a
+                    docker logs -f stevedore_tina_1
+
+# -----------------------------------------------------
+# Login and tail the KafkaBroker logs.
+#[root@openstacker]
+
+    ssh trop03
+        ssh Umiawyth
+            ssh -A 172.16.49.211
+                ssh -A 192.168.1.5
+                ssh -A 192.168.1.8
+                ssh -A 192.168.1.15
+                ssh -A 192.168.1.10
+
+                    docker ps -a
+                    docker logs -f stevedore_emily_1
+
+
+
+
+
+
+
+
+
+
+
+
+
+    Doesn't work yet ..
+    Error: Assignments can only be reset if the group 'ztf-mirror.roe.ac.uk' is inactive, but the current state is Stable.
+
+    # -----------------------------------------------------
+    # Reset the offset for a topic.
+    #[root@openstacker]
+
+        echo "
+            docker run --rm phymatopus/kafka-core \
+                bin/kafka-consumer-groups.sh \
+                    --bootstrap-server "${ztfconnect}" \
+                    --group "${groupid}" \
+                     --reset-offsets \
+                     --to-earliest \
+                     'ztf_20180616_programid1'
+            " \
+        | ssh \
+            ${sshopts[*]} \
+            ${sshuser:?}@${controlip:?}
+
+    # -----------------------------------------------------
+    # Shutdown our MirrorMaker proceses.
+    #[root@openstacker]
+
+        for vmident in ${mmidents[@]}
+        do
+
+            getvminfo ${vmident}
+            internalip=$(geteleanor192)
+
+echo "
+Name    [$(getvmname)]
+Address [${internalip}]
+"
+
+                echo "
+                    echo "---- ----"
+
+                    docker-compose -f mirror.yml down
+
+                    echo "---- ----"
+                " \
+                | ssh \
+                    ${sshopts[*]} \
+                    -o ProxyCommand="${sshproxy}" \
+                    ${sshuser:?}@${internalip:?}
+
+
+        done
+
+    # -----------------------------------------------------
+    # Reset the client offsets for a topic.
+    #[root@openstacker]
+
+        echo "
+            docker run --rm phymatopus/kafka-core \
+                bin/kafka-consumer-groups.sh \
+                    --bootstrap-server "${ztfconnect}" \
+                    --group "${groupid}" \
+                     --reset-offsets \
+                     --to-earliest \
+                     --topic 'ztf_20180616_programid1' \
+                     --execute
+            " \
+        | ssh \
+            ${sshopts[*]} \
+            ${sshuser:?}@${controlip:?}
+
+            TOPIC                          PARTITION  NEW-OFFSET     
+            ztf_20180616_programid1        11         0              
+            ztf_20180616_programid1        13         0              
+            ztf_20180616_programid1        7          0              
+            ztf_20180616_programid1        6          0              
+            ztf_20180616_programid1        10         0              
+            ztf_20180616_programid1        4          0              
+            ztf_20180616_programid1        3          0              
+            ztf_20180616_programid1        8          0              
+            ztf_20180616_programid1        0          0              
+            ztf_20180616_programid1        5          0              
+            ztf_20180616_programid1        2          0              
+            ztf_20180616_programid1        12         0              
+            ztf_20180616_programid1        1          0              
+            ztf_20180616_programid1        9          0            
+
+    # -----------------------------------------------------
+    # Check the offsets.
+    #[root@openstacker]
+
+        echo "
+            docker run --rm phymatopus/kafka-core \
+                bin/kafka-consumer-groups.sh \
+                    --bootstrap-server "${ztfconnect}" \
+                    --group "${groupid}" \
+                    --describe
+            " \
+        | ssh \
+            ${sshopts[*]} \
+            ${sshuser:?}@${controlip:?} | tee lits.txt | grep '20180616'
+
+            TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID     HOST            CLIENT-ID
+            ztf_20180616_programid1 11         0               8594            8594            -               -               -
+            ztf_20180616_programid1 13         0               8595            8595            -               -               -
+            ztf_20180616_programid1 7          0               8595            8595            -               -               -
+            ztf_20180616_programid1 6          0               8594            8594            -               -               -
+            ztf_20180616_programid1 10         0               8595            8595            -               -               -
+            ztf_20180616_programid1 4          0               8595            8595            -               -               -
+            ztf_20180616_programid1 3          0               8594            8594            -               -               -
+            ztf_20180616_programid1 8          0               8594            8594            -               -               -
+            ztf_20180616_programid1 0          0               8594            8594            -               -               -
+            ztf_20180616_programid1 5          0               8595            8595            -               -               -
+            ztf_20180616_programid1 2          0               8594            8594            -               -               -
+            ztf_20180616_programid1 12         0               8594            8594            -               -               -
+            ztf_20180616_programid1 1          0               8595            8595            -               -               -
+            ztf_20180616_programid1 9          0               8595            8595            -               -               -
+
+    # -----------------------------------------------------
+    # Login to each MirrorMaker instance and restart our process.
+    #[root@openstacker]
+
+        topiclist='ztf_2018062.+'
+
+        for i in {0..3}
+        do
+
+            vmident=${mmidents[${i}]}
+            getvminfo ${vmident}
+            internalip=$(geteleanor192)
+
+echo "
+Index   [${i}]
+Name    [$(getvmname)]
+Address [${internalip}]
+"
+
+                echo "
+                    echo "---- ----"
+
+                    docker-compose \
+                        --file mirror.yml \
+                        down
+
+                    sed -i \"
+                        s/^topiclist=.*/topiclist=${topiclist:?}/
+                        \" mirror.env
+
+                    ln -sf mirror.env .env    
+                    cat mirror.env
+
+                    docker-compose \
+                        --file mirror.yml \
+                        up -d
+
+                    echo "---- ----"
+                " \
+                | ssh \
+                    ${sshopts[*]} \
+                    -o ProxyCommand="${sshproxy}" \
+                    ${sshuser:?}@${internalip:?}
+
+
+        done
+
+    # -----------------------------------------------------
+    # Check the offsets - runs up to same point then stops.
+    #[root@openstacker]
+
+        echo "
+            docker run --rm phymatopus/kafka-core \
+                bin/kafka-consumer-groups.sh \
+                    --bootstrap-server "${ztfconnect}" \
+                    --group "${groupid}" \
+                    --describe
+            " \
+        | ssh \
+            ${sshopts[*]} \
+            ${sshuser:?}@${controlip:?} | tee lits.txt | grep '20180616'
+
+            TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID     HOST            CLIENT-ID
+            ztf_20180616_programid1 10         48              8595            8547            ztf-mirror.roe.ac.uk-2-888a735e-0ef5-4715-8f04-8ac355389a4b /129.215.255.235 ztf-mirror.roe.ac.uk-2
+            ztf_20180616_programid1 12         26              8594            8568            ztf-mirror.roe.ac.uk-3-1ca7722d-506f-446a-aab8-d73fd429c2a1 /129.215.255.235 ztf-mirror.roe.ac.uk-3
+            ztf_20180616_programid1 7          52              8595            8543            ztf-mirror.roe.ac.uk-1-fe87f5ea-cefc-4ee8-97c6-434214e29b70 /129.215.255.235 ztf-mirror.roe.ac.uk-1
+            ztf_20180616_programid1 3          49              8594            8545            ztf-mirror.roe.ac.uk-0-c1189d71-69b3-49d8-b5e6-d684a5151664 /129.215.255.235 ztf-mirror.roe.ac.uk-0
+            ztf_20180616_programid1 2          50              8594            8544            ztf-mirror.roe.ac.uk-0-7ca97d89-cb91-4bad-b6db-93d985c20239 /129.215.255.235 ztf-mirror.roe.ac.uk-0
+            ztf_20180616_programid1 4          26              8595            8569            ztf-mirror.roe.ac.uk-1-44e3a261-7a2f-48d5-a394-4c3674679d7b /129.215.255.235 ztf-mirror.roe.ac.uk-1
+            ztf_20180616_programid1 8          76              8594            8518            ztf-mirror.roe.ac.uk-2-0f802e37-5fc9-4817-9057-d482d42b2148 /129.215.255.235 ztf-mirror.roe.ac.uk-2
+            ztf_20180616_programid1 11         54              8594            8540            ztf-mirror.roe.ac.uk-2-97160f4b-1b5f-4131-8200-8bbbaf348791 /129.215.255.235 ztf-mirror.roe.ac.uk-2
+            ztf_20180616_programid1 13         28              8595            8567            ztf-mirror.roe.ac.uk-3-881873c1-0a82-4749-b67a-891b270a03b5 /129.215.255.235 ztf-mirror.roe.ac.uk-3
+            ztf_20180616_programid1 1          25              8595            8570            ztf-mirror.roe.ac.uk-0-5a55ee82-4098-40ae-9bb8-86ab38c63ec7 /129.215.255.235 ztf-mirror.roe.ac.uk-0
+            ztf_20180616_programid1 9          26              8595            8569            ztf-mirror.roe.ac.uk-2-1a3c2bcc-7f80-4ce2-ac02-a6aebef47739 /129.215.255.235 ztf-mirror.roe.ac.uk-2
+            ztf_20180616_programid1 0          48              8594            8546            ztf-mirror.roe.ac.uk-0-3c2b476c-1411-4aac-b42c-0d8d2ee00bc8 /129.215.255.235 ztf-mirror.roe.ac.uk-0
+            ztf_20180616_programid1 5          27              8595            8568            ztf-mirror.roe.ac.uk-1-450501f9-e3f7-47c0-9b01-f5eec5d2ddb2 /129.215.255.235 ztf-mirror.roe.ac.uk-1
+            ztf_20180616_programid1 6          102             8594            8492            ztf-mirror.roe.ac.uk-1-f56d2314-3df7-4c00-ae3f-af4cc5c570f7 /129.215.255.235 ztf-mirror.roe.ac.uk-1
+
+
+
