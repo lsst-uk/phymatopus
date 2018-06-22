@@ -1,0 +1,112 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2018, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#  
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+
+
+        # -----------------------------------------------------
+        # Check the disc space on each of our Zookeeper nodes.
+        #[root@openstacker]
+
+            for ident in ${zkidents[@]}
+                do
+                    getvminfo "${ident:?}"
+                    internalip=$(geteleanor192)
+
+echo "
+Ident   [${ident}]
+Name    [$(getvmname)]
+Address [${internalip}]
+"
+
+                    echo "
+                        df -h /
+                        " \
+                    | ssh \
+                        ${sshopts[*]} \
+                        -o ProxyCommand="${sshproxy}" \
+                        ${sshuser:?}@${internalip:?}
+
+                done
+
+
+                Ident   [8cd2c6af-88b2-4cff-8c8a-81240bf63f70]
+                Name    [Raminiara-zookeeper-3]
+                Address [192.168.1.14]
+
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vda3        19G  2.0G   15G  12% /
+
+                Ident   [4bd50e51-ec0e-4d8d-9a2b-9af9185aefba]
+                Name    [Raminiara-zookeeper-2]
+                Address [192.168.1.16]
+
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vda3        19G  2.0G   15G  12% /
+
+                Ident   [39cbbdb1-4adb-439d-b9fe-71b8c48ec14b]
+                Name    [Raminiara-zookeeper-1]
+                Address [192.168.1.11]
+
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vda3        19G  2.0G   15G  12% /
+
+
+
+
+
+        # -----------------------------------------------------
+        # Check the disc space on each of our Kafka nodes.
+        #[root@openstacker]
+
+            innerpath=/var/local/inner/kafka
+            outerpath=/var/local/outer/kafka
+            
+            for ident in ${kfidents[@]}
+                do
+                    getvminfo "${ident:?}"
+                    internalip=$(geteleanor192)
+
+echo "
+Ident   [${ident}]
+Name    [$(getvmname)]
+Address [${internalip}]
+"
+
+                    echo "
+                        df -h /
+                        echo "---- ----"
+                        df -h "${outerpath:?}/data-00"
+                        echo "---- ----"
+                        df -h "${outerpath:?}/data-01"
+                        echo "---- ----"
+                        du -h "${outerpath:?}"
+                        " \
+                    | ssh \
+                        ${sshopts[*]} \
+                        -o ProxyCommand="${sshproxy}" \
+                        ${sshuser:?}@${internalip:?}
+
+                done
+
+
+
+
