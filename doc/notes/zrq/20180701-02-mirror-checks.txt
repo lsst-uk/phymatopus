@@ -1,0 +1,258 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2017, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+# -----------------------------------------------------
+# Login to our external VM.
+#[user@trop]
+
+    ssh Etalema
+
+    # -----------------------------------------------------
+    # Check our secrets function.
+    #[user@virtual]
+
+        secret frog
+
+    # -----------------------------------------------------
+    # Create a container to work with.
+    #[user@virtual]
+
+        docker run \
+            --rm \
+            --tty \
+            --interactive \
+            --hostname openstacker \
+            --env SSH_AUTH_SOCK=/tmp/ssh_auth_sock \
+            --volume "${HOME}/settings/:/etc/phymatopus/" \
+            --volume ${SSH_AUTH_SOCK}:/tmp/ssh_auth_sock \
+            phymatopus/openstack-client \
+            bash
+
+        # -----------------------------------------------------
+        # Load our OpenStack settings.
+        #[root@openstacker]
+
+            source '/etc/phymatopus/openstack.settings'
+
+        # -----------------------------------------------------
+        # Load our OpenStack and Eleanor functions.
+        #[root@openstacker]
+
+            source 'openstack-utils.sh'
+            source 'eleanor-utils.sh'
+            source 'eleanor-init.sh'
+
+        # -----------------------------------------------------
+        # Load our cluster and ZTF settings.
+        #[root@openstacker]
+
+            source '/etc/phymatopus/cluster.settings'
+            source '/etc/phymatopus/ztf.settings'
+
+        # -----------------------------------------------------
+        # Select tomorrows topic, because we are doing this before midnight.
+        #[root@openstacker]
+
+            topiclist="ztf_20180702_programid1"
+
+        # -----------------------------------------------------
+        # Process the gobal list of nodes.
+        #[root@openstacker]
+
+            unset controller
+
+            unset unknowns
+            unknowns=()
+
+            unset kfidents
+            kfidents=()
+
+            unset mmidents
+            mmidents=()
+
+            unset zkidents
+            zkidents=()
+
+            echo ""
+            echo "Processing OpenStack nodes"
+            
+            for ident in $(
+                openstack \
+                    server list \
+                    --format json \
+                | jq -r '.[] | .ID'
+                )
+                do
+                    echo "Ident [$ident]"
+                    getvminfo "${ident:?}"
+
+                    name=$(getvmname)
+                    echo "Name  [$name]"
+
+                    case "${name}" in
+
+                        ${phym_project:?}-zookeeper*)
+                            echo "Match zookeeper"
+                            zkidents+=(${ident})
+                            ;;
+                            
+                        ${phym_project:?}-mirror*)
+                            echo "Match mirror"
+                            mmidents+=(${ident})
+                            ;;
+
+                        ${phym_project:?}-kafka*)
+                            echo "Match kafka"
+                            kfidents+=(${ident})
+                            ;;
+
+                        ${phym_project:?}-control*)
+                            echo "Match control"
+                            controller=${ident}
+                            ;;
+
+                        *)
+                            echo "unknown"
+                            unknowns+=(${ident})
+                            ;;
+                    esac
+                done
+
+        # -----------------------------------------------------
+        # Get our controller address.
+        #[root@openstacker]
+
+            getvminfo "${controller:?}"
+            controlip=$(geteleanor172)
+
+        # -----------------------------------------------------
+        # Configure our ssh proxy command.
+        #[root@openstacker]
+
+            sshproxy="ssh ${sshopts[*]} ${sshuser:?}@${controlip:?} nc %h %p"
+
+        # -----------------------------------------------------
+        # Check the client offsets.
+        #[root@openstacker]
+
+            echo "
+                docker run --rm phymatopus/kafka-core \
+                    bin/kafka-consumer-groups.sh \
+                        --bootstrap-server "${ztfconnect:?}" \
+                        --describe \
+                        --group "${groupid:?}"
+                " \
+            | ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${controlip:?} | sort | tee lits.txt
+
+
+                TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                 HOST             CLIENT-ID
+                ztf_20180701_programid1 0          4078            4078            0               ztf-mirror.roe.ac.uk-0-18760902-4bdb-45c6-ad00-e8ee620c884f /129.215.255.235 ztf-mirror.roe.ac.uk-0
+                ztf_20180701_programid1 1          4077            4077            0               ztf-mirror.roe.ac.uk-0-709fb5d7-fb55-42a9-9e51-91fe5ff42218 /129.215.255.235 ztf-mirror.roe.ac.uk-0
+                ztf_20180701_programid1 10         4077            4077            0               ztf-mirror.roe.ac.uk-2-64d9a683-762a-49dc-b2dd-9798837621f9 /129.215.255.235 ztf-mirror.roe.ac.uk-2
+                ztf_20180701_programid1 11         4078            4078            0               ztf-mirror.roe.ac.uk-2-9a8a16d5-ef07-4cb5-981b-0d0d3d316fbe /129.215.255.235 ztf-mirror.roe.ac.uk-2
+                ztf_20180701_programid1 12         4077            4077            0               ztf-mirror.roe.ac.uk-3-1af8ccc4-39ad-4884-862c-d832f8e3772b /129.215.255.235 ztf-mirror.roe.ac.uk-3
+                ztf_20180701_programid1 13         4077            4077            0               ztf-mirror.roe.ac.uk-3-6e84e147-872c-45e0-a529-95d15c2218dd /129.215.255.235 ztf-mirror.roe.ac.uk-3
+                ztf_20180701_programid1 2          4077            4077            0               ztf-mirror.roe.ac.uk-0-919b1fc1-090a-4550-bf4a-d5875f123151 /129.215.255.235 ztf-mirror.roe.ac.uk-0
+                ztf_20180701_programid1 3          4077            4077            0               ztf-mirror.roe.ac.uk-0-a87c22bb-f536-4d83-af30-1433c2833bc1 /129.215.255.235 ztf-mirror.roe.ac.uk-0
+                ztf_20180701_programid1 4          4077            4077            0               ztf-mirror.roe.ac.uk-1-39f87752-f81c-4ea8-9779-c84df0e4c89c /129.215.255.235 ztf-mirror.roe.ac.uk-1
+                ztf_20180701_programid1 5          4077            4077            0               ztf-mirror.roe.ac.uk-1-6893780d-ba05-4a50-bfd6-2aa9b6a494e0 /129.215.255.235 ztf-mirror.roe.ac.uk-1
+                ztf_20180701_programid1 6          4077            4077            0               ztf-mirror.roe.ac.uk-1-b1bda782-344c-4228-abe0-d0942dd7c346 /129.215.255.235 ztf-mirror.roe.ac.uk-1
+                ztf_20180701_programid1 7          4077            4077            0               ztf-mirror.roe.ac.uk-1-c068dbee-1f18-4d96-a483-81b4a469550d /129.215.255.235 ztf-mirror.roe.ac.uk-1
+                ztf_20180701_programid1 8          4078            4078            0               ztf-mirror.roe.ac.uk-2-160089a5-3853-4084-83f8-3bebff1b1fad /129.215.255.235 ztf-mirror.roe.ac.uk-2
+                ztf_20180701_programid1 9          4077            4077            0               ztf-mirror.roe.ac.uk-2-56b8bcf9-c697-4b2e-bd75-764b73b4909f /129.215.255.235 ztf-mirror.roe.ac.uk-2
+
+
+        # -----------------------------------------------------
+        # Update the target topic name.
+        #[root@openstacker]
+
+            for ident in ${mmidents[@]}
+                do
+                    getvminfo "${ident:?}"
+                    internalip=$(geteleanor192)
+
+echo "
+Ident   [${ident}]
+Name    [$(getvmname)]
+Address [${internalip}]
+Topics  [${topiclist}]
+"
+
+                    echo "
+
+                        docker-compose \
+                            --file mirror.yml \
+                            down
+
+                        sed -i \"
+                            s/^topiclist=.*/topiclist=${topiclist:?}/
+                            \" mirror.env
+
+                        docker-compose \
+                            --file mirror.yml \
+                            up -d
+
+
+                        " \
+                    | ssh \
+                        ${sshopts[*]} \
+                        -o ProxyCommand="${sshproxy:?}" \
+                        ${sshuser:?}@${internalip:?}
+
+                done
+
+        # -----------------------------------------------------
+        # Check the offsets.
+        #[root@openstacker]
+
+            echo "
+                docker run --rm phymatopus/kafka-core \
+                    bin/kafka-consumer-groups.sh \
+                        --bootstrap-server "${ztfconnect:?}" \
+                        --describe \
+                        --group "${groupid:?}"
+                " \
+            | ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${controlip:?} | sort | tee lits.txt
+
+
+                TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID     HOST            CLIENT-ID
+                ztf_20180701_programid1 0          4078            4078            0               -               -               -
+                ztf_20180701_programid1 1          4077            4077            0               -               -               -
+                ztf_20180701_programid1 10         4077            4077            0               -               -               -
+                ztf_20180701_programid1 11         4078            4078            0               -               -               -
+                ztf_20180701_programid1 12         4077            4077            0               -               -               -
+                ztf_20180701_programid1 13         4077            4077            0               -               -               -
+                ztf_20180701_programid1 2          4077            4077            0               -               -               -
+                ztf_20180701_programid1 3          4077            4077            0               -               -               -
+                ztf_20180701_programid1 4          4077            4077            0               -               -               -
+                ztf_20180701_programid1 5          4077            4077            0               -               -               -
+                ztf_20180701_programid1 6          4077            4077            0               -               -               -
+                ztf_20180701_programid1 7          4077            4077            0               -               -               -
+                ztf_20180701_programid1 8          4078            4078            0               -               -               -
+                ztf_20180701_programid1 9          4077            4077            0               -               -               -
+
+
+
