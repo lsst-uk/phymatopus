@@ -1,0 +1,348 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2017, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+# -----------------------------------------------------
+# Login to our external VM.
+#[user@desktop]
+
+    ssh Etalema
+
+    # -----------------------------------------------------
+    # Check our secrets function.
+    #[user@virtual]
+
+        secret frog
+
+    # -----------------------------------------------------
+    # Create a container to work with.
+    #[user@virtual]
+
+        docker run \
+            --rm \
+            --tty \
+            --interactive \
+            --hostname openstacker \
+            --env SSH_AUTH_SOCK=/tmp/ssh_auth_sock \
+            --volume "${HOME}/settings/:/etc/phymatopus/" \
+            --volume ${SSH_AUTH_SOCK}:/tmp/ssh_auth_sock \
+            phymatopus/openstack-client \
+            bash
+
+        # -----------------------------------------------------
+        # Load our OpenStack settings.
+        #[root@openstacker]
+
+            source '/etc/phymatopus/openstack.settings'
+
+        # -----------------------------------------------------
+        # Load our OpenStack and Eleanor functions.
+        #[root@openstacker]
+
+            source 'openstack-utils.sh'
+            source 'eleanor-utils.sh'
+            source 'eleanor-init.sh'
+
+        # -----------------------------------------------------
+        # Load our cluster and ZTF settings.
+        #[root@openstacker]
+
+            source '/etc/phymatopus/cluster.settings'
+            source '/etc/phymatopus/ztf.settings'
+
+        # -----------------------------------------------------
+        # Select tomorrows topic, because we are doing this before midnight.
+        #[root@openstacker]
+
+            #topiclist="ztf_20180702_programid1"
+
+        # -----------------------------------------------------
+        # Process the gobal list of nodes.
+        #[root@openstacker]
+
+            unset controller
+
+            unset unknowns
+            unknowns=()
+
+            unset kfidents
+            kfidents=()
+
+            unset mmidents
+            mmidents=()
+
+            unset zkidents
+            zkidents=()
+
+            echo ""
+            echo "Processing OpenStack nodes"
+            
+            for ident in $(
+                openstack \
+                    server list \
+                    --format json \
+                | jq -r '.[] | .ID'
+                )
+                do
+                    echo "Ident [$ident]"
+                    getvminfo "${ident:?}"
+
+                    name=$(getvmname)
+                    echo "Name  [$name]"
+
+                    case "${name}" in
+
+                        ${phym_project:?}-zookeeper*)
+                            echo "Match zookeeper"
+                            zkidents+=(${ident})
+                            ;;
+                            
+                        ${phym_project:?}-mirror*)
+                            echo "Match mirror"
+                            mmidents+=(${ident})
+                            ;;
+
+                        ${phym_project:?}-kafka*)
+                            echo "Match kafka"
+                            kfidents+=(${ident})
+                            ;;
+
+                        ${phym_project:?}-control*)
+                            echo "Match control"
+                            controller=${ident}
+                            ;;
+
+                        *)
+                            echo "unknown"
+                            unknowns+=(${ident})
+                            ;;
+                    esac
+                done
+
+        # -----------------------------------------------------
+        # Get our controller address.
+        #[root@openstacker]
+
+            getvminfo "${controller:?}"
+            controlip=$(geteleanor172)
+
+        # -----------------------------------------------------
+        # Configure our ssh proxy command.
+        #[root@openstacker]
+
+            sshproxy="ssh ${sshopts[*]} ${sshuser:?}@${controlip:?} nc %h %p"
+
+        # -----------------------------------------------------
+        # Check the client offsets.
+        #[root@openstacker]
+
+            echo "
+                docker run --rm phymatopus/kafka-core \
+                    bin/kafka-consumer-groups.sh \
+                        --bootstrap-server "${ztfconnect:?}" \
+                        --describe \
+                        --group "${groupid:?}"
+                " \
+            | ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${controlip:?} | sort | tee lits.txt
+
+
+                TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                 HOST             CLIENT-ID
+                ztf_20180705_programid1 0          10091           10091           0               ztf-mirror.roe.ac.uk-0-03b3dcad-2a2b-4bf5-9fc8-dbd36f25a2c7 /129.215.255.235 ztf-mirror.roe.ac.uk-0
+                ztf_20180705_programid1 1          10091           10091           0               ztf-mirror.roe.ac.uk-0-4e90f097-4507-45d3-bcd5-a8bbe4d0d441 /129.215.255.235 ztf-mirror.roe.ac.uk-0
+                ztf_20180705_programid1 10         10091           10091           0               ztf-mirror.roe.ac.uk-2-6a5066a1-b395-4252-8332-5a54b41a8d82 /129.215.255.235 ztf-mirror.roe.ac.uk-2
+                ztf_20180705_programid1 11         10091           10091           0               ztf-mirror.roe.ac.uk-2-976c261a-5e3f-4951-b564-e0a1ca76401a /129.215.255.235 ztf-mirror.roe.ac.uk-2
+                ztf_20180705_programid1 12         10091           10091           0               ztf-mirror.roe.ac.uk-3-18caa0f9-f357-4e36-a548-4976965eee33 /129.215.255.235 ztf-mirror.roe.ac.uk-3
+                ztf_20180705_programid1 13         10092           10092           0               ztf-mirror.roe.ac.uk-3-24b5fb23-127e-4653-adc7-b0526abd3f5a /129.215.255.235 ztf-mirror.roe.ac.uk-3
+                ztf_20180705_programid1 2          10091           10091           0               ztf-mirror.roe.ac.uk-0-7b49b7a2-8307-4557-8613-4f8b2a0d99ad /129.215.255.235 ztf-mirror.roe.ac.uk-0
+                ztf_20180705_programid1 3          10091           10091           0               ztf-mirror.roe.ac.uk-0-7eb37e63-3a8f-4e86-a0d5-2de79e7797f4 /129.215.255.235 ztf-mirror.roe.ac.uk-0
+                ztf_20180705_programid1 4          10092           10092           0               ztf-mirror.roe.ac.uk-1-30f8d546-ae01-4fa9-8ba5-11c1cc3c53a3 /129.215.255.235 ztf-mirror.roe.ac.uk-1
+                ztf_20180705_programid1 5          10091           10091           0               ztf-mirror.roe.ac.uk-1-332986f6-5c84-4251-b133-e2e61f54f1f0 /129.215.255.235 ztf-mirror.roe.ac.uk-1
+                ztf_20180705_programid1 6          10091           10091           0               ztf-mirror.roe.ac.uk-1-343b9d19-bbdc-4c62-8748-71ed42a643b9 /129.215.255.235 ztf-mirror.roe.ac.uk-1
+                ztf_20180705_programid1 7          10091           10091           0               ztf-mirror.roe.ac.uk-1-8a65d8fd-9a58-42cf-9a06-5b3541f448b2 /129.215.255.235 ztf-mirror.roe.ac.uk-1
+                ztf_20180705_programid1 8          10091           10091           0               ztf-mirror.roe.ac.uk-2-531f309b-5d50-4bbc-a637-f9a3fb72d668 /129.215.255.235 ztf-mirror.roe.ac.uk-2
+                ztf_20180705_programid1 9          10091           10091           0               ztf-mirror.roe.ac.uk-2-5a73d20e-9a05-4466-90f4-35adb8af006f /129.215.255.235 ztf-mirror.roe.ac.uk-2
+
+
+        # -----------------------------------------------------
+        # Update the target topic name.
+        #[root@openstacker]
+
+            for ident in ${mmidents[@]}
+                do
+                    getvminfo "${ident:?}"
+                    internalip=$(geteleanor192)
+
+echo "
+Ident   [${ident}]
+Name    [$(getvmname)]
+Address [${internalip}]
+Topics  [${topiclist}]
+"
+
+                    echo "
+
+                        docker-compose \
+                            --file mirror.yml \
+                            down
+
+                        sed -i \"
+                            s/^topiclist=.*/topiclist=${topiclist:?}/
+                            \" mirror.env
+
+                        docker-compose \
+                            --file mirror.yml \
+                            up -d
+
+
+                        " \
+                    | ssh \
+                        ${sshopts[*]} \
+                        -o ProxyCommand="${sshproxy:?}" \
+                        ${sshuser:?}@${internalip:?}
+
+                done
+
+        # -----------------------------------------------------
+        # Check the offsets.
+        #[root@openstacker]
+
+            echo "
+                docker run --rm phymatopus/kafka-core \
+                    bin/kafka-consumer-groups.sh \
+                        --bootstrap-server "${ztfconnect:?}" \
+                        --describe \
+                        --group "${groupid:?}"
+                " \
+            | ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${controlip:?} | sort | tee lits.txt
+
+
+
+                TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID     HOST            CLIENT-ID
+                ztf_20180705_programid1 0          10091           10091           0               -               -               -
+                ztf_20180705_programid1 1          10091           10091           0               -               -               -
+                ztf_20180705_programid1 10         10091           10091           0               -               -               -
+                ztf_20180705_programid1 11         10091           10091           0               -               -               -
+                ztf_20180705_programid1 12         10091           10091           0               -               -               -
+                ztf_20180705_programid1 13         10092           10092           0               -               -               -
+                ztf_20180705_programid1 2          10091           10091           0               -               -               -
+                ztf_20180705_programid1 3          10091           10091           0               -               -               -
+                ztf_20180705_programid1 4          10092           10092           0               -               -               -
+                ztf_20180705_programid1 5          10091           10091           0               -               -               -
+                ztf_20180705_programid1 6          10091           10091           0               -               -               -
+                ztf_20180705_programid1 7          10091           10091           0               -               -               -
+                ztf_20180705_programid1 8          10091           10091           0               -               -               -
+                ztf_20180705_programid1 9          10091           10091           0               -               -               -
+
+
+        # -----------------------------------------------------
+        # Check the disc space on each of our Kafka nodes.
+        #[root@openstacker]
+
+            innerpath=/var/local/inner/kafka
+            outerpath=/var/local/outer/kafka
+            
+            for ident in ${kfidents[@]}
+                do
+                    getvminfo "${ident:?}"
+                    internalip=$(geteleanor192)
+
+echo "
+-----------------------------------------------------
+Ident   [${ident}]
+Name    [$(getvmname)]
+Address [${internalip}]
+"
+
+                    echo "
+                        df -h /
+                        echo "---- ----"
+                        df -h "${outerpath:?}/data-00"
+                        echo "---- ----"
+                        df -h "${outerpath:?}/data-01"
+                        " \
+                    | ssh \
+                        ${sshopts[*]} \
+                        -o ProxyCommand="${sshproxy}" \
+                        ${sshuser:?}@${internalip:?}
+
+                done
+
+
+                -----------------------------------------------------
+                Ident   [bb409e47-cf2c-4e64-aea6-e893e5d05100]
+                Name    [Raminiara-kafka-4]
+                Address [192.168.1.5]
+
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vda3        39G  2.2G   35G   6% /
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdb        512G   81G  431G  16% /var/local/outer/kafka/data-00
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdc        512G   80G  431G  16% /var/local/outer/kafka/data-01
+
+                -----------------------------------------------------
+                Ident   [aa73a427-2e9f-413d-a37b-3eaf35799f00]
+                Name    [Raminiara-kafka-3]
+                Address [192.168.1.8]
+
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vda3        39G  2.2G   35G   6% /
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdb        512G   81G  431G  16% /var/local/outer/kafka/data-00
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdc        512G   81G  431G  16% /var/local/outer/kafka/data-01
+
+                -----------------------------------------------------
+                Ident   [6f971e48-f760-43bf-ad98-c38a7b90c321]
+                Name    [Raminiara-kafka-2]
+                Address [192.168.1.15]
+
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vda3        39G  2.2G   35G   6% /
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdb        512G   80G  431G  16% /var/local/outer/kafka/data-00
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdc        512G   80G  431G  16% /var/local/outer/kafka/data-01
+
+                -----------------------------------------------------
+                Ident   [0824e436-6213-4893-8a67-40d152e7402c]
+                Name    [Raminiara-kafka-1]
+                Address [192.168.1.10]
+
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vda3        39G  2.3G   35G   7% /
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdb        512G   80G  431G  16% /var/local/outer/kafka/data-00
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdc        512G   81G  431G  16% /var/local/outer/kafka/data-01
+
