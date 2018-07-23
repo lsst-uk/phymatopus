@@ -1,0 +1,123 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2017, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+
+# -----------------------------------------------------
+# Login to our external VM.
+#[user@desktop]
+
+    ssh Etalema
+
+    # -----------------------------------------------------
+    # Check our secrets function.
+    #[user@virtual]
+
+        secret frog
+
+    # -----------------------------------------------------
+    # Create a container to work with.
+    #[user@virtual]
+
+        docker run \
+            --rm \
+            --tty \
+            --interactive \
+            --hostname openstacker \
+            --env SSH_AUTH_SOCK=/tmp/ssh_auth_sock \
+            --volume "${HOME}/settings/:/etc/phymatopus/" \
+            --volume ${SSH_AUTH_SOCK}:/tmp/ssh_auth_sock \
+            phymatopus/openstack-client \
+            bash
+
+        # -----------------------------------------------------
+        # Load our OpenStack settings.
+        #[root@openstacker]
+
+            source '/etc/phymatopus/openstack.settings'
+
+        # -----------------------------------------------------
+        # Load our OpenStack and Eleanor functions.
+        #[root@openstacker]
+
+            source 'openstack-utils.sh'
+            source 'eleanor-utils.sh'
+            source 'eleanor-init.sh'
+
+        # -----------------------------------------------------
+        # Load our cluster and ZTF settings.
+        #[root@openstacker]
+
+            source '/etc/phymatopus/cluster.settings'
+            source '/etc/phymatopus/ztf.settings'
+
+        # -----------------------------------------------------
+        # Check the client offsets.
+        #[root@openstacker]
+
+            echo "
+                docker run --rm phymatopus/kafka-core \
+                    bin/kafka-consumer-groups.sh \
+                        --bootstrap-server "${ztfconnect:?}" \
+                        --describe \
+                        --group "${groupid:?}"
+                " \
+            | ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${controlip:?} | sort | tee lits.txt
+
+
+
+                TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                 HOST             CLIENT-ID
+                ztf_20180722_programid1 0          8545            8545            0               ztf-mirror.roe.ac.uk-0-20d8851b-2edd-485f-bec7-dde7c086614d /129.215.255.235 ztf-mirror.roe.ac.uk-0
+                ztf_20180722_programid1 1          8546            8546            0               ztf-mirror.roe.ac.uk-0-3fe17427-9fbd-4f5c-8fe9-24f66e08a15f /129.215.255.235 ztf-mirror.roe.ac.uk-0
+                ztf_20180722_programid1 10         8545            8545            0               ztf-mirror.roe.ac.uk-2-a8cdb289-dd2a-4e3f-a83d-4b981d4c6e4c /129.215.255.235 ztf-mirror.roe.ac.uk-2
+                ztf_20180722_programid1 11         8545            8545            0               ztf-mirror.roe.ac.uk-2-e02e8839-ffe5-4a5f-82b5-4058e9ed5112 /129.215.255.235 ztf-mirror.roe.ac.uk-2
+                ztf_20180722_programid1 12         8545            8545            0               ztf-mirror.roe.ac.uk-3-12bae64d-646c-4be4-a1c4-6b9679806175 /129.215.255.235 ztf-mirror.roe.ac.uk-3
+                ztf_20180722_programid1 13         8545            8545            0               ztf-mirror.roe.ac.uk-3-241c05ef-b31f-40df-8b9e-0758a24bfde9 /129.215.255.235 ztf-mirror.roe.ac.uk-3
+                ztf_20180722_programid1 2          8545            8545            0               ztf-mirror.roe.ac.uk-0-5274c854-4fbe-4958-ae13-03c44438ad86 /129.215.255.235 ztf-mirror.roe.ac.uk-0
+                ztf_20180722_programid1 3          8545            8545            0               ztf-mirror.roe.ac.uk-0-cbc40857-1b1a-4605-b5bb-807cfd49623e /129.215.255.235 ztf-mirror.roe.ac.uk-0
+                ztf_20180722_programid1 4          8545            8545            0               ztf-mirror.roe.ac.uk-1-2a9369aa-3292-4aa0-b82d-b9c202042f7a /129.215.255.235 ztf-mirror.roe.ac.uk-1
+                ztf_20180722_programid1 5          8545            8545            0               ztf-mirror.roe.ac.uk-1-393dda59-d163-4c04-bef7-87cbce69c8bb /129.215.255.235 ztf-mirror.roe.ac.uk-1
+                ztf_20180722_programid1 6          8545            8545            0               ztf-mirror.roe.ac.uk-1-3b316ef7-a6fc-49c5-9552-d7e3f8ed96c1 /129.215.255.235 ztf-mirror.roe.ac.uk-1
+                ztf_20180722_programid1 7          8545            8545            0               ztf-mirror.roe.ac.uk-1-f3575500-1125-4204-84d3-c0a84d85f66f /129.215.255.235 ztf-mirror.roe.ac.uk-1
+                ztf_20180722_programid1 8          8545            8545            0               ztf-mirror.roe.ac.uk-2-515ca8f7-1563-4455-b723-82b4002afa27 /129.215.255.235 ztf-mirror.roe.ac.uk-2
+                ztf_20180722_programid1 9          8545            8545            0               ztf-mirror.roe.ac.uk-2-71eecc97-84a9-4ff7-88b2-0d0a82f0ee54 /129.215.255.235 ztf-mirror.roe.ac.uk-2
+
+
+            ./settopic.sh
+
+                TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID     HOST            CLIENT-ID
+                ztf_20180722_programid1 0          8545            8545            0               -               -               -
+                ztf_20180722_programid1 1          8546            8546            0               -               -               -
+                ztf_20180722_programid1 10         8545            8545            0               -               -               -
+                ztf_20180722_programid1 11         8545            8545            0               -               -               -
+                ztf_20180722_programid1 12         8545            8545            0               -               -               -
+                ztf_20180722_programid1 13         8545            8545            0               -               -               -
+                ztf_20180722_programid1 2          8545            8545            0               -               -               -
+                ztf_20180722_programid1 3          8545            8545            0               -               -               -
+                ztf_20180722_programid1 4          8545            8545            0               -               -               -
+                ztf_20180722_programid1 5          8545            8545            0               -               -               -
+                ztf_20180722_programid1 6          8545            8545            0               -               -               -
+                ztf_20180722_programid1 7          8545            8545            0               -               -               -
+                ztf_20180722_programid1 8          8545            8545            0               -               -               -
+                ztf_20180722_programid1 9          8545            8545            0               -               -               -
+

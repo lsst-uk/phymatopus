@@ -1,0 +1,292 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2017, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+# -----------------------------------------------------
+# Login to our external VM.
+#[user@desktop]
+
+    ssh Etalema
+
+    # -----------------------------------------------------
+    # Check our secrets function.
+    #[user@virtual]
+
+        secret frog
+
+    # -----------------------------------------------------
+    # Create a container to work with.
+    #[user@virtual]
+
+        docker run \
+            --rm \
+            --tty \
+            --interactive \
+            --hostname openstacker \
+            --env SSH_AUTH_SOCK=/tmp/ssh_auth_sock \
+            --volume "${HOME}/settings/:/etc/phymatopus/" \
+            --volume ${SSH_AUTH_SOCK}:/tmp/ssh_auth_sock \
+            phymatopus/openstack-client \
+            bash
+
+        # -----------------------------------------------------
+        # Load our OpenStack settings.
+        #[root@openstacker]
+
+            source '/etc/phymatopus/openstack.settings'
+
+        # -----------------------------------------------------
+        # Load our OpenStack and Eleanor functions.
+        #[root@openstacker]
+
+            source 'openstack-utils.sh'
+            source 'eleanor-utils.sh'
+            source 'eleanor-init.sh'
+
+        # -----------------------------------------------------
+        # Load our cluster and ZTF settings.
+        #[root@openstacker]
+
+            source '/etc/phymatopus/cluster.settings'
+            source '/etc/phymatopus/ztf.settings'
+    
+        # -----------------------------------------------------
+        # Process the gobal list of nodes.
+        #[root@openstacker]
+
+            unset controller
+
+            unset unknowns
+            unknowns=()
+
+            unset kfidents
+            kfidents=()
+
+            unset mmidents
+            mmidents=()
+
+            unset zkidents
+            zkidents=()
+
+            echo ""
+            echo "Processing OpenStack nodes"
+            
+            for ident in $(
+                openstack \
+                    server list \
+                    --format json \
+                | jq -r '.[] | .ID'
+                )
+                do
+                    echo "Ident [$ident]"
+                    getvminfo "${ident:?}"
+
+                    name=$(getvmname)
+                    echo "Name  [$name]"
+
+                    case "${name}" in
+
+                        ${phym_project:?}-zookeeper*)
+                            echo "Match zookeeper"
+                            zkidents+=(${ident})
+                            ;;
+                            
+                        ${phym_project:?}-mirror*)
+                            echo "Match mirror"
+                            mmidents+=(${ident})
+                            ;;
+
+                        ${phym_project:?}-kafka*)
+                            echo "Match kafka"
+                            kfidents+=(${ident})
+                            ;;
+
+                        ${phym_project:?}-control*)
+                            echo "Match control"
+                            controller=${ident}
+                            ;;
+
+                        *)
+                            echo "unknown"
+                            unknowns+=(${ident})
+                            ;;
+                    esac
+                done
+
+        # -----------------------------------------------------
+        # Get our controller address.
+        #[root@openstacker]
+
+            getvminfo "${controller:?}"
+            controlip=$(geteleanor172)
+
+        # -----------------------------------------------------
+        # Configure our ssh proxy command.
+        #[root@openstacker]
+
+            sshproxy="ssh ${sshopts[*]} ${sshuser:?}@${controlip:?} nc %h %p"
+
+        # -----------------------------------------------------
+        # Save our controller address.
+        #[root@openstacker]
+
+cat >> /etc/phymatopus/cluster.settings << EOF
+
+controlip=${controlip:?}
+
+EOF
+
+        # -----------------------------------------------------
+        # Save our address lists.
+        #[root@openstacker]
+
+            listfile=/etc/phymatopus/kfidents.txt
+            > "${listfile:?}"
+            for ident in ${kfidents[@]}
+                do
+                    getvminfo "${ident:?}"
+                    echo "$(geteleanor192)" >> "${listfile:?}"
+                done
+
+
+            listfile=/etc/phymatopus/zkidents.txt
+            > "${listfile:?}"
+            for ident in ${zkidents[@]}
+                do
+                    getvminfo "${ident:?}"
+                    echo "$(geteleanor192)" >> "${listfile:?}"
+                done
+
+
+            listfile=/etc/phymatopus/mmidents.txt
+            > "${listfile:?}"
+            for ident in ${mmidents[@]}
+                do
+                    getvminfo "${ident:?}"
+                    echo "$(geteleanor192)" >> "${listfile:?}"
+                done
+
+        # -----------------------------------------------------
+        # Copy our address lists to our controller.
+        #[root@openstacker]
+
+            scpopts=(
+                '-o CheckHostIP=no'
+                '-o UserKnownHostsFile=/dev/null'
+                '-o StrictHostKeyChecking=no'
+                )
+
+            scp ${scpopts[*]} \
+                '/etc/phymatopus/kfidents.txt' \
+                "${sshuser:?}@${controlip:?}:kfidents.txt"
+
+            scp ${scpopts[*]} \
+                '/etc/phymatopus/zkidents.txt' \
+                "${sshuser:?}@${controlip:?}:zkidents.txt"
+
+            scp ${scpopts[*]} \
+                '/etc/phymatopus/mmidents.txt' \
+                "${sshuser:?}@${controlip:?}:mmidents.txt"
+
+        # -----------------------------------------------------
+        # Login to our controller.
+        #[root@openstacker]
+
+            ssh ${sshopts[*]} \
+                ${sshuser:?}@${controlip:?}
+
+                cat zkidents.txt
+
+                cat kfidents.txt
+
+                cat mmidents.txt
+
+                pwgen 20 1 > sshpass.txt
+
+                #
+                # Create a new ssh key to login to the other nodes.
+                ssh-keygen \
+                    -t rsa \
+                    -b 2048 \
+                    -f "${HOME}/.ssh/control-key"
+
+                #
+                # Transfer the public key to each node.
+                for mirrorip in $(cat "${HOME}/mmidents.txt")
+                    do
+                        echo "mirrorip [${mirrorip}]"
+
+                        echo "
+                            echo '$(cat "${HOME}/.ssh/control-key.pub")' >> \${HOME}/.ssh/authorized_keys
+                            " \
+                        | ssh ${scpopts[*]} \
+                            "$(id -un)@${mirrorip:?}"
+                    done
+
+                #
+                # Login to each node using the key.
+                for mirrorip in $(cat "${HOME}/mmidents.txt")
+                    do
+                        echo "mirrorip [${mirrorip}]"
+
+                        echo "
+                            hostname
+                            " \
+                        | ssh ${scpopts[*]} \
+                            -i "${HOME}/.ssh/control-key" \
+                            "$(id -un)@${mirrorip:?}"
+                    done
+
+                #
+                # Create our topic update script.
+
+cat > settopic.sh << 'EOF'
+                
+topiclist="ztf_$(date '+%Y%m%d')_programid1"
+
+for mirrorip in $(cat "${HOME}/mmidents.txt")
+    do
+        echo "Updating [${mirrorip}]"
+
+        echo "
+            docker-compose \
+                --file mirror.yml \
+                down
+
+            sed -i \"
+                s/^topiclist=.*/topiclist=${topiclist:?}/
+                \" mirror.env
+
+            docker-compose \
+                --file mirror.yml \
+                up -d
+            " \
+        | ssh ${scpopts[*]} \
+            -i "${HOME}/.ssh/control-key" \
+            "$(id -un)@${mirrorip:?}"
+    done
+
+EOF
+
+            chmod a+x ./settopic.sh
+
+            ./settopic.sh
+
