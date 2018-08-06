@@ -12,13 +12,55 @@
 #     but WITHOUT ANY WARRANTY; without even the implied warranty of
 #     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #     GNU General Public License for more details.
-#  
+#
 #     You should have received a copy of the GNU General Public License
 #     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #   </meta:licence>
 # </meta:header>
 #
 #
+
+# -----------------------------------------------------
+# Login to our external VM.
+#[user@desktop]
+
+    ssh Etalema
+
+    # -----------------------------------------------------
+    # Create a container to work with.
+    #[user@virtual]
+
+        docker run \
+            --rm \
+            --tty \
+            --interactive \
+            --hostname openstacker \
+            --env SSH_AUTH_SOCK=/tmp/ssh_auth_sock \
+            --volume "${HOME}/settings/:/etc/phymatopus/" \
+            --volume ${SSH_AUTH_SOCK}:/tmp/ssh_auth_sock \
+            phymatopus/openstack-client \
+            bash
+
+        # -----------------------------------------------------
+        # Load our OpenStack settings.
+        #[root@openstacker]
+
+            source '/etc/phymatopus/openstack.settings'
+
+        # -----------------------------------------------------
+        # Load our OpenStack and Eleanor functions.
+        #[root@openstacker]
+
+            source 'openstack-utils.sh'
+            source 'eleanor-utils.sh'
+            source 'eleanor-init.sh'
+
+        # -----------------------------------------------------
+        # Load our cluster and ZTF settings.
+        #[root@openstacker]
+
+            source '/etc/phymatopus/cluster.settings'
+            source '/etc/phymatopus/ztf.settings'
 
         # -----------------------------------------------------
         # Configure our ssh proxy command.
@@ -27,13 +69,13 @@
             sshproxy="ssh ${sshopts[*]} ${sshuser:?}@${controlip:?} nc %h %p"
 
         # -----------------------------------------------------
-        # Build a list of our Kafka nodes.
+        # Build a list of ROE Kafka nodes.
         #[root@openstacker]
 
             delim=''
             port='9092'
             roeconnect=''
-                
+
             for address in $(cat /etc/phymatopus/kfidents.txt)
             do
 
@@ -291,7 +333,7 @@ EOF
 
             innerpath=/var/local/inner/kafka
             outerpath=/var/local/outer/kafka
-            
+
             for address in $(cat /etc/phymatopus/kfidents.txt)
                 do
 
@@ -349,6 +391,7 @@ EOF
         #[root@openstacker]
 
             topiclist="ztf_20180730_programid1"
+            topiclist="ztf_20180804_programid1"
 
         # -----------------------------------------------------
         # Update the target topic name.
@@ -389,25 +432,25 @@ Tue Jul 31 01:17:56 UTC 2018
                 Removing stevedore_tina_1 ... done
                 Removing network stevedore_kafka
                 Creating network "stevedore_kafka" with the default driver
-                Creating stevedore_tina_1 ... 
+                Creating stevedore_tina_1 ...
                 Creating stevedore_tina_1 ... done
                 Stopping stevedore_tina_1 ... done
                 Removing stevedore_tina_1 ... done
                 Removing network stevedore_kafka
                 Creating network "stevedore_kafka" with the default driver
-                Creating stevedore_tina_1 ... 
+                Creating stevedore_tina_1 ...
                 Creating stevedore_tina_1 ... done
                 Stopping stevedore_tina_1 ... done
                 Removing stevedore_tina_1 ... done
                 Removing network stevedore_kafka
                 Creating network "stevedore_kafka" with the default driver
-                Creating stevedore_tina_1 ... 
+                Creating stevedore_tina_1 ...
                 Creating stevedore_tina_1 ... done
                 Stopping stevedore_tina_1 ... done
                 Removing stevedore_tina_1 ... done
                 Removing network stevedore_kafka
                 Creating network "stevedore_kafka" with the default driver
-                Creating stevedore_tina_1 ... 
+                Creating stevedore_tina_1 ...
                 Creating stevedore_tina_1 ... done
 
 Tue Jul 31 01:18:32 UTC 2018
@@ -417,7 +460,7 @@ Tue Jul 31 01:18:32 UTC 2018
         #[root@openstacker]
 
             date
-            
+
             echo "
                 docker run --rm phymatopus/kafka-core \
                     bin/kafka-consumer-groups.sh \
@@ -511,7 +554,7 @@ Tue Jul 31 01:30:27 UTC 2018
                 do
                     echo "${address:?}"
                     echo "
-                        grep 'topiclist' mirror.env                        
+                        grep 'topiclist' mirror.env
                         " \
                     | ssh \
                         ${sshopts[*]} \
@@ -600,7 +643,7 @@ Tue Jul 31 01:30:27 UTC 2018
                 do
                     echo "${address:?}"
                     echo "
-                        grep 'topiclist' mirror.env                        
+                        grep 'topiclist' mirror.env
                         " \
                     | ssh \
                         ${sshopts[*]} \
@@ -666,7 +709,7 @@ Tue Jul 31 01:30:27 UTC 2018
                     Removing stevedore_tina_1 ... done
                     Removing network stevedore_kafka
                     Creating network "stevedore_kafka" with the default driver
-                    Creating stevedore_tina_1 ... 
+                    Creating stevedore_tina_1 ...
                     Creating stevedore_tina_1 ... done
                     Updating [192.168.1.22]
                     Pseudo-terminal will not be allocated because stdin is not a terminal.
@@ -674,7 +717,7 @@ Tue Jul 31 01:30:27 UTC 2018
                     Removing stevedore_tina_1 ... done
                     Removing network stevedore_kafka
                     Creating network "stevedore_kafka" with the default driver
-                    Creating stevedore_tina_1 ... 
+                    Creating stevedore_tina_1 ...
                     Creating stevedore_tina_1 ... done
                     Updating [192.168.1.7]
                     Pseudo-terminal will not be allocated because stdin is not a terminal.
@@ -682,7 +725,7 @@ Tue Jul 31 01:30:27 UTC 2018
                     Removing stevedore_tina_1 ... done
                     Removing network stevedore_kafka
                     Creating network "stevedore_kafka" with the default driver
-                    Creating stevedore_tina_1 ... 
+                    Creating stevedore_tina_1 ...
                     Creating stevedore_tina_1 ... done
                     Updating [192.168.1.9]
                     Pseudo-terminal will not be allocated because stdin is not a terminal.
@@ -690,7 +733,7 @@ Tue Jul 31 01:30:27 UTC 2018
                     Removing stevedore_tina_1 ... done
                     Removing network stevedore_kafka
                     Creating network "stevedore_kafka" with the default driver
-                    Creating stevedore_tina_1 ... 
+                    Creating stevedore_tina_1 ...
                     Creating stevedore_tina_1 ... done
 
         # -----------------------------------------------------
@@ -701,7 +744,7 @@ Tue Jul 31 01:30:27 UTC 2018
                 do
                     echo "${address:?}"
                     echo "
-                        grep 'topiclist' mirror.env                        
+                        grep 'topiclist' mirror.env
                         " \
                     | ssh \
                         ${sshopts[*]} \
@@ -753,6 +796,6 @@ Tue Jul 31 01:30:27 UTC 2018
     #   Update scripts works when run manually.
     #   Update scripts fails when run from cron.
 
-    
+
 
 
