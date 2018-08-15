@@ -27,12 +27,6 @@
     ssh Etalema
 
     # -----------------------------------------------------
-    # Check our secrets function.
-    #[user@virtual]
-
-        secret frog
-
-    # -----------------------------------------------------
     # Create a container to work with.
     #[user@virtual]
 
@@ -69,17 +63,31 @@
             source '/etc/phymatopus/ztf.settings'
 
         # -----------------------------------------------------
-        # Login to our controller.
+        # Login to our controller and run the cron script.
         #[root@openstacker]
 
             ssh ${sshopts[*]} \
-                ${sshuser:?}@${controlip:?}
+                ${sshuser:?}@${controlip:?} \
+                    '${HOME}/settopic.sh'
 
-        # -----------------------------------------------------
-        # Run our settopic script.
-        #[root@openstacker]
 
-            ./settopic.sh
+         # -----------------------------------------------------
+         # Check the offsets.
+         #[root@openstacker]
+
+             date ; \
+             echo "
+                 docker run --rm phymatopus/kafka-core \
+                     bin/kafka-consumer-groups.sh \
+                         --bootstrap-server "${ztfconnect:?}" \
+                         --describe \
+                         --group "${groupid:?}"
+                 " \
+             | ssh \
+                 ${sshopts[*]} \
+                 ${sshuser:?}@${controlip:?} | sort | tee lits.txt \
+             ; date
+
 
 
 
