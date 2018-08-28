@@ -1,0 +1,132 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2018, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+
+# -----------------------------------------------------
+# Login to our external VM.
+#[user@desktop]
+
+    ssh Etalema
+
+    # -----------------------------------------------------
+    # Check our secrets function.
+    #[user@virtual]
+
+        secret frog
+
+    # -----------------------------------------------------
+    # Create a container to work with.
+    #[user@virtual]
+
+        docker run \
+            --rm \
+            --tty \
+            --interactive \
+            --hostname openstacker \
+            --env SSH_AUTH_SOCK=/tmp/ssh_auth_sock \
+            --volume "${HOME}/settings/:/etc/phymatopus/" \
+            --volume ${SSH_AUTH_SOCK}:/tmp/ssh_auth_sock \
+            phymatopus/openstack-client \
+            bash
+
+        # -----------------------------------------------------
+        # Load our OpenStack settings.
+        #[root@openstacker]
+
+            source '/etc/phymatopus/openstack.settings'
+
+        # -----------------------------------------------------
+        # Load our OpenStack and Eleanor functions.
+        #[root@openstacker]
+
+            source 'openstack-utils.sh'
+            source 'eleanor-utils.sh'
+            source 'eleanor-init.sh'
+
+
+        # -----------------------------------------------------
+        # List our available projects.
+        #[root@openstacker]
+
+            openstack project list
+
+                +----------------------------------+------------------------------+
+                | ID                               | Name                         |
+                +----------------------------------+------------------------------+
+                | b397f5c3415945ca94b74bd612210299 | AstroTROP                    |
+                | c2ff1afa3e874e0eb6f5a48f7e77208b | virtual-observatory-services |
+                | fcef6dd450f64a1ab4ffa5a7234c4161 | lsst                         |
+                +----------------------------------+------------------------------+
+
+            openstack \
+                project list \
+                --format json \
+            | jq '.' \
+            | tee '/tmp/project-list.json'
+
+
+                [
+                  {
+                    "ID": "b397f5c3415945ca94b74bd612210299",
+                    "Name": "AstroTROP"
+                  },
+                  {
+                    "ID": "c2ff1afa3e874e0eb6f5a48f7e77208b",
+                    "Name": "virtual-observatory-services"
+                  },
+                  {
+                    "ID": "fcef6dd450f64a1ab4ffa5a7234c4161",
+                    "Name": "lsst"
+                  }
+                ]
+
+        # -----------------------------------------------------
+        # Display details of each project.
+        #[root@openstacker]
+
+        for ident in $(jq -r '.[].ID' '/tmp/project-list.json')
+        do
+            echo ""
+            echo "Ident [${ident:?}]"
+            openstack project show "${ident:?}"
+        done
+
+            Ident [b397f5c3415945ca94b74bd612210299]
+            You are not authorized to perform the requested action: identity:list_projects. (HTTP 403) (Request-ID: req-8dfc10a7-27ea-4e0b-bac4-d8a61959a97b)
+
+            Ident [c2ff1afa3e874e0eb6f5a48f7e77208b]
+            You are not authorized to perform the requested action: identity:list_projects. (HTTP 403) (Request-ID: req-c821fa21-62c3-4347-bb89-f3427c8ca06b)
+
+            Ident [fcef6dd450f64a1ab4ffa5a7234c4161]
+            +-------------+----------------------------------+
+            | Field       | Value                            |
+            +-------------+----------------------------------+
+            | description |                                  |
+            | domain_id   | 450db9c9d59f4e888f9f44c4a9904118 |
+            | enabled     | True                             |
+            | id          | fcef6dd450f64a1ab4ffa5a7234c4161 |
+            | is_domain   | False                            |
+            | name        | lsst                             |
+            | parent_id   | 450db9c9d59f4e888f9f44c4a9904118 |
+            +-------------+----------------------------------+
+
+

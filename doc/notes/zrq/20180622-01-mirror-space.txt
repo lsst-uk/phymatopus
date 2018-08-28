@@ -1,0 +1,768 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2018, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#  
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+
+
+        # -----------------------------------------------------
+        # Check the disc space on each of our Zookeeper nodes.
+        #[root@openstacker]
+
+            for ident in ${zkidents[@]}
+                do
+                    getvminfo "${ident:?}"
+                    internalip=$(geteleanor192)
+
+echo "
+Ident   [${ident}]
+Name    [$(getvmname)]
+Address [${internalip}]
+"
+
+                    echo "
+                        df -h /
+                        " \
+                    | ssh \
+                        ${sshopts[*]} \
+                        -o ProxyCommand="${sshproxy}" \
+                        ${sshuser:?}@${internalip:?}
+
+                done
+
+
+                Ident   [8cd2c6af-88b2-4cff-8c8a-81240bf63f70]
+                Name    [Raminiara-zookeeper-3]
+                Address [192.168.1.14]
+
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vda3        19G  2.0G   15G  12% /
+
+                Ident   [4bd50e51-ec0e-4d8d-9a2b-9af9185aefba]
+                Name    [Raminiara-zookeeper-2]
+                Address [192.168.1.16]
+
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vda3        19G  2.0G   15G  12% /
+
+                Ident   [39cbbdb1-4adb-439d-b9fe-71b8c48ec14b]
+                Name    [Raminiara-zookeeper-1]
+                Address [192.168.1.11]
+
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vda3        19G  2.0G   15G  12% /
+
+
+        # -----------------------------------------------------
+        # Check the disc space on each of our Kafka nodes.
+        #[root@openstacker]
+
+            innerpath=/var/local/inner/kafka
+            outerpath=/var/local/outer/kafka
+            
+            for ident in ${kfidents[@]}
+                do
+                    getvminfo "${ident:?}"
+                    internalip=$(geteleanor192)
+
+echo "
+Ident   [${ident}]
+Name    [$(getvmname)]
+Address [${internalip}]
+"
+
+                    echo "
+                        df -h /
+                        echo "---- ----"
+                        df -h "${outerpath:?}/data-00"
+                        echo "---- ----"
+                        df -h "${outerpath:?}/data-01"
+                        echo "---- ----"
+                        du -h "${outerpath:?}"
+                        " \
+                    | ssh \
+                        ${sshopts[*]} \
+                        -o ProxyCommand="${sshproxy}" \
+                        ${sshuser:?}@${internalip:?}
+
+                done
+
+
+                Ident   [bb409e47-cf2c-4e64-aea6-e893e5d05100]
+                Name    [Raminiara-kafka-4]
+                Address [192.168.1.5]
+
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vda3        39G  2.0G   35G   6% /
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdb        512G   30G  481G   6% /var/local/outer/kafka/data-00
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdc        512G   30G  481G   6% /var/local/outer/kafka/data-01
+                ---- ----
+                866M	/var/local/outer/kafka/data-00/ztf_20180618_programid1-14
+                865M	/var/local/outer/kafka/data-00/ztf_20180618_programid1-6
+                865M	/var/local/outer/kafka/data-00/ztf_20180618_programid1-4
+                865M	/var/local/outer/kafka/data-00/ztf_20180618_programid1-11
+                865M	/var/local/outer/kafka/data-00/ztf_20180618_programid1-9
+                865M	/var/local/outer/kafka/data-00/ztf_20180618_programid1-13
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-0
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-4
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-36
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-24
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-12
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-44
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-32
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-45
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-42
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-39
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-49
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-27
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-43
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-37
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-15
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-31
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-19
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-25
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-3
+                715M	/var/local/outer/kafka/data-00/ztf_20180619_programid1-12
+                714M	/var/local/outer/kafka/data-00/ztf_20180619_programid1-4
+                715M	/var/local/outer/kafka/data-00/ztf_20180619_programid1-15
+                714M	/var/local/outer/kafka/data-00/ztf_20180619_programid1-6
+                714M	/var/local/outer/kafka/data-00/ztf_20180619_programid1-10
+                714M	/var/local/outer/kafka/data-00/ztf_20180619_programid1-13
+                693M	/var/local/outer/kafka/data-00/ztf_20180620_programid1-4
+                693M	/var/local/outer/kafka/data-00/ztf_20180620_programid1-12
+                693M	/var/local/outer/kafka/data-00/ztf_20180620_programid1-7
+                693M	/var/local/outer/kafka/data-00/ztf_20180620_programid1-15
+                693M	/var/local/outer/kafka/data-00/ztf_20180620_programid1-6
+                693M	/var/local/outer/kafka/data-00/ztf_20180620_programid1-13
+                405M	/var/local/outer/kafka/data-00/ztf_20180617_programid1-3
+                406M	/var/local/outer/kafka/data-00/ztf_20180617_programid1-11
+                405M	/var/local/outer/kafka/data-00/ztf_20180617_programid1-13
+                405M	/var/local/outer/kafka/data-00/ztf_20180617_programid1-4
+                405M	/var/local/outer/kafka/data-00/ztf_20180617_programid1-14
+                405M	/var/local/outer/kafka/data-00/ztf_20180617_programid1-5
+                411M	/var/local/outer/kafka/data-00/ztf_20180614_programid1-12
+                411M	/var/local/outer/kafka/data-00/ztf_20180614_programid1-4
+                411M	/var/local/outer/kafka/data-00/ztf_20180614_programid1-2
+                411M	/var/local/outer/kafka/data-00/ztf_20180614_programid1-15
+                412M	/var/local/outer/kafka/data-00/ztf_20180614_programid1-9
+                411M	/var/local/outer/kafka/data-00/ztf_20180614_programid1-11
+                666M	/var/local/outer/kafka/data-00/ztf_20180615_programid1-13
+                665M	/var/local/outer/kafka/data-00/ztf_20180615_programid1-5
+                666M	/var/local/outer/kafka/data-00/ztf_20180615_programid1-0
+                666M	/var/local/outer/kafka/data-00/ztf_20180615_programid1-7
+                666M	/var/local/outer/kafka/data-00/ztf_20180615_programid1-15
+                665M	/var/local/outer/kafka/data-00/ztf_20180615_programid1-6
+                491M	/var/local/outer/kafka/data-00/ztf_20180616_programid1-2
+                490M	/var/local/outer/kafka/data-00/ztf_20180616_programid1-10
+                490M	/var/local/outer/kafka/data-00/ztf_20180616_programid1-8
+                491M	/var/local/outer/kafka/data-00/ztf_20180616_programid1-15
+                491M	/var/local/outer/kafka/data-00/ztf_20180616_programid1-13
+                490M	/var/local/outer/kafka/data-00/ztf_20180616_programid1-11
+                468M	/var/local/outer/kafka/data-00/ztf_20180621_programid1-2
+                468M	/var/local/outer/kafka/data-00/ztf_20180621_programid1-10
+                469M	/var/local/outer/kafka/data-00/ztf_20180621_programid1-5
+                468M	/var/local/outer/kafka/data-00/ztf_20180621_programid1-3
+                469M	/var/local/outer/kafka/data-00/ztf_20180621_programid1-4
+                469M	/var/local/outer/kafka/data-00/ztf_20180621_programid1-11
+                304M	/var/local/outer/kafka/data-00/ztf_20180622_programid1-3
+                305M	/var/local/outer/kafka/data-00/ztf_20180622_programid1-11
+                305M	/var/local/outer/kafka/data-00/ztf_20180622_programid1-13
+                305M	/var/local/outer/kafka/data-00/ztf_20180622_programid1-4
+                305M	/var/local/outer/kafka/data-00/ztf_20180622_programid1-14
+                304M	/var/local/outer/kafka/data-00/ztf_20180622_programid1-5
+                30G	/var/local/outer/kafka/data-00
+                865M	/var/local/outer/kafka/data-01/ztf_20180618_programid1-2
+                865M	/var/local/outer/kafka/data-01/ztf_20180618_programid1-10
+                865M	/var/local/outer/kafka/data-01/ztf_20180618_programid1-1
+                864M	/var/local/outer/kafka/data-01/ztf_20180618_programid1-12
+                865M	/var/local/outer/kafka/data-01/ztf_20180618_programid1-0
+                865M	/var/local/outer/kafka/data-01/ztf_20180618_programid1-7
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-48
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-20
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-8
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-40
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-28
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-16
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-10
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-7
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-1
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-33
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-30
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-46
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-21
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-18
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-34
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-9
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-6
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-22
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-13
+                714M	/var/local/outer/kafka/data-01/ztf_20180619_programid1-0
+                715M	/var/local/outer/kafka/data-01/ztf_20180619_programid1-8
+                714M	/var/local/outer/kafka/data-01/ztf_20180619_programid1-9
+                713M	/var/local/outer/kafka/data-01/ztf_20180619_programid1-3
+                715M	/var/local/outer/kafka/data-01/ztf_20180619_programid1-7
+                715M	/var/local/outer/kafka/data-01/ztf_20180619_programid1-1
+                692M	/var/local/outer/kafka/data-01/ztf_20180620_programid1-8
+                693M	/var/local/outer/kafka/data-01/ztf_20180620_programid1-0
+                694M	/var/local/outer/kafka/data-01/ztf_20180620_programid1-1
+                693M	/var/local/outer/kafka/data-01/ztf_20180620_programid1-9
+                693M	/var/local/outer/kafka/data-01/ztf_20180620_programid1-3
+                693M	/var/local/outer/kafka/data-01/ztf_20180620_programid1-10
+                405M	/var/local/outer/kafka/data-01/ztf_20180617_programid1-7
+                405M	/var/local/outer/kafka/data-01/ztf_20180617_programid1-15
+                405M	/var/local/outer/kafka/data-01/ztf_20180617_programid1-10
+                405M	/var/local/outer/kafka/data-01/ztf_20180617_programid1-1
+                405M	/var/local/outer/kafka/data-01/ztf_20180617_programid1-8
+                405M	/var/local/outer/kafka/data-01/ztf_20180617_programid1-2
+                411M	/var/local/outer/kafka/data-01/ztf_20180614_programid1-0
+                411M	/var/local/outer/kafka/data-01/ztf_20180614_programid1-8
+                411M	/var/local/outer/kafka/data-01/ztf_20180614_programid1-6
+                411M	/var/local/outer/kafka/data-01/ztf_20180614_programid1-3
+                411M	/var/local/outer/kafka/data-01/ztf_20180614_programid1-14
+                412M	/var/local/outer/kafka/data-01/ztf_20180614_programid1-5
+                665M	/var/local/outer/kafka/data-01/ztf_20180615_programid1-1
+                665M	/var/local/outer/kafka/data-01/ztf_20180615_programid1-9
+                665M	/var/local/outer/kafka/data-01/ztf_20180615_programid1-10
+                665M	/var/local/outer/kafka/data-01/ztf_20180615_programid1-8
+                665M	/var/local/outer/kafka/data-01/ztf_20180615_programid1-12
+                665M	/var/local/outer/kafka/data-01/ztf_20180615_programid1-3
+                491M	/var/local/outer/kafka/data-01/ztf_20180616_programid1-6
+                491M	/var/local/outer/kafka/data-01/ztf_20180616_programid1-14
+                490M	/var/local/outer/kafka/data-01/ztf_20180616_programid1-5
+                491M	/var/local/outer/kafka/data-01/ztf_20180616_programid1-3
+                490M	/var/local/outer/kafka/data-01/ztf_20180616_programid1-4
+                490M	/var/local/outer/kafka/data-01/ztf_20180616_programid1-1
+                468M	/var/local/outer/kafka/data-01/ztf_20180621_programid1-6
+                468M	/var/local/outer/kafka/data-01/ztf_20180621_programid1-14
+                468M	/var/local/outer/kafka/data-01/ztf_20180621_programid1-15
+                468M	/var/local/outer/kafka/data-01/ztf_20180621_programid1-13
+                468M	/var/local/outer/kafka/data-01/ztf_20180621_programid1-1
+                468M	/var/local/outer/kafka/data-01/ztf_20180621_programid1-8
+                305M	/var/local/outer/kafka/data-01/ztf_20180622_programid1-7
+                305M	/var/local/outer/kafka/data-01/ztf_20180622_programid1-15
+                305M	/var/local/outer/kafka/data-01/ztf_20180622_programid1-10
+                305M	/var/local/outer/kafka/data-01/ztf_20180622_programid1-1
+                305M	/var/local/outer/kafka/data-01/ztf_20180622_programid1-8
+                305M	/var/local/outer/kafka/data-01/ztf_20180622_programid1-2
+                30G	/var/local/outer/kafka/data-01
+                59G	/var/local/outer/kafka
+
+                Ident   [aa73a427-2e9f-413d-a37b-3eaf35799f00]
+                Name    [Raminiara-kafka-3]
+                Address [192.168.1.8]
+
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vda3        39G  2.0G   35G   6% /
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdb        512G   30G  481G   6% /var/local/outer/kafka/data-00
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdc        512G   30G  481G   6% /var/local/outer/kafka/data-01
+                ---- ----
+                865M	/var/local/outer/kafka/data-00/ztf_20180618_programid1-1
+                865M	/var/local/outer/kafka/data-00/ztf_20180618_programid1-9
+                864M	/var/local/outer/kafka/data-00/ztf_20180618_programid1-8
+                864M	/var/local/outer/kafka/data-00/ztf_20180618_programid1-15
+                864M	/var/local/outer/kafka/data-00/ztf_20180618_programid1-3
+                865M	/var/local/outer/kafka/data-00/ztf_20180618_programid1-10
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-7
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-39
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-27
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-15
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-19
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-35
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-0
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-29
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-26
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-20
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-17
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-33
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-8
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-5
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-21
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-12
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-38
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-6
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-32
+                713M	/var/local/outer/kafka/data-00/ztf_20180619_programid1-3
+                715M	/var/local/outer/kafka/data-00/ztf_20180619_programid1-11
+                715M	/var/local/outer/kafka/data-00/ztf_20180619_programid1-12
+                714M	/var/local/outer/kafka/data-00/ztf_20180619_programid1-6
+                714M	/var/local/outer/kafka/data-00/ztf_20180619_programid1-14
+                714M	/var/local/outer/kafka/data-00/ztf_20180619_programid1-5
+                693M	/var/local/outer/kafka/data-00/ztf_20180620_programid1-11
+                693M	/var/local/outer/kafka/data-00/ztf_20180620_programid1-3
+                693M	/var/local/outer/kafka/data-00/ztf_20180620_programid1-14
+                693M	/var/local/outer/kafka/data-00/ztf_20180620_programid1-2
+                693M	/var/local/outer/kafka/data-00/ztf_20180620_programid1-9
+                693M	/var/local/outer/kafka/data-00/ztf_20180620_programid1-0
+                405M	/var/local/outer/kafka/data-00/ztf_20180617_programid1-10
+                405M	/var/local/outer/kafka/data-00/ztf_20180617_programid1-2
+                405M	/var/local/outer/kafka/data-00/ztf_20180617_programid1-13
+                405M	/var/local/outer/kafka/data-00/ztf_20180617_programid1-4
+                406M	/var/local/outer/kafka/data-00/ztf_20180617_programid1-11
+                405M	/var/local/outer/kafka/data-00/ztf_20180617_programid1-9
+                411M	/var/local/outer/kafka/data-00/ztf_20180614_programid1-3
+                411M	/var/local/outer/kafka/data-00/ztf_20180614_programid1-11
+                411M	/var/local/outer/kafka/data-00/ztf_20180614_programid1-13
+                411M	/var/local/outer/kafka/data-00/ztf_20180614_programid1-4
+                411M	/var/local/outer/kafka/data-00/ztf_20180614_programid1-14
+                412M	/var/local/outer/kafka/data-00/ztf_20180614_programid1-5
+                666M	/var/local/outer/kafka/data-00/ztf_20180615_programid1-4
+                665M	/var/local/outer/kafka/data-00/ztf_20180615_programid1-12
+                666M	/var/local/outer/kafka/data-00/ztf_20180615_programid1-11
+                665M	/var/local/outer/kafka/data-00/ztf_20180615_programid1-2
+                665M	/var/local/outer/kafka/data-00/ztf_20180615_programid1-9
+                665M	/var/local/outer/kafka/data-00/ztf_20180615_programid1-3
+                490M	/var/local/outer/kafka/data-00/ztf_20180616_programid1-9
+                490M	/var/local/outer/kafka/data-00/ztf_20180616_programid1-1
+                490M	/var/local/outer/kafka/data-00/ztf_20180616_programid1-12
+                490M	/var/local/outer/kafka/data-00/ztf_20180616_programid1-10
+                491M	/var/local/outer/kafka/data-00/ztf_20180616_programid1-14
+                490M	/var/local/outer/kafka/data-00/ztf_20180616_programid1-11
+                468M	/var/local/outer/kafka/data-00/ztf_20180621_programid1-9
+                468M	/var/local/outer/kafka/data-00/ztf_20180621_programid1-1
+                468M	/var/local/outer/kafka/data-00/ztf_20180621_programid1-2
+                468M	/var/local/outer/kafka/data-00/ztf_20180621_programid1-10
+                469M	/var/local/outer/kafka/data-00/ztf_20180621_programid1-4
+                469M	/var/local/outer/kafka/data-00/ztf_20180621_programid1-11
+                305M	/var/local/outer/kafka/data-00/ztf_20180622_programid1-14
+                305M	/var/local/outer/kafka/data-00/ztf_20180622_programid1-6
+                305M	/var/local/outer/kafka/data-00/ztf_20180622_programid1-0
+                305M	/var/local/outer/kafka/data-00/ztf_20180622_programid1-4
+                305M	/var/local/outer/kafka/data-00/ztf_20180622_programid1-11
+                304M	/var/local/outer/kafka/data-00/ztf_20180622_programid1-9
+                30G	/var/local/outer/kafka/data-00
+                865M	/var/local/outer/kafka/data-01/ztf_20180618_programid1-5
+                865M	/var/local/outer/kafka/data-01/ztf_20180618_programid1-13
+                865M	/var/local/outer/kafka/data-01/ztf_20180618_programid1-6
+                864M	/var/local/outer/kafka/data-01/ztf_20180618_programid1-12
+                865M	/var/local/outer/kafka/data-01/ztf_20180618_programid1-0
+                865M	/var/local/outer/kafka/data-01/ztf_20180618_programid1-7
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-23
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-11
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-43
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-31
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-47
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-3
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-48
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-45
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-42
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-36
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-14
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-30
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-24
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-2
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-18
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-9
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-44
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-41
+                715M	/var/local/outer/kafka/data-01/ztf_20180619_programid1-15
+                715M	/var/local/outer/kafka/data-01/ztf_20180619_programid1-7
+                715M	/var/local/outer/kafka/data-01/ztf_20180619_programid1-2
+                714M	/var/local/outer/kafka/data-01/ztf_20180619_programid1-9
+                714M	/var/local/outer/kafka/data-01/ztf_20180619_programid1-0
+                715M	/var/local/outer/kafka/data-01/ztf_20180619_programid1-8
+                693M	/var/local/outer/kafka/data-01/ztf_20180620_programid1-7
+                693M	/var/local/outer/kafka/data-01/ztf_20180620_programid1-15
+                692M	/var/local/outer/kafka/data-01/ztf_20180620_programid1-8
+                693M	/var/local/outer/kafka/data-01/ztf_20180620_programid1-5
+                693M	/var/local/outer/kafka/data-01/ztf_20180620_programid1-12
+                693M	/var/local/outer/kafka/data-01/ztf_20180620_programid1-6
+                405M	/var/local/outer/kafka/data-01/ztf_20180617_programid1-6
+                405M	/var/local/outer/kafka/data-01/ztf_20180617_programid1-14
+                405M	/var/local/outer/kafka/data-01/ztf_20180617_programid1-0
+                405M	/var/local/outer/kafka/data-01/ztf_20180617_programid1-7
+                405M	/var/local/outer/kafka/data-01/ztf_20180617_programid1-1
+                405M	/var/local/outer/kafka/data-01/ztf_20180617_programid1-12
+                411M	/var/local/outer/kafka/data-01/ztf_20180614_programid1-15
+                412M	/var/local/outer/kafka/data-01/ztf_20180614_programid1-7
+                411M	/var/local/outer/kafka/data-01/ztf_20180614_programid1-2
+                411M	/var/local/outer/kafka/data-01/ztf_20180614_programid1-10
+                412M	/var/local/outer/kafka/data-01/ztf_20180614_programid1-1
+                411M	/var/local/outer/kafka/data-01/ztf_20180614_programid1-8
+                666M	/var/local/outer/kafka/data-01/ztf_20180615_programid1-0
+                665M	/var/local/outer/kafka/data-01/ztf_20180615_programid1-8
+                666M	/var/local/outer/kafka/data-01/ztf_20180615_programid1-14
+                665M	/var/local/outer/kafka/data-01/ztf_20180615_programid1-5
+                666M	/var/local/outer/kafka/data-01/ztf_20180615_programid1-15
+                665M	/var/local/outer/kafka/data-01/ztf_20180615_programid1-6
+                490M	/var/local/outer/kafka/data-01/ztf_20180616_programid1-5
+                491M	/var/local/outer/kafka/data-01/ztf_20180616_programid1-13
+                491M	/var/local/outer/kafka/data-01/ztf_20180616_programid1-2
+                490M	/var/local/outer/kafka/data-01/ztf_20180616_programid1-0
+                490M	/var/local/outer/kafka/data-01/ztf_20180616_programid1-7
+                490M	/var/local/outer/kafka/data-01/ztf_20180616_programid1-4
+                469M	/var/local/outer/kafka/data-01/ztf_20180621_programid1-5
+                468M	/var/local/outer/kafka/data-01/ztf_20180621_programid1-13
+                468M	/var/local/outer/kafka/data-01/ztf_20180621_programid1-12
+                469M	/var/local/outer/kafka/data-01/ztf_20180621_programid1-0
+                468M	/var/local/outer/kafka/data-01/ztf_20180621_programid1-7
+                468M	/var/local/outer/kafka/data-01/ztf_20180621_programid1-14
+                305M	/var/local/outer/kafka/data-01/ztf_20180622_programid1-10
+                305M	/var/local/outer/kafka/data-01/ztf_20180622_programid1-2
+                305M	/var/local/outer/kafka/data-01/ztf_20180622_programid1-13
+                305M	/var/local/outer/kafka/data-01/ztf_20180622_programid1-7
+                305M	/var/local/outer/kafka/data-01/ztf_20180622_programid1-1
+                305M	/var/local/outer/kafka/data-01/ztf_20180622_programid1-12
+                30G	/var/local/outer/kafka/data-01
+                59G	/var/local/outer/kafka
+
+                Ident   [6f971e48-f760-43bf-ad98-c38a7b90c321]
+                Name    [Raminiara-kafka-2]
+                Address [192.168.1.15]
+
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vda3        39G  2.0G   35G   6% /
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdb        512G   30G  481G   6% /var/local/outer/kafka/data-00
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdc        512G   30G  481G   6% /var/local/outer/kafka/data-01
+                ---- ----
+                865M	/var/local/outer/kafka/data-00/ztf_20180618_programid1-4
+                864M	/var/local/outer/kafka/data-00/ztf_20180618_programid1-12
+                866M	/var/local/outer/kafka/data-00/ztf_20180618_programid1-14
+                865M	/var/local/outer/kafka/data-00/ztf_20180618_programid1-5
+                865M	/var/local/outer/kafka/data-00/ztf_20180618_programid1-6
+                864M	/var/local/outer/kafka/data-00/ztf_20180618_programid1-3
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-10
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-42
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-30
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-2
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-34
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-6
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-29
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-4
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-1
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-17
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-11
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-8
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-40
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-15
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-28
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-44
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-25
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-32
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-13
+                714M	/var/local/outer/kafka/data-00/ztf_20180619_programid1-6
+                714M	/var/local/outer/kafka/data-00/ztf_20180619_programid1-14
+                713M	/var/local/outer/kafka/data-00/ztf_20180619_programid1-3
+                714M	/var/local/outer/kafka/data-00/ztf_20180619_programid1-13
+                715M	/var/local/outer/kafka/data-00/ztf_20180619_programid1-11
+                714M	/var/local/outer/kafka/data-00/ztf_20180619_programid1-5
+                693M	/var/local/outer/kafka/data-00/ztf_20180620_programid1-2
+                693M	/var/local/outer/kafka/data-00/ztf_20180620_programid1-10
+                694M	/var/local/outer/kafka/data-00/ztf_20180620_programid1-1
+                693M	/var/local/outer/kafka/data-00/ztf_20180620_programid1-5
+                693M	/var/local/outer/kafka/data-00/ztf_20180620_programid1-15
+                693M	/var/local/outer/kafka/data-00/ztf_20180620_programid1-13
+                405M	/var/local/outer/kafka/data-00/ztf_20180617_programid1-1
+                405M	/var/local/outer/kafka/data-00/ztf_20180617_programid1-9
+                405M	/var/local/outer/kafka/data-00/ztf_20180617_programid1-3
+                405M	/var/local/outer/kafka/data-00/ztf_20180617_programid1-10
+                405M	/var/local/outer/kafka/data-00/ztf_20180617_programid1-8
+                405M	/var/local/outer/kafka/data-00/ztf_20180617_programid1-12
+                411M	/var/local/outer/kafka/data-00/ztf_20180614_programid1-6
+                411M	/var/local/outer/kafka/data-00/ztf_20180614_programid1-14
+                412M	/var/local/outer/kafka/data-00/ztf_20180614_programid1-9
+                411M	/var/local/outer/kafka/data-00/ztf_20180614_programid1-13
+                411M	/var/local/outer/kafka/data-00/ztf_20180614_programid1-4
+                411M	/var/local/outer/kafka/data-00/ztf_20180614_programid1-11
+                666M	/var/local/outer/kafka/data-00/ztf_20180615_programid1-11
+                665M	/var/local/outer/kafka/data-00/ztf_20180615_programid1-3
+                666M	/var/local/outer/kafka/data-00/ztf_20180615_programid1-13
+                665M	/var/local/outer/kafka/data-00/ztf_20180615_programid1-1
+                665M	/var/local/outer/kafka/data-00/ztf_20180615_programid1-8
+                665M	/var/local/outer/kafka/data-00/ztf_20180615_programid1-2
+                490M	/var/local/outer/kafka/data-00/ztf_20180616_programid1-12
+                490M	/var/local/outer/kafka/data-00/ztf_20180616_programid1-4
+                490M	/var/local/outer/kafka/data-00/ztf_20180616_programid1-9
+                491M	/var/local/outer/kafka/data-00/ztf_20180616_programid1-3
+                490M	/var/local/outer/kafka/data-00/ztf_20180616_programid1-10
+                490M	/var/local/outer/kafka/data-00/ztf_20180616_programid1-1
+                469M	/var/local/outer/kafka/data-00/ztf_20180621_programid1-0
+                468M	/var/local/outer/kafka/data-00/ztf_20180621_programid1-8
+                468M	/var/local/outer/kafka/data-00/ztf_20180621_programid1-6
+                468M	/var/local/outer/kafka/data-00/ztf_20180621_programid1-3
+                468M	/var/local/outer/kafka/data-00/ztf_20180621_programid1-10
+                468M	/var/local/outer/kafka/data-00/ztf_20180621_programid1-1
+                305M	/var/local/outer/kafka/data-00/ztf_20180622_programid1-1
+                304M	/var/local/outer/kafka/data-00/ztf_20180622_programid1-9
+                305M	/var/local/outer/kafka/data-00/ztf_20180622_programid1-10
+                305M	/var/local/outer/kafka/data-00/ztf_20180622_programid1-7
+                305M	/var/local/outer/kafka/data-00/ztf_20180622_programid1-15
+                305M	/var/local/outer/kafka/data-00/ztf_20180622_programid1-6
+                30G	/var/local/outer/kafka/data-00
+                864M	/var/local/outer/kafka/data-01/ztf_20180618_programid1-8
+                865M	/var/local/outer/kafka/data-01/ztf_20180618_programid1-0
+                865M	/var/local/outer/kafka/data-01/ztf_20180618_programid1-11
+                865M	/var/local/outer/kafka/data-01/ztf_20180618_programid1-2
+                864M	/var/local/outer/kafka/data-01/ztf_20180618_programid1-15
+                865M	/var/local/outer/kafka/data-01/ztf_20180618_programid1-9
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-26
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-14
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-46
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-18
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-38
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-22
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-23
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-20
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-39
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-49
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-27
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-5
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-37
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-47
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-35
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-16
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-41
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-3
+                715M	/var/local/outer/kafka/data-01/ztf_20180619_programid1-2
+                714M	/var/local/outer/kafka/data-01/ztf_20180619_programid1-10
+                715M	/var/local/outer/kafka/data-01/ztf_20180619_programid1-15
+                714M	/var/local/outer/kafka/data-01/ztf_20180619_programid1-4
+                715M	/var/local/outer/kafka/data-01/ztf_20180619_programid1-1
+                715M	/var/local/outer/kafka/data-01/ztf_20180619_programid1-8
+                693M	/var/local/outer/kafka/data-01/ztf_20180620_programid1-14
+                693M	/var/local/outer/kafka/data-01/ztf_20180620_programid1-6
+                693M	/var/local/outer/kafka/data-01/ztf_20180620_programid1-4
+                692M	/var/local/outer/kafka/data-01/ztf_20180620_programid1-8
+                693M	/var/local/outer/kafka/data-01/ztf_20180620_programid1-11
+                693M	/var/local/outer/kafka/data-01/ztf_20180620_programid1-3
+                405M	/var/local/outer/kafka/data-01/ztf_20180617_programid1-13
+                405M	/var/local/outer/kafka/data-01/ztf_20180617_programid1-5
+                405M	/var/local/outer/kafka/data-01/ztf_20180617_programid1-6
+                405M	/var/local/outer/kafka/data-01/ztf_20180617_programid1-0
+                405M	/var/local/outer/kafka/data-01/ztf_20180617_programid1-7
+                405M	/var/local/outer/kafka/data-01/ztf_20180617_programid1-15
+                411M	/var/local/outer/kafka/data-01/ztf_20180614_programid1-2
+                411M	/var/local/outer/kafka/data-01/ztf_20180614_programid1-10
+                411M	/var/local/outer/kafka/data-01/ztf_20180614_programid1-12
+                411M	/var/local/outer/kafka/data-01/ztf_20180614_programid1-0
+                412M	/var/local/outer/kafka/data-01/ztf_20180614_programid1-7
+                412M	/var/local/outer/kafka/data-01/ztf_20180614_programid1-1
+                666M	/var/local/outer/kafka/data-01/ztf_20180615_programid1-7
+                666M	/var/local/outer/kafka/data-01/ztf_20180615_programid1-15
+                665M	/var/local/outer/kafka/data-01/ztf_20180615_programid1-10
+                666M	/var/local/outer/kafka/data-01/ztf_20180615_programid1-4
+                666M	/var/local/outer/kafka/data-01/ztf_20180615_programid1-14
+                665M	/var/local/outer/kafka/data-01/ztf_20180615_programid1-5
+                490M	/var/local/outer/kafka/data-01/ztf_20180616_programid1-8
+                490M	/var/local/outer/kafka/data-01/ztf_20180616_programid1-0
+                491M	/var/local/outer/kafka/data-01/ztf_20180616_programid1-15
+                491M	/var/local/outer/kafka/data-01/ztf_20180616_programid1-6
+                491M	/var/local/outer/kafka/data-01/ztf_20180616_programid1-13
+                490M	/var/local/outer/kafka/data-01/ztf_20180616_programid1-7
+                468M	/var/local/outer/kafka/data-01/ztf_20180621_programid1-12
+                469M	/var/local/outer/kafka/data-01/ztf_20180621_programid1-4
+                468M	/var/local/outer/kafka/data-01/ztf_20180621_programid1-9
+                468M	/var/local/outer/kafka/data-01/ztf_20180621_programid1-15
+                468M	/var/local/outer/kafka/data-01/ztf_20180621_programid1-13
+                468M	/var/local/outer/kafka/data-01/ztf_20180621_programid1-7
+                305M	/var/local/outer/kafka/data-01/ztf_20180622_programid1-13
+                304M	/var/local/outer/kafka/data-01/ztf_20180622_programid1-5
+                304M	/var/local/outer/kafka/data-01/ztf_20180622_programid1-3
+                305M	/var/local/outer/kafka/data-01/ztf_20180622_programid1-0
+                305M	/var/local/outer/kafka/data-01/ztf_20180622_programid1-8
+                305M	/var/local/outer/kafka/data-01/ztf_20180622_programid1-12
+                30G	/var/local/outer/kafka/data-01
+                59G	/var/local/outer/kafka
+
+                Ident   [0824e436-6213-4893-8a67-40d152e7402c]
+                Name    [Raminiara-kafka-1]
+                Address [192.168.1.10]
+
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vda3        39G  2.0G   35G   6% /
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdb        512G   30G  481G   6% /var/local/outer/kafka/data-00
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdc        512G   30G  481G   6% /var/local/outer/kafka/data-01
+                ---- ----
+                48K	/var/local/outer/kafka/data-00/__confluent.support.metrics-0
+                864M	/var/local/outer/kafka/data-00/ztf_20180618_programid1-15
+                865M	/var/local/outer/kafka/data-00/ztf_20180618_programid1-7
+                865M	/var/local/outer/kafka/data-00/ztf_20180618_programid1-1
+                864M	/var/local/outer/kafka/data-00/ztf_20180618_programid1-8
+                865M	/var/local/outer/kafka/data-00/ztf_20180618_programid1-2
+                865M	/var/local/outer/kafka/data-00/ztf_20180618_programid1-10
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-45
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-17
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-49
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-21
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-9
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-41
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-0
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-10
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-7
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-4
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-14
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-46
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-43
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-40
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-12
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-47
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-28
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-35
+                0	/var/local/outer/kafka/data-00/__consumer_offsets-22
+                714M	/var/local/outer/kafka/data-00/ztf_20180619_programid1-13
+                714M	/var/local/outer/kafka/data-00/ztf_20180619_programid1-5
+                715M	/var/local/outer/kafka/data-00/ztf_20180619_programid1-12
+                714M	/var/local/outer/kafka/data-00/ztf_20180619_programid1-10
+                714M	/var/local/outer/kafka/data-00/ztf_20180619_programid1-4
+                715M	/var/local/outer/kafka/data-00/ztf_20180619_programid1-11
+                693M	/var/local/outer/kafka/data-00/ztf_20180620_programid1-5
+                693M	/var/local/outer/kafka/data-00/ztf_20180620_programid1-13
+                693M	/var/local/outer/kafka/data-00/ztf_20180620_programid1-4
+                693M	/var/local/outer/kafka/data-00/ztf_20180620_programid1-11
+                693M	/var/local/outer/kafka/data-00/ztf_20180620_programid1-12
+                693M	/var/local/outer/kafka/data-00/ztf_20180620_programid1-10
+                405M	/var/local/outer/kafka/data-00/ztf_20180617_programid1-4
+                405M	/var/local/outer/kafka/data-00/ztf_20180617_programid1-12
+                405M	/var/local/outer/kafka/data-00/ztf_20180617_programid1-3
+                406M	/var/local/outer/kafka/data-00/ztf_20180617_programid1-11
+                405M	/var/local/outer/kafka/data-00/ztf_20180617_programid1-5
+                405M	/var/local/outer/kafka/data-00/ztf_20180617_programid1-9
+                411M	/var/local/outer/kafka/data-00/ztf_20180614_programid1-13
+                412M	/var/local/outer/kafka/data-00/ztf_20180614_programid1-5
+                411M	/var/local/outer/kafka/data-00/ztf_20180614_programid1-15
+                411M	/var/local/outer/kafka/data-00/ztf_20180614_programid1-12
+                411M	/var/local/outer/kafka/data-00/ztf_20180614_programid1-10
+                411M	/var/local/outer/kafka/data-00/ztf_20180614_programid1-8
+                666M	/var/local/outer/kafka/data-00/ztf_20180615_programid1-14
+                665M	/var/local/outer/kafka/data-00/ztf_20180615_programid1-6
+                666M	/var/local/outer/kafka/data-00/ztf_20180615_programid1-7
+                666M	/var/local/outer/kafka/data-00/ztf_20180615_programid1-4
+                666M	/var/local/outer/kafka/data-00/ztf_20180615_programid1-11
+                665M	/var/local/outer/kafka/data-00/ztf_20180615_programid1-9
+                491M	/var/local/outer/kafka/data-00/ztf_20180616_programid1-3
+                490M	/var/local/outer/kafka/data-00/ztf_20180616_programid1-11
+                490M	/var/local/outer/kafka/data-00/ztf_20180616_programid1-5
+                490M	/var/local/outer/kafka/data-00/ztf_20180616_programid1-12
+                491M	/var/local/outer/kafka/data-00/ztf_20180616_programid1-6
+                491M	/var/local/outer/kafka/data-00/ztf_20180616_programid1-14
+                468M	/var/local/outer/kafka/data-00/ztf_20180621_programid1-3
+                469M	/var/local/outer/kafka/data-00/ztf_20180621_programid1-11
+                468M	/var/local/outer/kafka/data-00/ztf_20180621_programid1-12
+                468M	/var/local/outer/kafka/data-00/ztf_20180621_programid1-9
+                469M	/var/local/outer/kafka/data-00/ztf_20180621_programid1-0
+                468M	/var/local/outer/kafka/data-00/ztf_20180621_programid1-8
+                305M	/var/local/outer/kafka/data-00/ztf_20180622_programid1-4
+                305M	/var/local/outer/kafka/data-00/ztf_20180622_programid1-12
+                305M	/var/local/outer/kafka/data-00/ztf_20180622_programid1-14
+                304M	/var/local/outer/kafka/data-00/ztf_20180622_programid1-5
+                305M	/var/local/outer/kafka/data-00/ztf_20180622_programid1-15
+                305M	/var/local/outer/kafka/data-00/ztf_20180622_programid1-6
+                30G	/var/local/outer/kafka/data-00
+                865M	/var/local/outer/kafka/data-01/ztf_20180618_programid1-11
+                864M	/var/local/outer/kafka/data-01/ztf_20180618_programid1-3
+                865M	/var/local/outer/kafka/data-01/ztf_20180618_programid1-4
+                866M	/var/local/outer/kafka/data-01/ztf_20180618_programid1-14
+                865M	/var/local/outer/kafka/data-01/ztf_20180618_programid1-5
+                865M	/var/local/outer/kafka/data-01/ztf_20180618_programid1-13
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-29
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-1
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-33
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-5
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-37
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-25
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-13
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-48
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-26
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-23
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-36
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-11
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-24
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-2
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-34
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-31
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-19
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-38
+                0	/var/local/outer/kafka/data-01/__consumer_offsets-16
+                714M	/var/local/outer/kafka/data-01/ztf_20180619_programid1-9
+                715M	/var/local/outer/kafka/data-01/ztf_20180619_programid1-1
+                715M	/var/local/outer/kafka/data-01/ztf_20180619_programid1-2
+                714M	/var/local/outer/kafka/data-01/ztf_20180619_programid1-0
+                715M	/var/local/outer/kafka/data-01/ztf_20180619_programid1-7
+                714M	/var/local/outer/kafka/data-01/ztf_20180619_programid1-14
+                694M	/var/local/outer/kafka/data-01/ztf_20180620_programid1-1
+                693M	/var/local/outer/kafka/data-01/ztf_20180620_programid1-9
+                693M	/var/local/outer/kafka/data-01/ztf_20180620_programid1-7
+                693M	/var/local/outer/kafka/data-01/ztf_20180620_programid1-14
+                693M	/var/local/outer/kafka/data-01/ztf_20180620_programid1-2
+                693M	/var/local/outer/kafka/data-01/ztf_20180620_programid1-0
+                405M	/var/local/outer/kafka/data-01/ztf_20180617_programid1-0
+                405M	/var/local/outer/kafka/data-01/ztf_20180617_programid1-8
+                405M	/var/local/outer/kafka/data-01/ztf_20180617_programid1-6
+                405M	/var/local/outer/kafka/data-01/ztf_20180617_programid1-14
+                405M	/var/local/outer/kafka/data-01/ztf_20180617_programid1-15
+                405M	/var/local/outer/kafka/data-01/ztf_20180617_programid1-2
+                412M	/var/local/outer/kafka/data-01/ztf_20180614_programid1-9
+                412M	/var/local/outer/kafka/data-01/ztf_20180614_programid1-1
+                411M	/var/local/outer/kafka/data-01/ztf_20180614_programid1-6
+                411M	/var/local/outer/kafka/data-01/ztf_20180614_programid1-3
+                411M	/var/local/outer/kafka/data-01/ztf_20180614_programid1-0
+                412M	/var/local/outer/kafka/data-01/ztf_20180614_programid1-7
+                665M	/var/local/outer/kafka/data-01/ztf_20180615_programid1-10
+                665M	/var/local/outer/kafka/data-01/ztf_20180615_programid1-2
+                666M	/var/local/outer/kafka/data-01/ztf_20180615_programid1-0
+                666M	/var/local/outer/kafka/data-01/ztf_20180615_programid1-13
+                665M	/var/local/outer/kafka/data-01/ztf_20180615_programid1-1
+                665M	/var/local/outer/kafka/data-01/ztf_20180615_programid1-12
+                491M	/var/local/outer/kafka/data-01/ztf_20180616_programid1-15
+                490M	/var/local/outer/kafka/data-01/ztf_20180616_programid1-7
+                490M	/var/local/outer/kafka/data-01/ztf_20180616_programid1-8
+                491M	/var/local/outer/kafka/data-01/ztf_20180616_programid1-2
+                490M	/var/local/outer/kafka/data-01/ztf_20180616_programid1-9
+                490M	/var/local/outer/kafka/data-01/ztf_20180616_programid1-0
+                468M	/var/local/outer/kafka/data-01/ztf_20180621_programid1-15
+                468M	/var/local/outer/kafka/data-01/ztf_20180621_programid1-7
+                469M	/var/local/outer/kafka/data-01/ztf_20180621_programid1-5
+                468M	/var/local/outer/kafka/data-01/ztf_20180621_programid1-2
+                468M	/var/local/outer/kafka/data-01/ztf_20180621_programid1-6
+                468M	/var/local/outer/kafka/data-01/ztf_20180621_programid1-14
+                305M	/var/local/outer/kafka/data-01/ztf_20180622_programid1-0
+                305M	/var/local/outer/kafka/data-01/ztf_20180622_programid1-8
+                304M	/var/local/outer/kafka/data-01/ztf_20180622_programid1-3
+                305M	/var/local/outer/kafka/data-01/ztf_20180622_programid1-11
+                305M	/var/local/outer/kafka/data-01/ztf_20180622_programid1-2
+                304M	/var/local/outer/kafka/data-01/ztf_20180622_programid1-9
+                30G	/var/local/outer/kafka/data-01
+                59G	/var/local/outer/kafka
+
+#
+# Totals so far 14th-22nd June 2018 (9days)
+# /var/local/outer/kafka (59G * 4) = 240G (~26G per night) (includes x3 replication)
+# implies ~8G of raw data per night ?
+
+
+
+
+
+

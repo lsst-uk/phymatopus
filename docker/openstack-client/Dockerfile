@@ -15,17 +15,30 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#
-# Extend the original Dockerfile from Confluent.
-# https://github.com/confluentinc/cp-docker-images/blob/4.0.x/debian/kafka/Dockerfile
-FROM confluentinc/cp-kafka:4.0.0-3
+FROM phymatopus/fedora:2018.06.20
 MAINTAINER Dave Morris <docker-admin@metagrid.co.uk>
 
 #
-# Install our scripts.
-COPY bin/phymatopus /bin/phymatopus
-RUN chmod a+x /bin/phymatopus/*
+# Install the SSH client.
+RUN dnf install -y openssh-clients
 
 #
-# Override the original command.
-CMD ["/bin/phymatopus/configure"]
+# Install the OpenStack client.
+# https://docs.openstack.org/python-openstackclient/latest/
+RUN dnf install -y python-openstackclient
+
+#
+# Install the jq JSON parser.
+# https://stedolan.github.io/jq/
+RUN dnf install -y jq
+
+#
+# Install the ipcalc tools.
+# http://jodies.de/ipcalc
+RUN dnf install -y ipcalc
+
+#
+# Add our util scripts. 
+COPY bin /usr/local/bin/
+RUN chmod a+x /usr/local/bin/*.sh
+

@@ -1,0 +1,96 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2018, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#  
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+
+        # -----------------------------------------------------
+        # Functions to parse OpenStack address information.
+        #[root@openstacker]
+
+            ipaddressmatch()
+                {
+                local network=${1:?}
+                local haystack=${2:?}
+                echo "${haystack}" | sed -n '
+                    s/,//g
+                    s/.*'${network}'=\([0-9. ]*\).*/\1/p
+                    '
+                }
+
+            eleanorinternalmatch()
+                {
+                local haystack=${1:?}
+                ipaddressmatch \
+                    'vm-network-UoE-internal' \
+                    "${haystack}"
+                }
+
+            eleanorexternalmatch()
+                {
+                local haystack=${1:?}
+                ipaddressmatch \
+                    'vm-network-UoE-external' \
+                    "${haystack}"
+                }
+
+        # -----------------------------------------------------
+        # Example OpenStack address information.
+        #[root@openstacker]
+
+            array=(
+                'vm-network-UoE-internal=192.168.1.1'
+                'vm-network-UoE-internal=192.168.1.1; vm-network-UoE-external=192.168.2.10'
+                'vm-network-UoE-internal=192.168.1.1; vm-network-UoE-external=192.168.2.10, 129.215.193.110'
+                'vm-network-UoE-internal=192.168.1.1, 192.168.1.2'
+                'vm-network-UoE-internal=192.168.1.1, 192.168.1.2; vm-network-UoE-external=192.168.2.10'
+                'vm-network-UoE-internal=192.168.1.1, 192.168.1.2; vm-network-UoE-external=192.168.2.13, 129.215.193.114'
+                )
+
+        # -----------------------------------------------------
+        # Tests ....
+        #[root@openstacker]
+
+            for line in "${array[@]}"
+                do
+                    echo "----"
+                    echo "${line}"
+
+                    internals=(
+                        $(eleanorinternal "${line}")
+                        )
+                    externals=(
+                        $(eleanorexternal "${line}")
+                        )
+
+                    echo "----"
+                    for address in "${internals[@]}"
+                    do
+                        echo "Internal [${address}]"
+                    done
+
+                    echo "----"
+                    for address in "${externals[@]}"
+                    do
+                        echo "External [${address}]"
+                    done
+
+                done
+

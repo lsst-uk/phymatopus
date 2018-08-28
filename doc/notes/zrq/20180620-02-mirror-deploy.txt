@@ -1,0 +1,583 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2018, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#  
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+
+        # -----------------------------------------------------
+        # Login to our controller node.
+        #[root@openstacker]
+
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${controlip:?}
+
+            #----------------------------------------------------------------
+            # Query the list of ZTF topics.
+            # https://docs.confluent.io/current/app-development/kafkacat-usage.html
+            # https://github.com/edenhill/kafkacat
+            #[user@controller]
+
+                docker run --rm phymatopus/kafkacat \
+                    -b public.alerts.ztf.uw.edu \
+                    -L
+
+                    Metadata for all topics (from broker 0: public.alerts.ztf.uw.edu:9092/0):
+                     1 brokers:
+                      broker 0 at public.alerts.ztf.uw.edu:9092
+                     25 topics:
+                      topic "ztf_20180614_programid1" with 14 partitions:
+                        partition 8, leader 0, replicas: 0, isrs: 0
+                        partition 11, leader 0, replicas: 0, isrs: 0
+                        partition 2, leader 0, replicas: 0, isrs: 0
+                        partition 5, leader 0, replicas: 0, isrs: 0
+                        partition 4, leader 0, replicas: 0, isrs: 0
+                        partition 13, leader 0, replicas: 0, isrs: 0
+                        ....
+                        ....
+                        ....
+
+            #----------------------------------------------------------------
+            # Query the consumer offsets.
+            #[user@controller]
+
+                docker run --rm phymatopus/kafka-core \
+                    bin/kafka-consumer-groups.sh \
+                        --bootstrap-server 'public.alerts.ztf.uw.edu:9092' \
+                        --describe \
+                        --group 'ztf-mirror.roe.ac.uk'
+
+
+                        TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID     HOST            CLIENT-ID
+                        ztf_20180618_programid1 10         8098            8098            0               -               -               -
+                        ztf_20180618_programid1 0          8099            8099            0               -               -               -
+                        ztf_20180619_programid1 8          6528            6528            0               -               -               -
+                        ztf_20180618_programid1 11         8098            8098            0               -               -               -
+                        ztf_20180619_programid1 0          6528            6528            0               -               -               -
+                        ztf_20180619_programid1 13         6528            6528            0               -               -               -
+                        ztf_20180619_programid1 9          6528            6528            0               -               -               -
+                        ztf_20180618_programid1 8          8099            8099            0               -               -               -
+                        ztf_20180618_programid1 4          8098            8098            0               -               -               -
+                        ztf_20180618_programid1 13         8098            8098            0               -               -               -
+                        ztf_20180618_programid1 12         8098            8098            0               -               -               -
+                        ztf_20180619_programid1 3          6529            6529            0               -               -               -
+                        ztf_20180619_programid1 5          6528            6528            0               -               -               -
+                        ztf_20180619_programid1 12         6528            6528            0               -               -               -
+                        ztf_20180618_programid1 1          8098            8098            0               -               -               -
+                        ztf_20180619_programid1 10         6528            6528            0               -               -               -
+                        ....
+                        ....
+                        ....
+
+
+        # -----------------------------------------------------
+        # Create our MirrorMaker nodes.
+        #[root@openstacker]
+
+echo "
+---- ---- ---- ---- ----
+Creating MirrorMaker nodes.
+"
+            unset mmidents
+            mmidents=()
+
+            for i in {0..3}
+            do
+                echo "Node [${i}]"
+                mmidents+=(
+                    "$(makevm "mirror-${i}")"
+                    )
+            done
+
+
+        # -----------------------------------------------------
+        # List our MirrorMaker nodes.
+        #[root@openstacker]
+
+echo "
+---- ---- ---- ---- ----
+Listing MirrorMaker nodes.
+"
+
+            echo ""
+            echo "Mirror nodes"
+            for ident in ${mmidents[@]}
+            do
+                echo "Ident   [${ident}]"
+                getvminfo "${ident:?}"
+                echo "Name    [$(getvmname)]"
+                echo "Address [$(geteleanor192)]"
+            done
+
+        # -----------------------------------------------------
+        # Build our local connect list.
+        #[root@openstacker]
+
+echo "
+---- ---- ---- ---- ----
+Generating Kafka connect list.
+"
+
+            delim=''
+            port='9092'
+            roeconnect=''
+                
+            for vmident in ${kfidents[@]}
+            do
+
+                getvminfo "${vmident:?}"
+                externalip=$(geteleanor172)
+
+                roeconnect="${roeconnect}${delim}${externalip}:${port}"
+
+                delim=','
+
+            done
+
+echo "
+Kafka brokers [${roeconnect}]
+"
+
+        # -----------------------------------------------------
+        # Build our remote connect list.
+        #[root@openstacker]
+
+            ztfconnect=public.alerts.ztf.uw.edu:9092
+
+        # -----------------------------------------------------
+        # Set our topic list and group name.
+        #[root@openstacker]
+
+            #topiclist='^ztf_[0-9]++_programid1$'
+            topiclist='^ztf_20180620_programid1$'
+
+            groupid=ztf-mirror.roe.ac.uk
+            streamnum=4
+            
+
+        # -----------------------------------------------------
+        # Create our MirrorMaker deploy script.
+        #[root@openstacker]
+
+echo "
+---- ---- ---- ---- ----
+Creating MirrorMaker deploy script.
+"
+
+        cat > /tmp/mirror-init.sh << 'EOSH'
+
+# -----------------------------------------------------
+# Create our consumer config
+
+    cat > "${HOME}/consumer.config" << EOCFG
+
+bootstrap.servers=${ztfconnect:?}
+security.protocol=PLAINTEXT
+group.id=${groupid:?}
+
+auto.offset.reset=earliest
+exclude.internal.topics=true
+
+#
+# From zads-terraform
+# https://github.com/dirac-institute/zads-terraform/blob/master/provisioning/broker/config/consumer.properties
+partition.assignment.strategy=org.apache.kafka.clients.consumer.RoundRobinAssignor
+session.timeout.ms=60000
+
+EOCFG
+
+# -----------------------------------------------------
+# Create our producer config
+
+    cat > "${HOME}/producer.config" << EOCFG
+
+bootstrap.servers=${roeconnect:?}
+security.protocol=PLAINTEXT
+
+acks=all
+
+EOCFG
+
+# -----------------------------------------------------
+# Create our compose file.
+
+cat > mirror.yml << 'EOYML'
+
+version: "3.2"
+
+networks:
+    kafka:
+    
+services:
+
+    tina:
+        image:
+            phymatopus/kafka-core
+        networks:
+            - kafka
+        volumes:
+            - ${HOME}/producer.config:/etc/mirror/producer.config
+            - ${HOME}/consumer.config:/etc/mirror/consumer.config
+        command: [ "bin/kafka-mirror-maker.sh", "--num.streams", "${streamnum}", "--consumer.config", "/etc/mirror/consumer.config", "--producer.config", "/etc/mirror/producer.config", "--whitelist", "${topiclist}" ]
+
+EOYML
+
+    echo "---- ----"
+
+    docker-compose \
+        --file mirror.yml \
+        up -d
+
+    echo "---- ----"
+
+EOSH
+
+
+    # -----------------------------------------------------
+    # Login to each MirrorMaker instance and run our deploy script.
+    #[root@openstacker]
+
+        for vmident in ${mmidents[@]}
+        do
+
+            getvminfo ${vmident}
+            internalip=$(geteleanor192)
+
+echo "
+Name    [$(getvmname)]
+Address [${internalip}]
+"
+
+            echo "
+                cat > mirror.env << EOENV
+groupid=${groupid:?}
+streamnum=${streamnum:?}
+topiclist=${topiclist:?}
+roeconnect=${roeconnect:?}
+ztfconnect=${ztfconnect:?}
+EOENV
+                source mirror.env
+                ln -sf mirror.env .env
+                " \
+                | cat - /tmp/mirror-init.sh \
+                | ssh \
+                    ${sshopts[*]} \
+                    -o ProxyCommand="${sshproxy}" \
+                    ${sshuser:?}@${internalip:?}
+
+
+        done
+
+
+
+
+        # -----------------------------------------------------
+        # Login to our controller node and query the list of ROE topics.
+        #[root@openstacker]
+
+            echo "
+                docker run --rm phymatopus/kafkacat \
+                    -b ${roeconnect:?} \
+                    -L
+                " \
+            | ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${controlip:?}
+
+
+
+                Metadata for all topics (from broker 1: 172.16.49.12:9092/1):
+                 4 brokers:
+                  broker 2 at 172.16.49.214:9092
+                  broker 1 at 172.16.49.12:9092
+                  broker 3 at 172.16.49.217:9092
+                  broker 0 at 172.16.49.208:9092
+                 5 topics:
+                  topic "ztf_20180619_programid1" with 16 partitions:
+                    partition 8, leader 3, replicas: 3,1,2, isrs: 3,1,2
+                    partition 11, leader 2, replicas: 2,0,1, isrs: 2,1,0
+                    ....
+                    ....
+                  topic "ztf_20180620_programid1" with 16 partitions:
+                    partition 8, leader 3, replicas: 3,1,2, isrs: 3,1,2
+                    partition 11, leader 2, replicas: 2,0,1, isrs: 2,0,1
+                    ....
+                    ....
+                  topic "__consumer_offsets" with 50 partitions:
+                    partition 23, leader 2, replicas: 2,0,1, isrs: 2,1,0
+                    partition 41, leader 0, replicas: 0,1,2, isrs: 1,2,0
+                    ....
+                    ....
+                  topic "__confluent.support.metrics" with 1 partitions:
+                    partition 0, leader 0, replicas: 0, isrs: 0
+                  topic "ztf_20180618_programid1" with 16 partitions:
+                    partition 8, leader 1, replicas: 1,0,2, isrs: 1,2,0
+                    partition 11, leader 0, replicas: 0,3,1, isrs: 3,1,0
+                    ....
+                    ....
+
+
+
+        # -----------------------------------------------------
+        # Login to our controller node and check the client offsets.
+        #[root@openstacker]
+
+            echo "
+                docker run --rm phymatopus/kafka-core \
+                    bin/kafka-consumer-groups.sh \
+                        --bootstrap-server "${ztfconnect}" \
+                        --describe \
+                        --group "${groupid}"
+                " \
+            | ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${controlip:?} | tee lits.txt
+
+
+                    TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                 HOST             CLIENT-ID
+                    ztf_20180620_programid1 1          143             159             16              ztf-mirror.roe.ac.uk-0-62b7495d-eba2-4208-8556-c282b74b96fd /129.215.255.235 ztf-mirror.roe.ac.uk-0
+                    ztf_20180620_programid1 7          143             159             16              ztf-mirror.roe.ac.uk-1-7a178c39-9b71-441e-8f30-fddd025a205b /129.215.255.235 ztf-mirror.roe.ac.uk-1
+                    ztf_20180620_programid1 13         150             159             9               ztf-mirror.roe.ac.uk-3-833820e9-4e93-4863-8d84-dbfdba573da9 /129.215.255.235 ztf-mirror.roe.ac.uk-3
+                    ztf_20180620_programid1 5          142             160             18              ztf-mirror.roe.ac.uk-1-34c3f4f6-099f-4ef2-8c29-19b9d976eebb /129.215.255.235 ztf-mirror.roe.ac.uk-1
+                    ztf_20180620_programid1 0          150             159             9               ztf-mirror.roe.ac.uk-0-13ee0716-ed09-486a-9777-13ada21dfac2 /129.215.255.235 ztf-mirror.roe.ac.uk-0
+                    ztf_20180620_programid1 9          152             159             7               ztf-mirror.roe.ac.uk-2-10816872-16e4-4247-b7f9-e51cbb681441 /129.215.255.235 ztf-mirror.roe.ac.uk-2
+                    ztf_20180620_programid1 2          141             160             19              ztf-mirror.roe.ac.uk-0-7dccd33c-cb48-4523-95ee-ce6257335ab9 /129.215.255.235 ztf-mirror.roe.ac.uk-0
+                    ztf_20180620_programid1 11         142             160             18              ztf-mirror.roe.ac.uk-2-77458a10-1160-4f81-a7bd-565e591d3e8b /129.215.255.235 ztf-mirror.roe.ac.uk-2
+                    ztf_20180620_programid1 3          146             159             13              ztf-mirror.roe.ac.uk-0-c1dc1b90-d7ef-4834-95d3-5db070ba3146 /129.215.255.235 ztf-mirror.roe.ac.uk-0
+                    ztf_20180620_programid1 4          152             160             8               ztf-mirror.roe.ac.uk-1-2cec2abe-b36e-47ab-b14f-28bc2c5e4220 /129.215.255.235 ztf-mirror.roe.ac.uk-1
+                    ztf_20180620_programid1 6          146             159             13              ztf-mirror.roe.ac.uk-1-55fe9e97-48ad-4798-821f-ebb7ea618805 /129.215.255.235 ztf-mirror.roe.ac.uk-1
+                    ztf_20180620_programid1 8          143             160             17              ztf-mirror.roe.ac.uk-2-02555569-e0e5-4ec4-af57-e53685989fc3 /129.215.255.235 ztf-mirror.roe.ac.uk-2
+                    ztf_20180620_programid1 12         140             159             19              ztf-mirror.roe.ac.uk-3-205c8ab5-26a6-4d00-8299-b42ff63ebe9a /129.215.255.235 ztf-mirror.roe.ac.uk-3
+                    ztf_20180620_programid1 10         146             160             14              ztf-mirror.roe.ac.uk-2-697f5a8f-baa7-40d5-bafb-c4ddc8de0a8b /129.215.255.235 ztf-mirror.roe.ac.uk-2
+                    .....
+                    .....
+                    
+
+        # -----------------------------------------------------
+        # Login to our controller node and query the list of ZTF topics..
+        #[root@openstacker]
+
+            echo "
+                docker run --rm phymatopus/kafkacat \
+                    -b "${ztfconnect}" \
+                    -L
+                " \
+            | ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${controlip:?}
+
+
+                Metadata for all topics (from broker 0: public.alerts.ztf.uw.edu:9092/0):
+                 1 brokers:
+                  broker 0 at public.alerts.ztf.uw.edu:9092
+                 26 topics:
+                  topic "ztf_20180614_programid1" with 14 partitions:
+                    partition 8, leader 0, replicas: 0, isrs: 0
+                    partition 11, leader 0, replicas: 0, isrs: 0
+                    ....
+                    ....
+                  topic "ztf_20180619_programid1" with 14 partitions:
+                    partition 8, leader 0, replicas: 0, isrs: 0
+                    partition 11, leader 0, replicas: 0, isrs: 0
+                    ....
+                    ....
+                  topic "ztf_20180606_programid1" with 14 partitions:
+                    partition 8, leader 0, replicas: 0, isrs: 0
+                    partition 11, leader 0, replicas: 0, isrs: 0
+                    ....
+                    ....
+                  topic "ztf_test" with 14 partitions:
+                    partition 8, leader 0, replicas: 0, isrs: 0
+                    partition 11, leader 0, replicas: 0, isrs: 0
+                    ....
+                    ....
+                  topic "ztf_20180609_programid1" with 14 partitions:
+                    partition 8, leader 0, replicas: 0, isrs: 0
+                    partition 11, leader 0, replicas: 0, isrs: 0
+                    ....
+                    ....
+                  topic "ztf_20180601_programid1" with 14 partitions:
+                    partition 8, leader 0, replicas: 0, isrs: 0
+                    partition 11, leader 0, replicas: 0, isrs: 0
+                    ....
+                    ....
+                  topic "ztf_20180604_programid1" with 14 partitions:
+                    partition 8, leader 0, replicas: 0, isrs: 0
+                    partition 11, leader 0, replicas: 0, isrs: 0
+                    ....
+                    ....
+                  topic "ztf_20180528_programid1" with 14 partitions:
+                    partition 8, leader 0, replicas: 0, isrs: 0
+                    partition 11, leader 0, replicas: 0, isrs: 0
+                    ....
+                    ....
+                  topic "ztf_20180620_programid1" with 14 partitions:
+                    partition 8, leader 0, replicas: 0, isrs: 0
+                    partition 11, leader 0, replicas: 0, isrs: 0
+                    ....
+                    ....
+                  topic "ztf_20180603_programid1" with 14 partitions:
+                    partition 8, leader 0, replicas: 0, isrs: 0
+                    partition 11, leader 0, replicas: 0, isrs: 0
+                    ....
+                    ....
+                  topic "ztf_20180531_programid1" with 14 partitions:
+                    partition 8, leader 0, replicas: 0, isrs: 0
+                    partition 11, leader 0, replicas: 0, isrs: 0
+                    ....
+                    ....
+                  topic "__consumer_offsets" with 50 partitions:
+                    partition 23, leader 0, replicas: 0, isrs: 0
+                    partition 41, leader 0, replicas: 0, isrs: 0
+                    ....
+                    ....
+                  topic "ztf_20180608_programid1" with 14 partitions:
+                    partition 8, leader 0, replicas: 0, isrs: 0
+                    partition 11, leader 0, replicas: 0, isrs: 0
+                    ....
+                    ....
+                  topic "ztf_20180602_programid1" with 14 partitions:
+                    partition 8, leader 0, replicas: 0, isrs: 0
+                    partition 11, leader 0, replicas: 0, isrs: 0
+                    ....
+                    ....
+                  topic "ztf_20180616_programid1" with 14 partitions:
+                    partition 8, leader 0, replicas: 0, isrs: 0
+                    partition 11, leader 0, replicas: 0, isrs: 0
+                    ....
+                    ....
+                  topic "ztf_20180612_programid1" with 14 partitions:
+                    partition 8, leader 0, replicas: 0, isrs: 0
+                    partition 11, leader 0, replicas: 0, isrs: 0
+                    ....
+                    ....
+                  topic "ztf_20180605_programid1" with 14 partitions:
+                    partition 8, leader 0, replicas: 0, isrs: 0
+                    partition 11, leader 0, replicas: 0, isrs: 0
+                    ....
+                    ....
+                  topic "ztf_20180610_programid1" with 14 partitions:
+                    partition 8, leader 0, replicas: 0, isrs: 0
+                    partition 11, leader 0, replicas: 0, isrs: 0
+                    ....
+                    ....
+                  topic "ztf_20180607_programid1" with 14 partitions:
+                    partition 8, leader 0, replicas: 0, isrs: 0
+                    partition 11, leader 0, replicas: 0, isrs: 0
+                    ....
+                    ....
+                  topic "ztf_20180613_programid1" with 14 partitions:
+                    partition 8, leader 0, replicas: 0, isrs: 0
+                    partition 11, leader 0, replicas: 0, isrs: 0
+                    ....
+                    ....
+                  topic "ztf_20180617_programid1" with 14 partitions:
+                    partition 8, leader 0, replicas: 0, isrs: 0
+                    partition 11, leader 0, replicas: 0, isrs: 0
+                    ....
+                    ....
+                  topic "ztf_20180611_programid1" with 14 partitions:
+                    partition 8, leader 0, replicas: 0, isrs: 0
+                    partition 11, leader 0, replicas: 0, isrs: 0
+                    ....
+                    ....
+                  topic "ztf_mjuric" with 14 partitions:
+                    partition 8, leader 0, replicas: 0, isrs: 0
+                    partition 11, leader 0, replicas: 0, isrs: 0
+                    ....
+                    ....
+                  topic "ztf" with 14 partitions:
+                    partition 8, leader 0, replicas: 0, isrs: 0
+                    partition 11, leader 0, replicas: 0, isrs: 0
+                    ....
+                    ....
+                  topic "ztf_20180618_programid1" with 14 partitions:
+                    partition 8, leader 0, replicas: 0, isrs: 0
+                    partition 11, leader 0, replicas: 0, isrs: 0
+                    ....
+                    ....
+                  topic "ztf_20180615_programid1" with 14 partitions:
+                    partition 8, leader 0, replicas: 0, isrs: 0
+                    partition 11, leader 0, replicas: 0, isrs: 0
+                    ....
+                    ....
+
+
+        # -----------------------------------------------------
+        # Login to our controller node and query the list of ROE topics..
+        #[root@openstacker]
+
+            echo "
+                docker run --rm phymatopus/kafkacat \
+                    -b "${roeconnect}" \
+                    -L
+                " \
+            | ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${controlip:?}
+
+                Metadata for all topics (from broker 1: 172.16.49.12:9092/1):
+                 4 brokers:
+                  broker 2 at 172.16.49.214:9092
+                  broker 1 at 172.16.49.12:9092
+                  broker 3 at 172.16.49.217:9092
+                  broker 0 at 172.16.49.208:9092
+                 5 topics:
+                  topic "ztf_20180619_programid1" with 16 partitions:
+                    partition 8, leader 3, replicas: 3,1,2, isrs: 3,1,2
+                    partition 11, leader 2, replicas: 2,0,1, isrs: 2,1,0
+                    ....
+                    ....
+                  topic "ztf_20180620_programid1" with 16 partitions:
+                    partition 8, leader 3, replicas: 3,1,2, isrs: 3,1,2
+                    partition 11, leader 2, replicas: 2,0,1, isrs: 2,0,1
+                    ....
+                    ....
+                  topic "__consumer_offsets" with 50 partitions:
+                    partition 23, leader 2, replicas: 2,0,1, isrs: 2,1,0
+                    partition 41, leader 0, replicas: 0,1,2, isrs: 1,2,0
+                    ....
+                    ....
+                  topic "__confluent.support.metrics" with 1 partitions:
+                    partition 0, leader 0, replicas: 0, isrs: 0
+                  topic "ztf_20180618_programid1" with 16 partitions:
+                    partition 8, leader 1, replicas: 1,0,2, isrs: 1,2,0
+                    partition 11, leader 0, replicas: 0,3,1, isrs: 3,1,0
+                    ....
+                    ....
+
+
+
+# -----------------------------------------------------
+# Login and tail the MirrorMaker logs.
+#[root@openstacker]
+
+    ssh trop03
+        ssh Umiawyth
+            ssh -A 172.16.49.211
+                ssh -A 192.168.1.25
+                ssh -A 192.168.1.22
+                ssh -A 192.168.1.7
+                ssh -A 192.168.1.9
+
+                    docker ps -a
+                    docker logs -f stevedore_tina_1
+
+

@@ -1,0 +1,186 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2018, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#  
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+# -----------------------------------------------------
+# List all our nodes.
+#[root@openstacker]
+
+    openstack \
+        server list
+
+# -----------------------------------------------------
+# List all our floating addresses.
+#[root@openstacker]
+
+    openstack \
+        floating ip list
+
+# -----------------------------------------------------
+# List all our volumes.
+#[root@openstacker]
+
+    openstack \
+        volume list
+
+# -----------------------------------------------------
+# List all security groups.
+#[root@openstacker]
+
+    openstack \
+        security group list
+
+# -----------------------------------------------------
+# Delete nodes that match our project name.
+#[root@openstacker]
+
+    match="^${phym_project:?}*"
+    match="^${phym_project:?}-kafka*"
+    match="^${phym_project:?}-zoo*"
+
+    for ident in $(
+        openstack \
+            server list \
+            --format json \
+        | jq -r ".[] | select(.Name | test(\"${match:?}\")) | .ID"
+        )
+        do
+            echo "ID [$ident]"
+            openstack \
+                server \
+                delete \
+                    "${ident}"
+        done
+
+# -----------------------------------------------------
+# Delete unattached floating addresses.
+#[root@openstacker]
+
+    for ident in $(
+        openstack \
+            floating ip list \
+            --format json \
+        | jq -r '.[] | select(.Port == null) | .ID'
+        )
+        do
+            echo "ID [$ident]"
+            openstack \
+                floating ip \
+                delete \
+                    "${ident}"
+        done
+
+# -----------------------------------------------------
+# Delete unattached volumes.
+#[root@openstacker]
+
+    for ident in $(
+        openstack \
+            volume list \
+            --format json \
+        | jq -r '.[] | select((.Status == "available") or (.Status == "error")) | .ID'
+        )
+        do
+            echo "ID [$ident]"
+            openstack \
+                volume \
+                delete \
+                    "${ident}"
+        done
+
+# -----------------------------------------------------
+# Delete matching security groups.
+#[root@openstacker]
+
+    match="^${phym_project:?}*"
+
+    for ident in $(
+        openstack \
+            security group list \
+            --format json \
+        | jq -r ".[] | select(.Name | test(\"${match:?}\")) | .ID"
+        )
+        do
+            echo "ID [$ident]"
+            openstack \
+                security group \
+                delete \
+                    "${ident}"
+        done
+
+# -----------------------------------------------------
+# Delete *all* our instances.
+# WARNING - use with care - this will do what it says.
+#[root@openstacker]
+
+    for ident in $(
+        openstack \
+            server list \
+            --format json \
+        | jq -r '.[] | .ID'
+        )
+        do
+            echo "ID [$ident]"
+            openstack \
+                server \
+                delete \
+                    "${ident}"
+        done
+
+# -----------------------------------------------------
+# Delete *ALL* our floating addresses.
+# WARNING - use with care - this will do what it says.
+#[root@openstacker]
+
+    for ident in $(
+        openstack \
+            floating ip list \
+            --format json \
+        | jq -r '.[] | .ID'
+        )
+        do
+            echo "ID [$ident]"
+            openstack \
+                floating ip \
+                delete \
+                    "${ident}"
+        done
+
+# -----------------------------------------------------
+# Delete *ALL* our volumes.
+# WARNING - use with care - this will do what it says.
+#[root@openstacker]
+
+    for ident in $(
+        openstack \
+            volume list \
+            --format json \
+        | jq -r '.[] | .ID'
+        )
+        do
+            echo "ID [$ident]"
+            openstack \
+                volume \
+                delete \
+                    "${ident}"
+        done
+
+

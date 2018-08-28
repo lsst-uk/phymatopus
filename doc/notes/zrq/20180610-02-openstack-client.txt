@@ -1,0 +1,65 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2018, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#  
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+# -----------------------------------------------------
+# Build our containers.
+#[user@desktop]
+
+    source "${HOME}/phymatopus.settings"
+    pushd "${PHYMATOPUS_CODE:?}"
+
+        export buildtag=$(date '+%Y.%m.%d')
+
+        source bin/util.sh
+        dockerfiles ${buildtag}
+
+        docker build \
+            --tag phymatopus/fedora:${buildtag:?} \
+            docker/fedora
+
+        docker build \
+            --tag phymatopus/openstack-client:${buildtag:?} \
+            docker/openstack-client
+
+    popd
+
+# -----------------------------------------------------
+# Login to the Docker registry.
+#[user@desktop]
+
+    docker login \
+        --username $(secret docker.io.user) \
+        --password $(secret docker.io.pass)
+
+# -----------------------------------------------------
+# Tag and push our containers.
+#[user@desktop]
+
+    docker tag  "phymatopus/fedora:${buildtag:?}" "phymatopus/fedora:latest"
+    docker push "phymatopus/fedora:${buildtag:?}"
+    docker push "phymatopus/fedora:latest"
+
+    docker tag  "phymatopus/openstack-client:${buildtag:?}" "phymatopus/openstack-client:latest"
+    docker push "phymatopus/openstack-client:${buildtag:?}"
+    docker push "phymatopus/openstack-client:latest"
+
+

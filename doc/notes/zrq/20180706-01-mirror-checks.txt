@@ -1,0 +1,851 @@
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2017, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+# -----------------------------------------------------
+# Login to our external VM.
+#[user@desktop]
+
+    ssh Etalema
+
+    # -----------------------------------------------------
+    # Check our secrets function.
+    #[user@virtual]
+
+        secret frog
+
+    # -----------------------------------------------------
+    # Create a container to work with.
+    #[user@virtual]
+
+        docker run \
+            --rm \
+            --tty \
+            --interactive \
+            --hostname openstacker \
+            --env SSH_AUTH_SOCK=/tmp/ssh_auth_sock \
+            --volume "${HOME}/settings/:/etc/phymatopus/" \
+            --volume ${SSH_AUTH_SOCK}:/tmp/ssh_auth_sock \
+            phymatopus/openstack-client \
+            bash
+
+        # -----------------------------------------------------
+        # Load our OpenStack settings.
+        #[root@openstacker]
+
+            source '/etc/phymatopus/openstack.settings'
+
+        # -----------------------------------------------------
+        # Load our OpenStack and Eleanor functions.
+        #[root@openstacker]
+
+            source 'openstack-utils.sh'
+            source 'eleanor-utils.sh'
+            source 'eleanor-init.sh'
+
+        # -----------------------------------------------------
+        # Load our cluster and ZTF settings.
+        #[root@openstacker]
+
+            source '/etc/phymatopus/cluster.settings'
+            source '/etc/phymatopus/ztf.settings'
+
+        # -----------------------------------------------------
+        # Select a specific topic date if we are doing this before midnight.
+        #[root@openstacker]
+
+            #topiclist="ztf_20180702_programid1"
+
+        # -----------------------------------------------------
+        # Process the gobal list of nodes.
+        #[root@openstacker]
+
+            unset controller
+
+            unset unknowns
+            unknowns=()
+
+            unset kfidents
+            kfidents=()
+
+            unset mmidents
+            mmidents=()
+
+            unset zkidents
+            zkidents=()
+
+            echo ""
+            echo "Processing OpenStack nodes"
+            
+            for ident in $(
+                openstack \
+                    server list \
+                    --format json \
+                | jq -r '.[] | .ID'
+                )
+                do
+                    echo "Ident [$ident]"
+                    getvminfo "${ident:?}"
+
+                    name=$(getvmname)
+                    echo "Name  [$name]"
+
+                    case "${name}" in
+
+                        ${phym_project:?}-zookeeper*)
+                            echo "Match zookeeper"
+                            zkidents+=(${ident})
+                            ;;
+                            
+                        ${phym_project:?}-mirror*)
+                            echo "Match mirror"
+                            mmidents+=(${ident})
+                            ;;
+
+                        ${phym_project:?}-kafka*)
+                            echo "Match kafka"
+                            kfidents+=(${ident})
+                            ;;
+
+                        ${phym_project:?}-control*)
+                            echo "Match control"
+                            controller=${ident}
+                            ;;
+
+                        *)
+                            echo "unknown"
+                            unknowns+=(${ident})
+                            ;;
+                    esac
+                done
+
+        # -----------------------------------------------------
+        # Get our controller address.
+        #[root@openstacker]
+
+            getvminfo "${controller:?}"
+            controlip=$(geteleanor172)
+
+        # -----------------------------------------------------
+        # Configure our ssh proxy command.
+        #[root@openstacker]
+
+            sshproxy="ssh ${sshopts[*]} ${sshuser:?}@${controlip:?} nc %h %p"
+
+        # -----------------------------------------------------
+        # Check the client offsets.
+        #[root@openstacker]
+
+            echo "
+                docker run --rm phymatopus/kafka-core \
+                    bin/kafka-consumer-groups.sh \
+                        --bootstrap-server "${ztfconnect:?}" \
+                        --describe \
+                        --group "${groupid:?}"
+                " \
+            | ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${controlip:?} | sort | tee lits.txt
+
+
+                TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                 HOST             CLIENT-ID
+                ztf_20180706_programid1 0          9732            9732            0               ztf-mirror.roe.ac.uk-0-4a4bfb93-7284-4602-ba7d-59c0fe66b2be /129.215.255.235 ztf-mirror.roe.ac.uk-0
+                ztf_20180706_programid1 1          9731            9731            0               ztf-mirror.roe.ac.uk-0-55d9481a-f3e7-4d26-b188-f70eb1c94ac6 /129.215.255.235 ztf-mirror.roe.ac.uk-0
+                ztf_20180706_programid1 10         9731            9731            0               ztf-mirror.roe.ac.uk-2-9ef156e5-5bcf-43a0-8297-4a25d6d38757 /129.215.255.235 ztf-mirror.roe.ac.uk-2
+                ztf_20180706_programid1 11         9732            9732            0               ztf-mirror.roe.ac.uk-2-fb7a17f1-2753-49bd-beb4-9abd392c0a12 /129.215.255.235 ztf-mirror.roe.ac.uk-2
+                ztf_20180706_programid1 12         9732            9732            0               ztf-mirror.roe.ac.uk-3-904ab847-bcbd-40be-99ae-59ca768c7fb7 /129.215.255.235 ztf-mirror.roe.ac.uk-3
+                ztf_20180706_programid1 13         9731            9731            0               ztf-mirror.roe.ac.uk-3-9c49fbb4-e5a3-4bdd-afe0-513867d323fe /129.215.255.235 ztf-mirror.roe.ac.uk-3
+                ztf_20180706_programid1 2          9732            9732            0               ztf-mirror.roe.ac.uk-0-9dbb6b4f-fb3e-4843-a8c0-d5e1d6638753 /129.215.255.235 ztf-mirror.roe.ac.uk-0
+                ztf_20180706_programid1 3          9732            9732            0               ztf-mirror.roe.ac.uk-0-f76ba85b-5ca3-4674-90e8-3f1308c3b180 /129.215.255.235 ztf-mirror.roe.ac.uk-0
+                ztf_20180706_programid1 4          9731            9731            0               ztf-mirror.roe.ac.uk-1-3ffb5fa7-9abe-42e5-82af-306b81c1d562 /129.215.255.235 ztf-mirror.roe.ac.uk-1
+                ztf_20180706_programid1 5          9731            9731            0               ztf-mirror.roe.ac.uk-1-5bfa4d1b-2e3d-41d1-bb92-bce0a45d86ea /129.215.255.235 ztf-mirror.roe.ac.uk-1
+                ztf_20180706_programid1 6          9732            9732            0               ztf-mirror.roe.ac.uk-1-a6d84d6f-6750-4955-a0e0-2e4bde04f2d6 /129.215.255.235 ztf-mirror.roe.ac.uk-1
+                ztf_20180706_programid1 7          9731            9731            0               ztf-mirror.roe.ac.uk-1-cfbc3c85-98f2-4550-84ec-7e802f8aa2e1 /129.215.255.235 ztf-mirror.roe.ac.uk-1
+                ztf_20180706_programid1 8          9732            9732            0               ztf-mirror.roe.ac.uk-2-04931ef7-76e9-47d8-a5b4-e1801c50d383 /129.215.255.235 ztf-mirror.roe.ac.uk-2
+                ztf_20180706_programid1 9          9731            9731            0               ztf-mirror.roe.ac.uk-2-74e98dc9-980f-4090-957a-620aea4f9189 /129.215.255.235 ztf-mirror.roe.ac.uk-2
+
+
+        # -----------------------------------------------------
+        # Update the target topic name.
+        #[root@openstacker]
+
+            for ident in ${mmidents[@]}
+                do
+                    getvminfo "${ident:?}"
+                    internalip=$(geteleanor192)
+
+echo "
+Ident   [${ident}]
+Name    [$(getvmname)]
+Address [${internalip}]
+Topics  [${topiclist}]
+"
+
+                    echo "
+
+                        docker-compose \
+                            --file mirror.yml \
+                            down
+
+                        sed -i \"
+                            s/^topiclist=.*/topiclist=${topiclist:?}/
+                            \" mirror.env
+
+                        docker-compose \
+                            --file mirror.yml \
+                            up -d
+
+
+                        " \
+                    | ssh \
+                        ${sshopts[*]} \
+                        -o ProxyCommand="${sshproxy:?}" \
+                        ${sshuser:?}@${internalip:?}
+
+                done
+
+        # -----------------------------------------------------
+        # Check the offsets.
+        #[root@openstacker]
+
+            echo "
+                docker run --rm phymatopus/kafka-core \
+                    bin/kafka-consumer-groups.sh \
+                        --bootstrap-server "${ztfconnect:?}" \
+                        --describe \
+                        --group "${groupid:?}"
+                " \
+            | ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${controlip:?} | sort | tee lits.txt
+
+
+                TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID     HOST            CLIENT-ID
+                ztf_20180706_programid1 0          9732            9732            0               -               -               -
+                ztf_20180706_programid1 1          9731            9731            0               -               -               -
+                ztf_20180706_programid1 10         9731            9731            0               -               -               -
+                ztf_20180706_programid1 11         9732            9732            0               -               -               -
+                ztf_20180706_programid1 12         9732            9732            0               -               -               -
+                ztf_20180706_programid1 13         9731            9731            0               -               -               -
+                ztf_20180706_programid1 2          9732            9732            0               -               -               -
+                ztf_20180706_programid1 3          9732            9732            0               -               -               -
+                ztf_20180706_programid1 4          9731            9731            0               -               -               -
+                ztf_20180706_programid1 5          9731            9731            0               -               -               -
+                ztf_20180706_programid1 6          9732            9732            0               -               -               -
+                ztf_20180706_programid1 7          9731            9731            0               -               -               -
+                ztf_20180706_programid1 8          9732            9732            0               -               -               -
+                ztf_20180706_programid1 9          9731            9731            0               -               -               -
+
+
+        # -----------------------------------------------------
+        # Check the disc space on each of our Kafka nodes.
+        #[root@openstacker]
+
+            innerpath=/var/local/inner/kafka
+            outerpath=/var/local/outer/kafka
+            
+            for ident in ${kfidents[@]}
+                do
+                    getvminfo "${ident:?}"
+                    internalip=$(geteleanor192)
+
+echo "
+-----------------------------------------------------
+Ident   [${ident}]
+Name    [$(getvmname)]
+Address [${internalip}]
+"
+
+                    echo "
+                        df -h /
+                        echo "---- ----"
+                        df -h "${outerpath:?}/data-00"
+                        echo "---- ----"
+                        df -h "${outerpath:?}/data-01"
+                        " \
+                    | ssh \
+                        ${sshopts[*]} \
+                        -o ProxyCommand="${sshproxy}" \
+                        ${sshuser:?}@${internalip:?}
+
+                done
+
+
+                -----------------------------------------------------
+                Ident   [bb409e47-cf2c-4e64-aea6-e893e5d05100]
+                Name    [Raminiara-kafka-4]
+                Address [192.168.1.5]
+
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vda3        39G  2.2G   35G   6% /
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdb        512G   84G  427G  17% /var/local/outer/kafka/data-00
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdc        512G   84G  427G  17% /var/local/outer/kafka/data-01
+
+                -----------------------------------------------------
+                Ident   [aa73a427-2e9f-413d-a37b-3eaf35799f00]
+                Name    [Raminiara-kafka-3]
+                Address [192.168.1.8]
+
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vda3        39G  2.2G   35G   6% /
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdb        512G   84G  427G  17% /var/local/outer/kafka/data-00
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdc        512G   84G  427G  17% /var/local/outer/kafka/data-01
+
+                -----------------------------------------------------
+                Ident   [6f971e48-f760-43bf-ad98-c38a7b90c321]
+                Name    [Raminiara-kafka-2]
+                Address [192.168.1.15]
+
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vda3        39G  2.2G   35G   6% /
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdb        512G   84G  427G  17% /var/local/outer/kafka/data-00
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdc        512G   84G  427G  17% /var/local/outer/kafka/data-01
+
+                -----------------------------------------------------
+                Ident   [0824e436-6213-4893-8a67-40d152e7402c]
+                Name    [Raminiara-kafka-1]
+                Address [192.168.1.10]
+
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vda3        39G  2.3G   35G   7% /
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdb        512G   84G  427G  17% /var/local/outer/kafka/data-00
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdc        512G   84G  427G  17% /var/local/outer/kafka/data-01
+
+
+
+        # -----------------------------------------------------
+        # Login to one of our Kafka nodes and watch.
+        #[root@openstacker]
+
+            ident=${kfidents[1]}
+            getvminfo "${ident:?}"
+            internalip=$(geteleanor192)
+
+echo "
+-----------------------------------------------------
+Ident   [${ident}]
+Name    [$(getvmname)]
+Address [${internalip}]
+"
+
+            ssh \
+                ${sshopts[*]} \
+                -o ProxyCommand="${sshproxy}" \
+                ${sshuser:?}@${internalip:?}
+
+
+                # Check the resources and activity 
+                top
+
+                # Check the resources and activity 
+                htop
+
+
+                # Check the memory 
+                free
+                                  total        used        free      shared  buff/cache   available
+                    Mem:        4039000     1175008      119260         272     2744732     2545548
+                    Swap:       1048572      189696      858876
+
+
+                # Check the memory 
+                free -h
+                                  total        used        free      shared  buff/cache   available
+                    Mem:           3.9G        1.1G        114M        272K        2.6G        2.4G
+                    Swap:          1.0G        185M        838M
+
+
+                # Check what containers are running
+                docker ps
+
+                    CONTAINER ID        IMAGE                         COMMAND                  CREATED             STATUS              PORTS                    NAMES
+                    b31b6de75cf4        confluentinc/cp-kafka:4.1.1   "/etc/confluent/dock…"   2 weeks ago         Up 2 weeks          0.0.0.0:9092->9092/tcp   stevedore_emily_1
+
+
+
+                # Check the Kafka container 
+                docker top stevedore_emily_1
+
+                    UID                 PID                 PPID                C                   STIME               TTY                 TIME                CMD
+                    root                1423                1408                1                   Jun15               ?                   09:56:40            java ....
+                    
+                    java \
+                        -Xmx1G \
+                        -Xms1G \
+                        -server \
+                        -XX:+UseG1GC \
+                        -XX:MaxGCPauseMillis=20 \
+                        -XX:InitiatingHeapOccupancyPercent=35 \
+                        -XX:+ExplicitGCInvokesConcurrent \
+                        -Djava.awt.headless=true \
+                        -Xloggc:/var/log/kafka/kafkaServer-gc.log \
+                        -verbose:gc \
+                        -XX:+PrintGCDetails \
+                        -XX:+PrintGCDateStamps \
+                        -XX:+PrintGCTimeStamps \
+                        -XX:+UseGCLogFileRotation \
+                        -XX:NumberOfGCLogFiles=10 \
+                        -XX:GCLogFileSize=100M \
+                        -Dcom.sun.management.jmxremote=true \
+                        -Dcom.sun.management.jmxremote.authenticate=false \
+                        -Dcom.sun.management.jmxremote.ssl=false \
+                        -Dkafka.logs.dir=/var/log/kafka \
+                        -Dlog4j.configuration=file:/etc/kafka/log4j.properties \
+                        -cp /usr/bin/../share/java/kafka/*:/usr/bin/../share/java/confluent-support-metrics/*:/usr/share/java/confluent-support-metrics/* \
+                        io.confluent.support.metrics.SupportedKafka \
+                        /etc/kafka/kafka.properties
+
+
+                # Docker VM should have jq and xmllint installed
+                sudo dnf install jq
+
+                # Check the container mounts
+                docker inspect stevedore_emily_1 | jq '.[]|."Mounts"'
+
+                    [
+                      {
+                        "Type": "bind",
+                        "Source": "/var/local/outer/kafka/data-00",
+                        "Destination": "/var/local/inner/kafka/data-00",
+                        "Mode": "rw",
+                        "RW": true,
+                        "Propagation": "rprivate"
+                      },
+                      {
+                        "Type": "bind",
+                        "Source": "/var/local/outer/kafka/data-01",
+                        "Destination": "/var/local/inner/kafka/data-01",
+                        "Mode": "rw",
+                        "RW": true,
+                        "Propagation": "rprivate"
+                      },
+                      {
+                        "Type": "volume",
+                        "Name": "f9a65d74912272804f5a27292e2cfc1be5659f99b6d7e98b69c6f068db616b90",
+                        "Source": "/var/lib/docker/volumes/f9a65d74912272804f5a27292e2cfc1be5659f99b6d7e98b69c6f068db616b90/_data",
+                        "Destination": "/etc/kafka/secrets",
+                        "Driver": "local",
+                        "Mode": "",
+                        "RW": true,
+                        "Propagation": ""
+                      },
+                      {
+                        "Type": "volume",
+                        "Name": "b4a11159f1efdeec6adb88a5ec0c5bf1598fd9c0381112a88ea86fe3a2f2e987",
+                        "Source": "/var/lib/docker/volumes/b4a11159f1efdeec6adb88a5ec0c5bf1598fd9c0381112a88ea86fe3a2f2e987/_data",
+                        "Destination": "/var/lib/kafka/data",
+                        "Driver": "local",
+                        "Mode": "",
+                        "RW": true,
+                        "Propagation": ""
+                      }
+                    ]
+
+
+                # Login to the container and poke around
+                docker exec -it stevedore_emily_1 bash
+
+                    # Check the OS version
+                    cat /etc/debian_version 
+
+                        8.10
+
+                    # Locate the Kafka debug log
+                    ls /var/
+                        backups  cache	lib  local  lock  log  mail  opt  run  spool  tmp
+
+                    ls /var/log/
+                        alternatives.log  btmp	     dmesg     faillog	kafka	 wtmp
+                        apt		  confluent  dpkg.log  fsck	lastlog
+
+                    ls /var/log/confluent/
+                        -
+
+                    ls /var/log/kafka/
+                        kafkaServer-gc.log.0.current
+
+                    ls -al /var/log/kafka/kafkaServer-gc.log.0.current 
+                        -rw-r--r--. 1 root root 59111195 Jul  6 10:15 /var/log/kafka/kafkaServer-gc.log.0.current
+
+                    ls -alh /var/log/kafka/kafkaServer-gc.log.0.current 
+                        -rw-r--r--. 1 root root 57M Jul  6 10:15 /var/log/kafka/kafkaServer-gc.log.0.current
+
+                    tail -f /var/log/kafka/kafkaServer-gc.log.0.current 
+
+                       [Other: 2.6 ms]
+                          [Choose CSet: 0.0 ms]
+                          [Ref Proc: 0.2 ms]
+                          [Ref Enq: 0.0 ms]
+                          [Redirty Cards: 0.1 ms]
+                          [Humongous Register: 1.5 ms]
+                          [Humongous Reclaim: 0.0 ms]
+                          [Free CSet: 0.3 ms]
+                       [Eden: 46.0M(46.0M)->0.0B(44.0M) Survivors: 5120.0K->7168.0K Heap: 338.5M(1024.0M)->295.2M(1024.0M)]
+                     [Times: user=0.06 sys=0.00, real=0.03 secs] 
+                    2018-07-06T10:15:51.558+0000: 1792426.891: [GC pause (G1 Evacuation Pause) (young), 0.0516978 secs]
+                       [Parallel Time: 46.5 ms, GC Workers: 2]
+                          [GC Worker Start (ms): Min: 1792426891.6, Avg: 1792426892.9, Max: 1792426894.2, Diff: 2.7]
+                          [Ext Root Scanning (ms): Min: 0.0, Avg: 1.1, Max: 2.2, Diff: 2.2, Sum: 2.2]
+                          [Update RS (ms): Min: 5.6, Avg: 7.0, Max: 8.4, Diff: 2.8, Sum: 14.0]
+                             [Processed Buffers: Min: 17, Avg: 20.0, Max: 23, Diff: 6, Sum: 40]
+                          [Scan RS (ms): Min: 8.8, Avg: 8.8, Max: 8.9, Diff: 0.2, Sum: 17.7]
+                          [Code Root Scanning (ms): Min: 0.0, Avg: 0.0, Max: 0.0, Diff: 0.0, Sum: 0.0]
+                          [Object Copy (ms): Min: 26.9, Avg: 28.0, Max: 29.2, Diff: 2.4, Sum: 56.1]
+                          [Termination (ms): Min: 0.0, Avg: 0.1, Max: 0.1, Diff: 0.1, Sum: 0.1]
+                             [Termination Attempts: Min: 1, Avg: 1.0, Max: 1, Diff: 0, Sum: 2]
+                          [GC Worker Other (ms): Min: 0.0, Avg: 0.0, Max: 0.0, Diff: 0.0, Sum: 0.0]
+                          [GC Worker Total (ms): Min: 43.8, Avg: 45.1, Max: 46.4, Diff: 2.6, Sum: 90.2]
+                          [GC Worker End (ms): Min: 1792426938.0, Avg: 1792426938.0, Max: 1792426938.0, Diff: 0.0]
+                       [Code Root Fixup: 0.0 ms]
+                       [Code Root Purge: 0.0 ms]
+                       [Clear CT: 0.2 ms]
+                       [Other: 5.0 ms]
+                          [Choose CSet: 0.0 ms]
+                          [Ref Proc: 4.2 ms]
+                          [Ref Enq: 0.0 ms]
+                          [Redirty Cards: 0.2 ms]
+                          [Humongous Register: 0.1 ms]
+                          [Humongous Reclaim: 0.0 ms]
+                          [Free CSet: 0.2 ms]
+                       [Eden: 44.0M(44.0M)->0.0B(46.0M) Survivors: 7168.0K->5120.0K Heap: 339.2M(1024.0M)->297.4M(1024.0M)]
+                     [Times: user=0.05 sys=0.00, real=0.05 secs] 
+
+
+                # List the Kafka config files
+                ls /etc/kafka/
+
+                    connect-console-sink.properties     kafka.properties
+                    connect-console-source.properties   log4j.properties
+                    connect-distributed.properties      producer.properties
+                    connect-file-sink.properties        secrets
+                    connect-file-source.properties      server.properties
+                    connect-log4j.properties            tools-log4j.properties
+                    connect-standalone.properties       zookeeper.properties
+                    consumer.properties
+
+                # List the kafka properties
+                cat /etc/kafka/kafka.properties
+
+                    broker.id=2
+                    log.retention.bytes=-1
+                    advertised.listeners=PLAINTEXT://172.16.49.214:9092
+                    broker.rack=2
+                    log.retention.ms=-1
+                    zookeeper.connect=192.168.1.11:2181/kafka,192.168.1.16:2181/kafka,192.168.1.14:2181/kafka
+                    log.dirs=/var/local/inner/kafka/data-00,/var/local/inner/kafka/data-01
+                    listeners=PLAINTEXT://0.0.0.0:9092
+                    num.partitions=16
+                    message.max.bytes=10485760
+                    auto.create.topics.enable=true
+                    default.replication.factor=3
+
+                # List the log4j properties
+                cat /etc/kafka/log4j.properties
+
+                    log4j.rootLogger=INFO, stdout
+
+                    log4j.appender.stdout=org.apache.log4j.ConsoleAppender
+                    log4j.appender.stdout.layout=org.apache.log4j.PatternLayout
+                    log4j.appender.stdout.layout.ConversionPattern=[%d] %p %m (%c)%n
+
+                    log4j.logger.kafka.authorizer.logger=WARN
+                    log4j.logger.kafka.log.LogCleaner=INFO
+                    log4j.logger.kafka.producer.async.DefaultEventHandler=DEBUG
+                    log4j.logger.kafka.controller=TRACE
+                    log4j.logger.kafka.network.RequestChannel$=WARN
+                    log4j.logger.kafka.request.logger=WARN
+                    log4j.logger.state.change.logger=TRACE
+                    log4j.logger.kafka=INFO
+
+                # Exit the container
+
+
+            # Tail the container stdout
+            docker logs -f stevedore_emily_1
+
+
+
+                [2018-07-06 02:32:08,093] INFO [GroupMetadataManager brokerId=2] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+                [2018-07-06 02:42:08,093] INFO [GroupMetadataManager brokerId=2] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+                [2018-07-06 02:52:08,093] INFO [GroupMetadataManager brokerId=2] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+                [2018-07-06 03:02:08,094] INFO [GroupMetadataManager brokerId=2] Removed 0 expired offsets in 1 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+                [2018-07-06 03:12:08,094] INFO [GroupMetadataManager brokerId=2] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+                [2018-07-06 03:22:08,093] INFO [GroupMetadataManager brokerId=2] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+                [2018-07-06 03:32:08,093] INFO [GroupMetadataManager brokerId=2] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+                [2018-07-06 03:42:08,093] INFO [GroupMetadataManager brokerId=2] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+                [2018-07-06 03:52:08,093] INFO [GroupMetadataManager brokerId=2] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+                [2018-07-06 04:02:08,093] INFO [GroupMetadataManager brokerId=2] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+                [2018-07-06 04:12:08,093] INFO [GroupMetadataManager brokerId=2] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+                [2018-07-06 04:21:07,062] TRACE [Broker id=2] Received LeaderAndIsr request PartitionState(controllerEpoch=11, leader=1, leaderEpoch=0, isr=1,2,3, zkVersion=0, replicas=1,2,3, isNew=true) correlation id 201 from controller 0 epoch 11 for partition ztf_20180706_programid1-0 (state.change.logger)
+                [2018-07-06 04:21:07,062] TRACE [Broker id=2] Received LeaderAndIsr request PartitionState(controllerEpoch=11, leader=2, leaderEpoch=0, isr=2,3,0, zkVersion=0, replicas=2,3,0, isNew=true) correlation id 201 from controller 0 epoch 11 for partition ztf_20180706_programid1-1 (state.change.logger)
+                [2018-07-06 04:21:07,062] TRACE [Broker id=2] Received LeaderAndIsr request PartitionState(controllerEpoch=11, leader=0, leaderEpoch=0, isr=0,1,2, zkVersion=0, replicas=0,1,2, isNew=true) correlation id 201 from controller 0 epoch 11 for partition ztf_20180706_programid1-15 (state.change.logger)
+                [2018-07-06 04:21:07,062] TRACE [Broker id=2] Received LeaderAndIsr request PartitionState(controllerEpoch=11, leader=2, leaderEpoch=0, isr=2,0,1, zkVersion=0, replicas=2,0,1, isNew=true) correlation id 201 from controller 0 epoch 11 for partition ztf_20180706_programid1-5 (state.change.logger)
+                [2018-07-06 04:21:07,062] TRACE [Broker id=2] Received LeaderAndIsr request PartitionState(controllerEpoch=11, leader=0, leaderEpoch=0, isr=0,1,2, zkVersion=0, replicas=0,1,2, isNew=true) correlation id 201 from controller 0 epoch 11 for partition ztf_20180706_programid1-3 (state.change.logger)
+                [2018-07-06 04:21:07,062] TRACE [Broker id=2] Received LeaderAndIsr request PartitionState(controllerEpoch=11, leader=1, leaderEpoch=0, isr=1,0,2, zkVersion=0, replicas=1,0,2, isNew=true) correlation id 201 from controller 0 epoch 11 for partition ztf_20180706_programid1-8 (state.change.logger)
+                [2018-07-06 04:21:07,062] TRACE [Broker id=2] Received LeaderAndIsr request PartitionState(controllerEpoch=11, leader=2, leaderEpoch=0, isr=2,1,3, zkVersion=0, replicas=2,1,3, isNew=true) correlation id 201 from controller 0 epoch 11 for partition ztf_20180706_programid1-9 (state.change.logger)
+                [2018-07-06 04:21:07,062] TRACE [Broker id=2] Received LeaderAndIsr request PartitionState(controllerEpoch=11, leader=3, leaderEpoch=0, isr=3,1,2, zkVersion=0, replicas=3,1,2, isNew=true) correlation id 201 from controller 0 epoch 11 for partition ztf_20180706_programid1-6 (state.change.logger)
+                [2018-07-06 04:21:07,062] TRACE [Broker id=2] Received LeaderAndIsr request PartitionState(controllerEpoch=11, leader=0, leaderEpoch=0, isr=0,2,3, zkVersion=0, replicas=0,2,3, isNew=true) correlation id 201 from controller 0 epoch 11 for partition ztf_20180706_programid1-7 (state.change.logger)
+                [2018-07-06 04:21:07,062] TRACE [Broker id=2] Received LeaderAndIsr request PartitionState(controllerEpoch=11, leader=1, leaderEpoch=0, isr=1,2,3, zkVersion=0, replicas=1,2,3, isNew=true) correlation id 201 from controller 0 epoch 11 for partition ztf_20180706_programid1-12 (state.change.logger)
+                [2018-07-06 04:21:07,062] TRACE [Broker id=2] Received LeaderAndIsr request PartitionState(controllerEpoch=11, leader=2, leaderEpoch=0, isr=2,3,0, zkVersion=0, replicas=2,3,0, isNew=true) correlation id 201 from controller 0 epoch 11 for partition ztf_20180706_programid1-13 (state.change.logger)
+                [2018-07-06 04:21:07,063] TRACE [Broker id=2] Received LeaderAndIsr request PartitionState(controllerEpoch=11, leader=3, leaderEpoch=0, isr=3,2,0, zkVersion=0, replicas=3,2,0, isNew=true) correlation id 201 from controller 0 epoch 11 for partition ztf_20180706_programid1-10 (state.change.logger)
+                [2018-07-06 04:21:07,097] TRACE [Broker id=2] Handling LeaderAndIsr request correlationId 201 from controller 0 epoch 11 starting the become-leader transition for partition ztf_20180706_programid1-5 (state.change.logger)
+                [2018-07-06 04:21:07,097] TRACE [Broker id=2] Handling LeaderAndIsr request correlationId 201 from controller 0 epoch 11 starting the become-leader transition for partition ztf_20180706_programid1-9 (state.change.logger)
+                [2018-07-06 04:21:07,097] TRACE [Broker id=2] Handling LeaderAndIsr request correlationId 201 from controller 0 epoch 11 starting the become-leader transition for partition ztf_20180706_programid1-13 (state.change.logger)
+                [2018-07-06 04:21:07,097] TRACE [Broker id=2] Handling LeaderAndIsr request correlationId 201 from controller 0 epoch 11 starting the become-leader transition for partition ztf_20180706_programid1-1 (state.change.logger)
+                [2018-07-06 04:21:07,097] INFO [ReplicaFetcherManager on broker 2] Removed fetcher for partitions ztf_20180706_programid1-5,ztf_20180706_programid1-9,ztf_20180706_programid1-13,ztf_20180706_programid1-1 (kafka.server.ReplicaFetcherManager)
+                [2018-07-06 04:21:07,188] INFO [Log partition=ztf_20180706_programid1-5, dir=/var/local/inner/kafka/data-01] Loading producer state from offset 0 with message format version 2 (kafka.log.Log)
+                [2018-07-06 04:21:07,189] INFO [Log partition=ztf_20180706_programid1-5, dir=/var/local/inner/kafka/data-01] Completed load of log with 1 segments, log start offset 0 and log end offset 0 in 30 ms (kafka.log.Log)
+                [2018-07-06 04:21:07,190] INFO Created log for partition ztf_20180706_programid1-5 in /var/local/inner/kafka/data-01 with properties {compression.type -> producer, message.format.version -> 1.1-IV0, file.delete.delay.ms -> 60000, max.message.bytes -> 10485760, min.compaction.lag.ms -> 0, message.timestamp.type -> CreateTime, min.insync.replicas -> 1, segment.jitter.ms -> 0, preallocate -> false, min.cleanable.dirty.ratio -> 0.5, index.interval.bytes -> 4096, unclean.leader.election.enable -> false, retention.bytes -> -1, delete.retention.ms -> 86400000, cleanup.policy -> [delete], flush.ms -> 9223372036854775807, segment.ms -> 604800000, segment.bytes -> 1073741824, retention.ms -> -1, message.timestamp.difference.max.ms -> 9223372036854775807, segment.index.bytes -> 10485760, flush.messages -> 9223372036854775807}. (kafka.log.LogManager)
+                [2018-07-06 04:21:07,238] INFO [Partition ztf_20180706_programid1-5 broker=2] No checkpointed highwatermark is found for partition ztf_20180706_programid1-5 (kafka.cluster.Partition)
+                [2018-07-06 04:21:07,238] INFO Replica loaded for partition ztf_20180706_programid1-5 with initial high watermark 0 (kafka.cluster.Replica)
+                [2018-07-06 04:21:07,238] INFO Replica loaded for partition ztf_20180706_programid1-5 with initial high watermark 0 (kafka.cluster.Replica)
+                [2018-07-06 04:21:07,238] INFO Replica loaded for partition ztf_20180706_programid1-5 with initial high watermark 0 (kafka.cluster.Replica)
+                [2018-07-06 04:21:07,238] INFO [Partition ztf_20180706_programid1-5 broker=2] ztf_20180706_programid1-5 starts at Leader Epoch 0 from offset 0. Previous Leader Epoch was: -1 (kafka.cluster.Partition)
+                [2018-07-06 04:21:07,239] TRACE [Broker id=2] Stopped fetchers as part of become-leader request from controller 0 epoch 11 with correlation id 201 for partition ztf_20180706_programid1-5 (last update controller epoch 11) (state.change.logger)
+                [2018-07-06 04:21:07,244] INFO [Log partition=ztf_20180706_programid1-9, dir=/var/local/inner/kafka/data-00] Loading producer state from offset 0 with message format version 2 (kafka.log.Log)
+                [2018-07-06 04:21:07,244] INFO [Log partition=ztf_20180706_programid1-9, dir=/var/local/inner/kafka/data-00] Completed load of log with 1 segments, log start offset 0 and log end offset 0 in 1 ms (kafka.log.Log)
+                [2018-07-06 04:21:07,245] INFO Created log for partition ztf_20180706_programid1-9 in /var/local/inner/kafka/data-00 with properties {compression.type -> producer, message.format.version -> 1.1-IV0, file.delete.delay.ms -> 60000, max.message.bytes -> 10485760, min.compaction.lag.ms -> 0, message.timestamp.type -> CreateTime, min.insync.replicas -> 1, segment.jitter.ms -> 0, preallocate -> false, min.cleanable.dirty.ratio -> 0.5, index.interval.bytes -> 4096, unclean.leader.election.enable -> false, retention.bytes -> -1, delete.retention.ms -> 86400000, cleanup.policy -> [delete], flush.ms -> 9223372036854775807, segment.ms -> 604800000, segment.bytes -> 1073741824, retention.ms -> -1, message.timestamp.difference.max.ms -> 9223372036854775807, segment.index.bytes -> 10485760, flush.messages -> 9223372036854775807}. (kafka.log.LogManager)
+                [2018-07-06 04:21:07,246] INFO [Partition ztf_20180706_programid1-9 broker=2] No checkpointed highwatermark is found for partition ztf_20180706_programid1-9 (kafka.cluster.Partition)
+                [2018-07-06 04:21:07,246] INFO Replica loaded for partition ztf_20180706_programid1-9 with initial high watermark 0 (kafka.cluster.Replica)
+                [2018-07-06 04:21:07,246] INFO Replica loaded for partition ztf_20180706_programid1-9 with initial high watermark 0 (kafka.cluster.Replica)
+                [2018-07-06 04:21:07,246] INFO Replica loaded for partition ztf_20180706_programid1-9 with initial high watermark 0 (kafka.cluster.Replica)
+                [2018-07-06 04:21:07,246] INFO [Partition ztf_20180706_programid1-9 broker=2] ztf_20180706_programid1-9 starts at Leader Epoch 0 from offset 0. Previous Leader Epoch was: -1 (kafka.cluster.Partition)
+                [2018-07-06 04:21:07,246] TRACE [Broker id=2] Stopped fetchers as part of become-leader request from controller 0 epoch 11 with correlation id 201 for partition ztf_20180706_programid1-9 (last update controller epoch 11) (state.change.logger)
+                [2018-07-06 04:21:07,248] INFO [Log partition=ztf_20180706_programid1-13, dir=/var/local/inner/kafka/data-01] Loading producer state from offset 0 with message format version 2 (kafka.log.Log)
+                [2018-07-06 04:21:07,249] INFO [Log partition=ztf_20180706_programid1-13, dir=/var/local/inner/kafka/data-01] Completed load of log with 1 segments, log start offset 0 and log end offset 0 in 1 ms (kafka.log.Log)
+                [2018-07-06 04:21:07,249] INFO Created log for partition ztf_20180706_programid1-13 in /var/local/inner/kafka/data-01 with properties {compression.type -> producer, message.format.version -> 1.1-IV0, file.delete.delay.ms -> 60000, max.message.bytes -> 10485760, min.compaction.lag.ms -> 0, message.timestamp.type -> CreateTime, min.insync.replicas -> 1, segment.jitter.ms -> 0, preallocate -> false, min.cleanable.dirty.ratio -> 0.5, index.interval.bytes -> 4096, unclean.leader.election.enable -> false, retention.bytes -> -1, delete.retention.ms -> 86400000, cleanup.policy -> [delete], flush.ms -> 9223372036854775807, segment.ms -> 604800000, segment.bytes -> 1073741824, retention.ms -> -1, message.timestamp.difference.max.ms -> 9223372036854775807, segment.index.bytes -> 10485760, flush.messages -> 9223372036854775807}. (kafka.log.LogManager)
+                [2018-07-06 04:21:07,250] INFO [Partition ztf_20180706_programid1-13 broker=2] No checkpointed highwatermark is found for partition ztf_20180706_programid1-13 (kafka.cluster.Partition)
+                [2018-07-06 04:21:07,250] INFO Replica loaded for partition ztf_20180706_programid1-13 with initial high watermark 0 (kafka.cluster.Replica)
+                [2018-07-06 04:21:07,250] INFO Replica loaded for partition ztf_20180706_programid1-13 with initial high watermark 0 (kafka.cluster.Replica)
+                [2018-07-06 04:21:07,250] INFO Replica loaded for partition ztf_20180706_programid1-13 with initial high watermark 0 (kafka.cluster.Replica)
+                [2018-07-06 04:21:07,250] INFO [Partition ztf_20180706_programid1-13 broker=2] ztf_20180706_programid1-13 starts at Leader Epoch 0 from offset 0. Previous Leader Epoch was: -1 (kafka.cluster.Partition)
+                [2018-07-06 04:21:07,250] TRACE [Broker id=2] Stopped fetchers as part of become-leader request from controller 0 epoch 11 with correlation id 201 for partition ztf_20180706_programid1-13 (last update controller epoch 11) (state.change.logger)
+                [2018-07-06 04:21:07,253] INFO [Log partition=ztf_20180706_programid1-1, dir=/var/local/inner/kafka/data-00] Loading producer state from offset 0 with message format version 2 (kafka.log.Log)
+                [2018-07-06 04:21:07,253] INFO [Log partition=ztf_20180706_programid1-1, dir=/var/local/inner/kafka/data-00] Completed load of log with 1 segments, log start offset 0 and log end offset 0 in 1 ms (kafka.log.Log)
+                [2018-07-06 04:21:07,254] INFO Created log for partition ztf_20180706_programid1-1 in /var/local/inner/kafka/data-00 with properties {compression.type -> producer, message.format.version -> 1.1-IV0, file.delete.delay.ms -> 60000, max.message.bytes -> 10485760, min.compaction.lag.ms -> 0, message.timestamp.type -> CreateTime, min.insync.replicas -> 1, segment.jitter.ms -> 0, preallocate -> false, min.cleanable.dirty.ratio -> 0.5, index.interval.bytes -> 4096, unclean.leader.election.enable -> false, retention.bytes -> -1, delete.retention.ms -> 86400000, cleanup.policy -> [delete], flush.ms -> 9223372036854775807, segment.ms -> 604800000, segment.bytes -> 1073741824, retention.ms -> -1, message.timestamp.difference.max.ms -> 9223372036854775807, segment.index.bytes -> 10485760, flush.messages -> 9223372036854775807}. (kafka.log.LogManager)
+                [2018-07-06 04:21:07,254] INFO [Partition ztf_20180706_programid1-1 broker=2] No checkpointed highwatermark is found for partition ztf_20180706_programid1-1 (kafka.cluster.Partition)
+                [2018-07-06 04:21:07,254] INFO Replica loaded for partition ztf_20180706_programid1-1 with initial high watermark 0 (kafka.cluster.Replica)
+                [2018-07-06 04:21:07,254] INFO Replica loaded for partition ztf_20180706_programid1-1 with initial high watermark 0 (kafka.cluster.Replica)
+                [2018-07-06 04:21:07,254] INFO Replica loaded for partition ztf_20180706_programid1-1 with initial high watermark 0 (kafka.cluster.Replica)
+                [2018-07-06 04:21:07,254] INFO [Partition ztf_20180706_programid1-1 broker=2] ztf_20180706_programid1-1 starts at Leader Epoch 0 from offset 0. Previous Leader Epoch was: -1 (kafka.cluster.Partition)
+                [2018-07-06 04:21:07,254] TRACE [Broker id=2] Stopped fetchers as part of become-leader request from controller 0 epoch 11 with correlation id 201 for partition ztf_20180706_programid1-1 (last update controller epoch 11) (state.change.logger)
+                [2018-07-06 04:21:07,255] TRACE [Broker id=2] Completed LeaderAndIsr request correlationId 201 from controller 0 epoch 11 for the become-leader transition for partition ztf_20180706_programid1-5 (state.change.logger)
+                [2018-07-06 04:21:07,255] TRACE [Broker id=2] Completed LeaderAndIsr request correlationId 201 from controller 0 epoch 11 for the become-leader transition for partition ztf_20180706_programid1-9 (state.change.logger)
+                [2018-07-06 04:21:07,255] TRACE [Broker id=2] Completed LeaderAndIsr request correlationId 201 from controller 0 epoch 11 for the become-leader transition for partition ztf_20180706_programid1-13 (state.change.logger)
+                [2018-07-06 04:21:07,255] TRACE [Broker id=2] Completed LeaderAndIsr request correlationId 201 from controller 0 epoch 11 for the become-leader transition for partition ztf_20180706_programid1-1 (state.change.logger)
+                [2018-07-06 04:21:07,255] TRACE [Broker id=2] Handling LeaderAndIsr request correlationId 201 from controller 0 epoch 11 starting the become-follower transition for partition ztf_20180706_programid1-8 (state.change.logger)
+                [2018-07-06 04:21:07,255] TRACE [Broker id=2] Handling LeaderAndIsr request correlationId 201 from controller 0 epoch 11 starting the become-follower transition for partition ztf_20180706_programid1-15 (state.change.logger)
+                [2018-07-06 04:21:07,255] TRACE [Broker id=2] Handling LeaderAndIsr request correlationId 201 from controller 0 epoch 11 starting the become-follower transition for partition ztf_20180706_programid1-12 (state.change.logger)
+                [2018-07-06 04:21:07,255] TRACE [Broker id=2] Handling LeaderAndIsr request correlationId 201 from controller 0 epoch 11 starting the become-follower transition for partition ztf_20180706_programid1-6 (state.change.logger)
+                [2018-07-06 04:21:07,255] TRACE [Broker id=2] Handling LeaderAndIsr request correlationId 201 from controller 0 epoch 11 starting the become-follower transition for partition ztf_20180706_programid1-3 (state.change.logger)
+                [2018-07-06 04:21:07,255] TRACE [Broker id=2] Handling LeaderAndIsr request correlationId 201 from controller 0 epoch 11 starting the become-follower transition for partition ztf_20180706_programid1-0 (state.change.logger)
+                [2018-07-06 04:21:07,255] TRACE [Broker id=2] Handling LeaderAndIsr request correlationId 201 from controller 0 epoch 11 starting the become-follower transition for partition ztf_20180706_programid1-10 (state.change.logger)
+                [2018-07-06 04:21:07,255] TRACE [Broker id=2] Handling LeaderAndIsr request correlationId 201 from controller 0 epoch 11 starting the become-follower transition for partition ztf_20180706_programid1-7 (state.change.logger)
+                [2018-07-06 04:21:07,255] INFO Replica loaded for partition ztf_20180706_programid1-8 with initial high watermark 0 (kafka.cluster.Replica)
+                [2018-07-06 04:21:07,255] INFO Replica loaded for partition ztf_20180706_programid1-8 with initial high watermark 0 (kafka.cluster.Replica)
+                [2018-07-06 04:21:07,257] INFO [Log partition=ztf_20180706_programid1-8, dir=/var/local/inner/kafka/data-01] Loading producer state from offset 0 with message format version 2 (kafka.log.Log)
+                [2018-07-06 04:21:07,258] INFO [Log partition=ztf_20180706_programid1-8, dir=/var/local/inner/kafka/data-01] Completed load of log with 1 segments, log start offset 0 and log end offset 0 in 1 ms (kafka.log.Log)
+                [2018-07-06 04:21:07,258] INFO Created log for partition ztf_20180706_programid1-8 in /var/local/inner/kafka/data-01 with properties {compression.type -> producer, message.format.version -> 1.1-IV0, file.delete.delay.ms -> 60000, max.message.bytes -> 10485760, min.compaction.lag.ms -> 0, message.timestamp.type -> CreateTime, min.insync.replicas -> 1, segment.jitter.ms -> 0, preallocate -> false, min.cleanable.dirty.ratio -> 0.5, index.interval.bytes -> 4096, unclean.leader.election.enable -> false, retention.bytes -> -1, delete.retention.ms -> 86400000, cleanup.policy -> [delete], flush.ms -> 9223372036854775807, segment.ms -> 604800000, segment.bytes -> 1073741824, retention.ms -> -1, message.timestamp.difference.max.ms -> 9223372036854775807, segment.index.bytes -> 10485760, flush.messages -> 9223372036854775807}. (kafka.log.LogManager)
+                [2018-07-06 04:21:07,259] INFO [Partition ztf_20180706_programid1-8 broker=2] No checkpointed highwatermark is found for partition ztf_20180706_programid1-8 (kafka.cluster.Partition)
+                [2018-07-06 04:21:07,259] INFO Replica loaded for partition ztf_20180706_programid1-8 with initial high watermark 0 (kafka.cluster.Replica)
+                [2018-07-06 04:21:07,259] INFO Replica loaded for partition ztf_20180706_programid1-15 with initial high watermark 0 (kafka.cluster.Replica)
+                [2018-07-06 04:21:07,259] INFO Replica loaded for partition ztf_20180706_programid1-15 with initial high watermark 0 (kafka.cluster.Replica)
+                [2018-07-06 04:21:07,262] INFO [Log partition=ztf_20180706_programid1-15, dir=/var/local/inner/kafka/data-00] Loading producer state from offset 0 with message format version 2 (kafka.log.Log)
+                [2018-07-06 04:21:07,262] INFO [Log partition=ztf_20180706_programid1-15, dir=/var/local/inner/kafka/data-00] Completed load of log with 1 segments, log start offset 0 and log end offset 0 in 2 ms (kafka.log.Log)
+                [2018-07-06 04:21:07,263] INFO Created log for partition ztf_20180706_programid1-15 in /var/local/inner/kafka/data-00 with properties {compression.type -> producer, message.format.version -> 1.1-IV0, file.delete.delay.ms -> 60000, max.message.bytes -> 10485760, min.compaction.lag.ms -> 0, message.timestamp.type -> CreateTime, min.insync.replicas -> 1, segment.jitter.ms -> 0, preallocate -> false, min.cleanable.dirty.ratio -> 0.5, index.interval.bytes -> 4096, unclean.leader.election.enable -> false, retention.bytes -> -1, delete.retention.ms -> 86400000, cleanup.policy -> [delete], flush.ms -> 9223372036854775807, segment.ms -> 604800000, segment.bytes -> 1073741824, retention.ms -> -1, message.timestamp.difference.max.ms -> 9223372036854775807, segment.index.bytes -> 10485760, flush.messages -> 9223372036854775807}. (kafka.log.LogManager)
+                [2018-07-06 04:21:07,263] INFO [Partition ztf_20180706_programid1-15 broker=2] No checkpointed highwatermark is found for partition ztf_20180706_programid1-15 (kafka.cluster.Partition)
+                [2018-07-06 04:21:07,263] INFO Replica loaded for partition ztf_20180706_programid1-15 with initial high watermark 0 (kafka.cluster.Replica)
+                [2018-07-06 04:21:07,263] INFO Replica loaded for partition ztf_20180706_programid1-12 with initial high watermark 0 (kafka.cluster.Replica)
+                [2018-07-06 04:21:07,265] INFO [Log partition=ztf_20180706_programid1-12, dir=/var/local/inner/kafka/data-01] Loading producer state from offset 0 with message format version 2 (kafka.log.Log)
+                [2018-07-06 04:21:07,266] INFO [Log partition=ztf_20180706_programid1-12, dir=/var/local/inner/kafka/data-01] Completed load of log with 1 segments, log start offset 0 and log end offset 0 in 1 ms (kafka.log.Log)
+                [2018-07-06 04:21:07,266] INFO Created log for partition ztf_20180706_programid1-12 in /var/local/inner/kafka/data-01 with properties {compression.type -> producer, message.format.version -> 1.1-IV0, file.delete.delay.ms -> 60000, max.message.bytes -> 10485760, min.compaction.lag.ms -> 0, message.timestamp.type -> CreateTime, min.insync.replicas -> 1, segment.jitter.ms -> 0, preallocate -> false, min.cleanable.dirty.ratio -> 0.5, index.interval.bytes -> 4096, unclean.leader.election.enable -> false, retention.bytes -> -1, delete.retention.ms -> 86400000, cleanup.policy -> [delete], flush.ms -> 9223372036854775807, segment.ms -> 604800000, segment.bytes -> 1073741824, retention.ms -> -1, message.timestamp.difference.max.ms -> 9223372036854775807, segment.index.bytes -> 10485760, flush.messages -> 9223372036854775807}. (kafka.log.LogManager)
+                [2018-07-06 04:21:07,267] INFO [Partition ztf_20180706_programid1-12 broker=2] No checkpointed highwatermark is found for partition ztf_20180706_programid1-12 (kafka.cluster.Partition)
+                [2018-07-06 04:21:07,267] INFO Replica loaded for partition ztf_20180706_programid1-12 with initial high watermark 0 (kafka.cluster.Replica)
+                [2018-07-06 04:21:07,267] INFO Replica loaded for partition ztf_20180706_programid1-12 with initial high watermark 0 (kafka.cluster.Replica)
+                [2018-07-06 04:21:07,267] INFO Replica loaded for partition ztf_20180706_programid1-6 with initial high watermark 0 (kafka.cluster.Replica)
+                [2018-07-06 04:21:07,267] INFO Replica loaded for partition ztf_20180706_programid1-6 with initial high watermark 0 (kafka.cluster.Replica)
+                [2018-07-06 04:21:07,269] INFO [Log partition=ztf_20180706_programid1-6, dir=/var/local/inner/kafka/data-00] Loading producer state from offset 0 with message format version 2 (kafka.log.Log)
+                [2018-07-06 04:21:07,270] INFO [Log partition=ztf_20180706_programid1-6, dir=/var/local/inner/kafka/data-00] Completed load of log with 1 segments, log start offset 0 and log end offset 0 in 1 ms (kafka.log.Log)
+                [2018-07-06 04:21:07,270] INFO Created log for partition ztf_20180706_programid1-6 in /var/local/inner/kafka/data-00 with properties {compression.type -> producer, message.format.version -> 1.1-IV0, file.delete.delay.ms -> 60000, max.message.bytes -> 10485760, min.compaction.lag.ms -> 0, message.timestamp.type -> CreateTime, min.insync.replicas -> 1, segment.jitter.ms -> 0, preallocate -> false, min.cleanable.dirty.ratio -> 0.5, index.interval.bytes -> 4096, unclean.leader.election.enable -> false, retention.bytes -> -1, delete.retention.ms -> 86400000, cleanup.policy -> [delete], flush.ms -> 9223372036854775807, segment.ms -> 604800000, segment.bytes -> 1073741824, retention.ms -> -1, message.timestamp.difference.max.ms -> 9223372036854775807, segment.index.bytes -> 10485760, flush.messages -> 9223372036854775807}. (kafka.log.LogManager)
+                [2018-07-06 04:21:07,271] INFO [Partition ztf_20180706_programid1-6 broker=2] No checkpointed highwatermark is found for partition ztf_20180706_programid1-6 (kafka.cluster.Partition)
+                [2018-07-06 04:21:07,271] INFO Replica loaded for partition ztf_20180706_programid1-6 with initial high watermark 0 (kafka.cluster.Replica)
+                [2018-07-06 04:21:07,271] INFO Replica loaded for partition ztf_20180706_programid1-3 with initial high watermark 0 (kafka.cluster.Replica)
+                [2018-07-06 04:21:07,271] INFO Replica loaded for partition ztf_20180706_programid1-3 with initial high watermark 0 (kafka.cluster.Replica)
+                [2018-07-06 04:21:07,274] INFO [Log partition=ztf_20180706_programid1-3, dir=/var/local/inner/kafka/data-01] Loading producer state from offset 0 with message format version 2 (kafka.log.Log)
+                [2018-07-06 04:21:07,274] INFO [Log partition=ztf_20180706_programid1-3, dir=/var/local/inner/kafka/data-01] Completed load of log with 1 segments, log start offset 0 and log end offset 0 in 1 ms (kafka.log.Log)
+                [2018-07-06 04:21:07,275] INFO Created log for partition ztf_20180706_programid1-3 in /var/local/inner/kafka/data-01 with properties {compression.type -> producer, message.format.version -> 1.1-IV0, file.delete.delay.ms -> 60000, max.message.bytes -> 10485760, min.compaction.lag.ms -> 0, message.timestamp.type -> CreateTime, min.insync.replicas -> 1, segment.jitter.ms -> 0, preallocate -> false, min.cleanable.dirty.ratio -> 0.5, index.interval.bytes -> 4096, unclean.leader.election.enable -> false, retention.bytes -> -1, delete.retention.ms -> 86400000, cleanup.policy -> [delete], flush.ms -> 9223372036854775807, segment.ms -> 604800000, segment.bytes -> 1073741824, retention.ms -> -1, message.timestamp.difference.max.ms -> 9223372036854775807, segment.index.bytes -> 10485760, flush.messages -> 9223372036854775807}. (kafka.log.LogManager)
+                [2018-07-06 04:21:07,275] INFO [Partition ztf_20180706_programid1-3 broker=2] No checkpointed highwatermark is found for partition ztf_20180706_programid1-3 (kafka.cluster.Partition)
+                [2018-07-06 04:21:07,275] INFO Replica loaded for partition ztf_20180706_programid1-3 with initial high watermark 0 (kafka.cluster.Replica)
+                [2018-07-06 04:21:07,276] INFO Replica loaded for partition ztf_20180706_programid1-0 with initial high watermark 0 (kafka.cluster.Replica)
+                [2018-07-06 04:21:07,278] INFO [Log partition=ztf_20180706_programid1-0, dir=/var/local/inner/kafka/data-00] Loading producer state from offset 0 with message format version 2 (kafka.log.Log)
+                [2018-07-06 04:21:07,278] INFO [Log partition=ztf_20180706_programid1-0, dir=/var/local/inner/kafka/data-00] Completed load of log with 1 segments, log start offset 0 and log end offset 0 in 1 ms (kafka.log.Log)
+                [2018-07-06 04:21:07,282] INFO Created log for partition ztf_20180706_programid1-0 in /var/local/inner/kafka/data-00 with properties {compression.type -> producer, message.format.version -> 1.1-IV0, file.delete.delay.ms -> 60000, max.message.bytes -> 10485760, min.compaction.lag.ms -> 0, message.timestamp.type -> CreateTime, min.insync.replicas -> 1, segment.jitter.ms -> 0, preallocate -> false, min.cleanable.dirty.ratio -> 0.5, index.interval.bytes -> 4096, unclean.leader.election.enable -> false, retention.bytes -> -1, delete.retention.ms -> 86400000, cleanup.policy -> [delete], flush.ms -> 9223372036854775807, segment.ms -> 604800000, segment.bytes -> 1073741824, retention.ms -> -1, message.timestamp.difference.max.ms -> 9223372036854775807, segment.index.bytes -> 10485760, flush.messages -> 9223372036854775807}. (kafka.log.LogManager)
+                [2018-07-06 04:21:07,283] INFO [Partition ztf_20180706_programid1-0 broker=2] No checkpointed highwatermark is found for partition ztf_20180706_programid1-0 (kafka.cluster.Partition)
+                [2018-07-06 04:21:07,283] INFO Replica loaded for partition ztf_20180706_programid1-0 with initial high watermark 0 (kafka.cluster.Replica)
+                [2018-07-06 04:21:07,285] INFO Replica loaded for partition ztf_20180706_programid1-0 with initial high watermark 0 (kafka.cluster.Replica)
+                [2018-07-06 04:21:07,285] INFO Replica loaded for partition ztf_20180706_programid1-10 with initial high watermark 0 (kafka.cluster.Replica)
+                [2018-07-06 04:21:07,293] INFO [Log partition=ztf_20180706_programid1-10, dir=/var/local/inner/kafka/data-01] Loading producer state from offset 0 with message format version 2 (kafka.log.Log)
+                [2018-07-06 04:21:07,294] INFO [Log partition=ztf_20180706_programid1-10, dir=/var/local/inner/kafka/data-01] Completed load of log with 1 segments, log start offset 0 and log end offset 0 in 7 ms (kafka.log.Log)
+                [2018-07-06 04:21:07,294] INFO Created log for partition ztf_20180706_programid1-10 in /var/local/inner/kafka/data-01 with properties {compression.type -> producer, message.format.version -> 1.1-IV0, file.delete.delay.ms -> 60000, max.message.bytes -> 10485760, min.compaction.lag.ms -> 0, message.timestamp.type -> CreateTime, min.insync.replicas -> 1, segment.jitter.ms -> 0, preallocate -> false, min.cleanable.dirty.ratio -> 0.5, index.interval.bytes -> 4096, unclean.leader.election.enable -> false, retention.bytes -> -1, delete.retention.ms -> 86400000, cleanup.policy -> [delete], flush.ms -> 9223372036854775807, segment.ms -> 604800000, segment.bytes -> 1073741824, retention.ms -> -1, message.timestamp.difference.max.ms -> 9223372036854775807, segment.index.bytes -> 10485760, flush.messages -> 9223372036854775807}. (kafka.log.LogManager)
+                [2018-07-06 04:21:07,295] INFO [Partition ztf_20180706_programid1-10 broker=2] No checkpointed highwatermark is found for partition ztf_20180706_programid1-10 (kafka.cluster.Partition)
+                [2018-07-06 04:21:07,295] INFO Replica loaded for partition ztf_20180706_programid1-10 with initial high watermark 0 (kafka.cluster.Replica)
+                [2018-07-06 04:21:07,295] INFO Replica loaded for partition ztf_20180706_programid1-10 with initial high watermark 0 (kafka.cluster.Replica)
+                [2018-07-06 04:21:07,295] INFO Replica loaded for partition ztf_20180706_programid1-7 with initial high watermark 0 (kafka.cluster.Replica)
+                [2018-07-06 04:21:07,297] INFO [Log partition=ztf_20180706_programid1-7, dir=/var/local/inner/kafka/data-00] Loading producer state from offset 0 with message format version 2 (kafka.log.Log)
+                [2018-07-06 04:21:07,298] INFO [Log partition=ztf_20180706_programid1-7, dir=/var/local/inner/kafka/data-00] Completed load of log with 1 segments, log start offset 0 and log end offset 0 in 1 ms (kafka.log.Log)
+                [2018-07-06 04:21:07,298] INFO Created log for partition ztf_20180706_programid1-7 in /var/local/inner/kafka/data-00 with properties {compression.type -> producer, message.format.version -> 1.1-IV0, file.delete.delay.ms -> 60000, max.message.bytes -> 10485760, min.compaction.lag.ms -> 0, message.timestamp.type -> CreateTime, min.insync.replicas -> 1, segment.jitter.ms -> 0, preallocate -> false, min.cleanable.dirty.ratio -> 0.5, index.interval.bytes -> 4096, unclean.leader.election.enable -> false, retention.bytes -> -1, delete.retention.ms -> 86400000, cleanup.policy -> [delete], flush.ms -> 9223372036854775807, segment.ms -> 604800000, segment.bytes -> 1073741824, retention.ms -> -1, message.timestamp.difference.max.ms -> 9223372036854775807, segment.index.bytes -> 10485760, flush.messages -> 9223372036854775807}. (kafka.log.LogManager)
+                [2018-07-06 04:21:07,299] INFO [Partition ztf_20180706_programid1-7 broker=2] No checkpointed highwatermark is found for partition ztf_20180706_programid1-7 (kafka.cluster.Partition)
+                [2018-07-06 04:21:07,299] INFO Replica loaded for partition ztf_20180706_programid1-7 with initial high watermark 0 (kafka.cluster.Replica)
+                [2018-07-06 04:21:07,299] INFO Replica loaded for partition ztf_20180706_programid1-7 with initial high watermark 0 (kafka.cluster.Replica)
+                [2018-07-06 04:21:07,299] INFO [ReplicaFetcherManager on broker 2] Removed fetcher for partitions ztf_20180706_programid1-15,ztf_20180706_programid1-0,ztf_20180706_programid1-8,ztf_20180706_programid1-6,ztf_20180706_programid1-12,ztf_20180706_programid1-10,ztf_20180706_programid1-3,ztf_20180706_programid1-7 (kafka.server.ReplicaFetcherManager)
+                [2018-07-06 04:21:07,299] TRACE [Broker id=2] Stopped fetchers as part of become-follower request from controller 0 epoch 11 with correlation id 201 for partition ztf_20180706_programid1-8 (state.change.logger)
+                [2018-07-06 04:21:07,299] TRACE [Broker id=2] Stopped fetchers as part of become-follower request from controller 0 epoch 11 with correlation id 201 for partition ztf_20180706_programid1-7 (state.change.logger)
+                [2018-07-06 04:21:07,299] TRACE [Broker id=2] Stopped fetchers as part of become-follower request from controller 0 epoch 11 with correlation id 201 for partition ztf_20180706_programid1-10 (state.change.logger)
+                [2018-07-06 04:21:07,299] TRACE [Broker id=2] Stopped fetchers as part of become-follower request from controller 0 epoch 11 with correlation id 201 for partition ztf_20180706_programid1-0 (state.change.logger)
+                [2018-07-06 04:21:07,299] TRACE [Broker id=2] Stopped fetchers as part of become-follower request from controller 0 epoch 11 with correlation id 201 for partition ztf_20180706_programid1-3 (state.change.logger)
+                [2018-07-06 04:21:07,299] TRACE [Broker id=2] Stopped fetchers as part of become-follower request from controller 0 epoch 11 with correlation id 201 for partition ztf_20180706_programid1-6 (state.change.logger)
+                [2018-07-06 04:21:07,299] TRACE [Broker id=2] Stopped fetchers as part of become-follower request from controller 0 epoch 11 with correlation id 201 for partition ztf_20180706_programid1-12 (state.change.logger)
+                [2018-07-06 04:21:07,299] TRACE [Broker id=2] Stopped fetchers as part of become-follower request from controller 0 epoch 11 with correlation id 201 for partition ztf_20180706_programid1-15 (state.change.logger)
+                [2018-07-06 04:21:07,300] TRACE [Broker id=2] Truncated logs and checkpointed recovery boundaries for partition ztf_20180706_programid1-8 as part of become-follower request with correlation id 201 from controller 0 epoch 11 (state.change.logger)
+                [2018-07-06 04:21:07,300] TRACE [Broker id=2] Truncated logs and checkpointed recovery boundaries for partition ztf_20180706_programid1-7 as part of become-follower request with correlation id 201 from controller 0 epoch 11 (state.change.logger)
+                [2018-07-06 04:21:07,300] TRACE [Broker id=2] Truncated logs and checkpointed recovery boundaries for partition ztf_20180706_programid1-10 as part of become-follower request with correlation id 201 from controller 0 epoch 11 (state.change.logger)
+                [2018-07-06 04:21:07,300] TRACE [Broker id=2] Truncated logs and checkpointed recovery boundaries for partition ztf_20180706_programid1-0 as part of become-follower request with correlation id 201 from controller 0 epoch 11 (state.change.logger)
+                [2018-07-06 04:21:07,300] TRACE [Broker id=2] Truncated logs and checkpointed recovery boundaries for partition ztf_20180706_programid1-3 as part of become-follower request with correlation id 201 from controller 0 epoch 11 (state.change.logger)
+                [2018-07-06 04:21:07,300] TRACE [Broker id=2] Truncated logs and checkpointed recovery boundaries for partition ztf_20180706_programid1-6 as part of become-follower request with correlation id 201 from controller 0 epoch 11 (state.change.logger)
+                [2018-07-06 04:21:07,300] TRACE [Broker id=2] Truncated logs and checkpointed recovery boundaries for partition ztf_20180706_programid1-12 as part of become-follower request with correlation id 201 from controller 0 epoch 11 (state.change.logger)
+                [2018-07-06 04:21:07,300] TRACE [Broker id=2] Truncated logs and checkpointed recovery boundaries for partition ztf_20180706_programid1-15 as part of become-follower request with correlation id 201 from controller 0 epoch 11 (state.change.logger)
+                [2018-07-06 04:21:07,301] INFO [ReplicaFetcherManager on broker 2] Added fetcher for partitions List([ztf_20180706_programid1-7, initOffset 0 to broker BrokerEndPoint(0,172.16.49.208,9092)] , [ztf_20180706_programid1-0, initOffset 0 to broker BrokerEndPoint(1,172.16.49.12,9092)] , [ztf_20180706_programid1-8, initOffset 0 to broker BrokerEndPoint(1,172.16.49.12,9092)] , [ztf_20180706_programid1-10, initOffset 0 to broker BrokerEndPoint(3,172.16.49.217,9092)] , [ztf_20180706_programid1-6, initOffset 0 to broker BrokerEndPoint(3,172.16.49.217,9092)] , [ztf_20180706_programid1-15, initOffset 0 to broker BrokerEndPoint(0,172.16.49.208,9092)] , [ztf_20180706_programid1-12, initOffset 0 to broker BrokerEndPoint(1,172.16.49.12,9092)] , [ztf_20180706_programid1-3, initOffset 0 to broker BrokerEndPoint(0,172.16.49.208,9092)] ) (kafka.server.ReplicaFetcherManager)
+                [2018-07-06 04:21:07,301] TRACE [Broker id=2] Started fetcher to new leader as part of become-follower request from controller 0 epoch 11 with correlation id 201 for partition ztf_20180706_programid1-8 (state.change.logger)
+                [2018-07-06 04:21:07,301] TRACE [Broker id=2] Started fetcher to new leader as part of become-follower request from controller 0 epoch 11 with correlation id 201 for partition ztf_20180706_programid1-7 (state.change.logger)
+                [2018-07-06 04:21:07,301] TRACE [Broker id=2] Started fetcher to new leader as part of become-follower request from controller 0 epoch 11 with correlation id 201 for partition ztf_20180706_programid1-10 (state.change.logger)
+                [2018-07-06 04:21:07,301] TRACE [Broker id=2] Started fetcher to new leader as part of become-follower request from controller 0 epoch 11 with correlation id 201 for partition ztf_20180706_programid1-0 (state.change.logger)
+                [2018-07-06 04:21:07,301] TRACE [Broker id=2] Started fetcher to new leader as part of become-follower request from controller 0 epoch 11 with correlation id 201 for partition ztf_20180706_programid1-3 (state.change.logger)
+                [2018-07-06 04:21:07,301] TRACE [Broker id=2] Started fetcher to new leader as part of become-follower request from controller 0 epoch 11 with correlation id 201 for partition ztf_20180706_programid1-6 (state.change.logger)
+                [2018-07-06 04:21:07,301] TRACE [Broker id=2] Started fetcher to new leader as part of become-follower request from controller 0 epoch 11 with correlation id 201 for partition ztf_20180706_programid1-12 (state.change.logger)
+                [2018-07-06 04:21:07,302] TRACE [Broker id=2] Started fetcher to new leader as part of become-follower request from controller 0 epoch 11 with correlation id 201 for partition ztf_20180706_programid1-15 (state.change.logger)
+                [2018-07-06 04:21:07,302] TRACE [Broker id=2] Completed LeaderAndIsr request correlationId 201 from controller 0 epoch 11 for the become-follower transition for partition ztf_20180706_programid1-8 (state.change.logger)
+                [2018-07-06 04:21:07,302] TRACE [Broker id=2] Completed LeaderAndIsr request correlationId 201 from controller 0 epoch 11 for the become-follower transition for partition ztf_20180706_programid1-15 (state.change.logger)
+                [2018-07-06 04:21:07,302] TRACE [Broker id=2] Completed LeaderAndIsr request correlationId 201 from controller 0 epoch 11 for the become-follower transition for partition ztf_20180706_programid1-12 (state.change.logger)
+                [2018-07-06 04:21:07,302] TRACE [Broker id=2] Completed LeaderAndIsr request correlationId 201 from controller 0 epoch 11 for the become-follower transition for partition ztf_20180706_programid1-6 (state.change.logger)
+                [2018-07-06 04:21:07,302] TRACE [Broker id=2] Completed LeaderAndIsr request correlationId 201 from controller 0 epoch 11 for the become-follower transition for partition ztf_20180706_programid1-3 (state.change.logger)
+                [2018-07-06 04:21:07,302] TRACE [Broker id=2] Completed LeaderAndIsr request correlationId 201 from controller 0 epoch 11 for the become-follower transition for partition ztf_20180706_programid1-0 (state.change.logger)
+                [2018-07-06 04:21:07,302] TRACE [Broker id=2] Completed LeaderAndIsr request correlationId 201 from controller 0 epoch 11 for the become-follower transition for partition ztf_20180706_programid1-10 (state.change.logger)
+                [2018-07-06 04:21:07,302] TRACE [Broker id=2] Completed LeaderAndIsr request correlationId 201 from controller 0 epoch 11 for the become-follower transition for partition ztf_20180706_programid1-7 (state.change.logger)
+                [2018-07-06 04:21:07,302] INFO [ReplicaAlterLogDirsManager on broker 2] Added fetcher for partitions List() (kafka.server.ReplicaAlterLogDirsManager)
+                [2018-07-06 04:21:07,312] TRACE [Broker id=2] Cached leader info PartitionState(controllerEpoch=11, leader=1, leaderEpoch=0, isr=[1, 2, 3], zkVersion=0, replicas=[1, 2, 3], offlineReplicas=[]) for partition ztf_20180706_programid1-0 in response to UpdateMetadata request sent by controller 0 epoch 11 with correlation id 202 (state.change.logger)
+                [2018-07-06 04:21:07,331] TRACE [Broker id=2] Cached leader info PartitionState(controllerEpoch=11, leader=2, leaderEpoch=0, isr=[2, 3, 0], zkVersion=0, replicas=[2, 3, 0], offlineReplicas=[]) for partition ztf_20180706_programid1-1 in response to UpdateMetadata request sent by controller 0 epoch 11 with correlation id 202 (state.change.logger)
+                [2018-07-06 04:21:07,331] TRACE [Broker id=2] Cached leader info PartitionState(controllerEpoch=11, leader=1, leaderEpoch=0, isr=[1, 3, 0], zkVersion=0, replicas=[1, 3, 0], offlineReplicas=[]) for partition ztf_20180706_programid1-4 in response to UpdateMetadata request sent by controller 0 epoch 11 with correlation id 202 (state.change.logger)
+                [2018-07-06 04:21:07,331] TRACE [Broker id=2] Cached leader info PartitionState(controllerEpoch=11, leader=2, leaderEpoch=0, isr=[2, 0, 1], zkVersion=0, replicas=[2, 0, 1], offlineReplicas=[]) for partition ztf_20180706_programid1-5 in response to UpdateMetadata request sent by controller 0 epoch 11 with correlation id 202 (state.change.logger)
+                [2018-07-06 04:21:07,331] TRACE [Broker id=2] Cached leader info PartitionState(controllerEpoch=11, leader=3, leaderEpoch=0, isr=[3, 0, 1], zkVersion=0, replicas=[3, 0, 1], offlineReplicas=[]) for partition ztf_20180706_programid1-2 in response to UpdateMetadata request sent by controller 0 epoch 11 with correlation id 202 (state.change.logger)
+                [2018-07-06 04:21:07,331] TRACE [Broker id=2] Cached leader info PartitionState(controllerEpoch=11, leader=0, leaderEpoch=0, isr=[0, 1, 2], zkVersion=0, replicas=[0, 1, 2], offlineReplicas=[]) for partition ztf_20180706_programid1-3 in response to UpdateMetadata request sent by controller 0 epoch 11 with correlation id 202 (state.change.logger)
+                [2018-07-06 04:21:07,331] TRACE [Broker id=2] Cached leader info PartitionState(controllerEpoch=11, leader=1, leaderEpoch=0, isr=[1, 0, 2], zkVersion=0, replicas=[1, 0, 2], offlineReplicas=[]) for partition ztf_20180706_programid1-8 in response to UpdateMetadata request sent by controller 0 epoch 11 with correlation id 202 (state.change.logger)
+                [2018-07-06 04:21:07,331] TRACE [Broker id=2] Cached leader info PartitionState(controllerEpoch=11, leader=2, leaderEpoch=0, isr=[2, 1, 3], zkVersion=0, replicas=[2, 1, 3], offlineReplicas=[]) for partition ztf_20180706_programid1-9 in response to UpdateMetadata request sent by controller 0 epoch 11 with correlation id 202 (state.change.logger)
+                [2018-07-06 04:21:07,332] TRACE [Broker id=2] Cached leader info PartitionState(controllerEpoch=11, leader=3, leaderEpoch=0, isr=[3, 1, 2], zkVersion=0, replicas=[3, 1, 2], offlineReplicas=[]) for partition ztf_20180706_programid1-6 in response to UpdateMetadata request sent by controller 0 epoch 11 with correlation id 202 (state.change.logger)
+                [2018-07-06 04:21:07,332] TRACE [Broker id=2] Cached leader info PartitionState(controllerEpoch=11, leader=0, leaderEpoch=0, isr=[0, 2, 3], zkVersion=0, replicas=[0, 2, 3], offlineReplicas=[]) for partition ztf_20180706_programid1-7 in response to UpdateMetadata request sent by controller 0 epoch 11 with correlation id 202 (state.change.logger)
+                [2018-07-06 04:21:07,332] TRACE [Broker id=2] Cached leader info PartitionState(controllerEpoch=11, leader=1, leaderEpoch=0, isr=[1, 2, 3], zkVersion=0, replicas=[1, 2, 3], offlineReplicas=[]) for partition ztf_20180706_programid1-12 in response to UpdateMetadata request sent by controller 0 epoch 11 with correlation id 202 (state.change.logger)
+                [2018-07-06 04:21:07,332] TRACE [Broker id=2] Cached leader info PartitionState(controllerEpoch=11, leader=2, leaderEpoch=0, isr=[2, 3, 0], zkVersion=0, replicas=[2, 3, 0], offlineReplicas=[]) for partition ztf_20180706_programid1-13 in response to UpdateMetadata request sent by controller 0 epoch 11 with correlation id 202 (state.change.logger)
+                [2018-07-06 04:21:07,332] TRACE [Broker id=2] Cached leader info PartitionState(controllerEpoch=11, leader=3, leaderEpoch=0, isr=[3, 2, 0], zkVersion=0, replicas=[3, 2, 0], offlineReplicas=[]) for partition ztf_20180706_programid1-10 in response to UpdateMetadata request sent by controller 0 epoch 11 with correlation id 202 (state.change.logger)
+                [2018-07-06 04:21:07,332] TRACE [Broker id=2] Cached leader info PartitionState(controllerEpoch=11, leader=0, leaderEpoch=0, isr=[0, 3, 1], zkVersion=0, replicas=[0, 3, 1], offlineReplicas=[]) for partition ztf_20180706_programid1-11 in response to UpdateMetadata request sent by controller 0 epoch 11 with correlation id 202 (state.change.logger)
+                [2018-07-06 04:21:07,332] TRACE [Broker id=2] Cached leader info PartitionState(controllerEpoch=11, leader=3, leaderEpoch=0, isr=[3, 0, 1], zkVersion=0, replicas=[3, 0, 1], offlineReplicas=[]) for partition ztf_20180706_programid1-14 in response to UpdateMetadata request sent by controller 0 epoch 11 with correlation id 202 (state.change.logger)
+                [2018-07-06 04:21:07,332] TRACE [Broker id=2] Cached leader info PartitionState(controllerEpoch=11, leader=0, leaderEpoch=0, isr=[0, 1, 2], zkVersion=0, replicas=[0, 1, 2], offlineReplicas=[]) for partition ztf_20180706_programid1-15 in response to UpdateMetadata request sent by controller 0 epoch 11 with correlation id 202 (state.change.logger)
+                [2018-07-06 04:21:07,430] WARN [ReplicaFetcher replicaId=2, leaderId=1, fetcherId=0] Based on follower's leader epoch, leader replied with an unknown offset in ztf_20180706_programid1-0. The initial fetch offset 0 will be used for truncation. (kafka.server.ReplicaFetcherThread)
+                [2018-07-06 04:21:07,430] INFO [Log partition=ztf_20180706_programid1-0, dir=/var/local/inner/kafka/data-00] Truncating to 0 has no effect as the largest offset in the log is -1 (kafka.log.Log)
+                [2018-07-06 04:21:07,431] WARN [ReplicaFetcher replicaId=2, leaderId=1, fetcherId=0] Based on follower's leader epoch, leader replied with an unknown offset in ztf_20180706_programid1-8. The initial fetch offset 0 will be used for truncation. (kafka.server.ReplicaFetcherThread)
+                [2018-07-06 04:21:07,431] INFO [Log partition=ztf_20180706_programid1-8, dir=/var/local/inner/kafka/data-01] Truncating to 0 has no effect as the largest offset in the log is -1 (kafka.log.Log)
+                [2018-07-06 04:21:07,431] WARN [ReplicaFetcher replicaId=2, leaderId=1, fetcherId=0] Based on follower's leader epoch, leader replied with an unknown offset in ztf_20180706_programid1-12. The initial fetch offset 0 will be used for truncation. (kafka.server.ReplicaFetcherThread)
+                [2018-07-06 04:21:07,431] INFO [Log partition=ztf_20180706_programid1-12, dir=/var/local/inner/kafka/data-01] Truncating to 0 has no effect as the largest offset in the log is -1 (kafka.log.Log)
+                [2018-07-06 04:21:07,653] WARN [ReplicaFetcher replicaId=2, leaderId=3, fetcherId=0] Based on follower's leader epoch, leader replied with an unknown offset in ztf_20180706_programid1-6. The initial fetch offset 0 will be used for truncation. (kafka.server.ReplicaFetcherThread)
+                [2018-07-06 04:21:07,654] INFO [Log partition=ztf_20180706_programid1-6, dir=/var/local/inner/kafka/data-00] Truncating to 0 has no effect as the largest offset in the log is -1 (kafka.log.Log)
+                [2018-07-06 04:21:07,654] WARN [ReplicaFetcher replicaId=2, leaderId=3, fetcherId=0] Based on follower's leader epoch, leader replied with an unknown offset in ztf_20180706_programid1-10. The initial fetch offset 0 will be used for truncation. (kafka.server.ReplicaFetcherThread)
+                [2018-07-06 04:21:07,654] INFO [Log partition=ztf_20180706_programid1-10, dir=/var/local/inner/kafka/data-01] Truncating to 0 has no effect as the largest offset in the log is -1 (kafka.log.Log)
+                [2018-07-06 04:21:07,751] WARN [ReplicaFetcher replicaId=2, leaderId=0, fetcherId=0] Based on follower's leader epoch, leader replied with an unknown offset in ztf_20180706_programid1-15. The initial fetch offset 0 will be used for truncation. (kafka.server.ReplicaFetcherThread)
+                [2018-07-06 04:21:07,751] INFO [Log partition=ztf_20180706_programid1-15, dir=/var/local/inner/kafka/data-00] Truncating to 0 has no effect as the largest offset in the log is -1 (kafka.log.Log)
+                [2018-07-06 04:21:07,751] WARN [ReplicaFetcher replicaId=2, leaderId=0, fetcherId=0] Based on follower's leader epoch, leader replied with an unknown offset in ztf_20180706_programid1-3. The initial fetch offset 0 will be used for truncation. (kafka.server.ReplicaFetcherThread)
+                [2018-07-06 04:21:07,751] INFO [Log partition=ztf_20180706_programid1-3, dir=/var/local/inner/kafka/data-01] Truncating to 0 has no effect as the largest offset in the log is -1 (kafka.log.Log)
+                [2018-07-06 04:21:07,751] WARN [ReplicaFetcher replicaId=2, leaderId=0, fetcherId=0] Based on follower's leader epoch, leader replied with an unknown offset in ztf_20180706_programid1-7. The initial fetch offset 0 will be used for truncation. (kafka.server.ReplicaFetcherThread)
+                [2018-07-06 04:21:07,751] INFO [Log partition=ztf_20180706_programid1-7, dir=/var/local/inner/kafka/data-00] Truncating to 0 has no effect as the largest offset in the log is -1 (kafka.log.Log)
+                [2018-07-06 04:21:07,768] INFO Updated PartitionLeaderEpoch. New: {epoch:0, offset:0}, Current: {epoch:-1, offset:-1} for Partition: ztf_20180706_programid1-12. Cache now contains 0 entries. (kafka.server.epoch.LeaderEpochFileCache)
+                [2018-07-06 04:21:07,771] INFO Updated PartitionLeaderEpoch. New: {epoch:0, offset:0}, Current: {epoch:-1, offset:-1} for Partition: ztf_20180706_programid1-6. Cache now contains 0 entries. (kafka.server.epoch.LeaderEpochFileCache)
+                [2018-07-06 04:21:07,778] INFO Updated PartitionLeaderEpoch. New: {epoch:0, offset:0}, Current: {epoch:-1, offset:-1} for Partition: ztf_20180706_programid1-7. Cache now contains 0 entries. (kafka.server.epoch.LeaderEpochFileCache)
+                [2018-07-06 04:21:07,791] INFO Updated PartitionLeaderEpoch. New: {epoch:0, offset:0}, Current: {epoch:-1, offset:-1} for Partition: ztf_20180706_programid1-3. Cache now contains 0 entries. (kafka.server.epoch.LeaderEpochFileCache)
+                [2018-07-06 04:21:07,799] INFO Updated PartitionLeaderEpoch. New: {epoch:0, offset:0}, Current: {epoch:-1, offset:-1} for Partition: ztf_20180706_programid1-10. Cache now contains 0 entries. (kafka.server.epoch.LeaderEpochFileCache)
+                [2018-07-06 04:21:07,809] INFO Updated PartitionLeaderEpoch. New: {epoch:0, offset:0}, Current: {epoch:-1, offset:-1} for Partition: ztf_20180706_programid1-8. Cache now contains 0 entries. (kafka.server.epoch.LeaderEpochFileCache)
+                [2018-07-06 04:21:07,810] INFO Updated PartitionLeaderEpoch. New: {epoch:0, offset:0}, Current: {epoch:-1, offset:-1} for Partition: ztf_20180706_programid1-15. Cache now contains 0 entries. (kafka.server.epoch.LeaderEpochFileCache)
+                [2018-07-06 04:21:07,824] INFO Updated PartitionLeaderEpoch. New: {epoch:0, offset:0}, Current: {epoch:-1, offset:-1} for Partition: ztf_20180706_programid1-0. Cache now contains 0 entries. (kafka.server.epoch.LeaderEpochFileCache)
+                [2018-07-06 04:21:08,398] INFO Updated PartitionLeaderEpoch. New: {epoch:0, offset:0}, Current: {epoch:-1, offset:-1} for Partition: ztf_20180706_programid1-1. Cache now contains 0 entries. (kafka.server.epoch.LeaderEpochFileCache)
+                [2018-07-06 04:21:08,417] INFO Updated PartitionLeaderEpoch. New: {epoch:0, offset:0}, Current: {epoch:-1, offset:-1} for Partition: ztf_20180706_programid1-9. Cache now contains 0 entries. (kafka.server.epoch.LeaderEpochFileCache)
+                [2018-07-06 04:21:08,450] INFO Updated PartitionLeaderEpoch. New: {epoch:0, offset:0}, Current: {epoch:-1, offset:-1} for Partition: ztf_20180706_programid1-5. Cache now contains 0 entries. (kafka.server.epoch.LeaderEpochFileCache)
+                [2018-07-06 04:21:08,461] INFO Updated PartitionLeaderEpoch. New: {epoch:0, offset:0}, Current: {epoch:-1, offset:-1} for Partition: ztf_20180706_programid1-13. Cache now contains 0 entries. (kafka.server.epoch.LeaderEpochFileCache)
+                [2018-07-06 04:22:08,093] INFO [GroupMetadataManager brokerId=2] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+                [2018-07-06 04:32:08,093] INFO [GroupMetadataManager brokerId=2] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+                [2018-07-06 04:42:08,093] INFO [GroupMetadataManager brokerId=2] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+                [2018-07-06 04:52:08,093] INFO [GroupMetadataManager brokerId=2] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+                [2018-07-06 05:02:08,093] INFO [GroupMetadataManager brokerId=2] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+                [2018-07-06 05:12:08,093] INFO [GroupMetadataManager brokerId=2] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+                [2018-07-06 05:22:08,093] INFO [GroupMetadataManager brokerId=2] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+                [2018-07-06 05:32:08,093] INFO [GroupMetadataManager brokerId=2] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+                [2018-07-06 05:42:08,093] INFO [GroupMetadataManager brokerId=2] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+                [2018-07-06 05:52:08,093] INFO [GroupMetadataManager brokerId=2] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+                [2018-07-06 06:02:08,093] INFO [GroupMetadataManager brokerId=2] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+                [2018-07-06 06:12:08,093] INFO [GroupMetadataManager brokerId=2] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+                [2018-07-06 06:22:08,093] INFO [GroupMetadataManager brokerId=2] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+                [2018-07-06 06:32:08,093] INFO [GroupMetadataManager brokerId=2] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+                [2018-07-06 06:42:08,093] INFO [GroupMetadataManager brokerId=2] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+                [2018-07-06 06:52:08,093] INFO [GroupMetadataManager brokerId=2] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+                [2018-07-06 07:02:08,093] INFO [GroupMetadataManager brokerId=2] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+                [2018-07-06 07:12:08,093] INFO [GroupMetadataManager brokerId=2] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+                [2018-07-06 07:22:08,094] INFO [GroupMetadataManager brokerId=2] Removed 0 expired offsets in 1 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+                [2018-07-06 07:32:08,093] INFO [GroupMetadataManager brokerId=2] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+                [2018-07-06 07:42:08,093] INFO [GroupMetadataManager brokerId=2] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+                [2018-07-06 07:52:08,093] INFO [GroupMetadataManager brokerId=2] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+                [2018-07-06 08:02:08,093] INFO [GroupMetadataManager brokerId=2] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+                [2018-07-06 08:12:08,093] INFO [GroupMetadataManager brokerId=2] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+                [2018-07-06 08:22:08,093] INFO [GroupMetadataManager brokerId=2] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+                [2018-07-06 08:32:08,093] INFO [GroupMetadataManager brokerId=2] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+                [2018-07-06 08:42:08,093] INFO [GroupMetadataManager brokerId=2] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+                [2018-07-06 08:52:08,093] INFO [GroupMetadataManager brokerId=2] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+                [2018-07-06 09:02:08,093] INFO [GroupMetadataManager brokerId=2] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+                [2018-07-06 09:12:08,093] INFO [GroupMetadataManager brokerId=2] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+                [2018-07-06 09:22:08,093] INFO [GroupMetadataManager brokerId=2] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+                [2018-07-06 09:32:08,093] INFO [GroupMetadataManager brokerId=2] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+                [2018-07-06 09:42:08,093] INFO [GroupMetadataManager brokerId=2] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+                [2018-07-06 09:52:08,093] INFO [GroupMetadataManager brokerId=2] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+                [2018-07-06 10:02:08,093] INFO [GroupMetadataManager brokerId=2] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+                [2018-07-06 10:12:08,093] INFO [GroupMetadataManager brokerId=2] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+                [2018-07-06 10:22:08,093] INFO [GroupMetadataManager brokerId=2] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+
+
+

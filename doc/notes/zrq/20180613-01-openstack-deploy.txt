@@ -1,0 +1,258 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (C) 2018 by Wizzard Solutions Ltd, ischnura@metagrid.co.uk
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#  
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+    #
+    # Connecting to an existing set of nodes.
+    #
+
+# -----------------------------------------------------
+# Create an external VM to work with.
+#[user@trop]
+
+    createvm
+
+        INFO : Node name [Etalema]
+        INFO : Base name [fedora-27-docker-base-20180129.qcow]
+        INFO : Base path [/var/lib/libvirt/images/base/fedora-27-docker-base-20180129.qcow]
+        INFO : Disc name [Etalema.qcow]
+        INFO : Disc size [16GiB]
+
+        INFO : MAC  [52:54:00:02:03:09]
+        INFO : IPv4 [192.168.203.9]
+        INFO : IPv6 []
+
+# -----------------------------------------------------
+# Login to our external VM.
+#[user@trop]
+
+    ssh Etalema
+
+    # -----------------------------------------------------
+    # Configure our secrets function.
+    #[user@virtual]
+
+        mkdir "${HOME}/bin"
+        pushd "${HOME}/bin"
+
+            cat > "secret" << 'EOF'
+....
+....
+EOF
+
+            chmod u=rwx,og= "secret"
+        popd
+
+        secret frog
+
+    # -----------------------------------------------------
+    # Configure our OpenStack settings.
+    # https://horizon.ecdf.ed.ac.uk/dashboard/project/access_and_security/api_access/openrc/
+    #[user@virtual]
+
+        cat > "${HOME}/openstack.settings" << EOF
+
+export OS_INTERFACE=public
+export OS_IDENTITY_API_VERSION=3
+
+export OS_AUTH_URL=https://keystone.ecdf.ed.ac.uk/v3
+
+export OS_USER_DOMAIN_NAME="ed"
+export OS_REGION_NAME="Edinburgh"
+
+export OS_USERNAME=$(secret openstack.user)
+export OS_PASSWORD=$(secret openstack.pass)
+
+export OS_PROJECT_ID=fcef6dd450f64a1ab4ffa5a7234c4161
+export OS_PROJECT_NAME=lsst
+
+EOF
+
+    # -----------------------------------------------------
+    # Create a container to work with.
+    #[user@virtual]
+
+        docker run \
+            --rm \
+            --tty \
+            --interactive \
+            --hostname openstacker \
+            --env SSH_AUTH_SOCK=/tmp/ssh_auth_sock \
+            --volume "${HOME}/openstack.settings:/etc/phymatopus/openstack.settings" \
+            --volume ${SSH_AUTH_SOCK}:/tmp/ssh_auth_sock \
+            phymatopus/openstack-client \
+            bash
+
+        # -----------------------------------------------------
+        # Load our OpenStack settings.
+        #[root@openstacker]
+
+            source '/etc/phymatopus/openstack.settings'
+
+        # -----------------------------------------------------
+        # Load our OpenStack and Eleanor functions.
+        #[root@openstacker]
+
+            source openstack-utils.sh
+            source eleanor-utils.sh
+            source eleanor-init.sh
+
+        # -----------------------------------------------------
+        # Initialize our cluster settings.
+        #[root@openstacker]
+
+if [ ! -e '/etc/phymatopus/cluster.settings' ]
+then
+    cat > '/etc/phymatopus/cluster.settings' << EOF
+
+    phym_userkey=dmr
+    phym_project=Raminiara
+
+    phym_image=\${fedora27:?}
+    phym_flavor=\${m1small:?}
+
+    sshuser=Stevedore
+    sshopts=(
+        '-q'
+        '-A'
+        '-o CheckHostIP=no'
+        '-o UserKnownHostsFile=/dev/null'
+        '-o StrictHostKeyChecking=no'
+        )
+
+EOF
+fi
+
+        # -----------------------------------------------------
+        # Load our project settings.
+        #[root@openstacker]
+
+            source '/etc/phymatopus/cluster.settings'
+
+        # -----------------------------------------------------
+        # Process the gobal list of nodes.
+        #[root@openstacker]
+
+            unset controller
+
+            unset unknowns
+            unknowns=()
+
+            unset kfidents
+            kfidents=()
+
+            unset mmidents
+            mmidents=()
+
+            unset zkidents
+            zkidents=()
+
+            echo ""
+            echo "Processing OpenStack nodes"
+            
+            for ident in $(
+                openstack \
+                    server list \
+                    --format json \
+                | jq -r '.[] | .ID'
+                )
+                do
+                    echo "Ident [$ident]"
+                    getvminfo "${ident:?}"
+
+                    name=$(getvmname)
+                    echo "Name  [$name]"
+
+                    case "${name}" in
+
+                        ${phym_project:?}-zookeeper*)
+                            echo "Match zookeeper"
+                            zkidents+=(${ident})
+                            ;;
+                            
+                        ${phym_project:?}-mirror*)
+                            echo "Match mirror"
+                            mmidents+=(${ident})
+                            ;;
+
+                        ${phym_project:?}-kafka*)
+                            echo "Match kafka"
+                            kfidents+=(${ident})
+                            ;;
+
+                        ${phym_project:?}-control*)
+                            echo "Match control"
+                            controller=${ident}
+                            ;;
+
+                        *)
+                            echo "unknown"
+                            unknowns+=(${ident})
+                            ;;
+                    esac
+                done
+
+        # -----------------------------------------------------
+        # Check our node lists.
+        #[root@openstacker]
+
+            echo ""
+            echo "Zookeeper nodes"
+            for ident in ${zkidents[@]}
+            do
+                echo "Ident [${ident}]"
+                getvminfo "${ident:?}"
+                name=$(getvmname)
+                echo "Name  [$name]"
+            done
+
+            echo ""
+            echo "Kafka nodes"
+            for ident in ${kfidents[@]}
+            do
+                echo "Ident [${ident}]"
+                getvminfo "${ident:?}"
+                name=$(getvmname)
+                echo "Name  [$name]"
+            done
+
+            echo ""
+            echo "Mirror nodes"
+            for ident in ${mmidents[@]}
+            do
+                echo "Ident [${ident}]"
+                getvminfo "${ident:?}"
+                name=$(getvmname)
+                echo "Name  [$name]"
+            done
+
+            echo ""
+            echo "Unknown nodes"
+            for ident in ${unknowns[@]}
+            do
+                echo "Ident [${ident}]"
+                getvminfo "${ident:?}"
+                name=$(getvmname)
+                echo "Name  [$name]"
+            done
+
+
+

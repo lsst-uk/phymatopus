@@ -1,0 +1,249 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2018, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#  
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+    #
+    # Deploy Zookeeper on the OpenStack nodes.
+    #
+
+    # -----------------------------------------------------
+    # Get an address from the internal address list.
+    #[root@openstacker]
+
+        geteleanor192()
+            {
+            local internals=(
+                $(eleanorinternal)
+                )
+            echo "${internals[0]}"
+            }
+
+        geteleanor172()
+            {
+            local internals=(
+                $(eleanorinternal)
+                )
+            echo "${internals[1]}"
+            }
+
+    # -----------------------------------------------------
+    # Get the internal (172*) address for our controller node. 
+    #[root@openstacker]
+
+        ident=${controller}
+        echo "Ident   [${ident:?}]"
+        
+        getvminfo "${ident:?}"
+
+        control=$(geteleanor192)
+        echo "Control [${control}]"
+
+            172.16.49.46
+
+    # -----------------------------------------------------
+    # Using mc in ssh proxy command throws an error "bash: nc: command not found"
+    # Install 'nc' on the controller to enable it to act as a ssh proxy.
+    #[root@openstacker]
+
+        ssh ${sshopts[*]} "${sshuser:?}@${control:?}" '
+            sudo dnf install -y nc
+            '
+
+            Installed:
+              nmap-ncat.x86_64 2:7.60-8.fc27
+  
+    # -----------------------------------------------------
+    # Test login to each node.
+    #[root@openstacker]
+
+        for vmident in ${kfidents[@]}
+        for vmident in ${mmidents[@]}
+        for vmident in ${zkidents[@]}
+        do
+
+            echo "---- ---- ---- ----"
+            getvminfo "${vmident:?}"
+            echo "Name    [$(getvmname)]"
+            echo "Ident   [${vmident}]"
+
+            internals=(
+                $(eleanorinternal)
+                )
+            internal=${internals[0]}
+            echo "Address [${vmident}]"
+
+            echo "
+                hostname
+                " \
+                | ssh \
+                    ${sshopts[*]} \
+                    -o ProxyCommand="${sshproxy}" \
+                    ${sshuser:?}@${internal:?}
+
+        done
+
+
+    # -----------------------------------------------------
+    # Build a list of lists of zookeeper addresses.
+    # The address for this server should be 0.0.0.0 to make zookeeper
+    # listen on all interfaces for inter zookeeper communications.
+    #[root@openstacker]
+
+        unset zkservers
+        zkservers=()
+            
+        for vmident in ${zkidents[@]}
+        do
+
+            echo "---- ---- ---- ----"
+            getvminfo "${vmident:?}"
+            echo "Ident  [${vmident}]"
+            echo "Name   [$(getvmname)]"
+
+            server=$(geteleanor192)
+            echo "Server [${server}]"
+
+            zkservers+=(${server})
+
+        done
+
+        unset zkserverlists
+        zkserverlists=()
+
+        for i in {0..2}
+        do
+
+            delim=''
+            ports=':2888:3888'
+            zkserverlist=''
+            for j in ${!zkservers[@]} 
+            do
+                if [[ $i -eq $j ]]
+                then
+                    server="0.0.0.0"
+                else
+                    server=${zkservers[${j}]}
+                fi
+                zkserverlist=${zkserverlist}${delim}${server}${ports}
+                delim=';'
+            done
+            zkserverlists+=(${zkserverlist})
+        done
+
+        echo "List [${zkserverlists[0]}]"
+        echo "List [${zkserverlists[1]}]"
+        echo "List [${zkserverlists[2]}]"
+
+    # -----------------------------------------------------
+    # Create our deploy script.
+    #[root@openstacker]
+
+cat > /tmp/zookeeper-init.sh << 'EOSH'
+
+    cat > zookeeper.yml << EOYL
+
+version: '3'
+
+networks:
+    zookeeper:
+    
+volumes:
+    zklog:
+    zkdata:
+    
+services:
+
+    courtney:
+        image:
+            confluentinc/cp-zookeeper:4.1.1
+        ports:
+            - "2181:2181"
+            - "2888:2888"
+            - "3888:3888"
+        environment:
+            - ZOOKEEPER_SERVER_ID=${ZOOKEEPER_SERVER_ID}
+            - ZOOKEEPER_SERVERS=${ZOOKEEPER_SERVERS}
+            - ZOOKEEPER_TICK_TIME=2000
+            - ZOOKEEPER_INIT_LIMIT=5
+            - ZOOKEEPER_SYNC_LIMIT=2
+            - ZOOKEEPER_CLIENT_PORT=2181
+            - ZOOKEEPER_CLIENT_PORT_ADDRESS=0.0.0.0
+        volumes:
+            - "zklog:/var/lib/zookeeper/log"
+            - "zkdata:/var/lib/zookeeper/data"
+        networks:
+            - zookeeper
+
+EOYL
+
+    echo "---- ----"
+
+    docker-compose \
+        --file zookeeper.yml \
+        up -d
+
+    echo "---- ----"
+    
+EOSH
+
+    # -----------------------------------------------------
+    # Login and run our init script on each node.
+    #[root@openstacker]
+
+        for i in ${!zkidents[@]}
+        do
+            echo "---- ---- ---- ----"
+            vmident=${zkidents[$i]}
+            getvminfo "${vmident:?}"
+            echo "Index [${i}]"
+            echo "Ident [${vmident}]"
+            echo "Name  [$(getvmname)]"
+
+            internal=$(geteleanor192)
+            echo "Address [${internal}]"
+
+            echo "
+
+                export ZOOKEEPER_SERVER_ID="\'$(($i+1))\'"
+                export ZOOKEEPER_SERVERS="\'${zkserverlists[${i}]}\'"
+
+                " \
+                | cat - /tmp/zookeeper-init.sh \
+                | ssh \
+                    ${sshopts[*]} \
+                    -o ProxyCommand="${sshproxy}" \
+                    ${sshuser:?}@${internal:?}
+
+        done
+
+# -----------------------------------------------------
+# Login and tail the logs.
+#[root@openstacker]
+
+    ssh trop03
+        ssh Etalema
+            ssh -A 172.16.49.46
+                ssh -A 192.168.1.11
+                ssh -A 192.168.1.15
+                ssh -A 192.168.1.19
+
+                    docker logs -f stevedore_courtney_1
+

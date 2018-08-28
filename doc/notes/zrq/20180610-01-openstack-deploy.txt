@@ -1,0 +1,119 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2018, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#  
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+# -----------------------------------------------------
+# Re-building our lists.
+#
+
+        # -----------------------------------------------------
+        # Initialize our arrays.
+        #[root@openstacker]
+
+            unset kfidents
+            kfidents=()
+
+            unset mmidents
+            mmidents=()
+
+            unset zkidents
+            zkidents=()
+
+        # -----------------------------------------------------
+        # Process the gobal list of nodes.
+        #[root@openstacker]
+
+            echo ""
+            echo "Processing OpenStack nodes"
+            
+            for ident in $(
+                openstack \
+                    server list \
+                    --format json \
+                | jq -r '.[] | .ID'
+                )
+                do
+                    echo "Ident [$ident]"
+                    getvminfo "${ident:?}"
+
+                    name=$(getvmname)
+                    echo "Name  [$name]"
+
+                    case "${name}" in
+
+                        zookeeper*)
+                            echo "Match zookeeper"
+                            zkidents+=(${ident})
+                            ;;
+                            
+                        mirror*)
+                            echo "Match mirror"
+                            mmidents+=(${ident})
+                            ;;
+
+                        kafka*)
+                            echo "Match kafka"
+                            kfidents+=(${ident})
+                            ;;
+                        *)
+                            echo "unknown"
+                            ;;
+                    esac
+                done
+
+        # -----------------------------------------------------
+        # Check our node lists.
+        #[root@openstacker]
+
+            echo ""
+            echo "Listing Kafka nodes"
+            for ident in ${kfidents[@]}
+            do
+                echo "Ident [${ident}]"
+                getvminfo "${ident:?}"
+                name=$(getvmname)
+                echo "Name  [$name]"
+            done
+
+            echo ""
+            echo "Listing Mirror nodes"
+            for ident in ${mmidents[@]}
+            do
+                echo "Ident [${ident}]"
+                getvminfo "${ident:?}"
+                name=$(getvmname)
+                echo "Name  [$name]"
+            done
+
+            echo ""
+            echo "Listing Zookeeper nodes"
+            for ident in ${zkidents[@]}
+            do
+                echo "Ident [${ident}]"
+                getvminfo "${ident:?}"
+                name=$(getvmname)
+                echo "Name  [$name]"
+            done
+
+
+
+
+

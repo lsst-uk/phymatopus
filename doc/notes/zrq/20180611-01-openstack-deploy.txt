@@ -1,0 +1,389 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2018, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#  
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+# -----------------------------------------------------
+# Generate some names.
+# https://www.name-generator.org.uk/
+
+    Pates
+    Rusalmorag
+    Caprighes
+    Elligatia
+    Alimane
+    Raminiara
+    Satanne
+    Gomenflute
+    Andlespark
+    Cheruton
+    Abarris
+    Adamsgant
+    Neonhig
+    Woodsev
+    Onohughes
+    Rolline
+    Kramortiz
+    Sucheek
+    Crocohall
+
+# -----------------------------------------------------
+# Create an initial VM to work with.
+#[user@trop]
+
+    createvm
+
+        INFO : Node name [Etalema]
+        INFO : Base name [fedora-27-docker-base-20180129.qcow]
+        INFO : Base path [/var/lib/libvirt/images/base/fedora-27-docker-base-20180129.qcow]
+        INFO : Disc name [Etalema.qcow]
+        INFO : Disc size [16GiB]
+
+        INFO : MAC  [52:54:00:02:03:09]
+        INFO : IPv4 [192.168.203.9]
+        INFO : IPv6 []
+
+# -----------------------------------------------------
+# Login to our external VM.
+#[user@trop]
+
+    ssh Etalema
+
+    # -----------------------------------------------------
+    # Configure our secrets function.
+    #[user@virtual]
+
+        mkdir "${HOME}/bin"
+        pushd "${HOME}/bin"
+
+            cat > "secret" << 'EOF'
+    ....
+    ....
+    EOF
+
+            chmod u=rwx,og= "secret"
+        popd
+
+        secret frog
+
+    # -----------------------------------------------------
+    # Configure our OpenStack settings.
+    # https://horizon.ecdf.ed.ac.uk/dashboard/project/access_and_security/api_access/openrc/
+    #[user@virtual]
+
+        cat > "${HOME}/openstack.settings" << EOF
+
+export OS_INTERFACE=public
+export OS_IDENTITY_API_VERSION=3
+
+export OS_AUTH_URL=https://keystone.ecdf.ed.ac.uk/v3
+
+export OS_USER_DOMAIN_NAME="ed"
+export OS_REGION_NAME="Edinburgh"
+
+export OS_USERNAME=$(secret openstack.user)
+export OS_PASSWORD=$(secret openstack.pass)
+
+export OS_PROJECT_ID=fcef6dd450f64a1ab4ffa5a7234c4161
+export OS_PROJECT_NAME=lsst
+
+EOF
+
+    # -----------------------------------------------------
+    # Create a container to work with.
+    #[user@virtual]
+
+        docker run \
+            --rm \
+            --tty \
+            --interactive \
+            --hostname openstacker \
+            --env SSH_AUTH_SOCK=/tmp/ssh_auth_sock \
+            --volume "${HOME}/openstack.settings:/openstack.settings" \
+            --volume ${SSH_AUTH_SOCK}:/tmp/ssh_auth_sock \
+            phymatopus/openstack-client \
+            bash
+
+        # -----------------------------------------------------
+        # Load our settings.
+        #[root@openstacker]
+
+            source /openstack.settings
+
+        # -----------------------------------------------------
+        # Check our user name and password.
+        #[root@openstacker]
+
+cat << EOF
+Username [${OS_USERNAME:?}]
+Password [${OS_PASSWORD:?}]
+Project  [${OS_PROJECT_NAME:?}]
+Project  [${OS_PROJECT_ID:?}]
+EOF
+
+        # -----------------------------------------------------
+        # Load our functions.
+        #[root@openstacker]
+
+            source openstack-utils.sh
+            source eleanor-utils.sh
+
+        # -----------------------------------------------------
+        # List our network identifiers.
+        #[root@openstacker]
+
+cat << EOF
+Public   net [${publicnet:?}]
+Private  net [${privatenet:?}]
+Internal net [${internalnet:?}]
+External net [${externalnet:?}]
+EOF
+
+            Public   net [d1e55e07-6f28-4d98-8116-e11ca10c3e8f]
+            Private  net [4f2774d1-dfb8-4833-8374-806e1fc40827]
+            Internal net [cc1bdad0-6b7c-4c7b-8c5b-6d5f4a677368]
+            External net [0dc77e8e-a97e-411e-94d0-da1b6efc393c]
+
+        # -----------------------------------------------------
+        # List our available flavors.
+        #[root@openstacker]
+
+cat << EOF
+M1 Small    [${m1small:?}]
+M1 Medium   [${m1medium:?}]
+M1 Large    [${m1large:?}]
+M1 x Large  [${m1xlarge:?}]
+M1 xx Large [${m1xxlarge:?}]
+EOF
+
+            M1 Small    [2]
+            M1 Medium   [3]
+            M1 Large    [4]
+            M1 X Large  [5]
+            M1 XX Large [09086afb-9d80-4719-974c-45e700a795bb]
+
+        # -----------------------------------------------------
+        # Initialize our project name.
+        #[root@openstacker]
+
+            project=Elligatia
+            project=Gomenflute
+            project=Caprighes
+            project=Raminiara
+
+        # -----------------------------------------------------
+        # Initialize our ssh key.
+        #[root@openstacker]
+
+            sshkey=dmr
+
+        # -----------------------------------------------------
+        # Initialize our arrays.
+        #[root@openstacker]
+
+            unset kfidents
+            kfidents=()
+
+            unset mmidents
+            mmidents=()
+
+            unset zkidents
+            zkidents=()
+
+        # -----------------------------------------------------
+        # Create our controller instance.
+        #[root@openstacker]
+
+            controller=$(makevm "control")
+
+        # -----------------------------------------------------
+        # Create our Kafka instances.
+        #[root@openstacker]
+
+            echo ""
+            echo "Creating Kafka nodes"
+
+            for i in {0..3}
+            do
+                echo "Node [${i}]"
+                kfidents+=(
+                    "$(makevm "kafka-${i}")"
+                    )
+            done
+
+        # -----------------------------------------------------
+        # Create our MirrorMaker instances.
+        #[root@openstacker]
+
+            echo ""
+            echo "Creating MirrorMaker nodes"
+
+            for i in {0..3}
+            do
+                echo "Node [${i}]"
+                mmidents+=(
+                    "$(makevm "mirror-${i}")"
+                    )
+            done
+
+        # -----------------------------------------------------
+        # Create our Zookeeper instances.
+        #[root@openstacker]
+
+            echo ""
+            echo "Creating Zookeeper nodes"
+
+            for i in {0..1}
+            do
+                echo "Node [${i}]"
+                zkidents+=(
+                    "$(makevm "zookeeper-${i}")"
+                    )
+            done
+
+        # -----------------------------------------------------
+        # Assign a floating IP addresess to our controller.
+        #[root@openstacker]
+
+            echo ""
+            echo "Adding floating address to controller node"
+
+            controlip=$(
+                addinternalfloat "${controller:?}"
+                )
+
+        # -----------------------------------------------------
+        # Assign floating IP addresess to each of our Kafka nodes.
+        #[root@openstacker]
+
+            echo ""
+            echo "Adding floating addresses to Kafka nodes"
+
+            for ident in ${kfidents[@]}
+            do
+                addinternalfloat "${ident:?}"
+            done
+
+        # -----------------------------------------------------
+        # Assign a data volume to each of our Kafka nodes.
+        #[root@openstacker]
+
+
+
+
+
+
+
+
+# -----------------------------------------------------
+# Tidying up after an experiment.
+#
+
+        # -----------------------------------------------------
+        # List all our nodes.
+        #[root@openstacker]
+
+            openstack \
+                server list
+
+        # -----------------------------------------------------
+        # List all our floating addresses.
+        #[root@openstacker]
+
+            openstack \
+                floating ip list
+
+        # -----------------------------------------------------
+        # Delete nodes that match our project name.
+        #[root@openstacker]
+
+            match="^${project:?}*"
+
+            for ident in $(
+                openstack \
+                    server list \
+                    --format json \
+                | jq -r ".[] | select(.Name | test(\"${match:?}\")) | .ID"
+                )
+                do
+                    echo "ID [$ident]"
+                    openstack \
+                        server \
+                        delete \
+                            "${ident}"
+                done
+
+        # -----------------------------------------------------
+        # Delete orphan floating addresses.
+        #[root@openstacker]
+
+            for ident in $(
+                openstack \
+                    floating ip list \
+                    --format json \
+                | jq -r '.[] | select(.Port == null) | .ID'
+                )
+                do
+                    echo "ID [$ident]"
+                    openstack \
+                        floating ip \
+                        delete \
+                            "${ident}"
+                done
+
+
+        # -----------------------------------------------------
+        # Delete *all* our nodes.
+        # WARNING - use with care - this will do what it says.
+        #[root@openstacker]
+
+            for ident in $(
+                openstack \
+                    server list \
+                    --format json \
+                | jq -r '.[] | .ID'
+                )
+                do
+                    echo "ID [$ident]"
+                    openstack \
+                        server \
+                        delete \
+                            "${ident}"
+                done
+
+        # -----------------------------------------------------
+        # Delete *ALL* our floating addresses.
+        # WARNING - use with care - this will do what it says.
+        #[root@openstacker]
+
+            for ident in $(
+                openstack \
+                    floating ip list \
+                    --format json \
+                | jq -r '.[] | .ID'
+                )
+                do
+                    echo "ID [$ident]"
+                    openstack \
+                        floating ip \
+                        delete \
+                            "${ident}"
+                done
+

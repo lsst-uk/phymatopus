@@ -1,0 +1,489 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2018, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#  
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+        # -----------------------------------------------------
+        # Check the client offsets.
+        #[root@openstacker]
+
+            brokers=${ztfconnect:?}
+
+            echo "
+                docker run --rm phymatopus/kafka-core \
+                    bin/kafka-consumer-groups.sh \
+                        --bootstrap-server "${brokers:?}" \
+                        --describe \
+                        --group "${groupid:?}"
+                " \
+            | ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${controlip:?} | sort | tee lits.txt
+
+            --- blank list, not what we were expecting ..
+            --- expecting to see offsets for previous run
+            --- DON'T PANIC - it was a cloudy day
+            --- Topic exists, it is just empty.
+            --- Turns out consumer-groups doesn't list offsets for empty topics.
+
+        # -----------------------------------------------------
+        # Check the available topics in the ZTF brokers.
+        # https://docs.confluent.io/current/app-development/kafkacat-usage.html
+        # https://github.com/edenhill/kafkacat
+        #[root@openstacker]
+
+            brokers=${ztfconnect:?}
+
+            echo "
+                docker run --rm kafkacat \
+                    -b "${brokers:?}" \
+                    -L -J \
+                " \
+            | ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${controlip:?} \
+            | jq -r '.topics[] | select(.topic | startswith("__") | not) | .topic' \
+            | sort \
+            | tee topics.txt
+
+
+                ztf
+                ztf_20180528_programid1
+                ztf_20180531_programid1
+                ztf_20180601_programid1
+                ztf_20180602_programid1
+                ztf_20180603_programid1
+                ztf_20180604_programid1
+                ztf_20180605_programid1
+                ztf_20180606_programid1
+                ztf_20180607_programid1
+                ztf_20180608_programid1
+                ztf_20180609_programid1
+                ztf_20180610_programid1
+                ztf_20180611_programid1
+                ztf_20180612_programid1
+                ztf_20180613_programid1
+                ztf_20180614_programid1
+                ztf_20180615_programid1
+                ztf_20180616_programid1
+                ztf_20180617_programid1
+                ztf_20180618_programid1
+                ztf_20180619_programid1
+                ztf_20180620_programid1
+                ztf_20180621_programid1
+                ztf_20180622_programid1
+                ztf_20180623_programid1
+                ztf_20180624_programid1
+                ztf_20180625_programid1
+                ztf_20180626_programid1
+                ztf_20180627_programid1
+                ztf_20180628_programid1
+                ztf_20180629_programid1
+                ztf_20180630_programid1
+                ztf_20180701_programid1
+                ztf_20180702_programid1
+                ztf_20180703_programid1
+                ztf_20180704_programid1
+                ztf_20180705_programid1
+                ztf_20180706_programid1
+                ztf_20180707_programid1
+                ztf_20180708_programid1
+                ztf_20180709_programid1
+                ztf_20180710_programid1
+                ztf_mjuric
+                ztf_test
+
+        # -----------------------------------------------------
+        # Check the offsets in the ZTF brokers.
+        #[root@openstacker]
+
+            brokers=${ztfconnect:?}
+
+            for topicid in $(cat topics.txt)
+            do
+                echo "--------------------"
+                echo "Topic [${topicid:?}]"
+                echo "
+                    docker run --rm phymatopus/kafka-core \
+                        bin/kafka-run-class.sh kafka.tools.GetOffsetShell \
+                            --broker-list "${brokers:?}" \
+                            --topic "${topicid:?}" \
+                            --time -1
+
+                    docker run --rm phymatopus/kafka-core \
+                        bin/kafka-run-class.sh kafka.tools.GetOffsetShell \
+                            --broker-list "${brokers:?}" \
+                            --topic "${topicid:?}" \
+                            --time -2
+                    " \
+                | ssh \
+                    ${sshopts[*]} \
+                    ${sshuser:?}@${controlip:?} | sort
+            done
+
+
+                ....
+                ....
+                --------------------
+                Topic [ztf_20180708_programid1]
+                ztf_20180708_programid1:0:0
+                ztf_20180708_programid1:0:9267
+                ztf_20180708_programid1:10:0
+                ztf_20180708_programid1:10:9267
+                ztf_20180708_programid1:11:0
+                ztf_20180708_programid1:11:9267
+                ztf_20180708_programid1:12:0
+                ztf_20180708_programid1:12:9267
+                ztf_20180708_programid1:13:0
+                ztf_20180708_programid1:13:9267
+                ztf_20180708_programid1:1:0
+                ztf_20180708_programid1:1:9267
+                ztf_20180708_programid1:2:0
+                ztf_20180708_programid1:2:9267
+                ztf_20180708_programid1:3:0
+                ztf_20180708_programid1:3:9267
+                ztf_20180708_programid1:4:0
+                ztf_20180708_programid1:4:9267
+                ztf_20180708_programid1:5:0
+                ztf_20180708_programid1:5:9267
+                ztf_20180708_programid1:6:0
+                ztf_20180708_programid1:6:9267
+                ztf_20180708_programid1:7:0
+                ztf_20180708_programid1:7:9266
+                ztf_20180708_programid1:8:0
+                ztf_20180708_programid1:8:9267
+                ztf_20180708_programid1:9:0
+                ztf_20180708_programid1:9:9267
+                --------------------
+                Topic [ztf_20180709_programid1]
+                ztf_20180709_programid1:0:0
+                ztf_20180709_programid1:0:6439
+                ztf_20180709_programid1:10:0
+                ztf_20180709_programid1:10:6440
+                ztf_20180709_programid1:11:0
+                ztf_20180709_programid1:11:6439
+                ztf_20180709_programid1:12:0
+                ztf_20180709_programid1:12:6440
+                ztf_20180709_programid1:13:0
+                ztf_20180709_programid1:13:6439
+                ztf_20180709_programid1:1:0
+                ztf_20180709_programid1:1:6440
+                ztf_20180709_programid1:2:0
+                ztf_20180709_programid1:2:6439
+                ztf_20180709_programid1:3:0
+                ztf_20180709_programid1:3:6440
+                ztf_20180709_programid1:4:0
+                ztf_20180709_programid1:4:6440
+                ztf_20180709_programid1:5:0
+                ztf_20180709_programid1:5:6439
+                ztf_20180709_programid1:6:0
+                ztf_20180709_programid1:6:6439
+                ztf_20180709_programid1:7:0
+                ztf_20180709_programid1:7:6440
+                ztf_20180709_programid1:8:0
+                ztf_20180709_programid1:8:6439
+                ztf_20180709_programid1:9:0
+                ztf_20180709_programid1:9:6440
+                --------------------
+                Topic [ztf_20180710_programid1]
+                ztf_20180710_programid1:0:0
+                ztf_20180710_programid1:0:0
+                ztf_20180710_programid1:10:0
+                ztf_20180710_programid1:10:0
+                ztf_20180710_programid1:11:0
+                ztf_20180710_programid1:11:0
+                ztf_20180710_programid1:12:0
+                ztf_20180710_programid1:12:0
+                ztf_20180710_programid1:13:0
+                ztf_20180710_programid1:13:0
+                ztf_20180710_programid1:1:0
+                ztf_20180710_programid1:1:0
+                ztf_20180710_programid1:2:0
+                ztf_20180710_programid1:2:0
+                ztf_20180710_programid1:3:0
+                ztf_20180710_programid1:3:0
+                ztf_20180710_programid1:4:0
+                ztf_20180710_programid1:4:0
+                ztf_20180710_programid1:5:0
+                ztf_20180710_programid1:5:0
+                ztf_20180710_programid1:6:0
+                ztf_20180710_programid1:6:0
+                ztf_20180710_programid1:7:0
+                ztf_20180710_programid1:7:0
+                ztf_20180710_programid1:8:0
+                ztf_20180710_programid1:8:0
+                ztf_20180710_programid1:9:0
+                ztf_20180710_programid1:9:0
+
+
+        # -----------------------------------------------------
+        # Check the available topics in the ROE brokers.
+        # https://docs.confluent.io/current/app-development/kafkacat-usage.html
+        # https://github.com/edenhill/kafkacat
+        #[root@openstacker]
+
+            brokers=${roeconnect:?}
+
+            echo "
+                docker run --rm kafkacat \
+                    -b "${brokers:?}" \
+                    -L -J \
+                " \
+            | ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${controlip:?} \
+            | jq -r '.topics[] | select(.topic | startswith("__") | not) | .topic' \
+            | sort \
+            | tee topics.txt
+
+
+                ztf_20180614_programid1
+                ztf_20180615_programid1
+                ztf_20180616_programid1
+                ztf_20180617_programid1
+                ztf_20180618_programid1
+                ztf_20180619_programid1
+                ztf_20180620_programid1
+                ztf_20180621_programid1
+                ztf_20180622_programid1
+                ztf_20180623_programid1
+                ztf_20180624_programid1
+                ztf_20180625_programid1
+                ztf_20180626_programid1
+                ztf_20180627_programid1
+                ztf_20180628_programid1
+                ztf_20180629_programid1
+                ztf_20180630_programid1
+                ztf_20180701_programid1
+                ztf_20180702_programid1
+                ztf_20180703_programid1
+                ztf_20180704_programid1
+                ztf_20180705_programid1
+                ztf_20180706_programid1
+                ztf_20180707_programid1
+                ztf_20180708_programid1
+                ztf_20180709_programid1
+                ztf_20180710_programid1
+
+        # -----------------------------------------------------
+        # Check the offsets in the ROE brokers.
+        #[root@openstacker]
+
+            brokers=${roeconnect:?}
+
+            for topicid in $(cat topics.txt)
+            do
+                echo "--------------------"
+                echo "Topic [${topicid:?}]"
+                echo "
+                    docker run --rm phymatopus/kafka-core \
+                        bin/kafka-run-class.sh kafka.tools.GetOffsetShell \
+                            --broker-list "${brokers:?}" \
+                            --topic "${topicid:?}" \
+                            --time -1
+
+                    docker run --rm phymatopus/kafka-core \
+                        bin/kafka-run-class.sh kafka.tools.GetOffsetShell \
+                            --broker-list "${brokers:?}" \
+                            --topic "${topicid:?}" \
+                            --time -2
+                    " \
+                | ssh \
+                    ${sshopts[*]} \
+                    ${sshuser:?}@${controlip:?} | sort
+            done
+
+                ....
+                ....
+                --------------------
+                Topic [ztf_20180708_programid1]
+                ztf_20180708_programid1:0:0
+                ztf_20180708_programid1:0:8108
+                ztf_20180708_programid1:10:0
+                ztf_20180708_programid1:10:8109
+                ztf_20180708_programid1:11:0
+                ztf_20180708_programid1:11:8107
+                ztf_20180708_programid1:12:0
+                ztf_20180708_programid1:12:8109
+                ztf_20180708_programid1:13:0
+                ztf_20180708_programid1:13:8109
+                ztf_20180708_programid1:14:0
+                ztf_20180708_programid1:14:8108
+                ztf_20180708_programid1:15:0
+                ztf_20180708_programid1:15:8110
+                ztf_20180708_programid1:1:0
+                ztf_20180708_programid1:1:8109
+                ztf_20180708_programid1:2:0
+                ztf_20180708_programid1:2:8107
+                ztf_20180708_programid1:3:0
+                ztf_20180708_programid1:3:8109
+                ztf_20180708_programid1:4:0
+                ztf_20180708_programid1:4:8109
+                ztf_20180708_programid1:5:0
+                ztf_20180708_programid1:5:8107
+                ztf_20180708_programid1:6:0
+                ztf_20180708_programid1:6:8110
+                ztf_20180708_programid1:7:0
+                ztf_20180708_programid1:7:8109
+                ztf_20180708_programid1:8:0
+                ztf_20180708_programid1:8:8108
+                ztf_20180708_programid1:9:0
+                ztf_20180708_programid1:9:8109
+                --------------------
+                Topic [ztf_20180709_programid1]
+                ztf_20180709_programid1:0:0
+                ztf_20180709_programid1:0:5636
+                ztf_20180709_programid1:10:0
+                ztf_20180709_programid1:10:5634
+                ztf_20180709_programid1:11:0
+                ztf_20180709_programid1:11:5635
+                ztf_20180709_programid1:12:0
+                ztf_20180709_programid1:12:5635
+                ztf_20180709_programid1:13:0
+                ztf_20180709_programid1:13:5634
+                ztf_20180709_programid1:14:0
+                ztf_20180709_programid1:14:5634
+                ztf_20180709_programid1:15:0
+                ztf_20180709_programid1:15:5635
+                ztf_20180709_programid1:1:0
+                ztf_20180709_programid1:1:5634
+                ztf_20180709_programid1:2:0
+                ztf_20180709_programid1:2:5635
+                ztf_20180709_programid1:3:0
+                ztf_20180709_programid1:3:5634
+                ztf_20180709_programid1:4:0
+                ztf_20180709_programid1:4:5634
+                ztf_20180709_programid1:5:0
+                ztf_20180709_programid1:5:5635
+                ztf_20180709_programid1:6:0
+                ztf_20180709_programid1:6:5635
+                ztf_20180709_programid1:7:0
+                ztf_20180709_programid1:7:5634
+                ztf_20180709_programid1:8:0
+                ztf_20180709_programid1:8:5635
+                ztf_20180709_programid1:9:0
+                ztf_20180709_programid1:9:5634
+                --------------------
+                Topic [ztf_20180710_programid1]
+                ztf_20180710_programid1:0:0
+                ztf_20180710_programid1:0:0
+                ztf_20180710_programid1:10:0
+                ztf_20180710_programid1:10:0
+                ztf_20180710_programid1:11:0
+                ztf_20180710_programid1:11:0
+                ztf_20180710_programid1:12:0
+                ztf_20180710_programid1:12:0
+                ztf_20180710_programid1:13:0
+                ztf_20180710_programid1:13:0
+                ztf_20180710_programid1:14:0
+                ztf_20180710_programid1:14:0
+                ztf_20180710_programid1:15:0
+                ztf_20180710_programid1:15:0
+                ztf_20180710_programid1:1:0
+                ztf_20180710_programid1:1:0
+                ztf_20180710_programid1:2:0
+                ztf_20180710_programid1:2:0
+                ztf_20180710_programid1:3:0
+                ztf_20180710_programid1:3:0
+                ztf_20180710_programid1:4:0
+                ztf_20180710_programid1:4:0
+                ztf_20180710_programid1:5:0
+                ztf_20180710_programid1:5:0
+                ztf_20180710_programid1:6:0
+                ztf_20180710_programid1:6:0
+                ztf_20180710_programid1:7:0
+                ztf_20180710_programid1:7:0
+                ztf_20180710_programid1:8:0
+                ztf_20180710_programid1:8:0
+                ztf_20180710_programid1:9:0
+                ztf_20180710_programid1:9:0
+
+            --- DON'T PANIC - 20180710 was a cloudy day
+            --- Topic exists, it is just empty.
+
+
+        # -----------------------------------------------------
+        # Set the topic date.
+        #[root@openstacker]
+
+            topiclist="ztf_$(date '+%Y%m%d')_programid1"
+
+        # -----------------------------------------------------
+        # Update the target topic name.
+        #[root@openstacker]
+
+            date
+
+            for ident in ${mmidents[@]}
+                do
+                    getvminfo "${ident:?}"
+                    internalip=$(geteleanor192)
+
+echo "
+Ident   [${ident}]
+Name    [$(getvmname)]
+Address [${internalip}]
+Topics  [${topiclist}]
+"
+
+                    echo "
+
+                        docker-compose \
+                            --file mirror.yml \
+                            down
+
+                        sed -i \"
+                            s/^topiclist=.*/topiclist=${topiclist:?}/
+                            \" mirror.env
+
+                        docker-compose \
+                            --file mirror.yml \
+                            up -d
+
+
+                        " \
+                    | ssh \
+                        ${sshopts[*]} \
+                        -o ProxyCommand="${sshproxy:?}" \
+                        ${sshuser:?}@${internalip:?}
+
+                done
+
+
+        # -----------------------------------------------------
+        # Check the client offsets.
+        #[root@openstacker]
+
+            brokers=${ztfconnect:?}
+
+            echo "
+                docker run --rm phymatopus/kafka-core \
+                    bin/kafka-consumer-groups.sh \
+                        --bootstrap-server "${brokers:?}" \
+                        --describe \
+                        --group "${groupid:?}"
+                " \
+            | ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${controlip:?} | sort | tee lits.txt
+
+            --- blank list, not what we were expecting ..
+            --- DON'T PANIC - it was a cloudy day
+

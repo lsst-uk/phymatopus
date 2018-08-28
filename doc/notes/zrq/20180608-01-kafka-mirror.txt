@@ -1,0 +1,143 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2018, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#  
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+    #
+    # Based on paper scribbles and GoogleFoo discoveries ....
+    #
+
+    Put everything in separate virtual machines to start with.
+    Use Eleanor internal addresses to communicate between them.
+    Expose Eleanor Uni float addresses for Kafka.
+
+    Four MirrorMaker nodes
+    Four Kafka nodes - each with a 300G volume (~10 days worth of data)
+    One Zookeeper node (add more later)
+
+    Each node configured using docker-compose.
+
+    The reason for putting everything in separate VMs is that
+    each component needs to be able to talk to everything else.
+
+    If we put some components in the same VM, then communication
+    within the VM needs to use Docker addresses, but communication
+    to things outside the VM still needs to use VM addresses.
+
+    Which is fine, until things like Kafka and Zookeeper start to
+    exchange lists of replicated services with each other. 
+
+    In theory we could solve this using Docker swarm and an
+    overlay network, but that has side effects too.
+    The overlay network will make internal communication
+    within the swarm transparent, but it will cause side effects
+    for external access.
+
+    Both Kafka and Zookeeper advertise the addreses/hostnames
+    of their colleagues within their cluster.
+    I can't see a way to conditionally advertise a separate set
+    of internal and external addresses depending on which network
+    the client uses to make the neighbour request.
+
+    Looking ahead, we need to figure out a way to fix this if we want
+    to use swarm stacks to configure local Kafka clusters for dynamically
+    created data processing pipelines.
+
+
+# -----------------------------------------------------
+# OpenStack flavours
+
+    m1.small
+         2G RAM,  1 cpu,  20G disk
+
+    m1.medium
+         4G RAM,  2 cpu,  40G disk
+
+    m1.large
+         8G RAM,  4 cpu,  80G disk
+
+    m1.xlarge
+        16G RAM,  8 cpu, 160G disk
+
+    m1.xxlarge
+        32G RAM, 16 cpu, 160G disk
+
+    l1.medium
+        12G RAM,  2 cpu, 80G disk
+
+    l1.large
+        24G RAM,  4 cpu, 160G disk
+
+    l1.xlarge
+        48G RAM,  8 cpu, 320G disk
+
+    l1.xxlarge
+        96G RAM, 16 cpu, 320G disk
+
+#----------------------------------------------------------------
+# OpenStack deployment
+
+    4x Kafka VM.
+        flavour m1.xlarge (16G RAM, 8 cpu, 160G disk)
+        flavour m1.large  ( 8G RAM, 4 cpu,  80G disk)
+        flavour m1.medium ( 4G RAM, 2 cpu,  40G disk) <-- start here
+        flavour m1.small  ( 2G RAM, 1 cpu,  20G disk)
+        image   fedora-27-docker-base-20180129
+        volume  300G
+                    
+    3x Zookeeper VM
+        flavour m1.small (2G RAM, 1 cpu, 20G disk)
+        image   fedora-27-docker-base-20180129
+
+    4x Mirror VM
+        flavour m1.small (2G RAM, 1 cpu, 20G disk)
+        image   fedora-27-docker-base-20180129
+
+
+    The main reason for using separate VMs is reliability.
+    If one node goes down, then the others can continue to operate without interruption.
+    That isn't vital now, it may be in the future.
+
+    Ideally, we want to spread the Kafka VMs (and their volumes)
+    across multiple physical servers.
+
+    There may be performance issues with Kafka on a machine
+    with low memory.
+
+#----------------------------------------------------------------
+# Confluent documentation
+
+    Production deployment
+    https://docs.confluent.io/current/kafka/deployment.html#
+
+        "A machine with 64 GB of RAM is a decent choice, but 32 GB machinesare not uncommon.
+        Less than 32 GB tends to be counterproductive (you end up needing many, many small machines)."
+
+    For reference, here are the stats on one of LinkedIn’s busiest clusters (at peak):
+
+        60 brokers
+        50k partitions (replication factor 2)
+        800k messages/sec in
+        300 MB/sec inbound, 1 GB/sec+ outbound
+
+
+
+
+

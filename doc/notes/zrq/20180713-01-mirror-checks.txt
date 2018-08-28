@@ -1,0 +1,2763 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2018, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#  
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+        # -----------------------------------------------------
+        # Check the client offsets.
+        #[root@openstacker]
+
+            brokers=${ztfconnect:?}
+
+            echo "
+                docker run --rm phymatopus/kafka-core \
+                    bin/kafka-consumer-groups.sh \
+                        --bootstrap-server "${brokers:?}" \
+                        --describe \
+                        --group "${groupid:?}"
+                " \
+            | ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${controlip:?} | sort | tee lits.txt
+
+
+                TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                 HOST             CLIENT-ID
+                ztf_20180712_programid1 0          9518            9518            0               ztf-mirror.roe.ac.uk-0-06476d12-d55a-4b8c-9096-4f9383c93ea4 /129.215.255.235 ztf-mirror.roe.ac.uk-0
+                ztf_20180712_programid1 1          9519            9519            0               ztf-mirror.roe.ac.uk-0-5959fcde-367b-44fd-b24c-120c0798003a /129.215.255.235 ztf-mirror.roe.ac.uk-0
+                ztf_20180712_programid1 10         9519            9519            0               ztf-mirror.roe.ac.uk-2-50289625-d6b5-4c2f-ae7c-8d99c7027d4f /129.215.255.235 ztf-mirror.roe.ac.uk-2
+                ztf_20180712_programid1 11         9519            9519            0               ztf-mirror.roe.ac.uk-2-87eec8f2-c6bb-43b3-bce1-35e1d07a5774 /129.215.255.235 ztf-mirror.roe.ac.uk-2
+                ztf_20180712_programid1 12         9519            9519            0               ztf-mirror.roe.ac.uk-3-0eb5049a-ea4c-4687-8e16-80c9db8cf7d0 /129.215.255.235 ztf-mirror.roe.ac.uk-3
+                ztf_20180712_programid1 13         9519            9519            0               ztf-mirror.roe.ac.uk-3-cf878444-b6b8-4e54-b7fd-592970d1e422 /129.215.255.235 ztf-mirror.roe.ac.uk-3
+                ztf_20180712_programid1 2          9519            9519            0               ztf-mirror.roe.ac.uk-0-bcd48b67-2b67-4b8b-b9cb-ff82c1415026 /129.215.255.235 ztf-mirror.roe.ac.uk-0
+                ztf_20180712_programid1 3          9519            9519            0               ztf-mirror.roe.ac.uk-0-fbfa2234-36be-4d58-828a-9a8517c03168 /129.215.255.235 ztf-mirror.roe.ac.uk-0
+                ztf_20180712_programid1 4          9519            9519            0               ztf-mirror.roe.ac.uk-1-53863f41-6f27-4afe-8004-cb76afc15d13 /129.215.255.235 ztf-mirror.roe.ac.uk-1
+                ztf_20180712_programid1 5          9519            9519            0               ztf-mirror.roe.ac.uk-1-5edbfcdf-f66f-4ced-a092-fda6ef7cc58c /129.215.255.235 ztf-mirror.roe.ac.uk-1
+                ztf_20180712_programid1 6          9519            9519            0               ztf-mirror.roe.ac.uk-1-80fe394f-d4c2-4de3-8926-91ef9811da95 /129.215.255.235 ztf-mirror.roe.ac.uk-1
+                ztf_20180712_programid1 7          9519            9519            0               ztf-mirror.roe.ac.uk-1-ca945ac4-0217-4580-a137-696f85878068 /129.215.255.235 ztf-mirror.roe.ac.uk-1
+                ztf_20180712_programid1 8          9518            9518            0               ztf-mirror.roe.ac.uk-2-0b7918cf-bbb5-4809-9588-ee67b73a4f1e /129.215.255.235 ztf-mirror.roe.ac.uk-2
+                ztf_20180712_programid1 9          9519            9519            0               ztf-mirror.roe.ac.uk-2-3c39b56c-e4cc-49ee-a2f3-137b9cfb767d /129.215.255.235 ztf-mirror.roe.ac.uk-2
+
+
+        # -----------------------------------------------------
+        # Set the topic to a wildcard pattern.
+        #[root@openstacker]
+
+           #topiclist="ztf_$(date '+%Y%m%d')_programid1"
+            topiclist='^ztf_[0-9]++_programid1$'
+
+        # -----------------------------------------------------
+        # Update the target topic list.
+        #[root@openstacker]
+
+            date
+
+            for ident in ${mmidents[@]}
+                do
+                    getvminfo "${ident:?}"
+                    internalip=$(geteleanor192)
+
+echo "
+Ident   [${ident}]
+Name    [$(getvmname)]
+Address [${internalip}]
+Topics  [${topiclist}]
+"
+
+                    echo "
+
+                        docker-compose \
+                            --file mirror.yml \
+                            down
+
+                        sed -i \"
+                            s/^topiclist=.*/topiclist=${topiclist:?}/
+                            \" mirror.env
+
+                        docker-compose \
+                            --file mirror.yml \
+                            up -d
+
+
+                        " \
+                    | ssh \
+                        ${sshopts[*]} \
+                        -o ProxyCommand="${sshproxy:?}" \
+                        ${sshuser:?}@${internalip:?}
+
+                done
+
+            # BUG
+            # Huge level of network activity as soon as we started set the wildcard topic list.
+            # Suspect it is re-evaluating the whole 7 days of available daya :-(
+            # Using a wildcard makes us dependant on the upstream topic list.
+            # Specific single day topics are safer.
+            #
+            # AND IT DOESN'T MATCH THE NEW TOPIC WHEN IS BECOMES AVAILABLE !!
+            # 
+
+        # -----------------------------------------------------
+        # Check the client offsets.
+        #[root@openstacker]
+
+            brokers=${ztfconnect:?}
+
+            echo "
+                docker run --rm phymatopus/kafka-core \
+                    bin/kafka-consumer-groups.sh \
+                        --bootstrap-server "${brokers:?}" \
+                        --describe \
+                        --group "${groupid:?}"
+                " \
+            | ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${controlip:?} | sort | tee lits.txt
+
+            # BUG
+            # Using a broad wildcard topiclist causes kafka-consumer-groups to fail.
+            # Error: Executing consumer group command failed due to null
+
+
+        # -----------------------------------------------------
+        # Check the available topics in the ZTF brokers.
+        # https://docs.confluent.io/current/app-development/kafkacat-usage.html
+        # https://github.com/edenhill/kafkacat
+        #[root@openstacker]
+
+            brokers=${ztfconnect:?}
+
+            echo "
+                docker run --rm kafkacat \
+                    -b "${brokers:?}" \
+                    -L -J \
+                " \
+            | ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${controlip:?} \
+            | jq -r '.topics[] | select(.topic | startswith("__") | not) | .topic' \
+            | sort \
+            | tee topics.txt
+
+
+                ztf
+                ztf_20180528_programid1
+                ztf_20180531_programid1
+                ztf_20180601_programid1
+                ztf_20180602_programid1
+                ztf_20180603_programid1
+                ztf_20180604_programid1
+                ztf_20180605_programid1
+                ztf_20180606_programid1
+                ztf_20180607_programid1
+                ztf_20180608_programid1
+                ztf_20180609_programid1
+                ztf_20180610_programid1
+                ztf_20180611_programid1
+                ztf_20180612_programid1
+                ztf_20180613_programid1
+                ztf_20180614_programid1
+                ztf_20180615_programid1
+                ztf_20180616_programid1
+                ztf_20180617_programid1
+                ztf_20180618_programid1
+                ztf_20180619_programid1
+                ztf_20180620_programid1
+                ztf_20180621_programid1
+                ztf_20180622_programid1
+                ztf_20180623_programid1
+                ztf_20180624_programid1
+                ztf_20180625_programid1
+                ztf_20180626_programid1
+                ztf_20180627_programid1
+                ztf_20180628_programid1
+                ztf_20180629_programid1
+                ztf_20180630_programid1
+                ztf_20180701_programid1
+                ztf_20180702_programid1
+                ztf_20180703_programid1
+                ztf_20180704_programid1
+                ztf_20180705_programid1
+                ztf_20180706_programid1
+                ztf_20180707_programid1
+                ztf_20180708_programid1
+                ztf_20180709_programid1
+                ztf_20180710_programid1
+                ztf_20180711_programid1
+                ztf_20180712_programid1
+                ztf_mjuric
+                ztf_test
+
+
+        # -----------------------------------------------------
+        # Check the offsets in the ZTF brokers.
+        #[root@openstacker]
+
+            brokers=${ztfconnect:?}
+
+            for topicid in $(cat topics.txt)
+            do
+
+                echo "--------------------"
+                echo "Topic [${topicid:?}]"
+
+                if [[ "${topicid:?}" =~ ^ztf_[0-9]{8}_programid1$ ]]
+                then
+
+                    echo "
+                        docker run --rm phymatopus/kafka-core \
+                            bin/kafka-run-class.sh kafka.tools.GetOffsetShell \
+                                --broker-list "${brokers:?}" \
+                                --topic "${topicid:?}" \
+                                --time -1
+
+                        docker run --rm phymatopus/kafka-core \
+                            bin/kafka-run-class.sh kafka.tools.GetOffsetShell \
+                                --broker-list "${brokers:?}" \
+                                --topic "${topicid:?}" \
+                                --time -2
+                        " \
+                    | ssh \
+                        ${sshopts[*]} \
+                        ${sshuser:?}@${controlip:?} | sort
+
+
+                else
+                    echo "Skipping topic"
+                fi
+
+            done
+
+
+
+
+
+
+
+        # -----------------------------------------------------
+        # Check the available topics in the ROE brokers.
+        # https://docs.confluent.io/current/app-development/kafkacat-usage.html
+        # https://github.com/edenhill/kafkacat
+        #[root@openstacker]
+
+            brokers=${roeconnect:?}
+
+            echo "
+                docker run --rm kafkacat \
+                    -b "${brokers:?}" \
+                    -L -J \
+                " \
+            | ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${controlip:?} \
+            | jq -r '.topics[] | select(.topic | startswith("__") | not) | .topic' \
+            | sort \
+            | tee topics.txt
+
+
+                ztf_20180614_programid1
+                ztf_20180615_programid1
+                ztf_20180616_programid1
+                ztf_20180617_programid1
+                ztf_20180618_programid1
+                ztf_20180619_programid1
+                ztf_20180620_programid1
+                ztf_20180621_programid1
+                ztf_20180622_programid1
+                ztf_20180623_programid1
+                ztf_20180624_programid1
+                ztf_20180625_programid1
+                ztf_20180626_programid1
+                ztf_20180627_programid1
+                ztf_20180628_programid1
+                ztf_20180629_programid1
+                ztf_20180630_programid1
+                ztf_20180701_programid1
+                ztf_20180702_programid1
+                ztf_20180703_programid1
+                ztf_20180704_programid1
+                ztf_20180705_programid1
+                ztf_20180706_programid1
+                ztf_20180707_programid1
+                ztf_20180708_programid1
+                ztf_20180709_programid1
+                ztf_20180710_programid1
+                ztf_20180711_programid1
+                ztf_20180712_programid1
+
+        # -----------------------------------------------------
+        # Check the offsets in the ROE brokers.
+        #[root@openstacker]
+
+            brokers=${roeconnect:?}
+
+            for topicid in $(cat topics.txt)
+            do
+
+                echo "--------------------"
+                echo "Topic [${topicid:?}]"
+
+                if [[ "${topicid:?}" =~ ^ztf_[0-9]{8}_programid1$ ]]
+                then
+
+                    echo "
+                        docker run --rm phymatopus/kafka-core \
+                            bin/kafka-run-class.sh kafka.tools.GetOffsetShell \
+                                --broker-list "${brokers:?}" \
+                                --topic "${topicid:?}" \
+                                --time -1
+
+                        docker run --rm phymatopus/kafka-core \
+                            bin/kafka-run-class.sh kafka.tools.GetOffsetShell \
+                                --broker-list "${brokers:?}" \
+                                --topic "${topicid:?}" \
+                                --time -2
+                        " \
+                    | ssh \
+                        ${sshopts[*]} \
+                        ${sshuser:?}@${controlip:?} | sort
+
+
+                else
+                    echo "Skipping topic"
+                fi
+
+            done
+
+
+                --------------------
+                Topic [ztf_20180614_programid1]
+                ztf_20180614_programid1:0:0
+                ztf_20180614_programid1:0:6707
+                ztf_20180614_programid1:10:0
+                ztf_20180614_programid1:10:6709
+                ztf_20180614_programid1:11:0
+                ztf_20180614_programid1:11:6707
+                ztf_20180614_programid1:12:0
+                ztf_20180614_programid1:12:6707
+                ztf_20180614_programid1:13:0
+                ztf_20180614_programid1:13:6708
+                ztf_20180614_programid1:14:0
+                ztf_20180614_programid1:14:6710
+                ztf_20180614_programid1:15:0
+                ztf_20180614_programid1:15:6707
+                ztf_20180614_programid1:1:0
+                ztf_20180614_programid1:1:6709
+                ztf_20180614_programid1:2:0
+                ztf_20180614_programid1:2:6707
+                ztf_20180614_programid1:3:0
+                ztf_20180614_programid1:3:6706
+                ztf_20180614_programid1:4:0
+                ztf_20180614_programid1:4:6709
+                ztf_20180614_programid1:5:0
+                ztf_20180614_programid1:5:6708
+                ztf_20180614_programid1:6:0
+                ztf_20180614_programid1:6:6708
+                ztf_20180614_programid1:7:0
+                ztf_20180614_programid1:7:6709
+                ztf_20180614_programid1:8:0
+                ztf_20180614_programid1:8:6707
+                ztf_20180614_programid1:9:0
+                ztf_20180614_programid1:9:6708
+                --------------------
+                Topic [ztf_20180615_programid1]
+                ztf_20180615_programid1:0:0
+                ztf_20180615_programid1:0:10907
+                ztf_20180615_programid1:10:0
+                ztf_20180615_programid1:10:10905
+                ztf_20180615_programid1:11:0
+                ztf_20180615_programid1:11:10907
+                ztf_20180615_programid1:12:0
+                ztf_20180615_programid1:12:10904
+                ztf_20180615_programid1:13:0
+                ztf_20180615_programid1:13:10906
+                ztf_20180615_programid1:14:0
+                ztf_20180615_programid1:14:10906
+                ztf_20180615_programid1:15:0
+                ztf_20180615_programid1:15:10905
+                ztf_20180615_programid1:1:0
+                ztf_20180615_programid1:1:10906
+                ztf_20180615_programid1:2:0
+                ztf_20180615_programid1:2:10908
+                ztf_20180615_programid1:3:0
+                ztf_20180615_programid1:3:10904
+                ztf_20180615_programid1:4:0
+                ztf_20180615_programid1:4:10905
+                ztf_20180615_programid1:5:0
+                ztf_20180615_programid1:5:10905
+                ztf_20180615_programid1:6:0
+                ztf_20180615_programid1:6:10907
+                ztf_20180615_programid1:7:0
+                ztf_20180615_programid1:7:10906
+                ztf_20180615_programid1:8:0
+                ztf_20180615_programid1:8:10907
+                ztf_20180615_programid1:9:0
+                ztf_20180615_programid1:9:10904
+                --------------------
+                Topic [ztf_20180616_programid1]
+                ztf_20180616_programid1:0:0
+                ztf_20180616_programid1:0:8074
+                ztf_20180616_programid1:10:0
+                ztf_20180616_programid1:10:8071
+                ztf_20180616_programid1:11:0
+                ztf_20180616_programid1:11:8078
+                ztf_20180616_programid1:12:0
+                ztf_20180616_programid1:12:8078
+                ztf_20180616_programid1:13:0
+                ztf_20180616_programid1:13:8075
+                ztf_20180616_programid1:14:0
+                ztf_20180616_programid1:14:8077
+                ztf_20180616_programid1:15:0
+                ztf_20180616_programid1:15:8075
+                ztf_20180616_programid1:1:0
+                ztf_20180616_programid1:1:8071
+                ztf_20180616_programid1:2:0
+                ztf_20180616_programid1:2:8079
+                ztf_20180616_programid1:3:0
+                ztf_20180616_programid1:3:8077
+                ztf_20180616_programid1:4:0
+                ztf_20180616_programid1:4:8071
+                ztf_20180616_programid1:5:0
+                ztf_20180616_programid1:5:8079
+                ztf_20180616_programid1:6:0
+                ztf_20180616_programid1:6:8075
+                ztf_20180616_programid1:7:0
+                ztf_20180616_programid1:7:8072
+                ztf_20180616_programid1:8:0
+                ztf_20180616_programid1:8:8074
+                ztf_20180616_programid1:9:0
+                ztf_20180616_programid1:9:8072
+                --------------------
+                Topic [ztf_20180617_programid1]
+                ztf_20180617_programid1:0:0
+                ztf_20180617_programid1:0:6565
+                ztf_20180617_programid1:10:0
+                ztf_20180617_programid1:10:6565
+                ztf_20180617_programid1:11:0
+                ztf_20180617_programid1:11:6563
+                ztf_20180617_programid1:12:0
+                ztf_20180617_programid1:12:6565
+                ztf_20180617_programid1:13:0
+                ztf_20180617_programid1:13:6566
+                ztf_20180617_programid1:14:0
+                ztf_20180617_programid1:14:6565
+                ztf_20180617_programid1:15:0
+                ztf_20180617_programid1:15:6566
+                ztf_20180617_programid1:1:0
+                ztf_20180617_programid1:1:6565
+                ztf_20180617_programid1:2:0
+                ztf_20180617_programid1:2:6564
+                ztf_20180617_programid1:3:0
+                ztf_20180617_programid1:3:6564
+                ztf_20180617_programid1:4:0
+                ztf_20180617_programid1:4:6566
+                ztf_20180617_programid1:5:0
+                ztf_20180617_programid1:5:6564
+                ztf_20180617_programid1:6:0
+                ztf_20180617_programid1:6:6566
+                ztf_20180617_programid1:7:0
+                ztf_20180617_programid1:7:6564
+                ztf_20180617_programid1:8:0
+                ztf_20180617_programid1:8:6565
+                ztf_20180617_programid1:9:0
+                ztf_20180617_programid1:9:6564
+                --------------------
+                Topic [ztf_20180618_programid1]
+                ztf_20180618_programid1:0:0
+                ztf_20180618_programid1:0:14229
+                ztf_20180618_programid1:10:0
+                ztf_20180618_programid1:10:14229
+                ztf_20180618_programid1:11:0
+                ztf_20180618_programid1:11:14228
+                ztf_20180618_programid1:12:0
+                ztf_20180618_programid1:12:14229
+                ztf_20180618_programid1:13:0
+                ztf_20180618_programid1:13:14231
+                ztf_20180618_programid1:14:0
+                ztf_20180618_programid1:14:14233
+                ztf_20180618_programid1:15:0
+                ztf_20180618_programid1:15:14228
+                ztf_20180618_programid1:1:0
+                ztf_20180618_programid1:1:14229
+                ztf_20180618_programid1:2:0
+                ztf_20180618_programid1:2:14229
+                ztf_20180618_programid1:3:0
+                ztf_20180618_programid1:3:14230
+                ztf_20180618_programid1:4:0
+                ztf_20180618_programid1:4:14231
+                ztf_20180618_programid1:5:0
+                ztf_20180618_programid1:5:14230
+                ztf_20180618_programid1:6:0
+                ztf_20180618_programid1:6:14228
+                ztf_20180618_programid1:7:0
+                ztf_20180618_programid1:7:14231
+                ztf_20180618_programid1:8:0
+                ztf_20180618_programid1:8:14228
+                ztf_20180618_programid1:9:0
+                ztf_20180618_programid1:9:14229
+                --------------------
+                Topic [ztf_20180619_programid1]
+                ztf_20180619_programid1:0:0
+                ztf_20180619_programid1:0:11485
+                ztf_20180619_programid1:10:0
+                ztf_20180619_programid1:10:11488
+                ztf_20180619_programid1:11:0
+                ztf_20180619_programid1:11:11489
+                ztf_20180619_programid1:12:0
+                ztf_20180619_programid1:12:11487
+                ztf_20180619_programid1:13:0
+                ztf_20180619_programid1:13:11488
+                ztf_20180619_programid1:14:0
+                ztf_20180619_programid1:14:11487
+                ztf_20180619_programid1:15:0
+                ztf_20180619_programid1:15:11486
+                ztf_20180619_programid1:1:0
+                ztf_20180619_programid1:1:11489
+                ztf_20180619_programid1:2:0
+                ztf_20180619_programid1:2:11487
+                ztf_20180619_programid1:3:0
+                ztf_20180619_programid1:3:11486
+                ztf_20180619_programid1:4:0
+                ztf_20180619_programid1:4:11488
+                ztf_20180619_programid1:5:0
+                ztf_20180619_programid1:5:11485
+                ztf_20180619_programid1:6:0
+                ztf_20180619_programid1:6:11487
+                ztf_20180619_programid1:7:0
+                ztf_20180619_programid1:7:11489
+                ztf_20180619_programid1:8:0
+                ztf_20180619_programid1:8:11485
+                ztf_20180619_programid1:9:0
+                ztf_20180619_programid1:9:11488
+                --------------------
+                Topic [ztf_20180620_programid1]
+                ztf_20180620_programid1:0:0
+                ztf_20180620_programid1:0:27671
+                ztf_20180620_programid1:10:0
+                ztf_20180620_programid1:10:27675
+                ztf_20180620_programid1:11:0
+                ztf_20180620_programid1:11:27670
+                ztf_20180620_programid1:12:0
+                ztf_20180620_programid1:12:27673
+                ztf_20180620_programid1:13:0
+                ztf_20180620_programid1:13:27672
+                ztf_20180620_programid1:14:0
+                ztf_20180620_programid1:14:27671
+                ztf_20180620_programid1:15:0
+                ztf_20180620_programid1:15:27672
+                ztf_20180620_programid1:1:0
+                ztf_20180620_programid1:1:27674
+                ztf_20180620_programid1:2:0
+                ztf_20180620_programid1:2:27671
+                ztf_20180620_programid1:3:0
+                ztf_20180620_programid1:3:27674
+                ztf_20180620_programid1:4:0
+                ztf_20180620_programid1:4:27672
+                ztf_20180620_programid1:5:0
+                ztf_20180620_programid1:5:27671
+                ztf_20180620_programid1:6:0
+                ztf_20180620_programid1:6:27672
+                ztf_20180620_programid1:7:0
+                ztf_20180620_programid1:7:27673
+                ztf_20180620_programid1:8:0
+                ztf_20180620_programid1:8:27670
+                ztf_20180620_programid1:9:0
+                ztf_20180620_programid1:9:27674
+                --------------------
+                Topic [ztf_20180621_programid1]
+                ztf_20180621_programid1:0:0
+                ztf_20180621_programid1:0:30048
+                ztf_20180621_programid1:10:0
+                ztf_20180621_programid1:10:30046
+                ztf_20180621_programid1:11:0
+                ztf_20180621_programid1:11:30048
+                ztf_20180621_programid1:12:0
+                ztf_20180621_programid1:12:30046
+                ztf_20180621_programid1:13:0
+                ztf_20180621_programid1:13:30043
+                ztf_20180621_programid1:14:0
+                ztf_20180621_programid1:14:30044
+                ztf_20180621_programid1:15:0
+                ztf_20180621_programid1:15:30046
+                ztf_20180621_programid1:1:0
+                ztf_20180621_programid1:1:30046
+                ztf_20180621_programid1:2:0
+                ztf_20180621_programid1:2:30048
+                ztf_20180621_programid1:3:0
+                ztf_20180621_programid1:3:30046
+                ztf_20180621_programid1:4:0
+                ztf_20180621_programid1:4:30043
+                ztf_20180621_programid1:5:0
+                ztf_20180621_programid1:5:30046
+                ztf_20180621_programid1:6:0
+                ztf_20180621_programid1:6:30047
+                ztf_20180621_programid1:7:0
+                ztf_20180621_programid1:7:30045
+                ztf_20180621_programid1:8:0
+                ztf_20180621_programid1:8:30048
+                ztf_20180621_programid1:9:0
+                ztf_20180621_programid1:9:30046
+                --------------------
+                Topic [ztf_20180622_programid1]
+                ztf_20180622_programid1:0:0
+                ztf_20180622_programid1:0:14575
+                ztf_20180622_programid1:10:0
+                ztf_20180622_programid1:10:14576
+                ztf_20180622_programid1:11:0
+                ztf_20180622_programid1:11:14576
+                ztf_20180622_programid1:12:0
+                ztf_20180622_programid1:12:14575
+                ztf_20180622_programid1:13:0
+                ztf_20180622_programid1:13:14575
+                ztf_20180622_programid1:14:0
+                ztf_20180622_programid1:14:14576
+                ztf_20180622_programid1:15:0
+                ztf_20180622_programid1:15:14575
+                ztf_20180622_programid1:1:0
+                ztf_20180622_programid1:1:14576
+                ztf_20180622_programid1:2:0
+                ztf_20180622_programid1:2:14576
+                ztf_20180622_programid1:3:0
+                ztf_20180622_programid1:3:14575
+                ztf_20180622_programid1:4:0
+                ztf_20180622_programid1:4:14576
+                ztf_20180622_programid1:5:0
+                ztf_20180622_programid1:5:14576
+                ztf_20180622_programid1:6:0
+                ztf_20180622_programid1:6:14576
+                ztf_20180622_programid1:7:0
+                ztf_20180622_programid1:7:14575
+                ztf_20180622_programid1:8:0
+                ztf_20180622_programid1:8:14575
+                ztf_20180622_programid1:9:0
+                ztf_20180622_programid1:9:14576
+                --------------------
+                Topic [ztf_20180623_programid1]
+                ztf_20180623_programid1:0:0
+                ztf_20180623_programid1:0:18629
+                ztf_20180623_programid1:10:0
+                ztf_20180623_programid1:10:18630
+                ztf_20180623_programid1:11:0
+                ztf_20180623_programid1:11:18629
+                ztf_20180623_programid1:12:0
+                ztf_20180623_programid1:12:18630
+                ztf_20180623_programid1:13:0
+                ztf_20180623_programid1:13:18630
+                ztf_20180623_programid1:14:0
+                ztf_20180623_programid1:14:18629
+                ztf_20180623_programid1:15:0
+                ztf_20180623_programid1:15:18629
+                ztf_20180623_programid1:1:0
+                ztf_20180623_programid1:1:18629
+                ztf_20180623_programid1:2:0
+                ztf_20180623_programid1:2:18629
+                ztf_20180623_programid1:3:0
+                ztf_20180623_programid1:3:18630
+                ztf_20180623_programid1:4:0
+                ztf_20180623_programid1:4:18630
+                ztf_20180623_programid1:5:0
+                ztf_20180623_programid1:5:18629
+                ztf_20180623_programid1:6:0
+                ztf_20180623_programid1:6:18629
+                ztf_20180623_programid1:7:0
+                ztf_20180623_programid1:7:18628
+                ztf_20180623_programid1:8:0
+                ztf_20180623_programid1:8:18629
+                ztf_20180623_programid1:9:0
+                ztf_20180623_programid1:9:18629
+                --------------------
+                Topic [ztf_20180624_programid1]
+                ztf_20180624_programid1:0:0
+                ztf_20180624_programid1:0:13529
+                ztf_20180624_programid1:10:0
+                ztf_20180624_programid1:10:13531
+                ztf_20180624_programid1:11:0
+                ztf_20180624_programid1:11:13530
+                ztf_20180624_programid1:12:0
+                ztf_20180624_programid1:12:13529
+                ztf_20180624_programid1:13:0
+                ztf_20180624_programid1:13:13531
+                ztf_20180624_programid1:14:0
+                ztf_20180624_programid1:14:13531
+                ztf_20180624_programid1:15:0
+                ztf_20180624_programid1:15:13529
+                ztf_20180624_programid1:1:0
+                ztf_20180624_programid1:1:13530
+                ztf_20180624_programid1:2:0
+                ztf_20180624_programid1:2:13531
+                ztf_20180624_programid1:3:0
+                ztf_20180624_programid1:3:13531
+                ztf_20180624_programid1:4:0
+                ztf_20180624_programid1:4:13531
+                ztf_20180624_programid1:5:0
+                ztf_20180624_programid1:5:13531
+                ztf_20180624_programid1:6:0
+                ztf_20180624_programid1:6:13529
+                ztf_20180624_programid1:7:0
+                ztf_20180624_programid1:7:13531
+                ztf_20180624_programid1:8:0
+                ztf_20180624_programid1:8:13529
+                ztf_20180624_programid1:9:0
+                ztf_20180624_programid1:9:13531
+                --------------------
+                Topic [ztf_20180625_programid1]
+                ztf_20180625_programid1:0:0
+                ztf_20180625_programid1:0:9526
+                ztf_20180625_programid1:10:0
+                ztf_20180625_programid1:10:9527
+                ztf_20180625_programid1:11:0
+                ztf_20180625_programid1:11:9526
+                ztf_20180625_programid1:12:0
+                ztf_20180625_programid1:12:9528
+                ztf_20180625_programid1:13:0
+                ztf_20180625_programid1:13:9527
+                ztf_20180625_programid1:14:0
+                ztf_20180625_programid1:14:9526
+                ztf_20180625_programid1:15:0
+                ztf_20180625_programid1:15:9527
+                ztf_20180625_programid1:1:0
+                ztf_20180625_programid1:1:9527
+                ztf_20180625_programid1:2:0
+                ztf_20180625_programid1:2:9526
+                ztf_20180625_programid1:3:0
+                ztf_20180625_programid1:3:9528
+                ztf_20180625_programid1:4:0
+                ztf_20180625_programid1:4:9527
+                ztf_20180625_programid1:5:0
+                ztf_20180625_programid1:5:9526
+                ztf_20180625_programid1:6:0
+                ztf_20180625_programid1:6:9528
+                ztf_20180625_programid1:7:0
+                ztf_20180625_programid1:7:9527
+                ztf_20180625_programid1:8:0
+                ztf_20180625_programid1:8:9526
+                ztf_20180625_programid1:9:0
+                ztf_20180625_programid1:9:9528
+                --------------------
+                Topic [ztf_20180626_programid1]
+                ztf_20180626_programid1:0:0
+                ztf_20180626_programid1:0:1479
+                ztf_20180626_programid1:10:0
+                ztf_20180626_programid1:10:1482
+                ztf_20180626_programid1:11:0
+                ztf_20180626_programid1:11:1479
+                ztf_20180626_programid1:12:0
+                ztf_20180626_programid1:12:1481
+                ztf_20180626_programid1:13:0
+                ztf_20180626_programid1:13:1481
+                ztf_20180626_programid1:14:0
+                ztf_20180626_programid1:14:1481
+                ztf_20180626_programid1:15:0
+                ztf_20180626_programid1:15:1480
+                ztf_20180626_programid1:1:0
+                ztf_20180626_programid1:1:1481
+                ztf_20180626_programid1:2:0
+                ztf_20180626_programid1:2:1479
+                ztf_20180626_programid1:3:0
+                ztf_20180626_programid1:3:1481
+                ztf_20180626_programid1:4:0
+                ztf_20180626_programid1:4:1481
+                ztf_20180626_programid1:5:0
+                ztf_20180626_programid1:5:1479
+                ztf_20180626_programid1:6:0
+                ztf_20180626_programid1:6:1480
+                ztf_20180626_programid1:7:0
+                ztf_20180626_programid1:7:1482
+                ztf_20180626_programid1:8:0
+                ztf_20180626_programid1:8:1479
+                ztf_20180626_programid1:9:0
+                ztf_20180626_programid1:9:1480
+                --------------------
+                Topic [ztf_20180627_programid1]
+                ztf_20180627_programid1:0:0
+                ztf_20180627_programid1:0:3706
+                ztf_20180627_programid1:10:0
+                ztf_20180627_programid1:10:3705
+                ztf_20180627_programid1:11:0
+                ztf_20180627_programid1:11:3707
+                ztf_20180627_programid1:12:0
+                ztf_20180627_programid1:12:3706
+                ztf_20180627_programid1:13:0
+                ztf_20180627_programid1:13:3706
+                ztf_20180627_programid1:14:0
+                ztf_20180627_programid1:14:3706
+                ztf_20180627_programid1:15:0
+                ztf_20180627_programid1:15:3707
+                ztf_20180627_programid1:1:0
+                ztf_20180627_programid1:1:3706
+                ztf_20180627_programid1:2:0
+                ztf_20180627_programid1:2:3708
+                ztf_20180627_programid1:3:0
+                ztf_20180627_programid1:3:3706
+                ztf_20180627_programid1:4:0
+                ztf_20180627_programid1:4:3706
+                ztf_20180627_programid1:5:0
+                ztf_20180627_programid1:5:3706
+                ztf_20180627_programid1:6:0
+                ztf_20180627_programid1:6:3706
+                ztf_20180627_programid1:7:0
+                ztf_20180627_programid1:7:3705
+                ztf_20180627_programid1:8:0
+                ztf_20180627_programid1:8:3706
+                ztf_20180627_programid1:9:0
+                ztf_20180627_programid1:9:3706
+                --------------------
+                Topic [ztf_20180628_programid1]
+                ztf_20180628_programid1:0:0
+                ztf_20180628_programid1:0:3063
+                ztf_20180628_programid1:10:0
+                ztf_20180628_programid1:10:3063
+                ztf_20180628_programid1:11:0
+                ztf_20180628_programid1:11:3062
+                ztf_20180628_programid1:12:0
+                ztf_20180628_programid1:12:3062
+                ztf_20180628_programid1:13:0
+                ztf_20180628_programid1:13:3062
+                ztf_20180628_programid1:14:0
+                ztf_20180628_programid1:14:3063
+                ztf_20180628_programid1:15:0
+                ztf_20180628_programid1:15:3062
+                ztf_20180628_programid1:1:0
+                ztf_20180628_programid1:1:3062
+                ztf_20180628_programid1:2:0
+                ztf_20180628_programid1:2:3062
+                ztf_20180628_programid1:3:0
+                ztf_20180628_programid1:3:3061
+                ztf_20180628_programid1:4:0
+                ztf_20180628_programid1:4:3062
+                ztf_20180628_programid1:5:0
+                ztf_20180628_programid1:5:3063
+                ztf_20180628_programid1:6:0
+                ztf_20180628_programid1:6:3063
+                ztf_20180628_programid1:7:0
+                ztf_20180628_programid1:7:3063
+                ztf_20180628_programid1:8:0
+                ztf_20180628_programid1:8:3064
+                ztf_20180628_programid1:9:0
+                ztf_20180628_programid1:9:3061
+                --------------------
+                Topic [ztf_20180629_programid1]
+                ztf_20180629_programid1:0:0
+                ztf_20180629_programid1:0:2394
+                ztf_20180629_programid1:10:0
+                ztf_20180629_programid1:10:2395
+                ztf_20180629_programid1:11:0
+                ztf_20180629_programid1:11:2394
+                ztf_20180629_programid1:12:0
+                ztf_20180629_programid1:12:2395
+                ztf_20180629_programid1:13:0
+                ztf_20180629_programid1:13:2393
+                ztf_20180629_programid1:14:0
+                ztf_20180629_programid1:14:2394
+                ztf_20180629_programid1:15:0
+                ztf_20180629_programid1:15:2395
+                ztf_20180629_programid1:1:0
+                ztf_20180629_programid1:1:2395
+                ztf_20180629_programid1:2:0
+                ztf_20180629_programid1:2:2394
+                ztf_20180629_programid1:3:0
+                ztf_20180629_programid1:3:2394
+                ztf_20180629_programid1:4:0
+                ztf_20180629_programid1:4:2393
+                ztf_20180629_programid1:5:0
+                ztf_20180629_programid1:5:2394
+                ztf_20180629_programid1:6:0
+                ztf_20180629_programid1:6:2395
+                ztf_20180629_programid1:7:0
+                ztf_20180629_programid1:7:2394
+                ztf_20180629_programid1:8:0
+                ztf_20180629_programid1:8:2394
+                ztf_20180629_programid1:9:0
+                ztf_20180629_programid1:9:2395
+                --------------------
+                Topic [ztf_20180630_programid1]
+                ztf_20180630_programid1:0:0
+                ztf_20180630_programid1:0:3010
+                ztf_20180630_programid1:10:0
+                ztf_20180630_programid1:10:3010
+                ztf_20180630_programid1:11:0
+                ztf_20180630_programid1:11:3010
+                ztf_20180630_programid1:12:0
+                ztf_20180630_programid1:12:3011
+                ztf_20180630_programid1:13:0
+                ztf_20180630_programid1:13:3009
+                ztf_20180630_programid1:14:0
+                ztf_20180630_programid1:14:3010
+                ztf_20180630_programid1:15:0
+                ztf_20180630_programid1:15:3010
+                ztf_20180630_programid1:1:0
+                ztf_20180630_programid1:1:3011
+                ztf_20180630_programid1:2:0
+                ztf_20180630_programid1:2:3011
+                ztf_20180630_programid1:3:0
+                ztf_20180630_programid1:3:3010
+                ztf_20180630_programid1:4:0
+                ztf_20180630_programid1:4:3009
+                ztf_20180630_programid1:5:0
+                ztf_20180630_programid1:5:3010
+                ztf_20180630_programid1:6:0
+                ztf_20180630_programid1:6:3010
+                ztf_20180630_programid1:7:0
+                ztf_20180630_programid1:7:3010
+                ztf_20180630_programid1:8:0
+                ztf_20180630_programid1:8:3010
+                ztf_20180630_programid1:9:0
+                ztf_20180630_programid1:9:3011
+                --------------------
+                Topic [ztf_20180701_programid1]
+                ztf_20180701_programid1:0:0
+                ztf_20180701_programid1:0:3569
+                ztf_20180701_programid1:10:0
+                ztf_20180701_programid1:10:3568
+                ztf_20180701_programid1:11:0
+                ztf_20180701_programid1:11:3568
+                ztf_20180701_programid1:12:0
+                ztf_20180701_programid1:12:3567
+                ztf_20180701_programid1:13:0
+                ztf_20180701_programid1:13:3566
+                ztf_20180701_programid1:14:0
+                ztf_20180701_programid1:14:3567
+                ztf_20180701_programid1:15:0
+                ztf_20180701_programid1:15:3568
+                ztf_20180701_programid1:1:0
+                ztf_20180701_programid1:1:3568
+                ztf_20180701_programid1:2:0
+                ztf_20180701_programid1:2:3568
+                ztf_20180701_programid1:3:0
+                ztf_20180701_programid1:3:3568
+                ztf_20180701_programid1:4:0
+                ztf_20180701_programid1:4:3566
+                ztf_20180701_programid1:5:0
+                ztf_20180701_programid1:5:3567
+                ztf_20180701_programid1:6:0
+                ztf_20180701_programid1:6:3568
+                ztf_20180701_programid1:7:0
+                ztf_20180701_programid1:7:3567
+                ztf_20180701_programid1:8:0
+                ztf_20180701_programid1:8:3569
+                ztf_20180701_programid1:9:0
+                ztf_20180701_programid1:9:3567
+                --------------------
+                Topic [ztf_20180702_programid1]
+                ztf_20180702_programid1:0:0
+                ztf_20180702_programid1:0:4346
+                ztf_20180702_programid1:10:0
+                ztf_20180702_programid1:10:4346
+                ztf_20180702_programid1:11:0
+                ztf_20180702_programid1:11:4348
+                ztf_20180702_programid1:12:0
+                ztf_20180702_programid1:12:4346
+                ztf_20180702_programid1:13:0
+                ztf_20180702_programid1:13:4348
+                ztf_20180702_programid1:14:0
+                ztf_20180702_programid1:14:4348
+                ztf_20180702_programid1:15:0
+                ztf_20180702_programid1:15:4346
+                ztf_20180702_programid1:1:0
+                ztf_20180702_programid1:1:4347
+                ztf_20180702_programid1:2:0
+                ztf_20180702_programid1:2:4348
+                ztf_20180702_programid1:3:0
+                ztf_20180702_programid1:3:4347
+                ztf_20180702_programid1:4:0
+                ztf_20180702_programid1:4:4348
+                ztf_20180702_programid1:5:0
+                ztf_20180702_programid1:5:4348
+                ztf_20180702_programid1:6:0
+                ztf_20180702_programid1:6:4346
+                ztf_20180702_programid1:7:0
+                ztf_20180702_programid1:7:4347
+                ztf_20180702_programid1:8:0
+                ztf_20180702_programid1:8:4347
+                ztf_20180702_programid1:9:0
+                ztf_20180702_programid1:9:4346
+                --------------------
+                Topic [ztf_20180703_programid1]
+                ztf_20180703_programid1:0:0
+                ztf_20180703_programid1:0:4617
+                ztf_20180703_programid1:10:0
+                ztf_20180703_programid1:10:4618
+                ztf_20180703_programid1:11:0
+                ztf_20180703_programid1:11:4618
+                ztf_20180703_programid1:12:0
+                ztf_20180703_programid1:12:4617
+                ztf_20180703_programid1:13:0
+                ztf_20180703_programid1:13:4619
+                ztf_20180703_programid1:14:0
+                ztf_20180703_programid1:14:4619
+                ztf_20180703_programid1:15:0
+                ztf_20180703_programid1:15:4617
+                ztf_20180703_programid1:1:0
+                ztf_20180703_programid1:1:4618
+                ztf_20180703_programid1:2:0
+                ztf_20180703_programid1:2:4617
+                ztf_20180703_programid1:3:0
+                ztf_20180703_programid1:3:4618
+                ztf_20180703_programid1:4:0
+                ztf_20180703_programid1:4:4619
+                ztf_20180703_programid1:5:0
+                ztf_20180703_programid1:5:4617
+                ztf_20180703_programid1:6:0
+                ztf_20180703_programid1:6:4617
+                ztf_20180703_programid1:7:0
+                ztf_20180703_programid1:7:4619
+                ztf_20180703_programid1:8:0
+                ztf_20180703_programid1:8:4618
+                ztf_20180703_programid1:9:0
+                ztf_20180703_programid1:9:4618
+                --------------------
+                Topic [ztf_20180704_programid1]
+                ztf_20180704_programid1:0:0
+                ztf_20180704_programid1:0:9140
+                ztf_20180704_programid1:10:0
+                ztf_20180704_programid1:10:9141
+                ztf_20180704_programid1:11:0
+                ztf_20180704_programid1:11:9139
+                ztf_20180704_programid1:12:0
+                ztf_20180704_programid1:12:9141
+                ztf_20180704_programid1:13:0
+                ztf_20180704_programid1:13:9140
+                ztf_20180704_programid1:14:0
+                ztf_20180704_programid1:14:9139
+                ztf_20180704_programid1:15:0
+                ztf_20180704_programid1:15:9139
+                ztf_20180704_programid1:1:0
+                ztf_20180704_programid1:1:9142
+                ztf_20180704_programid1:2:0
+                ztf_20180704_programid1:2:9139
+                ztf_20180704_programid1:3:0
+                ztf_20180704_programid1:3:9141
+                ztf_20180704_programid1:4:0
+                ztf_20180704_programid1:4:9140
+                ztf_20180704_programid1:5:0
+                ztf_20180704_programid1:5:9139
+                ztf_20180704_programid1:6:0
+                ztf_20180704_programid1:6:9139
+                ztf_20180704_programid1:7:0
+                ztf_20180704_programid1:7:9141
+                ztf_20180704_programid1:8:0
+                ztf_20180704_programid1:8:9139
+                ztf_20180704_programid1:9:0
+                ztf_20180704_programid1:9:9141
+                --------------------
+                Topic [ztf_20180705_programid1]
+                ztf_20180705_programid1:0:0
+                ztf_20180705_programid1:0:8829
+                ztf_20180705_programid1:10:0
+                ztf_20180705_programid1:10:8829
+                ztf_20180705_programid1:11:0
+                ztf_20180705_programid1:11:8830
+                ztf_20180705_programid1:12:0
+                ztf_20180705_programid1:12:8829
+                ztf_20180705_programid1:13:0
+                ztf_20180705_programid1:13:8830
+                ztf_20180705_programid1:14:0
+                ztf_20180705_programid1:14:8831
+                ztf_20180705_programid1:15:0
+                ztf_20180705_programid1:15:8829
+                ztf_20180705_programid1:1:0
+                ztf_20180705_programid1:1:8830
+                ztf_20180705_programid1:2:0
+                ztf_20180705_programid1:2:8831
+                ztf_20180705_programid1:3:0
+                ztf_20180705_programid1:3:8829
+                ztf_20180705_programid1:4:0
+                ztf_20180705_programid1:4:8830
+                ztf_20180705_programid1:5:0
+                ztf_20180705_programid1:5:8831
+                ztf_20180705_programid1:6:0
+                ztf_20180705_programid1:6:8829
+                ztf_20180705_programid1:7:0
+                ztf_20180705_programid1:7:8830
+                ztf_20180705_programid1:8:0
+                ztf_20180705_programid1:8:8830
+                ztf_20180705_programid1:9:0
+                ztf_20180705_programid1:9:8829
+                --------------------
+                Topic [ztf_20180706_programid1]
+                ztf_20180706_programid1:0:0
+                ztf_20180706_programid1:0:12728
+                ztf_20180706_programid1:10:0
+                ztf_20180706_programid1:10:12727
+                ztf_20180706_programid1:11:0
+                ztf_20180706_programid1:11:12724
+                ztf_20180706_programid1:12:0
+                ztf_20180706_programid1:12:12730
+                ztf_20180706_programid1:13:0
+                ztf_20180706_programid1:13:12725
+                ztf_20180706_programid1:14:0
+                ztf_20180706_programid1:14:12726
+                ztf_20180706_programid1:15:0
+                ztf_20180706_programid1:15:12730
+                ztf_20180706_programid1:1:0
+                ztf_20180706_programid1:1:12727
+                ztf_20180706_programid1:2:0
+                ztf_20180706_programid1:2:12724
+                ztf_20180706_programid1:3:0
+                ztf_20180706_programid1:3:12728
+                ztf_20180706_programid1:4:0
+                ztf_20180706_programid1:4:12726
+                ztf_20180706_programid1:5:0
+                ztf_20180706_programid1:5:12724
+                ztf_20180706_programid1:6:0
+                ztf_20180706_programid1:6:12729
+                ztf_20180706_programid1:7:0
+                ztf_20180706_programid1:7:12726
+                ztf_20180706_programid1:8:0
+                ztf_20180706_programid1:8:12724
+                ztf_20180706_programid1:9:0
+                ztf_20180706_programid1:9:12727
+                --------------------
+                Topic [ztf_20180707_programid1]
+                ztf_20180707_programid1:0:0
+                ztf_20180707_programid1:0:9769
+                ztf_20180707_programid1:10:0
+                ztf_20180707_programid1:10:9769
+                ztf_20180707_programid1:11:0
+                ztf_20180707_programid1:11:9768
+                ztf_20180707_programid1:12:0
+                ztf_20180707_programid1:12:9771
+                ztf_20180707_programid1:13:0
+                ztf_20180707_programid1:13:9768
+                ztf_20180707_programid1:14:0
+                ztf_20180707_programid1:14:9768
+                ztf_20180707_programid1:15:0
+                ztf_20180707_programid1:15:9770
+                ztf_20180707_programid1:1:0
+                ztf_20180707_programid1:1:9770
+                ztf_20180707_programid1:2:0
+                ztf_20180707_programid1:2:9768
+                ztf_20180707_programid1:3:0
+                ztf_20180707_programid1:3:9770
+                ztf_20180707_programid1:4:0
+                ztf_20180707_programid1:4:9767
+                ztf_20180707_programid1:5:0
+                ztf_20180707_programid1:5:9767
+                ztf_20180707_programid1:6:0
+                ztf_20180707_programid1:6:9770
+                ztf_20180707_programid1:7:0
+                ztf_20180707_programid1:7:9766
+                ztf_20180707_programid1:8:0
+                ztf_20180707_programid1:8:9769
+                ztf_20180707_programid1:9:0
+                ztf_20180707_programid1:9:9771
+                --------------------
+                Topic [ztf_20180708_programid1]
+                ztf_20180708_programid1:0:0
+                ztf_20180708_programid1:0:12341
+                ztf_20180708_programid1:10:0
+                ztf_20180708_programid1:10:12343
+                ztf_20180708_programid1:11:0
+                ztf_20180708_programid1:11:12340
+                ztf_20180708_programid1:12:0
+                ztf_20180708_programid1:12:12342
+                ztf_20180708_programid1:13:0
+                ztf_20180708_programid1:13:12343
+                ztf_20180708_programid1:14:0
+                ztf_20180708_programid1:14:12342
+                ztf_20180708_programid1:15:0
+                ztf_20180708_programid1:15:12343
+                ztf_20180708_programid1:1:0
+                ztf_20180708_programid1:1:12343
+                ztf_20180708_programid1:2:0
+                ztf_20180708_programid1:2:12340
+                ztf_20180708_programid1:3:0
+                ztf_20180708_programid1:3:12342
+                ztf_20180708_programid1:4:0
+                ztf_20180708_programid1:4:12343
+                ztf_20180708_programid1:5:0
+                ztf_20180708_programid1:5:12341
+                ztf_20180708_programid1:6:0
+                ztf_20180708_programid1:6:12343
+                ztf_20180708_programid1:7:0
+                ztf_20180708_programid1:7:12343
+                ztf_20180708_programid1:8:0
+                ztf_20180708_programid1:8:12341
+                ztf_20180708_programid1:9:0
+                ztf_20180708_programid1:9:12342
+                --------------------
+                Topic [ztf_20180709_programid1]
+                ztf_20180709_programid1:0:0
+                ztf_20180709_programid1:0:9968
+                ztf_20180709_programid1:10:0
+                ztf_20180709_programid1:10:9966
+                ztf_20180709_programid1:11:0
+                ztf_20180709_programid1:11:9968
+                ztf_20180709_programid1:12:0
+                ztf_20180709_programid1:12:9967
+                ztf_20180709_programid1:13:0
+                ztf_20180709_programid1:13:9965
+                ztf_20180709_programid1:14:0
+                ztf_20180709_programid1:14:9967
+                ztf_20180709_programid1:15:0
+                ztf_20180709_programid1:15:9967
+                ztf_20180709_programid1:1:0
+                ztf_20180709_programid1:1:9965
+                ztf_20180709_programid1:2:0
+                ztf_20180709_programid1:2:9968
+                ztf_20180709_programid1:3:0
+                ztf_20180709_programid1:3:9965
+                ztf_20180709_programid1:4:0
+                ztf_20180709_programid1:4:9966
+                ztf_20180709_programid1:5:0
+                ztf_20180709_programid1:5:9968
+                ztf_20180709_programid1:6:0
+                ztf_20180709_programid1:6:9967
+                ztf_20180709_programid1:7:0
+                ztf_20180709_programid1:7:9966
+                ztf_20180709_programid1:8:0
+                ztf_20180709_programid1:8:9968
+                ztf_20180709_programid1:9:0
+                ztf_20180709_programid1:9:9965
+                --------------------
+                Topic [ztf_20180710_programid1]
+                ztf_20180710_programid1:0:0
+                ztf_20180710_programid1:0:0
+                ztf_20180710_programid1:10:0
+                ztf_20180710_programid1:10:0
+                ztf_20180710_programid1:11:0
+                ztf_20180710_programid1:11:0
+                ztf_20180710_programid1:12:0
+                ztf_20180710_programid1:12:0
+                ztf_20180710_programid1:13:0
+                ztf_20180710_programid1:13:0
+                ztf_20180710_programid1:14:0
+                ztf_20180710_programid1:14:0
+                ztf_20180710_programid1:15:0
+                ztf_20180710_programid1:15:0
+                ztf_20180710_programid1:1:0
+                ztf_20180710_programid1:1:0
+                ztf_20180710_programid1:2:0
+                ztf_20180710_programid1:2:0
+                ztf_20180710_programid1:3:0
+                ztf_20180710_programid1:3:0
+                ztf_20180710_programid1:4:0
+                ztf_20180710_programid1:4:0
+                ztf_20180710_programid1:5:0
+                ztf_20180710_programid1:5:0
+                ztf_20180710_programid1:6:0
+                ztf_20180710_programid1:6:0
+                ztf_20180710_programid1:7:0
+                ztf_20180710_programid1:7:0
+                ztf_20180710_programid1:8:0
+                ztf_20180710_programid1:8:0
+                ztf_20180710_programid1:9:0
+                ztf_20180710_programid1:9:0
+                --------------------
+                Topic [ztf_20180711_programid1]
+                ztf_20180711_programid1:0:0
+                ztf_20180711_programid1:0:8122
+                ztf_20180711_programid1:10:0
+                ztf_20180711_programid1:10:8123
+                ztf_20180711_programid1:11:0
+                ztf_20180711_programid1:11:8121
+                ztf_20180711_programid1:12:0
+                ztf_20180711_programid1:12:8124
+                ztf_20180711_programid1:13:0
+                ztf_20180711_programid1:13:8122
+                ztf_20180711_programid1:14:0
+                ztf_20180711_programid1:14:8121
+                ztf_20180711_programid1:15:0
+                ztf_20180711_programid1:15:8123
+                ztf_20180711_programid1:1:0
+                ztf_20180711_programid1:1:8124
+                ztf_20180711_programid1:2:0
+                ztf_20180711_programid1:2:8119
+                ztf_20180711_programid1:3:0
+                ztf_20180711_programid1:3:8122
+                ztf_20180711_programid1:4:0
+                ztf_20180711_programid1:4:8123
+                ztf_20180711_programid1:5:0
+                ztf_20180711_programid1:5:8120
+                ztf_20180711_programid1:6:0
+                ztf_20180711_programid1:6:8121
+                ztf_20180711_programid1:7:0
+                ztf_20180711_programid1:7:8123
+                ztf_20180711_programid1:8:0
+                ztf_20180711_programid1:8:8121
+                ztf_20180711_programid1:9:0
+                ztf_20180711_programid1:9:8122
+                --------------------
+                Topic [ztf_20180712_programid1]
+                ztf_20180712_programid1:0:0
+                ztf_20180712_programid1:0:8330
+                ztf_20180712_programid1:10:0
+                ztf_20180712_programid1:10:8329
+                ztf_20180712_programid1:11:0
+                ztf_20180712_programid1:11:8329
+                ztf_20180712_programid1:12:0
+                ztf_20180712_programid1:12:8330
+                ztf_20180712_programid1:13:0
+                ztf_20180712_programid1:13:8328
+                ztf_20180712_programid1:14:0
+                ztf_20180712_programid1:14:8327
+                ztf_20180712_programid1:15:0
+                ztf_20180712_programid1:15:8330
+                ztf_20180712_programid1:1:0
+                ztf_20180712_programid1:1:8329
+                ztf_20180712_programid1:2:0
+                ztf_20180712_programid1:2:8329
+                ztf_20180712_programid1:3:0
+                ztf_20180712_programid1:3:8330
+                ztf_20180712_programid1:4:0
+                ztf_20180712_programid1:4:8327
+                ztf_20180712_programid1:5:0
+                ztf_20180712_programid1:5:8328
+                ztf_20180712_programid1:6:0
+                ztf_20180712_programid1:6:8330
+                ztf_20180712_programid1:7:0
+                ztf_20180712_programid1:7:8329
+                ztf_20180712_programid1:8:0
+                ztf_20180712_programid1:8:8330
+                ztf_20180712_programid1:9:0
+                ztf_20180712_programid1:9:8329
+
+
+        # -----------------------------------------------------
+        # Watching one of the kafka containers logs.
+        #[root@openstacker]
+
+
+[2018-07-13 03:06:57,050] INFO [ProducerStateManager partition=ztf_20180706_programid1-0] Writing producer snapshot at offset 15164 (kafka.log.ProducerStateManager)
+[2018-07-13 03:06:57,053] INFO [Log partition=ztf_20180706_programid1-0, dir=/var/local/inner/kafka/data-00] Rolled new log segment at offset 15164 in 248 ms. (kafka.log.Log)
+[2018-07-13 03:06:57,457] INFO [ProducerStateManager partition=ztf_20180706_programid1-7] Writing producer snapshot at offset 15166 (kafka.log.ProducerStateManager)
+[2018-07-13 03:06:57,468] INFO [Log partition=ztf_20180706_programid1-7, dir=/var/local/inner/kafka/data-00] Rolled new log segment at offset 15166 in 46 ms. (kafka.log.Log)
+[2018-07-13 03:06:57,578] INFO [ProducerStateManager partition=ztf_20180706_programid1-6] Writing producer snapshot at offset 15169 (kafka.log.ProducerStateManager)
+[2018-07-13 03:06:57,579] INFO [Log partition=ztf_20180706_programid1-6, dir=/var/local/inner/kafka/data-00] Rolled new log segment at offset 15169 in 9 ms. (kafka.log.Log)
+[2018-07-13 03:07:00,462] INFO [ProducerStateManager partition=ztf_20180706_programid1-3] Writing producer snapshot at offset 15172 (kafka.log.ProducerStateManager)
+[2018-07-13 03:07:00,484] INFO [Log partition=ztf_20180706_programid1-3, dir=/var/local/inner/kafka/data-01] Rolled new log segment at offset 15172 in 42 ms. (kafka.log.Log)
+[2018-07-13 03:07:01,685] INFO [ProducerStateManager partition=ztf_20180706_programid1-5] Writing producer snapshot at offset 15172 (kafka.log.ProducerStateManager)
+[2018-07-13 03:07:01,705] INFO [Log partition=ztf_20180706_programid1-5, dir=/var/local/inner/kafka/data-01] Rolled new log segment at offset 15172 in 93 ms. (kafka.log.Log)
+[2018-07-13 03:07:02,643] INFO [ProducerStateManager partition=ztf_20180706_programid1-15] Writing producer snapshot at offset 15178 (kafka.log.ProducerStateManager)
+[2018-07-13 03:07:02,648] INFO [Log partition=ztf_20180706_programid1-15, dir=/var/local/inner/kafka/data-00] Rolled new log segment at offset 15178 in 10 ms. (kafka.log.Log)
+[2018-07-13 03:07:03,103] INFO [ProducerStateManager partition=ztf_20180706_programid1-9] Writing producer snapshot at offset 15180 (kafka.log.ProducerStateManager)
+[2018-07-13 03:07:03,144] INFO [Log partition=ztf_20180706_programid1-9, dir=/var/local/inner/kafka/data-00] Rolled new log segment at offset 15180 in 64 ms. (kafka.log.Log)
+[2018-07-13 03:07:03,975] INFO [ProducerStateManager partition=ztf_20180706_programid1-13] Writing producer snapshot at offset 15179 (kafka.log.ProducerStateManager)
+[2018-07-13 03:07:03,982] INFO [Log partition=ztf_20180706_programid1-13, dir=/var/local/inner/kafka/data-01] Rolled new log segment at offset 15179 in 31 ms. (kafka.log.Log)
+[2018-07-13 03:07:05,725] INFO [ProducerStateManager partition=ztf_20180706_programid1-8] Writing producer snapshot at offset 15185 (kafka.log.ProducerStateManager)
+[2018-07-13 03:07:05,727] INFO [Log partition=ztf_20180706_programid1-8, dir=/var/local/inner/kafka/data-01] Rolled new log segment at offset 15185 in 101 ms. (kafka.log.Log)
+[2018-07-13 03:07:09,140] INFO [ProducerStateManager partition=ztf_20180706_programid1-10] Writing producer snapshot at offset 15192 (kafka.log.ProducerStateManager)
+[2018-07-13 03:07:09,140] INFO [Log partition=ztf_20180706_programid1-10, dir=/var/local/inner/kafka/data-01] Rolled new log segment at offset 15192 in 11 ms. (kafka.log.Log)
+[2018-07-13 03:07:11,756] INFO [ProducerStateManager partition=ztf_20180706_programid1-1] Writing producer snapshot at offset 15197 (kafka.log.ProducerStateManager)
+[2018-07-13 03:07:11,763] INFO [Log partition=ztf_20180706_programid1-1, dir=/var/local/inner/kafka/data-00] Rolled new log segment at offset 15197 in 43 ms. (kafka.log.Log)
+[2018-07-13 03:07:11,807] INFO [ProducerStateManager partition=ztf_20180706_programid1-12] Writing producer snapshot at offset 15197 (kafka.log.ProducerStateManager)
+[2018-07-13 03:07:11,810] INFO [Log partition=ztf_20180706_programid1-12, dir=/var/local/inner/kafka/data-01] Rolled new log segment at offset 15197 in 18 ms. (kafka.log.Log)
+
+
+[2018-07-13 03:09:43,680] INFO [ProducerStateManager partition=ztf_20180708_programid1-12] Writing producer snapshot at offset 15067 (kafka.log.ProducerStateManager)
+[2018-07-13 03:09:43,686] INFO [Log partition=ztf_20180708_programid1-12, dir=/var/local/inner/kafka/data-00] Rolled new log segment at offset 15067 in 29 ms. (kafka.log.Log)
+[2018-07-13 03:09:44,634] INFO [ProducerStateManager partition=ztf_20180708_programid1-3] Writing producer snapshot at offset 15071 (kafka.log.ProducerStateManager)
+[2018-07-13 03:09:44,642] INFO [Log partition=ztf_20180708_programid1-3, dir=/var/local/inner/kafka/data-00] Rolled new log segment at offset 15071 in 28 ms. (kafka.log.Log)
+[2018-07-13 03:09:45,014] INFO [ProducerStateManager partition=ztf_20180708_programid1-15] Writing producer snapshot at offset 15074 (kafka.log.ProducerStateManager)
+[2018-07-13 03:09:45,020] INFO [Log partition=ztf_20180708_programid1-15, dir=/var/local/inner/kafka/data-01] Rolled new log segment at offset 15074 in 17 ms. (kafka.log.Log)
+[2018-07-13 03:09:46,937] INFO [ProducerStateManager partition=ztf_20180708_programid1-9] Writing producer snapshot at offset 15075 (kafka.log.ProducerStateManager)
+[2018-07-13 03:09:46,939] INFO [Log partition=ztf_20180708_programid1-9, dir=/var/local/inner/kafka/data-00] Rolled new log segment at offset 15075 in 38 ms. (kafka.log.Log)
+[2018-07-13 03:09:48,134] INFO [ProducerStateManager partition=ztf_20180708_programid1-11] Writing producer snapshot at offset 15075 (kafka.log.ProducerStateManager)
+[2018-07-13 03:09:48,135] INFO [Log partition=ztf_20180708_programid1-11, dir=/var/local/inner/kafka/data-00] Rolled new log segment at offset 15075 in 6 ms. (kafka.log.Log)
+[2018-07-13 03:09:50,169] INFO [ProducerStateManager partition=ztf_20180708_programid1-6] Writing producer snapshot at offset 15083 (kafka.log.ProducerStateManager)
+[2018-07-13 03:09:50,174] INFO [Log partition=ztf_20180708_programid1-6, dir=/var/local/inner/kafka/data-01] Rolled new log segment at offset 15083 in 45 ms. (kafka.log.Log)
+[2018-07-13 03:09:50,292] INFO [ProducerStateManager partition=ztf_20180708_programid1-14] Writing producer snapshot at offset 15083 (kafka.log.ProducerStateManager)
+[2018-07-13 03:09:50,293] INFO [Log partition=ztf_20180708_programid1-14, dir=/var/local/inner/kafka/data-01] Rolled new log segment at offset 15083 in 67 ms. (kafka.log.Log)
+[2018-07-13 03:09:52,040] INFO [ProducerStateManager partition=ztf_20180708_programid1-4] Writing producer snapshot at offset 15085 (kafka.log.ProducerStateManager)
+[2018-07-13 03:09:52,042] INFO [Log partition=ztf_20180708_programid1-4, dir=/var/local/inner/kafka/data-00] Rolled new log segment at offset 15085 in 15 ms. (kafka.log.Log)
+[2018-07-13 03:09:53,963] INFO [ProducerStateManager partition=ztf_20180708_programid1-5] Writing producer snapshot at offset 15086 (kafka.log.ProducerStateManager)
+[2018-07-13 03:09:53,964] INFO [Log partition=ztf_20180708_programid1-5, dir=/var/local/inner/kafka/data-01] Rolled new log segment at offset 15086 in 41 ms. (kafka.log.Log)
+[2018-07-13 03:09:55,418] INFO [ProducerStateManager partition=ztf_20180708_programid1-0] Writing producer snapshot at offset 15090 (kafka.log.ProducerStateManager)
+[2018-07-13 03:09:55,420] INFO [Log partition=ztf_20180708_programid1-0, dir=/var/local/inner/kafka/data-01] Rolled new log segment at offset 15090 in 154 ms. (kafka.log.Log)
+[2018-07-13 03:09:57,289] INFO [ProducerStateManager partition=ztf_20180708_programid1-2] Writing producer snapshot at offset 15093 (kafka.log.ProducerStateManager)
+[2018-07-13 03:09:57,291] INFO [Log partition=ztf_20180708_programid1-2, dir=/var/local/inner/kafka/data-00] Rolled new log segment at offset 15093 in 6 ms. (kafka.log.Log)
+[2018-07-13 03:09:57,591] INFO [ProducerStateManager partition=ztf_20180708_programid1-8] Writing producer snapshot at offset 15095 (kafka.log.ProducerStateManager)
+[2018-07-13 03:09:57,593] INFO [Log partition=ztf_20180708_programid1-8, dir=/var/local/inner/kafka/data-01] Rolled new log segment at offset 15095 in 9 ms. (kafka.log.Log)
+
+
+
+        # -----------------------------------------------------
+        # Check the offsets in the ROE brokers.
+        #[root@openstacker]
+
+            brokers=${roeconnect:?}
+
+cat > topics.txt << EOF
+ztf_20180705_programid1
+ztf_20180706_programid1
+ztf_20180707_programid1
+ztf_20180708_programid1
+ztf_20180709_programid1
+ztf_20180710_programid1
+ztf_20180711_programid1
+ztf_20180712_programid1
+ztf_20180713_programid1
+EOF
+
+            for topicid in $(cat topics.txt)
+            do
+
+                echo "--------------------"
+                echo "Topic [${topicid:?}]"
+
+                if [[ "${topicid:?}" =~ ^ztf_[0-9]{8}_programid1$ ]]
+                then
+
+                    echo "
+                        docker run --rm phymatopus/kafka-core \
+                            bin/kafka-run-class.sh kafka.tools.GetOffsetShell \
+                                --broker-list "${brokers:?}" \
+                                --topic "${topicid:?}" \
+                                --time -1
+
+                        docker run --rm phymatopus/kafka-core \
+                            bin/kafka-run-class.sh kafka.tools.GetOffsetShell \
+                                --broker-list "${brokers:?}" \
+                                --topic "${topicid:?}" \
+                                --time -2
+                        " \
+                    | ssh \
+                        ${sshopts[*]} \
+                        ${sshuser:?}@${controlip:?} | sort
+
+
+                else
+                    echo "Skipping topic"
+                fi
+
+            done
+
+                Topic [ztf_20180705_programid1]
+                ztf_20180705_programid1:0:0
+                ztf_20180705_programid1:0:8829
+                ztf_20180705_programid1:10:0
+                ztf_20180705_programid1:10:8829
+                ztf_20180705_programid1:11:0
+                ztf_20180705_programid1:11:8830
+                ztf_20180705_programid1:12:0
+                ztf_20180705_programid1:12:8829
+                ztf_20180705_programid1:13:0
+                ztf_20180705_programid1:13:8830
+                ztf_20180705_programid1:14:0
+                ztf_20180705_programid1:14:8831
+                ztf_20180705_programid1:15:0
+                ztf_20180705_programid1:15:8829
+                ztf_20180705_programid1:1:0
+                ztf_20180705_programid1:1:8830
+                ztf_20180705_programid1:2:0
+                ztf_20180705_programid1:2:8831
+                ztf_20180705_programid1:3:0
+                ztf_20180705_programid1:3:8829
+                ztf_20180705_programid1:4:0
+                ztf_20180705_programid1:4:8830
+                ztf_20180705_programid1:5:0
+                ztf_20180705_programid1:5:8831
+                ztf_20180705_programid1:6:0
+                ztf_20180705_programid1:6:8829
+                ztf_20180705_programid1:7:0
+                ztf_20180705_programid1:7:8830
+                ztf_20180705_programid1:8:0
+                ztf_20180705_programid1:8:8830
+                ztf_20180705_programid1:9:0
+                ztf_20180705_programid1:9:8829
+                --------------------
+                Topic [ztf_20180706_programid1]
+                ztf_20180706_programid1:0:0
+                ztf_20180706_programid1:0:16318
+                ztf_20180706_programid1:10:0
+                ztf_20180706_programid1:10:16318
+                ztf_20180706_programid1:11:0
+                ztf_20180706_programid1:11:16318
+                ztf_20180706_programid1:12:0
+                ztf_20180706_programid1:12:16320
+                ztf_20180706_programid1:13:0
+                ztf_20180706_programid1:13:16318
+                ztf_20180706_programid1:14:0
+                ztf_20180706_programid1:14:16318
+                ztf_20180706_programid1:15:0
+                ztf_20180706_programid1:15:16319
+                ztf_20180706_programid1:1:0
+                ztf_20180706_programid1:1:16320
+                ztf_20180706_programid1:2:0
+                ztf_20180706_programid1:2:16318
+                ztf_20180706_programid1:3:0
+                ztf_20180706_programid1:3:16319
+                ztf_20180706_programid1:4:0
+                ztf_20180706_programid1:4:16318
+                ztf_20180706_programid1:5:0
+                ztf_20180706_programid1:5:16317
+                ztf_20180706_programid1:6:0
+                ztf_20180706_programid1:6:16318
+                ztf_20180706_programid1:7:0
+                ztf_20180706_programid1:7:16319
+                ztf_20180706_programid1:8:0
+                ztf_20180706_programid1:8:16317
+                ztf_20180706_programid1:9:0
+                ztf_20180706_programid1:9:16318
+                --------------------
+                Topic [ztf_20180707_programid1]
+                ztf_20180707_programid1:0:0
+                ztf_20180707_programid1:0:10923
+                ztf_20180707_programid1:10:0
+                ztf_20180707_programid1:10:10923
+                ztf_20180707_programid1:11:0
+                ztf_20180707_programid1:11:10922
+                ztf_20180707_programid1:12:0
+                ztf_20180707_programid1:12:10925
+                ztf_20180707_programid1:13:0
+                ztf_20180707_programid1:13:10922
+                ztf_20180707_programid1:14:0
+                ztf_20180707_programid1:14:10922
+                ztf_20180707_programid1:15:0
+                ztf_20180707_programid1:15:10923
+                ztf_20180707_programid1:1:0
+                ztf_20180707_programid1:1:10924
+                ztf_20180707_programid1:2:0
+                ztf_20180707_programid1:2:10921
+                ztf_20180707_programid1:3:0
+                ztf_20180707_programid1:3:10923
+                ztf_20180707_programid1:4:0
+                ztf_20180707_programid1:4:10921
+                ztf_20180707_programid1:5:0
+                ztf_20180707_programid1:5:10921
+                ztf_20180707_programid1:6:0
+                ztf_20180707_programid1:6:10923
+                ztf_20180707_programid1:7:0
+                ztf_20180707_programid1:7:10921
+                ztf_20180707_programid1:8:0
+                ztf_20180707_programid1:8:10923
+                ztf_20180707_programid1:9:0
+                ztf_20180707_programid1:9:10925
+                --------------------
+                Topic [ztf_20180708_programid1]
+                ztf_20180708_programid1:0:0
+                ztf_20180708_programid1:0:15684
+                ztf_20180708_programid1:10:0
+                ztf_20180708_programid1:10:15684
+                ztf_20180708_programid1:11:0
+                ztf_20180708_programid1:11:15683
+                ztf_20180708_programid1:12:0
+                ztf_20180708_programid1:12:15684
+                ztf_20180708_programid1:13:0
+                ztf_20180708_programid1:13:15684
+                ztf_20180708_programid1:14:0
+                ztf_20180708_programid1:14:15685
+                ztf_20180708_programid1:15:0
+                ztf_20180708_programid1:15:15685
+                ztf_20180708_programid1:1:0
+                ztf_20180708_programid1:1:15684
+                ztf_20180708_programid1:2:0
+                ztf_20180708_programid1:2:15683
+                ztf_20180708_programid1:3:0
+                ztf_20180708_programid1:3:15684
+                ztf_20180708_programid1:4:0
+                ztf_20180708_programid1:4:15685
+                ztf_20180708_programid1:5:0
+                ztf_20180708_programid1:5:15684
+                ztf_20180708_programid1:6:0
+                ztf_20180708_programid1:6:15686
+                ztf_20180708_programid1:7:0
+                ztf_20180708_programid1:7:15684
+                ztf_20180708_programid1:8:0
+                ztf_20180708_programid1:8:15684
+                ztf_20180708_programid1:9:0
+                ztf_20180708_programid1:9:15684
+                --------------------
+                Topic [ztf_20180709_programid1]
+                ztf_20180709_programid1:0:0
+                ztf_20180709_programid1:0:11270
+                ztf_20180709_programid1:10:0
+                ztf_20180709_programid1:10:11268
+                ztf_20180709_programid1:11:0
+                ztf_20180709_programid1:11:11271
+                ztf_20180709_programid1:12:0
+                ztf_20180709_programid1:12:11270
+                ztf_20180709_programid1:13:0
+                ztf_20180709_programid1:13:11268
+                ztf_20180709_programid1:14:0
+                ztf_20180709_programid1:14:11268
+                ztf_20180709_programid1:15:0
+                ztf_20180709_programid1:15:11269
+                ztf_20180709_programid1:1:0
+                ztf_20180709_programid1:1:11268
+                ztf_20180709_programid1:2:0
+                ztf_20180709_programid1:2:11271
+                ztf_20180709_programid1:3:0
+                ztf_20180709_programid1:3:11268
+                ztf_20180709_programid1:4:0
+                ztf_20180709_programid1:4:11268
+                ztf_20180709_programid1:5:0
+                ztf_20180709_programid1:5:11270
+                ztf_20180709_programid1:6:0
+                ztf_20180709_programid1:6:11270
+                ztf_20180709_programid1:7:0
+                ztf_20180709_programid1:7:11268
+                ztf_20180709_programid1:8:0
+                ztf_20180709_programid1:8:11271
+                ztf_20180709_programid1:9:0
+                ztf_20180709_programid1:9:11268
+                --------------------
+                Topic [ztf_20180710_programid1]
+                ztf_20180710_programid1:0:0
+                ztf_20180710_programid1:0:0
+                ztf_20180710_programid1:10:0
+                ztf_20180710_programid1:10:0
+                ztf_20180710_programid1:11:0
+                ztf_20180710_programid1:11:0
+                ztf_20180710_programid1:12:0
+                ztf_20180710_programid1:12:0
+                ztf_20180710_programid1:13:0
+                ztf_20180710_programid1:13:0
+                ztf_20180710_programid1:14:0
+                ztf_20180710_programid1:14:0
+                ztf_20180710_programid1:15:0
+                ztf_20180710_programid1:15:0
+                ztf_20180710_programid1:1:0
+                ztf_20180710_programid1:1:0
+                ztf_20180710_programid1:2:0
+                ztf_20180710_programid1:2:0
+                ztf_20180710_programid1:3:0
+                ztf_20180710_programid1:3:0
+                ztf_20180710_programid1:4:0
+                ztf_20180710_programid1:4:0
+                ztf_20180710_programid1:5:0
+                ztf_20180710_programid1:5:0
+                ztf_20180710_programid1:6:0
+                ztf_20180710_programid1:6:0
+                ztf_20180710_programid1:7:0
+                ztf_20180710_programid1:7:0
+                ztf_20180710_programid1:8:0
+                ztf_20180710_programid1:8:0
+                ztf_20180710_programid1:9:0
+                ztf_20180710_programid1:9:0
+                --------------------
+                Topic [ztf_20180711_programid1]
+                ztf_20180711_programid1:0:0
+                ztf_20180711_programid1:0:8345
+                ztf_20180711_programid1:10:0
+                ztf_20180711_programid1:10:8346
+                ztf_20180711_programid1:11:0
+                ztf_20180711_programid1:11:8343
+                ztf_20180711_programid1:12:0
+                ztf_20180711_programid1:12:8347
+                ztf_20180711_programid1:13:0
+                ztf_20180711_programid1:13:8344
+                ztf_20180711_programid1:14:0
+                ztf_20180711_programid1:14:8345
+                ztf_20180711_programid1:15:0
+                ztf_20180711_programid1:15:8345
+                ztf_20180711_programid1:1:0
+                ztf_20180711_programid1:1:8346
+                ztf_20180711_programid1:2:0
+                ztf_20180711_programid1:2:8343
+                ztf_20180711_programid1:3:0
+                ztf_20180711_programid1:3:8345
+                ztf_20180711_programid1:4:0
+                ztf_20180711_programid1:4:8345
+                ztf_20180711_programid1:5:0
+                ztf_20180711_programid1:5:8344
+                ztf_20180711_programid1:6:0
+                ztf_20180711_programid1:6:8344
+                ztf_20180711_programid1:7:0
+                ztf_20180711_programid1:7:8346
+                ztf_20180711_programid1:8:0
+                ztf_20180711_programid1:8:8344
+                ztf_20180711_programid1:9:0
+                ztf_20180711_programid1:9:8346
+                --------------------
+                Topic [ztf_20180712_programid1]
+                ztf_20180712_programid1:0:0
+                ztf_20180712_programid1:0:8330
+                ztf_20180712_programid1:10:0
+                ztf_20180712_programid1:10:8329
+                ztf_20180712_programid1:11:0
+                ztf_20180712_programid1:11:8329
+                ztf_20180712_programid1:12:0
+                ztf_20180712_programid1:12:8330
+                ztf_20180712_programid1:13:0
+                ztf_20180712_programid1:13:8328
+                ztf_20180712_programid1:14:0
+                ztf_20180712_programid1:14:8327
+                ztf_20180712_programid1:15:0
+                ztf_20180712_programid1:15:8330
+                ztf_20180712_programid1:1:0
+                ztf_20180712_programid1:1:8329
+                ztf_20180712_programid1:2:0
+                ztf_20180712_programid1:2:8329
+                ztf_20180712_programid1:3:0
+                ztf_20180712_programid1:3:8330
+                ztf_20180712_programid1:4:0
+                ztf_20180712_programid1:4:8327
+                ztf_20180712_programid1:5:0
+                ztf_20180712_programid1:5:8328
+                ztf_20180712_programid1:6:0
+                ztf_20180712_programid1:6:8330
+                ztf_20180712_programid1:7:0
+                ztf_20180712_programid1:7:8329
+                ztf_20180712_programid1:8:0
+                ztf_20180712_programid1:8:8330
+                ztf_20180712_programid1:9:0
+                ztf_20180712_programid1:9:8329
+                --------------------
+                Topic [ztf_20180713_programid1]
+                ztf_20180713_programid1:0:0
+                ztf_20180713_programid1:10:0
+                ztf_20180713_programid1:11:0
+                ztf_20180713_programid1:12:0
+                ztf_20180713_programid1:13:0
+                ztf_20180713_programid1:14:0
+                ztf_20180713_programid1:15:0
+                ztf_20180713_programid1:1:0
+                ztf_20180713_programid1:2:0
+                ztf_20180713_programid1:3:0
+                ztf_20180713_programid1:4:0
+                ztf_20180713_programid1:5:0
+                ztf_20180713_programid1:6:0
+                ztf_20180713_programid1:7:0
+                ztf_20180713_programid1:8:0
+                ztf_20180713_programid1:9:0
+
+
+
+
+Original
+                --------------------
+                Topic [ztf_20180705_programid1]
+                ztf_20180705_programid1:0:0
+                ztf_20180705_programid1:0:8829
+                ztf_20180705_programid1:10:0
+                ztf_20180705_programid1:10:8829
+                ....
+                --------------------
+                Topic [ztf_20180706_programid1]
+                ztf_20180706_programid1:0:0
+                ztf_20180706_programid1:0:12728
+                ztf_20180706_programid1:10:0
+                ztf_20180706_programid1:10:12727
+                ....
+                --------------------
+                Topic [ztf_20180707_programid1]
+                ztf_20180707_programid1:0:0
+                ztf_20180707_programid1:0:9769
+                ztf_20180707_programid1:10:0
+                ztf_20180707_programid1:10:9769
+                ....
+                --------------------
+                Topic [ztf_20180708_programid1]
+                ztf_20180708_programid1:0:0
+                ztf_20180708_programid1:0:12341
+                ztf_20180708_programid1:10:0
+                ztf_20180708_programid1:10:12343
+                ....
+                --------------------
+                Topic [ztf_20180709_programid1]
+                ztf_20180709_programid1:0:0
+                ztf_20180709_programid1:0:9968
+                ztf_20180709_programid1:10:0
+                ztf_20180709_programid1:10:9966
+                ....
+                --------------------
+                Topic [ztf_20180710_programid1]
+                ztf_20180710_programid1:0:0
+                ztf_20180710_programid1:0:0
+                ztf_20180710_programid1:10:0
+                ztf_20180710_programid1:10:0
+                ....
+                --------------------
+                Topic [ztf_20180711_programid1]
+                ztf_20180711_programid1:0:0
+                ztf_20180711_programid1:0:8122
+                ztf_20180711_programid1:10:0
+                ztf_20180711_programid1:10:8123
+                ....
+                --------------------
+                Topic [ztf_20180712_programid1]
+                ztf_20180712_programid1:0:0
+                ztf_20180712_programid1:0:8330
+                ztf_20180712_programid1:10:0
+                ztf_20180712_programid1:10:8329
+                ....
+
+
+Updated
+                --------------------
+                Topic [ztf_20180705_programid1]
+                ztf_20180705_programid1:0:0
+                ztf_20180705_programid1:0:8829
+                ztf_20180705_programid1:10:0
+                ztf_20180705_programid1:10:8829
+                ....
+                --------------------
+                Topic [ztf_20180706_programid1]
+                ztf_20180706_programid1:0:0
+                ztf_20180706_programid1:0:16318
+                ztf_20180706_programid1:10:0
+                ztf_20180706_programid1:10:16318
+                ....
+                --------------------
+                Topic [ztf_20180707_programid1]
+                ztf_20180707_programid1:0:0
+                ztf_20180707_programid1:0:10923
+                ztf_20180707_programid1:10:0
+                ztf_20180707_programid1:10:10923
+                ....
+                --------------------
+                Topic [ztf_20180708_programid1]
+                ztf_20180708_programid1:0:0
+                ztf_20180708_programid1:0:15684
+                ztf_20180708_programid1:10:0
+                ztf_20180708_programid1:10:15684
+                ....
+                --------------------
+                Topic [ztf_20180709_programid1]
+                ztf_20180709_programid1:0:0
+                ztf_20180709_programid1:0:11270
+                ztf_20180709_programid1:10:0
+                ztf_20180709_programid1:10:11268
+                ....
+                --------------------
+                Topic [ztf_20180710_programid1]
+                ztf_20180710_programid1:0:0
+                ztf_20180710_programid1:0:0
+                ztf_20180710_programid1:10:0
+                ztf_20180710_programid1:10:0
+                ....
+                --------------------
+                Topic [ztf_20180711_programid1]
+                ztf_20180711_programid1:0:0
+                ztf_20180711_programid1:0:8345
+                ztf_20180711_programid1:10:0
+                ztf_20180711_programid1:10:8346
+                ....
+                --------------------
+                Topic [ztf_20180712_programid1]
+                ztf_20180712_programid1:0:0
+                ztf_20180712_programid1:0:8330
+                ztf_20180712_programid1:10:0
+                ztf_20180712_programid1:10:8329
+                ....
+
+    Older partitions updated with new messages ?
+    Intense activity when we started the mirror maker services with widlcard topic match.
+    
+    
+Changes
+                --------------------
+                ztf_20180705_programid1:0:8829  -> 8829 = 0
+                ztf_20180705_programid1:10:8829 -> 8829 = 0
+                --------------------
+                ztf_20180706_programid1:0:12728  -> 16318 = 3590
+                ztf_20180706_programid1:10:12727 -> 16318 = 3591
+                --------------------
+                ztf_20180707_programid1:0:9769  -> 10923 = 1154
+                ztf_20180707_programid1:10:9769 -> 10923 = 1154
+                --------------------
+                ztf_20180708_programid1:0:12341  -> 15684 = 3343
+                ztf_20180708_programid1:10:12343 -> 15684 = 3341
+                --------------------
+                ztf_20180709_programid1:0:9968  -> 11270 = 1302
+                ztf_20180709_programid1:10:9966 -> 11268 = 1302
+                --------------------
+                ztf_20180710_programid1:0:0  -> 0 = 0
+                ztf_20180710_programid1:10:0 -> 0 = 0
+                --------------------
+                ztf_20180711_programid1:0:8122  -> 8345 = 223
+                ztf_20180711_programid1:10:8123 -> 8346 = 223
+                --------------------
+                ztf_20180712_programid1:0:8330  -> 8330 = 0
+                ztf_20180712_programid1:10:8329 -> 8329 = 0
+
+
+
+        # -----------------------------------------------------
+        # Set the topic to a specific date.
+        #[root@openstacker]
+
+            topiclist="ztf_$(date '+%Y%m%d')_programid1"
+
+        # -----------------------------------------------------
+        # Update the target topic list.
+        #[root@openstacker]
+
+            date
+
+            for ident in ${mmidents[@]}
+                do
+                    getvminfo "${ident:?}"
+                    internalip=$(geteleanor192)
+
+echo "
+Ident   [${ident}]
+Name    [$(getvmname)]
+Address [${internalip}]
+Topics  [${topiclist}]
+"
+
+                    echo "
+
+                        docker-compose \
+                            --file mirror.yml \
+                            down
+
+                        sed -i \"
+                            s/^topiclist=.*/topiclist=${topiclist:?}/
+                            \" mirror.env
+
+                        docker-compose \
+                            --file mirror.yml \
+                            up -d
+
+
+                        " \
+                    | ssh \
+                        ${sshopts[*]} \
+                        -o ProxyCommand="${sshproxy:?}" \
+                        ${sshuser:?}@${internalip:?}
+
+                done
+
+
+
+
+        # -----------------------------------------------------
+        # Check the offsets in the ROE brokers.
+        #[root@openstacker]
+
+            brokers=${roeconnect:?}
+
+cat > topics.txt << EOF
+ztf_20180713_programid1
+ztf_20180714_programid1
+ztf_20180715_programid1
+EOF
+
+            for topicid in $(cat topics.txt)
+            do
+
+                echo "--------------------"
+                echo "Topic [${topicid:?}]"
+
+                if [[ "${topicid:?}" =~ ^ztf_[0-9]{8}_programid1$ ]]
+                then
+
+                    echo "
+                        docker run --rm phymatopus/kafka-core \
+                            bin/kafka-run-class.sh kafka.tools.GetOffsetShell \
+                                --broker-list "${brokers:?}" \
+                                --topic "${topicid:?}" \
+                                --time -1
+
+                        docker run --rm phymatopus/kafka-core \
+                            bin/kafka-run-class.sh kafka.tools.GetOffsetShell \
+                                --broker-list "${brokers:?}" \
+                                --topic "${topicid:?}" \
+                                --time -2
+                        " \
+                    | ssh \
+                        ${sshopts[*]} \
+                        ${sshuser:?}@${controlip:?} | sort
+
+
+                else
+                    echo "Skipping topic"
+                fi
+
+            done
+
+                --------------------
+                Topic [ztf_20180713_programid1]
+                ztf_20180713_programid1:0:0
+                ztf_20180713_programid1:0:5464
+                ztf_20180713_programid1:10:0
+                ztf_20180713_programid1:10:5465
+                ztf_20180713_programid1:11:0
+                ztf_20180713_programid1:11:5464
+                ztf_20180713_programid1:12:0
+                ztf_20180713_programid1:12:5464
+                ztf_20180713_programid1:13:0
+                ztf_20180713_programid1:13:5465
+                ztf_20180713_programid1:14:0
+                ztf_20180713_programid1:14:5465
+                ztf_20180713_programid1:15:0
+                ztf_20180713_programid1:15:5463
+                ztf_20180713_programid1:1:0
+                ztf_20180713_programid1:1:5465
+                ztf_20180713_programid1:2:0
+                ztf_20180713_programid1:2:5464
+                ztf_20180713_programid1:3:0
+                ztf_20180713_programid1:3:5465
+                ztf_20180713_programid1:4:0
+                ztf_20180713_programid1:4:5465
+                ztf_20180713_programid1:5:0
+                ztf_20180713_programid1:5:5465
+                ztf_20180713_programid1:6:0
+                ztf_20180713_programid1:6:5463
+                ztf_20180713_programid1:7:0
+                ztf_20180713_programid1:7:5465
+                ztf_20180713_programid1:8:0
+                ztf_20180713_programid1:8:5464
+                ztf_20180713_programid1:9:0
+                ztf_20180713_programid1:9:5464
+                --------------------
+                Topic [ztf_20180714_programid1]
+                ztf_20180714_programid1:0:0
+                ztf_20180714_programid1:0:0
+                ztf_20180714_programid1:10:0
+                ztf_20180714_programid1:10:0
+                ztf_20180714_programid1:11:0
+                ztf_20180714_programid1:11:0
+                ztf_20180714_programid1:12:0
+                ztf_20180714_programid1:12:0
+                ztf_20180714_programid1:13:0
+                ztf_20180714_programid1:13:0
+                ztf_20180714_programid1:14:0
+                ztf_20180714_programid1:14:0
+                ztf_20180714_programid1:15:0
+                ztf_20180714_programid1:15:0
+                ztf_20180714_programid1:1:0
+                ztf_20180714_programid1:1:0
+                ztf_20180714_programid1:2:0
+                ztf_20180714_programid1:2:0
+                ztf_20180714_programid1:3:0
+                ztf_20180714_programid1:3:0
+                ztf_20180714_programid1:4:0
+                ztf_20180714_programid1:4:0
+                ztf_20180714_programid1:5:0
+                ztf_20180714_programid1:5:0
+                ztf_20180714_programid1:6:0
+                ztf_20180714_programid1:6:0
+                ztf_20180714_programid1:7:0
+                ztf_20180714_programid1:7:0
+                ztf_20180714_programid1:8:0
+                ztf_20180714_programid1:8:0
+                ztf_20180714_programid1:9:0
+                ztf_20180714_programid1:9:0
+                --------------------
+                Topic [ztf_20180715_programid1]
+                ztf_20180715_programid1:0:0
+                ztf_20180715_programid1:0:0
+                ztf_20180715_programid1:10:0
+                ztf_20180715_programid1:10:0
+                ztf_20180715_programid1:11:0
+                ztf_20180715_programid1:11:0
+                ztf_20180715_programid1:12:0
+                ztf_20180715_programid1:12:0
+                ztf_20180715_programid1:13:0
+                ztf_20180715_programid1:13:0
+                ztf_20180715_programid1:14:0
+                ztf_20180715_programid1:14:0
+                ztf_20180715_programid1:15:0
+                ztf_20180715_programid1:15:0
+                ztf_20180715_programid1:1:0
+                ztf_20180715_programid1:1:0
+                ztf_20180715_programid1:2:0
+                ztf_20180715_programid1:2:0
+                ztf_20180715_programid1:3:0
+                ztf_20180715_programid1:3:0
+                ztf_20180715_programid1:4:0
+                ztf_20180715_programid1:4:0
+                ztf_20180715_programid1:5:0
+                ztf_20180715_programid1:5:0
+                ztf_20180715_programid1:6:0
+                ztf_20180715_programid1:6:0
+                ztf_20180715_programid1:7:0
+                ztf_20180715_programid1:7:0
+                ztf_20180715_programid1:8:0
+                ztf_20180715_programid1:8:0
+                ztf_20180715_programid1:9:0
+                ztf_20180715_programid1:9:0
+
+        # -----------------------------------------------------
+        # Check the offsets in the ZTF brokers.
+        #[root@openstacker]
+
+            brokers=${ztfconnect:?}
+
+cat > topics.txt << EOF
+ztf_20180713_programid1
+ztf_20180714_programid1
+ztf_20180715_programid1
+EOF
+
+            for topicid in $(cat topics.txt)
+            do
+
+                echo "--------------------"
+                echo "Topic [${topicid:?}]"
+
+                if [[ "${topicid:?}" =~ ^ztf_[0-9]{8}_programid1$ ]]
+                then
+
+                    echo "
+                        docker run --rm phymatopus/kafka-core \
+                            bin/kafka-run-class.sh kafka.tools.GetOffsetShell \
+                                --broker-list "${brokers:?}" \
+                                --topic "${topicid:?}" \
+                                --time -1
+
+                        docker run --rm phymatopus/kafka-core \
+                            bin/kafka-run-class.sh kafka.tools.GetOffsetShell \
+                                --broker-list "${brokers:?}" \
+                                --topic "${topicid:?}" \
+                                --time -2
+                        " \
+                    | ssh \
+                        ${sshopts[*]} \
+                        ${sshuser:?}@${controlip:?} | sort
+
+
+                else
+                    echo "Skipping topic"
+                fi
+
+            done
+
+
+                Topic [ztf_20180713_programid1]
+                ztf_20180713_programid1:0:0
+                ztf_20180713_programid1:0:6245
+                ztf_20180713_programid1:10:0
+                ztf_20180713_programid1:10:6245
+                ztf_20180713_programid1:11:0
+                ztf_20180713_programid1:11:6245
+                ztf_20180713_programid1:12:0
+                ztf_20180713_programid1:12:6245
+                ztf_20180713_programid1:13:0
+                ztf_20180713_programid1:13:6245
+                ztf_20180713_programid1:1:0
+                ztf_20180713_programid1:1:6245
+                ztf_20180713_programid1:2:0
+                ztf_20180713_programid1:2:6245
+                ztf_20180713_programid1:3:0
+                ztf_20180713_programid1:3:6245
+                ztf_20180713_programid1:4:0
+                ztf_20180713_programid1:4:6245
+                ztf_20180713_programid1:5:0
+                ztf_20180713_programid1:5:6245
+                ztf_20180713_programid1:6:0
+                ztf_20180713_programid1:6:6245
+                ztf_20180713_programid1:7:0
+                ztf_20180713_programid1:7:6245
+                ztf_20180713_programid1:8:0
+                ztf_20180713_programid1:8:6245
+                ztf_20180713_programid1:9:0
+                ztf_20180713_programid1:9:6245
+                --------------------
+                Topic [ztf_20180714_programid1]
+                ztf_20180714_programid1:0:0
+                ztf_20180714_programid1:0:7277
+                ztf_20180714_programid1:10:0
+                ztf_20180714_programid1:10:7277
+                ztf_20180714_programid1:11:0
+                ztf_20180714_programid1:11:7277
+                ztf_20180714_programid1:12:0
+                ztf_20180714_programid1:12:7277
+                ztf_20180714_programid1:13:0
+                ztf_20180714_programid1:13:7277
+                ztf_20180714_programid1:1:0
+                ztf_20180714_programid1:1:7277
+                ztf_20180714_programid1:2:0
+                ztf_20180714_programid1:2:7277
+                ztf_20180714_programid1:3:0
+                ztf_20180714_programid1:3:7276
+                ztf_20180714_programid1:4:0
+                ztf_20180714_programid1:4:7277
+                ztf_20180714_programid1:5:0
+                ztf_20180714_programid1:5:7277
+                ztf_20180714_programid1:6:0
+                ztf_20180714_programid1:6:7277
+                ztf_20180714_programid1:7:0
+                ztf_20180714_programid1:7:7277
+                ztf_20180714_programid1:8:0
+                ztf_20180714_programid1:8:7277
+                ztf_20180714_programid1:9:0
+                ztf_20180714_programid1:9:7277
+                --------------------
+                Topic [ztf_20180715_programid1]
+                ztf_20180715_programid1:0:0
+                ztf_20180715_programid1:10:0
+                ztf_20180715_programid1:11:0
+                ztf_20180715_programid1:12:0
+                ztf_20180715_programid1:13:0
+                ztf_20180715_programid1:1:0
+                ztf_20180715_programid1:2:0
+                ztf_20180715_programid1:3:0
+                ztf_20180715_programid1:4:0
+                ztf_20180715_programid1:5:0
+                ztf_20180715_programid1:6:0
+                ztf_20180715_programid1:7:0
+                ztf_20180715_programid1:8:0
+                ztf_20180715_programid1:9:0
+
+
+
+
+        # -----------------------------------------------------
+        # Set the topic to a specific date.
+        #[root@openstacker]
+
+            topiclist="ztf_20180714_programid1"
+
+        # -----------------------------------------------------
+        # Update the target topic list.
+        #[root@openstacker]
+
+            date
+Sat Jul 14 20:29:16 UTC 2018
+
+            for ident in ${mmidents[@]}
+                do
+                    getvminfo "${ident:?}"
+                    internalip=$(geteleanor192)
+
+echo "
+Ident   [${ident}]
+Name    [$(getvmname)]
+Address [${internalip}]
+Topics  [${topiclist}]
+"
+
+                    echo "
+
+                        docker-compose \
+                            --file mirror.yml \
+                            down
+
+                        sed -i \"
+                            s/^topiclist=.*/topiclist=${topiclist:?}/
+                            \" mirror.env
+
+                        docker-compose \
+                            --file mirror.yml \
+                            up -d
+
+
+                        " \
+                    | ssh \
+                        ${sshopts[*]} \
+                        -o ProxyCommand="${sshproxy:?}" \
+                        ${sshuser:?}@${internalip:?}
+
+                done
+
+            date
+Sat Jul 14 20:30:19 UTC 2018
+
+        # -----------------------------------------------------
+        # Check the client offsets.
+        #[root@openstacker]
+
+            brokers=${ztfconnect:?}
+
+            echo "
+                docker run --rm phymatopus/kafka-core \
+                    bin/kafka-consumer-groups.sh \
+                        --bootstrap-server "${brokers:?}" \
+                        --describe \
+                        --group "${groupid:?}"
+                " \
+            | ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${controlip:?} | sort | tee lits.txt
+
+
+                TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                 HOST             CLIENT-ID
+                ztf_20180713_programid1 0          67              6245            6178            -                                                           -                -
+                ztf_20180713_programid1 1          44              6245            6201            -                                                           -                -
+                ztf_20180713_programid1 10         66              6245            6179            -                                                           -                -
+                ztf_20180713_programid1 11         66              6245            6179            -                                                           -                -
+                ztf_20180713_programid1 12         22              6245            6223            -                                                           -                -
+                ztf_20180713_programid1 13         44              6245            6201            -                                                           -                -
+                ztf_20180713_programid1 2          44              6245            6201            -                                                           -                -
+                ztf_20180713_programid1 3          44              6245            6201            -                                                           -                -
+                ztf_20180713_programid1 4          23              6245            6222            -                                                           -                -
+                ztf_20180713_programid1 5          66              6245            6179            -                                                           -                -
+                ztf_20180713_programid1 6          44              6245            6201            -                                                           -                -
+                ztf_20180713_programid1 7          66              6245            6179            -                                                           -                -
+                ztf_20180713_programid1 8          66              6245            6179            -                                                           -                -
+                ztf_20180713_programid1 9          23              6245            6222            -                                                           -                -
+                ztf_20180714_programid1 0          7277            7277            0               ztf-mirror.roe.ac.uk-0-23a9e921-2ecf-4343-9895-7e13ec88b3db /129.215.255.235 ztf-mirror.roe.ac.uk-0
+                ztf_20180714_programid1 1          7277            7277            0               ztf-mirror.roe.ac.uk-0-8ff060d9-3159-41bf-b697-d0c1a11cb8bb /129.215.255.235 ztf-mirror.roe.ac.uk-0
+                ztf_20180714_programid1 10         7277            7277            0               ztf-mirror.roe.ac.uk-2-377ee023-1cb2-400c-907b-e0cb5d0ee568 /129.215.255.235 ztf-mirror.roe.ac.uk-2
+                ztf_20180714_programid1 11         7277            7277            0               ztf-mirror.roe.ac.uk-2-b367d7ce-e1f5-46ad-aa3a-86435c1c6474 /129.215.255.235 ztf-mirror.roe.ac.uk-2
+                ztf_20180714_programid1 12         7277            7277            0               ztf-mirror.roe.ac.uk-3-0e245b39-f07b-4300-87e2-0c7b729fbb60 /129.215.255.235 ztf-mirror.roe.ac.uk-3
+                ztf_20180714_programid1 13         7277            7277            0               ztf-mirror.roe.ac.uk-3-175cdd8b-b8da-423d-8069-8cf53e51b6c0 /129.215.255.235 ztf-mirror.roe.ac.uk-3
+                ztf_20180714_programid1 2          7277            7277            0               ztf-mirror.roe.ac.uk-0-92fc3a32-a9bb-44fb-bdc8-a1fbba5e9645 /129.215.255.235 ztf-mirror.roe.ac.uk-0
+                ztf_20180714_programid1 3          7276            7276            0               ztf-mirror.roe.ac.uk-0-bfb5f4ec-f48e-4673-8b25-585a8312836c /129.215.255.235 ztf-mirror.roe.ac.uk-0
+                ztf_20180714_programid1 4          7277            7277            0               ztf-mirror.roe.ac.uk-1-38fabc36-56d7-4b73-8ea6-1af0fe9ca7f8 /129.215.255.235 ztf-mirror.roe.ac.uk-1
+                ztf_20180714_programid1 5          7277            7277            0               ztf-mirror.roe.ac.uk-1-80014890-2ac0-4c88-b5c4-ec73253a56d6 /129.215.255.235 ztf-mirror.roe.ac.uk-1
+                ztf_20180714_programid1 6          7196            7277            81              ztf-mirror.roe.ac.uk-1-83844fdd-a556-4167-a33e-b92b2c460048 /129.215.255.235 ztf-mirror.roe.ac.uk-1
+                ztf_20180714_programid1 7          7277            7277            0               ztf-mirror.roe.ac.uk-1-ec737280-cf26-4ad8-8d4f-da0dcf76972a /129.215.255.235 ztf-mirror.roe.ac.uk-1
+                ztf_20180714_programid1 8          7277            7277            0               ztf-mirror.roe.ac.uk-2-089051f1-21ed-4a37-8399-7cf7fea6f750 /129.215.255.235 ztf-mirror.roe.ac.uk-2
+                ztf_20180714_programid1 9          7277            7277            0               ztf-mirror.roe.ac.uk-2-0fd81214-ee17-4be5-8fab-3158a3ad2e78 /129.215.255.235 ztf-mirror.roe.ac.uk-2
+
+
+date
+Sat Jul 14 20:46:26 UTC 2018
+
+                TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                 HOST             CLIENT-ID
+                ztf_20180713_programid1 0          67              6245            6178            -                                                           -                -
+                ztf_20180713_programid1 1          44              6245            6201            -                                                           -                -
+                ztf_20180713_programid1 10         66              6245            6179            -                                                           -                -
+                ztf_20180713_programid1 11         66              6245            6179            -                                                           -                -
+                ztf_20180713_programid1 12         22              6245            6223            -                                                           -                -
+                ztf_20180713_programid1 13         44              6245            6201            -                                                           -                -
+                ztf_20180713_programid1 2          44              6245            6201            -                                                           -                -
+                ztf_20180713_programid1 3          44              6245            6201            -                                                           -                -
+                ztf_20180713_programid1 4          23              6245            6222            -                                                           -                -
+                ztf_20180713_programid1 5          66              6245            6179            -                                                           -                -
+                ztf_20180713_programid1 6          44              6245            6201            -                                                           -                -
+                ztf_20180713_programid1 7          66              6245            6179            -                                                           -                -
+                ztf_20180713_programid1 8          66              6245            6179            -                                                           -                -
+                ztf_20180713_programid1 9          23              6245            6222            -                                                           -                -
+                ztf_20180714_programid1 0          7277            7277            0               ztf-mirror.roe.ac.uk-0-23a9e921-2ecf-4343-9895-7e13ec88b3db /129.215.255.235 ztf-mirror.roe.ac.uk-0
+                ztf_20180714_programid1 1          7277            7277            0               ztf-mirror.roe.ac.uk-0-8ff060d9-3159-41bf-b697-d0c1a11cb8bb /129.215.255.235 ztf-mirror.roe.ac.uk-0
+                ztf_20180714_programid1 10         7277            7277            0               ztf-mirror.roe.ac.uk-2-377ee023-1cb2-400c-907b-e0cb5d0ee568 /129.215.255.235 ztf-mirror.roe.ac.uk-2
+                ztf_20180714_programid1 11         7277            7277            0               ztf-mirror.roe.ac.uk-2-b367d7ce-e1f5-46ad-aa3a-86435c1c6474 /129.215.255.235 ztf-mirror.roe.ac.uk-2
+                ztf_20180714_programid1 12         7277            7277            0               ztf-mirror.roe.ac.uk-3-0e245b39-f07b-4300-87e2-0c7b729fbb60 /129.215.255.235 ztf-mirror.roe.ac.uk-3
+                ztf_20180714_programid1 13         7277            7277            0               ztf-mirror.roe.ac.uk-3-175cdd8b-b8da-423d-8069-8cf53e51b6c0 /129.215.255.235 ztf-mirror.roe.ac.uk-3
+                ztf_20180714_programid1 2          7277            7277            0               ztf-mirror.roe.ac.uk-0-92fc3a32-a9bb-44fb-bdc8-a1fbba5e9645 /129.215.255.235 ztf-mirror.roe.ac.uk-0
+                ztf_20180714_programid1 3          7276            7276            0               ztf-mirror.roe.ac.uk-0-bfb5f4ec-f48e-4673-8b25-585a8312836c /129.215.255.235 ztf-mirror.roe.ac.uk-0
+                ztf_20180714_programid1 4          7277            7277            0               ztf-mirror.roe.ac.uk-1-38fabc36-56d7-4b73-8ea6-1af0fe9ca7f8 /129.215.255.235 ztf-mirror.roe.ac.uk-1
+                ztf_20180714_programid1 5          7277            7277            0               ztf-mirror.roe.ac.uk-1-80014890-2ac0-4c88-b5c4-ec73253a56d6 /129.215.255.235 ztf-mirror.roe.ac.uk-1
+                ztf_20180714_programid1 6          7277            7277            0               ztf-mirror.roe.ac.uk-1-83844fdd-a556-4167-a33e-b92b2c460048 /129.215.255.235 ztf-mirror.roe.ac.uk-1
+                ztf_20180714_programid1 7          7277            7277            0               ztf-mirror.roe.ac.uk-1-ec737280-cf26-4ad8-8d4f-da0dcf76972a /129.215.255.235 ztf-mirror.roe.ac.uk-1
+                ztf_20180714_programid1 8          7277            7277            0               ztf-mirror.roe.ac.uk-2-089051f1-21ed-4a37-8399-7cf7fea6f750 /129.215.255.235 ztf-mirror.roe.ac.uk-2
+                ztf_20180714_programid1 9          7277            7277            0               ztf-mirror.roe.ac.uk-2-0fd81214-ee17-4be5-8fab-3158a3ad2e78 /129.215.255.235 ztf-mirror.roe.ac.uk-2
+
+date
+Sat Jul 14 20:47:21 UTC 2018
+
+        101877÷((20:46 - 20:30) × 60)
+        101877÷((46 - 30) × 60) = 106 msg/sec
+
+
+
+
+        # -----------------------------------------------------
+        # Check the offsets in the ROE brokers.
+        #[root@openstacker]
+
+            brokers=${roeconnect:?}
+
+cat > topics.txt << EOF
+ztf_20180714_programid1
+EOF
+
+date
+
+
+            for topicid in $(cat topics.txt)
+            do
+
+                echo "--------------------"
+                echo "Topic [${topicid:?}]"
+
+                if [[ "${topicid:?}" =~ ^ztf_[0-9]{8}_programid1$ ]]
+                then
+
+                    echo "
+                        docker run --rm phymatopus/kafka-core \
+                            bin/kafka-run-class.sh kafka.tools.GetOffsetShell \
+                                --broker-list "${brokers:?}" \
+                                --topic "${topicid:?}" \
+                                --time -1
+
+                        docker run --rm phymatopus/kafka-core \
+                            bin/kafka-run-class.sh kafka.tools.GetOffsetShell \
+                                --broker-list "${brokers:?}" \
+                                --topic "${topicid:?}" \
+                                --time -2
+                        " \
+                    | ssh \
+                        ${sshopts[*]} \
+                        ${sshuser:?}@${controlip:?} | sort
+
+
+                else
+                    echo "Skipping topic"
+                fi
+
+            done
+date
+
+date
+Sat Jul 14 20:50:14 UTC 2018
+
+                --------------------
+                Topic [ztf_20180714_programid1]
+                ztf_20180714_programid1:0:0
+                ztf_20180714_programid1:0:6367
+                ztf_20180714_programid1:10:0
+                ztf_20180714_programid1:10:6367
+                ztf_20180714_programid1:11:0
+                ztf_20180714_programid1:11:6367
+                ztf_20180714_programid1:12:0
+                ztf_20180714_programid1:12:6368
+                ztf_20180714_programid1:13:0
+                ztf_20180714_programid1:13:6368
+                ztf_20180714_programid1:14:0
+                ztf_20180714_programid1:14:6367
+                ztf_20180714_programid1:15:0
+                ztf_20180714_programid1:15:6367
+                ztf_20180714_programid1:1:0
+                ztf_20180714_programid1:1:6367
+                ztf_20180714_programid1:2:0
+                ztf_20180714_programid1:2:6367
+                ztf_20180714_programid1:3:0
+                ztf_20180714_programid1:3:6368
+                ztf_20180714_programid1:4:0
+                ztf_20180714_programid1:4:6368
+                ztf_20180714_programid1:5:0
+                ztf_20180714_programid1:5:6367
+                ztf_20180714_programid1:6:0
+                ztf_20180714_programid1:6:6367
+                ztf_20180714_programid1:7:0
+                ztf_20180714_programid1:7:6367
+                ztf_20180714_programid1:8:0
+                ztf_20180714_programid1:8:6367
+                ztf_20180714_programid1:9:0
+                ztf_20180714_programid1:9:6368
+
+date
+Sat Jul 14 20:50:29 UTC 2018
+
+
+
+        # -----------------------------------------------------
+        # Update the target topic list.
+        #[root@openstacker]
+
+            date
+
+            for ident in ${mmidents[@]}
+                do
+                    getvminfo "${ident:?}"
+                    internalip=$(geteleanor192)
+
+echo "
+Ident   [${ident}]
+Name    [$(getvmname)]
+Address [${internalip}]
+Topics  [${topiclist}]
+"
+
+                    echo "
+
+                        docker-compose \
+                            --file mirror.yml \
+                            down
+
+                        sed -i \"
+                            s/^topiclist=.*/topiclist=${topiclist:?}/
+                            \" mirror.env
+
+                        docker-compose \
+                            --file mirror.yml \
+                            up -d
+
+
+                        " \
+                    | ssh \
+                        ${sshopts[*]} \
+                        -o ProxyCommand="${sshproxy:?}" \
+                        ${sshuser:?}@${internalip:?}
+
+                done
+
+            date
+
+
+#
+# Accident - didn't change the topic date.
+# Started a new set of mirror makers with the same date :-(
+# No activity - no side effects.
+
+        # -----------------------------------------------------
+        # Check the client offsets.
+        #[root@openstacker]
+
+            date
+
+            brokers=${ztfconnect:?}
+
+            echo "
+                docker run --rm phymatopus/kafka-core \
+                    bin/kafka-consumer-groups.sh \
+                        --bootstrap-server "${brokers:?}" \
+                        --describe \
+                        --group "${groupid:?}"
+                " \
+            | ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${controlip:?} | sort | tee lits.txt
+
+            date
+
+                TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                 HOST             CLIENT-ID
+                ztf_20180713_programid1 0          67              6245            6178            -                                                           -                -
+                ztf_20180713_programid1 1          44              6245            6201            -                                                           -                -
+                ztf_20180713_programid1 10         66              6245            6179            -                                                           -                -
+                ztf_20180713_programid1 11         66              6245            6179            -                                                           -                -
+                ztf_20180713_programid1 12         22              6245            6223            -                                                           -                -
+                ztf_20180713_programid1 13         44              6245            6201            -                                                           -                -
+                ztf_20180713_programid1 2          44              6245            6201            -                                                           -                -
+                ztf_20180713_programid1 3          44              6245            6201            -                                                           -                -
+                ztf_20180713_programid1 4          23              6245            6222            -                                                           -                -
+                ztf_20180713_programid1 5          66              6245            6179            -                                                           -                -
+                ztf_20180713_programid1 6          44              6245            6201            -                                                           -                -
+                ztf_20180713_programid1 7          66              6245            6179            -                                                           -                -
+                ztf_20180713_programid1 8          66              6245            6179            -                                                           -                -
+                ztf_20180713_programid1 9          23              6245            6222            -                                                           -                -
+                ztf_20180714_programid1 0          7277            7277            0               ztf-mirror.roe.ac.uk-0-074de3f0-4c6e-49fd-92d9-55fbfe0af073 /129.215.255.235 ztf-mirror.roe.ac.uk-0
+                ztf_20180714_programid1 1          7277            7277            0               ztf-mirror.roe.ac.uk-0-3b040f1b-1e91-4560-b166-101a5891f0d7 /129.215.255.235 ztf-mirror.roe.ac.uk-0
+                ztf_20180714_programid1 10         7277            7277            0               ztf-mirror.roe.ac.uk-2-d6d6815d-62f7-41bf-a131-64826f6bf450 /129.215.255.235 ztf-mirror.roe.ac.uk-2
+                ztf_20180714_programid1 11         7277            7277            0               ztf-mirror.roe.ac.uk-2-ee65d97e-9e9c-4df3-acc4-035781e98a6f /129.215.255.235 ztf-mirror.roe.ac.uk-2
+                ztf_20180714_programid1 12         7277            7277            0               ztf-mirror.roe.ac.uk-3-1d92958d-37ac-419e-b6db-7312449d4ed0 /129.215.255.235 ztf-mirror.roe.ac.uk-3
+                ztf_20180714_programid1 13         7277            7277            0               ztf-mirror.roe.ac.uk-3-937eb2ed-3ebd-46d3-87e5-24cb679327cc /129.215.255.235 ztf-mirror.roe.ac.uk-3
+                ztf_20180714_programid1 2          7277            7277            0               ztf-mirror.roe.ac.uk-0-5641f0a1-c8dd-4ed5-bcfe-6ffbf31196d3 /129.215.255.235 ztf-mirror.roe.ac.uk-0
+                ztf_20180714_programid1 3          7276            7276            0               ztf-mirror.roe.ac.uk-0-dbf8cdde-1438-47f3-9f7f-b73a3ffd59ed /129.215.255.235 ztf-mirror.roe.ac.uk-0
+                ztf_20180714_programid1 4          7277            7277            0               ztf-mirror.roe.ac.uk-1-115da765-7289-42f1-9dfc-b8f5c3216fb8 /129.215.255.235 ztf-mirror.roe.ac.uk-1
+                ztf_20180714_programid1 5          7277            7277            0               ztf-mirror.roe.ac.uk-1-8944ff1b-9df1-4215-985c-dbffa4d0c7a0 /129.215.255.235 ztf-mirror.roe.ac.uk-1
+                ztf_20180714_programid1 6          7277            7277            0               ztf-mirror.roe.ac.uk-1-c5bfe7dd-7f93-45a6-97c9-3d9fcee038bb /129.215.255.235 ztf-mirror.roe.ac.uk-1
+                ztf_20180714_programid1 7          7277            7277            0               ztf-mirror.roe.ac.uk-1-cdc0df44-03ca-4f93-bb85-d624375173bb /129.215.255.235 ztf-mirror.roe.ac.uk-1
+                ztf_20180714_programid1 8          7277            7277            0               ztf-mirror.roe.ac.uk-2-19a8cca5-78a3-4a58-b9a8-2f6b4c502a80 /129.215.255.235 ztf-mirror.roe.ac.uk-2
+                ztf_20180714_programid1 9          7277            7277            0               ztf-mirror.roe.ac.uk-2-327ab57c-627c-4837-be85-ebe1c0fa7f2e /129.215.255.235 ztf-mirror.roe.ac.uk-2
+
+                Sat Jul 14 20:55:16 UTC 2018
+
+        # -----------------------------------------------------
+        # Set the topic to a specific date.
+        #[root@openstacker]
+
+            topiclist="ztf_20180715_programid1"
+
+        # -----------------------------------------------------
+        # Update the target topic list.
+        #[root@openstacker]
+
+            date
+
+            for ident in ${mmidents[@]}
+                do
+                    getvminfo "${ident:?}"
+                    internalip=$(geteleanor192)
+
+echo "
+Ident   [${ident}]
+Name    [$(getvmname)]
+Address [${internalip}]
+Topics  [${topiclist}]
+"
+
+                    echo "
+
+                        docker-compose \
+                            --file mirror.yml \
+                            down
+
+                        sed -i \"
+                            s/^topiclist=.*/topiclist=${topiclist:?}/
+                            \" mirror.env
+
+                        docker-compose \
+                            --file mirror.yml \
+                            up -d
+
+
+                        " \
+                    | ssh \
+                        ${sshopts[*]} \
+                        -o ProxyCommand="${sshproxy:?}" \
+                        ${sshuser:?}@${internalip:?}
+
+                done
+
+            date
+
+Sat Jul 14 20:55:44 UTC 2018
+....
+Sat Jul 14 20:56:17 UTC 2018
+
+
+
+
+        # -----------------------------------------------------
+        # Check the client offsets.
+        #[root@openstacker]
+
+            date
+
+            brokers=${ztfconnect:?}
+
+            echo "
+                docker run --rm phymatopus/kafka-core \
+                    bin/kafka-consumer-groups.sh \
+                        --bootstrap-server "${brokers:?}" \
+                        --describe \
+                        --group "${groupid:?}"
+                " \
+            | ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${controlip:?} | sort | tee lits.txt
+
+            date
+
+
+                Sun Jul 15 16:25:45 UTC 2018
+
+                TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                 HOST             CLIENT-ID
+                ztf_20180713_programid1 0          67              6245            6178            -                                                           -                -
+                ztf_20180713_programid1 1          44              6245            6201            -                                                           -                -
+                ztf_20180713_programid1 10         66              6245            6179            -                                                           -                -
+                ztf_20180713_programid1 11         66              6245            6179            -                                                           -                -
+                ztf_20180713_programid1 12         22              6245            6223            -                                                           -                -
+                ztf_20180713_programid1 13         44              6245            6201            -                                                           -                -
+                ztf_20180713_programid1 2          44              6245            6201            -                                                           -                -
+                ztf_20180713_programid1 3          44              6245            6201            -                                                           -                -
+                ztf_20180713_programid1 4          23              6245            6222            -                                                           -                -
+                ztf_20180713_programid1 5          66              6245            6179            -                                                           -                -
+                ztf_20180713_programid1 6          44              6245            6201            -                                                           -                -
+                ztf_20180713_programid1 7          66              6245            6179            -                                                           -                -
+                ztf_20180713_programid1 8          66              6245            6179            -                                                           -                -
+                ztf_20180713_programid1 9          23              6245            6222            -                                                           -                -
+                ztf_20180714_programid1 0          7277            7277            0               -                                                           -                -
+                ztf_20180714_programid1 1          7277            7277            0               -                                                           -                -
+                ztf_20180714_programid1 10         7277            7277            0               -                                                           -                -
+                ztf_20180714_programid1 11         7277            7277            0               -                                                           -                -
+                ztf_20180714_programid1 12         7277            7277            0               -                                                           -                -
+                ztf_20180714_programid1 13         7277            7277            0               -                                                           -                -
+                ztf_20180714_programid1 2          7277            7277            0               -                                                           -                -
+                ztf_20180714_programid1 3          7276            7276            0               -                                                           -                -
+                ztf_20180714_programid1 4          7277            7277            0               -                                                           -                -
+                ztf_20180714_programid1 5          7277            7277            0               -                                                           -                -
+                ztf_20180714_programid1 6          7277            7277            0               -                                                           -                -
+                ztf_20180714_programid1 7          7277            7277            0               -                                                           -                -
+                ztf_20180714_programid1 8          7277            7277            0               -                                                           -                -
+                ztf_20180714_programid1 9          7277            7277            0               -                                                           -                -
+                ztf_20180715_programid1 0          7616            7616            0               ztf-mirror.roe.ac.uk-0-12899850-8125-4031-9448-5bc14ed8ee38 /129.215.255.235 ztf-mirror.roe.ac.uk-0
+                ztf_20180715_programid1 1          7616            7616            0               ztf-mirror.roe.ac.uk-0-219b4307-52a0-4502-a76e-1480eb89f0cf /129.215.255.235 ztf-mirror.roe.ac.uk-0
+                ztf_20180715_programid1 10         7616            7616            0               ztf-mirror.roe.ac.uk-2-e8484313-dcb2-4600-bfe7-bd6325e81de4 /129.215.255.235 ztf-mirror.roe.ac.uk-2
+                ztf_20180715_programid1 11         7616            7616            0               ztf-mirror.roe.ac.uk-2-f506fa27-808a-4a5d-b0fa-bb5d3493295b /129.215.255.235 ztf-mirror.roe.ac.uk-2
+                ztf_20180715_programid1 12         7616            7616            0               ztf-mirror.roe.ac.uk-3-6dca4184-13a4-4aaf-af05-ca8d86a1cb6e /129.215.255.235 ztf-mirror.roe.ac.uk-3
+                ztf_20180715_programid1 13         7616            7616            0               ztf-mirror.roe.ac.uk-3-85688fc3-4b13-4ba0-96e8-b87369c7a786 /129.215.255.235 ztf-mirror.roe.ac.uk-3
+                ztf_20180715_programid1 2          7616            7616            0               ztf-mirror.roe.ac.uk-0-644ff5d3-7c46-44a1-8d4f-d58c9362c22b /129.215.255.235 ztf-mirror.roe.ac.uk-0
+                ztf_20180715_programid1 3          7616            7616            0               ztf-mirror.roe.ac.uk-0-67bf6af1-e56c-4b2a-a884-4a8a97ff696d /129.215.255.235 ztf-mirror.roe.ac.uk-0
+                ztf_20180715_programid1 4          7616            7616            0               ztf-mirror.roe.ac.uk-1-29b8ea6c-a919-4ec9-9ebf-33ef2584ef9f /129.215.255.235 ztf-mirror.roe.ac.uk-1
+                ztf_20180715_programid1 5          7617            7617            0               ztf-mirror.roe.ac.uk-1-8324d06f-8c25-432f-a88a-d6f1df0ac651 /129.215.255.235 ztf-mirror.roe.ac.uk-1
+                ztf_20180715_programid1 6          7616            7616            0               ztf-mirror.roe.ac.uk-1-ab4e1f2e-f5c9-41c1-bc8e-e48f514512d3 /129.215.255.235 ztf-mirror.roe.ac.uk-1
+                ztf_20180715_programid1 7          7616            7616            0               ztf-mirror.roe.ac.uk-1-b09f300f-5686-46d5-bd38-b67aee30f307 /129.215.255.235 ztf-mirror.roe.ac.uk-1
+                ztf_20180715_programid1 8          7616            7616            0               ztf-mirror.roe.ac.uk-2-9ab0c966-a44d-48bf-8478-eb0f68397b13 /129.215.255.235 ztf-mirror.roe.ac.uk-2
+                ztf_20180715_programid1 9          7616            7616            0               ztf-mirror.roe.ac.uk-2-b1af3a11-2d7a-46a3-8722-6cfda2581845 /129.215.255.235 ztf-mirror.roe.ac.uk-2
+
+                Sun Jul 15 16:26:00 UTC 2018
+
+
+
+        # -----------------------------------------------------
+        # Check the disc space on each of our Kafka nodes.
+        #[root@openstacker]
+
+            innerpath=/var/local/inner/kafka
+            outerpath=/var/local/outer/kafka
+
+            date
+            
+            for ident in ${kfidents[@]}
+                do
+                    getvminfo "${ident:?}"
+                    internalip=$(geteleanor192)
+
+echo "
+-----------------------------------------------------
+Ident   [${ident}]
+Name    [$(getvmname)]
+Address [${internalip}]
+"
+
+                    echo "
+                        df -h /
+                        echo "---- ----"
+                        df -h "${outerpath:?}/data-00"
+                        echo "---- ----"
+                        df -h "${outerpath:?}/data-01"
+                        " \
+                    | ssh \
+                        ${sshopts[*]} \
+                        -o ProxyCommand="${sshproxy}" \
+                        ${sshuser:?}@${internalip:?}
+
+                done
+
+            date
+
+                Sun Jul 15 16:28:44 UTC 2018
+
+                -----------------------------------------------------
+                Ident   [bb409e47-cf2c-4e64-aea6-e893e5d05100]
+                Name    [Raminiara-kafka-4]
+                Address [192.168.1.5]
+
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vda3        39G  2.4G   35G   7% /
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdb        512G  116G  395G  23% /var/local/outer/kafka/data-00
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdc        512G  116G  395G  23% /var/local/outer/kafka/data-01
+
+                -----------------------------------------------------
+                Ident   [aa73a427-2e9f-413d-a37b-3eaf35799f00]
+                Name    [Raminiara-kafka-3]
+                Address [192.168.1.8]
+
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vda3        39G  2.5G   35G   7% /
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdb        512G  116G  395G  23% /var/local/outer/kafka/data-00
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdc        512G  116G  395G  23% /var/local/outer/kafka/data-01
+
+                -----------------------------------------------------
+                Ident   [6f971e48-f760-43bf-ad98-c38a7b90c321]
+                Name    [Raminiara-kafka-2]
+                Address [192.168.1.15]
+
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vda3        39G  2.3G   35G   7% /
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdb        512G  116G  396G  23% /var/local/outer/kafka/data-00
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdc        512G  116G  395G  23% /var/local/outer/kafka/data-01
+
+                -----------------------------------------------------
+                Ident   [0824e436-6213-4893-8a67-40d152e7402c]
+                Name    [Raminiara-kafka-1]
+                Address [192.168.1.10]
+
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vda3        39G  2.4G   35G   7% /
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdb        512G  116G  396G  23% /var/local/outer/kafka/data-00
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdc        512G  116G  395G  23% /var/local/outer/kafka/data-01
+
+                Sun Jul 15 16:29:05 UTC 2018
+

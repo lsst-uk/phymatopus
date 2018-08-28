@@ -1,0 +1,139 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2018, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#  
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+
+#----------------------------------------------------------------
+# Kafka broker config
+# https://kafka.apache.org/documentation/#brokerconfigs
+
+    Example production server configuration:
+	
+        # ZooKeeper
+        zookeeper.connect=[list of ZooKeeper servers]
+         
+        # Log configuration
+        num.partitions=16
+        default.replication.factor=3
+        log.dir=[List of directories. Kafka should have its own dedicated disk(s) or SSD(s).]
+         
+        # Other configurations
+        broker.id=[An integer. Start with 0 and increment by 1 for each new broker.]
+        listeners=[list of listeners]
+        auto.create.topics.enable=false
+        min.insync.replicas=2
+        queued.max.requests=[number of concurrent requests]
+
+
+
+    broker.rack
+    message.max.bytes # The largest record batch size
+    listeners PLAINTEXT://myhost:9092,SSL://:9091 CLIENT://0.0.0.0:9092,REPLICATION://localhost:9093 
+
+
+
+    Make Kafka Topic Log Retention Permanent
+    https://stackoverflow.com/questions/39735036/make-kafka-topic-log-retention-permanent
+    https://stackoverflow.com/a/39735773
+    
+    log.retention.ms = -1
+    log.retention.bytes = -1
+
+
+
+
+    Migrating Kafka partitions data to new disk location
+    https://community.hortonworks.com/articles/59715/migrating-kafka-partitions-data-to-new-data-folder.html
+
+    Kafka, new storage
+    https://stackoverflow.com/questions/37735095/kafka-new-storage
+
+    Kafka replication tools
+    https://cwiki.apache.org/confluence/display/KAFKA/Replication+tools
+
+#----------------------------------------------------------------
+# MirrorMaker config
+# https://community.hortonworks.com/articles/79891/kafka-mirror-maker-best-practices.html
+
+        Make sure you've following configs in consumer config and producer config for No data loss.
+
+        For Consumer, set auto.commit.enabled=false in consumer.properties
+
+        For Producer
+
+            max.in.flight.requests.per.connection=1
+            retries=Int.MaxValue
+            acks=-1
+            block.on.buffer.full=true
+
+        For MirrorMaker, set --abortOnSendFail
+
+
+        Keep in mind, a topic-partition is the unit of parallelism in Kafka.
+        If you have a topic called "click-logs" with 6 partitions then max no.of
+        consumers you can run is 6. If you run more than 6, additional consumers
+        will be idle and if you run less than 6, all 6 partitions will be distributed
+        among available consumers. More partitions leads to more throughput.
+
+        For maximum performance, total number of num.streams should match all of the
+        topic partitions that the mirror maker trying to copy to target cluster.
+
+        4 MirrorMaker instances
+        4 consumer threads each
+        =
+        16 consumer threads
+
+#----------------------------------------------------------------
+# Docker Machine
+
+    Docker Machine launches instances of virtual machines using an existing VM provider,
+    e.g. VirtualBox, Vagrant, OpenStack.
+    
+    Docker Machine configures the new virtual machine by installing Docker Engine (if required)
+    and then configuring it to use listen for external HTTPS connectinos.
+
+    Docker Machine uses a combination of SSG and Docker over HTTPS to execute commands on
+    the virtual machine.
+
+    This can include installing the Docker Swarm client/server on the virtual machines and
+    connecting them together as Docker Swarm nodes.
+    
+    We already do a lot of this using ischnura createvm and our kickstart configured virtual
+    machine image.
+
+    Docker Machine may end up being slow to create an instance as it may be running things
+    like 'yum update' during the configuration process.
+
+#----------------------------------------------------------------
+# Docker overlay network
+
+
+    Docker overlay network does a bit too much for what we need.
+    
+    From what I have found so far .. 
+    When a swarm using an overlay network exposes an external (public) port,
+    the overlay network automatically implements transparent load balancing
+    between the services running on the swarm nodes.
+    
+    I suspect this will defeat the application layer load balancing that both
+    Zookeeper and Kafka do on their own.
+
+

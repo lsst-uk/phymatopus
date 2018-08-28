@@ -1,0 +1,167 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2018, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#  
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+# PASS-Eeshue2o
+
+        # -----------------------------------------------------
+        # Data volume settings.
+        #[root@openstacker]
+
+            volsize=512
+            volpath=/var/local/outer/kafka
+
+            voldevice=/dev/vdb
+            volname=data-00
+
+            voldevice=/dev/vdc
+            volname=data-01
+
+        # -----------------------------------------------------
+        # Create our volume mount script.
+        #[root@openstacker]
+
+        cat > /tmp/volume-init.sh << 'EOSH'
+
+#---------------------------------------------------------------------
+# Create a filesystem on the new device.
+
+    echo ""
+    echo "Creating filesystem"
+    mkfs.btrfs \
+        "${voldevice:?}"
+
+    echo ""
+    echo "Checking filesystem"
+    btrfs \
+        filesystem show \
+        "${voldevice:?}"
+
+#---------------------------------------------------------------------
+# Create our mount point.
+
+    echo "Creating mount point"
+
+    mkdir -p "${volpath:?}/${volname:?}"
+    touch "${volpath:?}/mount-failed"
+
+#---------------------------------------------------------------------
+# Add the volume to our FileSystemTABle.
+# https://www.howtoforge.com/reducing-disk-io-by-mounting-partitions-with-noatime
+
+    echo "Updating fstab"
+   
+    fsuuid=$(
+        lsblk --noheadings --output UUID "${voldevice:?}"
+        )
+
+cat >> /etc/fstab << EOTAB
+UUID=${fsuuid:?} ${volpath:?}/${volname:?}    btrfs    defaults,noatime    0  0
+EOTAB
+
+#---------------------------------------------------------------------
+# Mount the new volume.
+
+    echo "Mounting new filesystem"
+
+    mount "${volpath:?}/${volname:?}"
+
+#---------------------------------------------------------------------
+# Check the new volume.
+
+    echo ""
+    echo "free"
+
+    df -h "${volpath:?}/${volname:?}"
+
+    echo ""
+    echo "lsblk"
+
+    lsblk
+
+EOSH
+
+        # -----------------------------------------------------
+        # List our Kafka nodes.
+        #[root@openstacker]
+
+            for ident in ${kfidents[@]}
+            do
+                getvminfo "${ident:?}"
+                name=$(getvmname)
+                echo "Name  [$name]"
+                echo "Ident [${ident}]"
+            done
+
+        # -----------------------------------------------------
+        # Create and attach a new volume to each of our Kafka nodes.
+        #[root@openstacker]
+
+            for vmident in ${kfidents[@]}
+            do
+
+                getvminfo "${vmident:?}"
+                echo "Name  [$(getvmname)]"
+                echo "Ident [${vmident}]"
+
+                volident=$(
+                    makevolume \
+                       "$(getvmname)-${volname:?}" \
+                       "${volsize:?}" 
+                    )
+
+                openstack \
+                    server add volume \
+                    "${vmident:?}" \
+                    "${volident:?}" \
+                    --device "${voldevice:?}"
+
+            done
+
+        # -----------------------------------------------------
+        # Login and run our init script on each of our nodes.
+        #[root@openstacker]
+
+            for vmident in ${kfidents[@]}
+            do
+
+                echo "---- ---- ---- ----"
+                getvminfo "${vmident:?}"
+                echo "Name     [$(getvmname)]"
+                echo "Ident    [${vmident}]"
+
+                internalip=$(geteleanor192)
+                echo "Internal [${internalip}]"
+
+                echo "
+                    sudo -s
+                    export voldevice=${voldevice:?}
+                    export volpath=${volpath:?}
+                    export volname=${volname:?}
+                    " \
+                    | cat - /tmp/volume-init.sh \
+                    | ssh ${sshopts[*]} \
+                        -o ProxyCommand="${sshproxy}" \
+                        "${sshuser:?}@${internalip:?}" \
+
+            done
+
+

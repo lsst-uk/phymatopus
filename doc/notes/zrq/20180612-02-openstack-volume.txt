@@ -1,0 +1,163 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2018, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#  
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+
+# -----------------------------------------------------
+# Create our volume mount script.
+#[root@openstacker]
+
+cat > /tmp/volume-init.sh << 'EOSH'
+
+#---------------------------------------------------------------------
+# Create a filesystem.
+
+    echo ""
+    echo "Creating filesystem"
+    mkfs.btrfs \
+        --force \
+        "${fsdev:?}"
+
+    echo ""
+    echo "Checking filesystem"
+    btrfs \
+        filesystem show \
+        "${fsdev:?}"
+
+#---------------------------------------------------------------------
+# Create our mount point.
+
+    echo "Creating mount point"
+
+    mkdir -p "${fspath:?}"
+    touch "${fspath:?}/mount-failed"
+
+#---------------------------------------------------------------------
+# Add the volume to our FileSystemTABle.
+# https://www.howtoforge.com/reducing-disk-io-by-mounting-partitions-with-noatime
+
+    echo "Updating fstab"
+   
+    fsuuid=$(
+        lsblk --noheadings --output UUID "${fsdev:?}"
+        )
+
+cat >> /etc/fstab << EOTAB
+UUID=${fsuuid:?} ${fspath:?}    btrfs    defaults,noatime    0  0
+EOTAB
+
+#---------------------------------------------------------------------
+# Mount the new volume.
+
+    echo "Mounting new filesystem"
+
+    mount "${fspath:?}"
+
+#---------------------------------------------------------------------
+# Check the new volume.
+
+    echo ""
+    echo "free"
+
+    df -h "${fspath:?}"
+
+    echo ""
+    echo "lsblk"
+
+    lsblk
+
+EOSH
+
+        # -----------------------------------------------------
+        # List our Kafka nodes.
+        #[root@openstacker]
+
+            for ident in ${kfidents[@]}
+            do
+                getvminfo "${ident:?}"
+                name=$(getvmname)
+                echo "Name  [$name]"
+                echo "Ident [${ident}]"
+            done
+
+        # -----------------------------------------------------
+        # Create and attach a new volume to each of our Kafka nodes.
+        #[root@openstacker]
+
+            for vmident in ${kfidents[@]}
+            do
+
+                getvminfo "${vmident:?}"
+                echo "Name  [$(getvmname)]"
+                echo "Ident [${vmident}]"
+
+                volname=$(getvmname)-data-01
+                volsize=1024
+
+                volident=$(
+                    makevolume \
+                       ${volname:?} \
+                       ${volsize:?} 
+                    )
+
+                voldevice=/dev/vdb
+
+                openstack \
+                    server add volume \
+                    "${vmident:?}" \
+                    "${volident:?}" \
+                    --device "${voldevice:?}"
+
+            done
+
+        # -----------------------------------------------------
+        # Login and run our init script on each of our nodes.
+        #[root@openstacker]
+
+            for vmident in ${kfidents[@]}
+            do
+
+                internals=(
+                    $(eleanorinternal)
+                    )
+                ipaddress=${internals[1]}
+
+                fsdev=/dev/vdb
+                fspath=/logs/volume-00
+
+                echo "---- ---- ---- ----"
+                getvminfo "${vmident:?}"
+                echo "Name    [$(getvmname)]"
+                echo "Ident   [${vmident}]"
+                echo "Address [${ipaddress}]"
+
+                echo "
+                    sudo -s
+                    fsdev=${fsdev:?}
+                    fspath=${fspath:?}
+                    " \
+                    | cat - /tmp/volume-init.sh \
+                    | ssh ${phym_sshopts[@]} \
+                        "${phym_sshuser:?}@${ipaddress:?}" \
+
+            done
+
+

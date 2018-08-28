@@ -1,0 +1,415 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2018, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#  
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+
+Apache Kafka’s MirrorMaker
+https://docs.confluent.io/current/multi-dc/mirrormaker.html
+
+Kafka 1.1 Documentation
+https://kafka.apache.org/documentation/#configuration
+
+Kafka mirroring (MirrorMaker)
+https://cwiki.apache.org/confluence/pages/viewpage.action?pageId=27846330
+
+20180531 ZFT Alert Stream Brokers Telecon (LSST:UK notes by Dave Young)
+https://lsst-uk.atlassian.net/wiki/spaces/LUSC/pages/456720385/20180531+ZFT+Alert+Stream+Brokers+Telecon
+
+ZADS terraform script for MirrorMaker
+https://github.com/dirac-institute/zads-terraform/blob/master/provisioning/broker/config/zads-start-mirrormaker
+
+Generic command line producer and consumer
+https://github.com/edenhill/kafkacat
+
+Kafka source code
+https://github.com/apache/kafka/tree/trunk/bin
+
+        #
+        # Continuing on from previous notes.
+        # 20180615-03-kafka-deploy
+        # 20180613-01-openstack-deploy
+
+        # -----------------------------------------------------
+        # Get our controller address.
+        #[root@openstacker]
+
+            getvminfo "${controller:?}"
+            controlip=$(geteleanor172)
+
+        # -----------------------------------------------------
+        # Configure our ssh proxy command.
+        #[root@openstacker]
+
+            sshproxy="ssh ${sshopts[*]} ${sshuser:?}@${controlip:?} nc %h %p"
+
+        # -----------------------------------------------------
+        # Login to our controller node.
+        #[root@openstacker]
+
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${controlip:?}
+
+            #----------------------------------------------------------------
+            # Install KafkaCat as a container.
+            # https://docs.confluent.io/current/app-development/kafkacat-usage.html
+            # https://github.com/edenhill/kafkacat
+            #[user@controller]
+
+                git clone https://github.com/edenhill/kafkacat.git
+
+                pushd kafkacat
+
+                    docker build -t kafkacat .
+
+                popd
+
+            #----------------------------------------------------------------
+            # Query the list of topics.
+            # https://docs.confluent.io/current/app-development/kafkacat-usage.html
+            # https://github.com/edenhill/kafkacat
+            #[user@controller]
+
+                docker run --rm kafkacat \
+                    -b public.alerts.ztf.uw.edu \
+                    -L
+
+
+                    Metadata for all topics (from broker 0: public.alerts.ztf.uw.edu:9092/0):
+                     1 brokers:
+                      broker 0 at public.alerts.ztf.uw.edu:9092
+                     24 topics:
+
+                      topic "ztf_20180531_programid1" with 14 partitions:
+
+                      topic "ztf_20180601_programid1" with 14 partitions:
+                      topic "ztf_20180602_programid1" with 14 partitions:
+                      topic "ztf_20180603_programid1" with 14 partitions:
+                      topic "ztf_20180604_programid1" with 14 partitions:
+                      topic "ztf_20180605_programid1" with 14 partitions:
+                      topic "ztf_20180606_programid1" with 14 partitions:
+                      topic "ztf_20180607_programid1" with 14 partitions:
+                      topic "ztf_20180608_programid1" with 14 partitions:
+                      topic "ztf_20180609_programid1" with 14 partitions:
+                      topic "ztf_20180610_programid1" with 14 partitions:
+                      topic "ztf_20180611_programid1" with 14 partitions:
+                      topic "ztf_20180612_programid1" with 14 partitions:
+                      topic "ztf_20180613_programid1" with 14 partitions:
+                      topic "ztf_20180614_programid1" with 14 partitions:
+                      topic "ztf_20180615_programid1" with 14 partitions:
+                      topic "ztf_20180616_programid1" with 14 partitions:
+                      topic "ztf_20180617_programid1" with 14 partitions:
+                      topic "ztf_20180618_programid1" with 14 partitions:
+                      topic "ztf_20180619_programid1" with 14 partitions:
+
+                      topic "ztf_test" with 14 partitions:
+                      topic "__consumer_offsets" with 50 partitions:
+                      topic "ztf_mjuric" with 14 partitions:
+                      topic "ztf" with 14 partitions:
+
+        # -----------------------------------------------------
+        # Create our MirrorMaker instances.
+        #[root@openstacker]
+
+echo "
+---- ---- ---- ---- ----
+Creating MirrorMaker nodes.
+"
+            unset mmidents
+            mmidents=()
+
+            for i in {0..3}
+            do
+                echo "Node [${i}]"
+                mmidents+=(
+                    "$(makevm "mirror-${i}")"
+                    )
+            done
+
+    # -----------------------------------------------------
+    # Build a list of Kafka addresses.
+    #[root@openstacker]
+
+echo "
+---- ---- ---- ---- ----
+Generating Kafka connect list.
+"
+
+        delim=''
+        port='9092'
+        roeconnectlist=''
+            
+        for vmident in ${kfidents[@]}
+        do
+
+            getvminfo "${vmident:?}"
+            externalip=$(geteleanor172)
+
+            roeconnectlist="${kfconnect}${delim}${externalip}:${port}"
+
+            delim=','
+
+        done
+
+echo "
+Kafka brokers [${roeconnectlist}]
+"
+
+    # -----------------------------------------------------
+    # Set the remote .
+    #[root@openstacker]
+
+        ztfconnectlist=public.alerts.ztf.uw.edu:9092
+
+
+
+        # -----------------------------------------------------
+        # Login to a MirrorMaker instance.
+        #[root@openstacker]
+
+                getvminfo ${mmidents[0]}
+                internalip=$(geteleanor192)
+
+echo "
+Ident   [${vmident}]
+Name    [$(getvmname)]
+Address [${internalip}]
+"
+
+                ssh \
+                    ${sshopts[*]} \
+                    -o ProxyCommand="${sshproxy}" \
+                    ${sshuser:?}@${internalip:?}
+
+
+            # -----------------------------------------------------
+            # Create our consumer config
+            #[user@node]
+
+                cat > "${HOME}/consumer.config" << EOF
+
+bootstrap.servers=${ztfconnectlist}
+#bootstrap.servers=public.alerts.ztf.uw.edu:9092
+security.protocol=PLAINTEXT
+group.id=ztf-mirror.roe.ac.uk
+
+#auto.commit.enabled=false
+auto.offset.reset=earliest
+
+#
+# From zads-terraform
+# https://github.com/dirac-institute/zads-terraform/blob/master/provisioning/broker/config/consumer.properties
+# partition.assignment.strategy=org.apache.kafka.clients.consumer.RoundRobinAssignor
+
+# Attempt to battle syslog messages such as:
+#   May 23 02:39:53 epyc ztf-mirrormaker: [2018-05-23 09:39:53,432] WARN
+#     Failed to commit offsets because the consumer group has rebalanced
+#     and assigned partitions to another instance. If you see this regularly,
+#     it could indicate that you need to either increase the consumer's
+#     session.timeout.ms or reduce the number of records handled on each
+#     iteration with max.poll.records (kafka.tools.MirrorMaker$)
+# I hope this will reduce the cases of occasional re-downloading of everything.
+# session.timeout.ms=60000
+
+EOF
+
+            # -----------------------------------------------------
+            # Create our producer config
+            #[user@node]
+
+                cat > "${HOME}/producer.config" << EOF
+
+bootstrap.servers=${roeconnectlist}
+#bootstrap.servers=172.16.49.217:9092,172.16.49.214:9092,172.16.49.12:9092,172.16.49.208:9092
+security.protocol=PLAINTEXT
+
+acks=all
+#retries=Int.MaxValue
+
+# Deprecated
+#producer.type=async
+# Out of order arival is not an issue
+#max.in.flight.requests.per.connection=1
+# Deprecated
+#block.on.buffer.full=true
+
+EOF
+
+        # -----------------------------------------------------
+        # Create our compose file.
+        #[user@controller]
+
+cat > mirror.yml << 'EOYML'
+
+version: "3.2"
+
+networks:
+    kafka:
+    
+services:
+
+    tina:
+        image:
+            firethorn/java:2.1.22
+        networks:
+            - kafka
+        volumes:
+            - ${HOME}/producer.config:/etc/mirror/producer.config
+            - ${HOME}/consumer.config:/etc/mirror/consumer.config
+        command: bash
+
+EOYML
+
+        # -----------------------------------------------------
+        # Run our container ...
+        #[user@controller]
+
+            docker-compose \
+                --file mirror.yml \
+                run tina
+
+        # -----------------------------------------------------
+        # Download the Kafka binary.
+        #[user@controller]
+
+            mkdir /var/kafka
+            pushd /var/kafka
+        
+                wget -O kafka_2.11-1.1.0.tar.gz 'http://www-eu.apache.org/dist/kafka/1.1.0/kafka_2.11-1.1.0.tgz'
+
+                tar -xvzf kafka_2.11-1.1.0.tar.gz
+
+
+        # -----------------------------------------------------
+        # Run the 
+        #[user@controller]
+
+            MM_NUM_STREAMS=${MM_NUM_STREAMS:-14}
+
+            pushd kafka_2.11-1.1.0
+
+                bin/kafka-mirror-maker.sh \
+                    --num.streams=${MM_NUM_STREAMS:?} \
+                    --consumer.config "/etc/mirror/consumer.config" \
+                    --producer.config "/etc/mirror/producer.config" \
+                    --whitelist="ztf_20180618_programid1"
+
+
+
+                    --whitelist="ztf_20180531_programid1"
+                    --whitelist="ztf_test"
+
+
+
+
+
+        # -----------------------------------------------------
+        # -----------------------------------------------------
+        # Login to a MirrorMaker instance.
+        #[root@openstacker]
+
+                getvminfo ${mmidents[1]}
+                internalip=$(geteleanor192)
+
+echo "
+Ident   [${vmident}]
+Name    [$(getvmname)]
+Address [${internalip}]
+"
+
+                ssh \
+                    ${sshopts[*]} \
+                    -o ProxyCommand="${sshproxy}" \
+                    ${sshuser:?}@${internalip:?}
+
+
+        # -----------------------------------------------------
+        # Create our compose file.
+        #[user@controller]
+
+cat > mirror.yml << 'EOYML'
+
+version: "3.2"
+
+networks:
+    kafka:
+    
+services:
+
+    tina:
+        image:
+            firethorn/java:2.1.22
+        networks:
+            - kafka
+        command: bash
+
+EOYML
+
+        # -----------------------------------------------------
+        # Run our container ...
+        #[user@controller]
+
+            docker-compose \
+                --file mirror.yml \
+                run tina
+
+        # -----------------------------------------------------
+        # Download the Kafka binary.
+        #[user@controller]
+
+            mkdir /var/kafka
+            pushd /var/kafka
+        
+                wget -O kafka_2.11-1.1.0.tar.gz 'http://www-eu.apache.org/dist/kafka/1.1.0/kafka_2.11-1.1.0.tgz'
+
+                tar -xvzf kafka_2.11-1.1.0.tar.gz
+
+        # -----------------------------------------------------
+        # Run the consumer-groups diagnostic tools to check how far we have read.
+        #[user@controller]
+
+            pushd kafka_2.11-1.1.0
+
+                bin/kafka-consumer-groups.sh \
+                    --bootstrap-server 'public.alerts.ztf.uw.edu:9092' \
+                    --describe \
+                    --group 'ztf-mirror.roe.ac.uk'
+
+
+                TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                  HOST             CLIENT-ID
+                ztf_20180618_programid1 7          8098            8098            0               ztf-mirror.roe.ac.uk-3-5ae4bd1f-f4d0-4dd6-b60a-d3b1652bc981  /129.215.255.235 ztf-mirror.roe.ac.uk-3
+                ztf_20180618_programid1 0          8099            8099            0               ztf-mirror.roe.ac.uk-0-93a57122-4790-4d75-95f3-f442d6f4d7d9  /129.215.255.235 ztf-mirror.roe.ac.uk-0
+                ztf_20180618_programid1 9          8098            8098            0               ztf-mirror.roe.ac.uk-5-95284563-5680-4623-8304-5aa3b1ccad5b  /129.215.255.235 ztf-mirror.roe.ac.uk-5
+                ztf_20180618_programid1 3          8099            8099            0               ztf-mirror.roe.ac.uk-11-a79d662d-c926-4de5-af89-5193bbab7c14 /129.215.255.235 ztf-mirror.roe.ac.uk-11
+                ztf_20180618_programid1 2          8098            8098            0               ztf-mirror.roe.ac.uk-10-d238e341-862f-4166-aaea-c3d950f56eae /129.215.255.235 ztf-mirror.roe.ac.uk-10
+                ztf_20180618_programid1 5          8098            8098            0               ztf-mirror.roe.ac.uk-13-4068d941-e927-4348-bce4-1045d15d24ed /129.215.255.235 ztf-mirror.roe.ac.uk-13
+                ztf_20180618_programid1 8          8099            8099            0               ztf-mirror.roe.ac.uk-4-ce330b39-2e1f-47a0-a8ae-fac1d0b5d34b  /129.215.255.235 ztf-mirror.roe.ac.uk-4
+                ztf_20180618_programid1 11         8098            8098            0               ztf-mirror.roe.ac.uk-7-040b200e-03c5-4dd5-925a-ec3ed6a660a0  /129.215.255.235 ztf-mirror.roe.ac.uk-7
+                ztf_20180618_programid1 10         8098            8098            0               ztf-mirror.roe.ac.uk-6-f86f793e-5443-406c-bb75-d9d790ad5bb9  /129.215.255.235 ztf-mirror.roe.ac.uk-6
+                ztf_20180618_programid1 1          8098            8098            0               ztf-mirror.roe.ac.uk-1-8488a743-a62f-4782-8ac0-9d791742a3ad  /129.215.255.235 ztf-mirror.roe.ac.uk-1
+                ztf_20180618_programid1 6          8099            8099            0               ztf-mirror.roe.ac.uk-2-9adbc642-ad06-4c12-8349-3f645c363e0e  /129.215.255.235 ztf-mirror.roe.ac.uk-2
+                ztf_20180618_programid1 13         8098            8098            0               ztf-mirror.roe.ac.uk-9-170c7098-3982-487e-80f2-fb0dca426d6f  /129.215.255.235 ztf-mirror.roe.ac.uk-9
+                ztf_20180618_programid1 12         8098            8098            0               ztf-mirror.roe.ac.uk-8-a2b79f8c-e0f2-4ab7-89a3-1948cb0d6ef1  /129.215.255.235 ztf-mirror.roe.ac.uk-8
+                ztf_20180618_programid1 4          8098            8098            0               ztf-mirror.roe.ac.uk-12-58baaa8c-48f0-4aef-a55c-dc086ecad095 /129.215.255.235 ztf-mirror.roe.ac.uk-12
+
+
+
+            

@@ -1,0 +1,545 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2018, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#  
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+    #
+    # Deploy Zookeeper on the Zookeeper nodes.
+    #
+
+
+
+    # -----------------------------------------------------
+    # Get the internal (192*) address for our zookeper node. 
+    #[root@openstacker]
+
+        ident=${zkidents[0]}
+        echo "${ident:?}"
+        
+        getvminfo "${ident:?}"
+        cat $(vmjsonpath)
+
+        internals=(
+            $(eleanorinternal)
+            )
+        echo "${internals[*]}"
+
+            192.168.1.15
+
+        internal=${internals[0]}
+        echo "${zkinternal}"
+
+            192.168.1.15
+
+
+        ident=${zkidents[1]}
+        echo "${ident:?}"
+        
+        getvminfo "${ident:?}"
+        cat $(vmjsonpath)
+
+        internals=(
+            $(eleanorinternal)
+            )
+        echo "${internals[*]}"
+
+            192.168.1.11
+
+        internal=${internals[0]}
+        echo "${zkinternal}"
+
+            192.168.1.11
+
+
+    # -----------------------------------------------------
+    # Get the internal (172*) address for our controller node. 
+    #[root@openstacker]
+
+        ident=${controller}
+        echo "${ident:?}"
+        
+        getvminfo "${ident:?}"
+        cat $(vmjsonpath)
+
+        internals=(
+            $(eleanorinternal)
+            )
+        echo "${internals[*]}"
+
+            192.168.1.13 172.16.49.46
+
+        control=${internals[1]}
+        echo "${control}"
+
+            172.16.49.46
+
+    # -----------------------------------------------------
+    # Test login from openstack-client to controller. 
+    #[root@openstacker]
+
+        sshuser=Stevedore
+
+        sshopts=(
+            '-q'
+            '-A'
+            '-o CheckHostIP=no'
+            '-o UserKnownHostsFile=/dev/null'
+            '-o StrictHostKeyChecking=no'
+            )
+        echo "${sshopts[*]}"
+
+        ssh ${sshopts[*]} "${sshuser:?}@${control:?}" '
+            hostname
+            '
+
+            raminiara-control.novalocal
+
+        internal=192.168.1.15
+        internal=192.168.1.11
+
+        echo "ssh ${sshopts[*]} ${sshuser:?}@${internal:?} hostname" | ssh ${sshopts[*]} ${sshuser:?}@${control:?}
+
+            192.168.1.15
+            raminiara-zookeeper-1.novalocal
+
+            192.168.1.11
+            Stevedore@192.168.1.11: Permission denied (publickey,gssapi-keyex,gssapi-with-mic).
+
+    #
+    # ** Re-built zookeeper-0 (twice) to get a healthy instance. **
+    # ** Creating instances has about 20-10% failure rate at the moment. **
+    #
+
+    # -----------------------------------------------------
+    # Using mc in ssh proxy command throws an error "bash: nc: command not found"
+    # Install 'nc' on the controller to enable it to act as a ssh proxy.
+    #[root@openstacker]
+
+        ssh ${sshopts[*]} "${sshuser:?}@${control:?}" '
+            sudo dnf install -y nc
+            '
+
+            Installed:
+              nmap-ncat.x86_64 2:7.60-8.fc27
+  
+    # -----------------------------------------------------
+    # Test login from openstack-client to zookeeper, using controller as a proxy. 
+    #[root@openstacker]
+
+        sshproxy="ssh ${sshopts[*]} ${sshuser}@${control} nc %h %p"
+        echo "sshproxy [${sshproxy}]"
+
+        sshproxyopt="-o ProxyCommand=\"${sshproxy}\""
+        echo "sshproxyopt [${sshproxyopt}]"
+
+        sshproxyopts=(
+            ${sshopts[*]}
+            ${sshproxyopt}
+            )
+        echo ${sshproxyopts[*]}
+
+        for i in ${sshproxyopts[*]}
+        do
+            echo "proxyopt [$i]"
+        done
+
+        # PASS
+        ssh \
+            ${sshopts[*]} \
+            -o ProxyCommand="${sshproxy}" \
+            ${sshuser:?}@${zkinternal:?} \
+            '
+            hostname
+            '
+        
+        # FAIL
+        ssh \
+            -v \
+            ${sshopts[*]} \
+            "${sshproxyopt}" \
+            ${sshuser:?}@${zkinternal:?} \
+            '
+            hostname
+            '
+
+        # FAIL
+        ssh \
+            -v \
+            ${sshproxyopts[*]} \
+            ${sshuser:?}@${zkinternal:?} \
+            '
+            hostname
+            '
+
+    # -----------------------------------------------------
+    # Test login to each node.
+    #[root@openstacker]
+
+        for vmident in ${kfidents[@]}
+        for vmident in ${mmidents[@]}
+        for vmident in ${zkidents[@]}
+        do
+
+            echo "---- ---- ---- ----"
+            getvminfo "${vmident:?}"
+            echo "Name    [$(getvmname)]"
+            echo "Ident   [${vmident}]"
+
+            internals=(
+                $(eleanorinternal)
+                )
+            internal=${internals[0]}
+            #echo "${internals[*]}"
+            #echo "${internal}"
+
+            echo "
+                hostname
+                " \
+                | ssh \
+                    ${sshopts[*]} \
+                    -o ProxyCommand="${sshproxy}" \
+                    ${sshuser:?}@${internal:?}
+
+        done
+
+    # -----------------------------------------------------
+    # Get an address from the internal address list.
+    #[root@openstacker]
+
+        get192()
+            {
+            local internals=(
+                $(eleanorinternal)
+                )
+            echo "${internals[0]}"
+            }
+
+        get172()
+            {
+            local internals=(
+                $(eleanorinternal)
+                )
+            echo "${internals[1]}"
+            }
+
+    # -----------------------------------------------------
+    # Build a list of the zookeeper IP addresses.
+    #[root@openstacker]
+
+        unset zkservers
+        zkservers=()
+            
+        for vmident in ${zkidents[@]}
+        do
+
+            echo "---- ---- ---- ----"
+            getvminfo "${vmident:?}"
+            echo "Ident  [${vmident}]"
+            echo "Name   [$(getvmname)]"
+
+            server=$(get192)
+            echo "Server [${server}]"
+
+            zkservers+=(${server})
+
+        done
+
+        delim=''
+        ports=':2888:3888'
+        zkserverlist=''
+        for server in ${zkservers[@]} 
+        do
+            echo "Server [${server}]"
+            zkserverlist=${zkserverlist}${delim}${server}${ports}
+            delim=';'
+        done
+
+        echo "List [${zkserverlist}]"
+
+    # -----------------------------------------------------
+    # Create our deploy script.
+    #[root@openstacker]
+
+cat > /tmp/zookeeper-init.sh << 'EOSH'
+
+    cat > zookeeper.yml << EOYL
+
+version: '3'
+
+networks:
+    zookeeper:
+    
+volumes:
+    kflog:
+    kfdata:
+    
+services:
+
+    courtney:
+        image:
+            confluentinc/cp-zookeeper:4.1.1
+        ports:
+            - "2181:2181"
+            - "2888:2888"
+            - "3888:3888"
+        environment:
+            - ZOOKEEPER_SERVER_ID=${ZOOKEEPER_SERVER_ID}
+            - ZOOKEEPER_SERVERS=${ZOOKEEPER_SERVERS}
+            - ZOOKEEPER_TICK_TIME=2000
+            - ZOOKEEPER_INIT_LIMIT=5
+            - ZOOKEEPER_SYNC_LIMIT=2
+            - ZOOKEEPER_CLIENT_PORT=2181
+        volumes:
+            - "kflog:/var/lib/zookeeper/log"
+            - "kfdata:/var/lib/zookeeper/data"
+        networks:
+            - zookeeper
+
+    jarmila:
+        image:
+           "tomcat/tomcat:latest
+        ports:
+            - "8080:8080"
+
+EOYL
+
+    echo "---- ----"
+
+    docker-compose \
+        --file zookeeper.yml \
+        up -d \
+        courtney
+
+    echo "---- ----"
+    
+EOSH
+
+    # -----------------------------------------------------
+    # Login and run our init script on each node.
+    #[root@openstacker]
+
+        for vmident in ${zkidents[@]}
+        do
+        done
+
+            echo "---- ---- ---- ----"
+            vmident=${zkidents[$i]}
+            getvminfo "${vmident:?}"
+            echo "Index [${i}]"
+            echo "Ident [${vmident}]"
+            echo "Name  [$(getvmname)]"
+
+            internal=$(get192)
+            echo "Address [${internal}]"
+
+            echo "
+
+                export ZOOKEEPER_SERVER_ID="\'$(($i+1))\'"
+                export ZOOKEEPER_SERVERS="\'${zkserverlist// /;}\'"
+
+                " \
+                | cat - /tmp/zookeeper-init.sh \
+                | ssh \
+                    ${sshopts[*]} \
+                    -o ProxyCommand="${sshproxy}" \
+                    ${sshuser:?}@${internal:?}
+
+                ssh \
+                    ${sshopts[*]} \
+                    -o ProxyCommand="${sshproxy}" \
+                    ${sshuser:?}@${internal:?} \
+                    '
+                    docker logs -f stevedore_courtney_1
+                    '
+
+# -----------------------------------------------------
+# Login and tail the logs.
+#[root@openstacker]
+
+    ssh trop03
+        ssh Etalema
+            ssh -A 172.16.49.46
+                ssh -A 192.168.1.11
+                ssh -A 192.168.1.15
+                ssh -A 192.168.1.19
+
+
+    # -----------------------------------------------------
+    # Zookeeper failing to connect ..
+
+        docker logs -f stevedore_courtney_1
+
+            [2018-06-14 01:28:58,379] INFO Resolved hostname: 192.168.1.11 to address: /192.168.1.11 (org.apache.zookeeper.server.quorum.QuorumPeer)
+            [2018-06-14 01:28:58,381] WARN Cannot open channel to 3 at election address /192.168.1.15:3888 (org.apache.zookeeper.server.quorum.QuorumCnxManager)
+            java.net.ConnectException: Connection refused (Connection refused)
+	            at java.net.PlainSocketImpl.socketConnect(Native Method)
+	            at java.net.AbstractPlainSocketImpl.doConnect(AbstractPlainSocketImpl.java:350)
+	            at java.net.AbstractPlainSocketImpl.connectToAddress(AbstractPlainSocketImpl.java:206)
+	            at java.net.AbstractPlainSocketImpl.connect(AbstractPlainSocketImpl.java:188)
+	            at java.net.SocksSocketImpl.connect(SocksSocketImpl.java:392)
+	            at java.net.Socket.connect(Socket.java:589)
+	            at org.apache.zookeeper.server.quorum.QuorumCnxManager.connectOne(QuorumCnxManager.java:562)
+	            at org.apache.zookeeper.server.quorum.QuorumCnxManager.connectAll(QuorumCnxManager.java:614)
+	            at org.apache.zookeeper.server.quorum.FastLeaderElection.lookForLeader(FastLeaderElection.java:843)
+	            at org.apache.zookeeper.server.quorum.QuorumPeer.run(QuorumPeer.java:913)
+            [2018-06-14 01:28:58,382] INFO Resolved hostname: 192.168.1.15 to address: /192.168.1.15 (org.apache.zookeeper.server.quorum.QuorumPeer)
+            [2018-06-14 01:28:58,382] INFO Notification time out: 60000 (org.apache.zookeeper.server.quorum.FastLeaderElection)
+            [2018-06-14 01:29:58,386] WARN Cannot open channel to 2 at election address /192.168.1.11:3888 (org.apache.zookeeper.server.quorum.QuorumCnxManager)
+            java.net.ConnectException: Connection refused (Connection refused)
+	            at java.net.PlainSocketImpl.socketConnect(Native Method)
+	            at java.net.AbstractPlainSocketImpl.doConnect(AbstractPlainSocketImpl.java:350)
+	            at java.net.AbstractPlainSocketImpl.connectToAddress(AbstractPlainSocketImpl.java:206)
+	            at java.net.AbstractPlainSocketImpl.connect(AbstractPlainSocketImpl.java:188)
+	            at java.net.SocksSocketImpl.connect(SocksSocketImpl.java:392)
+	            at java.net.Socket.connect(Socket.java:589)
+	            at org.apache.zookeeper.server.quorum.QuorumCnxManager.connectOne(QuorumCnxManager.java:562)
+	            at org.apache.zookeeper.server.quorum.QuorumCnxManager.connectAll(QuorumCnxManager.java:614)
+	            at org.apache.zookeeper.server.quorum.FastLeaderElection.lookForLeader(FastLeaderElection.java:843)
+	            at org.apache.zookeeper.server.quorum.QuorumPeer.run(QuorumPeer.java:913)
+
+
+    # -----------------------------------------------------
+    # Not listening on the right ports.
+    #
+
+
+
+    # -----------------------------------------------------
+    # Docker failed to create firewall ports.
+    #
+
+        sudo systemctl status firewalld
+        ● firewalld.service - firewalld - dynamic firewall daemon
+           Loaded: loaded (/usr/lib/systemd/system/firewalld.service; enabled; vendor preset: enabled)
+           Active: inactive (dead) since Thu 2018-06-14 02:33:21 BST; 5min ago
+             Docs: man:firewalld(1)
+          Process: 442 ExecStart=/usr/sbin/firewalld --nofork --nopid $FIREWALLD_ARGS (code=exited, status=0/SUCCESS)
+         Main PID: 442 (code=exited, status=0/SUCCESS)
+              CPU: 2.309s
+
+            Jun 14 02:12:25 raminiara-zookeeper-0.novalocal firewalld[442]: WARNING: COMMAND_FAILED: '/usr/sbin/iptables -w2 -t filter -C DOCKER ! -i br-7d9235ffe388 -o br-7d9235ffe388 -p tcp -d 172.18.0.2 --dport 3888 -j ACCEPT' failed:
+            Jun 14 02:12:26 raminiara-zookeeper-0.novalocal firewalld[442]: WARNING: COMMAND_FAILED: '/usr/sbin/iptables -w2 -t nat -C POSTROUTING -p tcp -s 172.18.0.2 -d 172.18.0.2 --dport 3888 -j MASQUERADE' failed:
+            Jun 14 02:12:26 raminiara-zookeeper-0.novalocal firewalld[442]: WARNING: COMMAND_FAILED: '/usr/sbin/iptables -w2 -t nat -C DOCKER -p tcp -d 0/0 --dport 2888 -j DNAT --to-destination 172.18.0.2:2888 ! -i br-7d9235ffe388' failed:
+            Jun 14 02:12:26 raminiara-zookeeper-0.novalocal firewalld[442]: WARNING: COMMAND_FAILED: '/usr/sbin/iptables -w2 -t filter -C DOCKER ! -i br-7d9235ffe388 -o br-7d9235ffe388 -p tcp -d 172.18.0.2 --dport 2888 -j ACCEPT' failed:
+            Jun 14 02:12:26 raminiara-zookeeper-0.novalocal firewalld[442]: WARNING: COMMAND_FAILED: '/usr/sbin/iptables -w2 -t nat -C POSTROUTING -p tcp -s 172.18.0.2 -d 172.18.0.2 --dport 2888 -j MASQUERADE' failed:
+            Jun 14 02:12:26 raminiara-zookeeper-0.novalocal firewalld[442]: WARNING: COMMAND_FAILED: '/usr/sbin/iptables -w2 -t nat -C DOCKER -p tcp -d 0/0 --dport 2181 -j DNAT --to-destination 172.18.0.2:2181 ! -i br-7d9235ffe388' failed:
+            Jun 14 02:12:26 raminiara-zookeeper-0.novalocal firewalld[442]: WARNING: COMMAND_FAILED: '/usr/sbin/iptables -w2 -t filter -C DOCKER ! -i br-7d9235ffe388 -o br-7d9235ffe388 -p tcp -d 172.18.0.2 --dport 2181 -j ACCEPT' failed:
+            Jun 14 02:12:26 raminiara-zookeeper-0.novalocal firewalld[442]: WARNING: COMMAND_FAILED: '/usr/sbin/iptables -w2 -t nat -C POSTROUTING -p tcp -s 172.18.0.2 -d 172.18.0.2 --dport 2181 -j MASQUERADE' failed:
+
+
+    # -----------------------------------------------------
+    # Known issue ?
+
+        FirewallD not using NetworkManager interface zones
+        https://github.com/firewalld/firewalld/issues/195
+
+        Docker fails to create iptables rules
+        https://github.com/moby/moby/issues/15948
+
+        After CentOS7 upgrade: Docker services not reachable anymore
+        https://serverfault.com/questions/831770/after-centos7-upgrade-docker-services-not-reachable-anymore
+
+
+
+    # Not much he;lp.
+    # https://stackoverflow.com/questions/33600154/docker-not-starting-could-not-delete-the-default-bridge-network-network-bridg/33604859
+
+        docker-compose -f zookeeper.yml down
+        sudo mv /var/lib/docker/network/files/ /tmp/dn-bak
+        sudo systemctl restart docker
+        docker-compose -f zookeeper.yml up -d
+        docker logs -f stevedore_courtney_1
+
+    # Test ports.
+    # https://superuser.com/a/683616
+
+        nc -zv 192.168.1.11 22
+
+        nc -zv 192.168.1.11 3888
+
+
+
+        nc -zv 127.0.0.1  8080
+            Ncat: Version 7.60 ( https://nmap.org/ncat )
+            Ncat: Connected to 127.0.0.1:8080.
+            Ncat: 0 bytes sent, 0 bytes received in 0.02 seconds.
+
+        nc -zv 172.18.0.1 8080
+            Ncat: Version 7.60 ( https://nmap.org/ncat )
+            Ncat: Connected to 172.18.0.1:8080.
+            Ncat: 0 bytes sent, 0 bytes received in 0.01 seconds.
+
+        nc -zv 172.18.0.2 8080
+            Ncat: Version 7.60 ( https://nmap.org/ncat )
+            Ncat: Connection refused.
+
+        nc -zv 192.168.1.11 8080
+            Ncat: Version 7.60 ( https://nmap.org/ncat )
+            Ncat: Connected to 192.168.1.11:8080.
+            Ncat: 0 bytes sent, 0 bytes received in 0.02 seconds.
+
+
+        nc -zv 127.0.0.1  3888
+            Ncat: Version 7.60 ( https://nmap.org/ncat )
+            Ncat: Connected to 127.0.0.1:3888.
+            Ncat: 0 bytes sent, 0 bytes received in 0.01 seconds.
+
+        nc -zv 172.18.0.1 3888
+            Ncat: Version 7.60 ( https://nmap.org/ncat )
+            Ncat: Connection refused.
+
+        nc -zv 172.18.0.2 3888
+            Ncat: Version 7.60 ( https://nmap.org/ncat )
+            Ncat: Connection refused.
+
+        nc -zv 192.168.1.11 3888
+            Ncat: Version 7.60 ( https://nmap.org/ncat )
+            Ncat: Connection refused.
+
+
+    # -----------------------------------------------------
+    # Zookeeper is connecting to 0.0.0.0 for main interface
+
+        courtney_1  | [2018-06-14 03:16:29,724] INFO binding to port 0.0.0.0/0.0.0.0:2181 (org.apache.zookeeper.server.NIOServerCnxnFactory)
+
+        nc -zv 192.168.1.11 2181
+            Ncat: Version 7.60 ( https://nmap.org/ncat )
+            Ncat: Connected to 192.168.1.11:2181.
+            Ncat: 0 bytes sent, 0 bytes received in 0.02 seconds.
+
+    # -----------------------------------------------------
+    # Zookeeper is connecting to 192.168.1.11:3888 for election
+
+        courtney_1  | [2018-06-14 03:16:29,811] INFO My election bind port: /192.168.1.11:3888 (org.apache.zookeeper.server.quorum.QuorumCnxManager)
+        courtney_1  | [2018-06-14 03:16:29,815] ERROR Exception while listening (org.apache.zookeeper.server.quorum.QuorumCnxManager)
+        courtney_1  | java.net.BindException: Cannot assign requested address (Bind failed)
+        courtney_1  | 	at java.net.PlainSocketImpl.socketBind(Native Method)
+        courtney_1  | 	at java.net.AbstractPlainSocketImpl.bind(AbstractPlainSocketImpl.java:387)
+        courtney_1  | 	at java.net.ServerSocket.bind(ServerSocket.java:375)
+        courtney_1  | 	at java.net.ServerSocket.bind(ServerSocket.java:329)
+
+        nc -zv 192.168.1.11 3888
+            Ncat: Version 7.60 ( https://nmap.org/ncat )
+            Ncat: Connection refused.
+
+
+
+
+

@@ -1,0 +1,842 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2018, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#  
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+# -----------------------------------------------------
+# Create a new VM to work with.
+#[user@trop]
+
+    createvm
+
+        INFO : Node name [Etalema]
+        INFO : Base name [fedora-27-docker-base-20180129.qcow]
+        INFO : Base path [/var/lib/libvirt/images/base/fedora-27-docker-base-20180129.qcow]
+        INFO : Disc name [Etalema.qcow]
+        INFO : Disc size [16GiB]
+
+        INFO : MAC  [52:54:00:02:03:09]
+        INFO : IPv4 [192.168.203.9]
+        INFO : IPv6 []
+
+# -----------------------------------------------------
+# Login to the new VM.
+#[user@trop]
+
+    ssh Etalema
+
+    # -----------------------------------------------------
+    # Configure our secrets function.
+    #[user@virtual]
+
+        mkdir "${HOME}/bin"
+        pushd "${HOME}/bin"
+
+            cat > "secret" << 'EOF'
+    ....
+    ....
+    EOF
+
+            chmod u=rwx,og= "secret"
+        popd
+
+        secret frog
+
+    # -----------------------------------------------------
+    # Configure our OpenStack settings.
+    # https://horizon.ecdf.ed.ac.uk/dashboard/project/access_and_security/api_access/openrc/
+    #[user@virtual]
+
+        cat > "${HOME}/openstack.settings" << EOF
+
+export OS_INTERFACE=public
+export OS_IDENTITY_API_VERSION=3
+
+export OS_AUTH_URL=https://keystone.ecdf.ed.ac.uk/v3
+
+export OS_USER_DOMAIN_NAME="ed"
+export OS_REGION_NAME="Edinburgh"
+
+export OS_USERNAME=$(secret openstack.user)
+export OS_PASSWORD=$(secret openstack.pass)
+
+export OS_PROJECT_ID=fcef6dd450f64a1ab4ffa5a7234c4161
+export OS_PROJECT_NAME=lsst
+
+EOF
+
+    # -----------------------------------------------------
+    # Create a container to work with.
+    #[user@virtual]
+
+        docker run \
+            --rm \
+            --tty \
+            --interactive \
+            --hostname openstacker \
+            --env SSH_AUTH_SOCK=/tmp/ssh_auth_sock \
+            --volume "${HOME}/openstack.settings:/openstack.settings" \
+            --volume ${SSH_AUTH_SOCK}:/tmp/ssh_auth_sock \
+            fedora \
+            bash
+
+        # -----------------------------------------------------
+        # Load our settings.
+        #[root@openstacker]
+
+            source /openstack.settings
+
+        # -----------------------------------------------------
+        # Check our user name and password.
+        #[root@openstacker]
+
+cat << EOF
+Username [${OS_USERNAME:?}]
+Password [${OS_PASSWORD:?}]
+Project  [${OS_PROJECT_NAME:?}]
+Project  [${OS_PROJECT_ID:?}]
+EOF
+
+        # -----------------------------------------------------
+        # Install the SSH client.
+        #[root@openstacker]
+
+            dnf \
+                install -y \
+                openssh-clients
+
+        # -----------------------------------------------------
+        # Install the OpenStack client.
+        # https://docs.openstack.org/python-openstackclient/latest/
+        #[root@openstacker]
+
+            dnf \
+                install -y \
+                python-openstackclient
+
+        # -----------------------------------------------------
+        # Install the jq JSON parser.
+        # https://stedolan.github.io/jq/
+        #[root@openstacker]
+
+            dnf \
+                install -y \
+                jq
+
+        # -----------------------------------------------------
+        # Install the ipcalc tools.
+        # http://jodies.de/ipcalc
+        #[root@openstacker]
+
+            dnf \
+                install -y \
+                ipcalc
+
+        # -----------------------------------------------------
+        # List the available networks.
+        #[root@openstacker]
+
+            openstack \
+                network \
+                list \
+                --format json \
+                | jq '.' \
+                | tee /tmp/network-list.json
+
+        # -----------------------------------------------------
+        # Extract the network identifiers.
+        #[root@openstacker]
+
+            match='^vm-network-UoE-external'
+            externalnet=$(
+                jq -r "
+                    .[] | select(.Name | test(\"${match:?}\")) | .ID
+                    " /tmp/network-list.json
+                    )
+
+            match='^vm-network-UoE-internal'
+            internalnet=$(
+                jq -r "
+                    .[] | select(.Name | test(\"${match:?}\")) | .ID
+                    " /tmp/network-list.json
+                    )
+
+            match='^Floating Network Public'
+            publicnet=$(
+                jq -r "
+                    .[] | select(.Name | test(\"${match:?}\")) | .ID
+                    " /tmp/network-list.json
+                    )
+
+            match='^Floating Network Private'
+            privatenet=$(
+                jq -r "
+                    .[] | select(.Name | test(\"${match:?}\")) | .ID
+                    " /tmp/network-list.json
+                    )
+
+cat << EOF
+Public   net [${publicnet:?}]
+Private  net [${privatenet:?}]
+Internal net [${internalnet:?}]
+External net [${externalnet:?}]
+EOF
+
+            Public   net [d1e55e07-6f28-4d98-8116-e11ca10c3e8f]
+            Private  net [4f2774d1-dfb8-4833-8374-806e1fc40827]
+            Internal net [cc1bdad0-6b7c-4c7b-8c5b-6d5f4a677368]
+            External net [0dc77e8e-a97e-411e-94d0-da1b6efc393c]
+
+        # -----------------------------------------------------
+        # List the available flavors.
+        #[root@openstacker]
+
+            openstack \
+                flavor \
+                list \
+                --format json \
+                | jq '.' \
+                | tee /tmp/flavor-list.json
+
+        # -----------------------------------------------------
+        # Extract the m1 flavor identifiers.
+        #[root@openstacker]
+
+            match='^m1.small'
+            m1small=$(
+                jq -r "
+                    .[] | select(.Name | test(\"${match:?}\")) | .ID
+                    " /tmp/flavor-list.json
+                    )
+
+            match='^m1.medium'
+            m1medium=$(
+                jq -r "
+                    .[] | select(.Name | test(\"${match:?}\")) | .ID
+                    " /tmp/flavor-list.json
+                    )
+    
+            match='^m1.large'
+            m1large=$(
+                jq -r "
+                    .[] | select(.Name | test(\"${match:?}\")) | .ID
+                    " /tmp/flavor-list.json
+                    )
+
+            match='^m1.xlarge'
+            m1xlarge=$(
+                jq -r "
+                    .[] | select(.Name | test(\"${match:?}\")) | .ID
+                    " /tmp/flavor-list.json
+                    )
+
+            match='^m1.xxlarge'
+            m1xxlarge=$(
+                jq -r "
+                    .[] | select(.Name | test(\"${match:?}\")) | .ID
+                    " /tmp/flavor-list.json
+                    )
+
+cat << EOF
+M1 Small    [${m1small:?}]
+M1 Medium   [${m1medium:?}]
+M1 Large    [${m1large:?}]
+M1 X Large  [${m1xlarge:?}]
+M1 XX Large [${m1xxlarge:?}]
+EOF
+
+            M1 Small    [2]
+            M1 Medium   [3]
+            M1 Large    [4]
+            M1 X Large  [5]
+            M1 XX Large [09086afb-9d80-4719-974c-45e700a795bb]
+
+
+        # -----------------------------------------------------
+        # List the available images.
+        #[root@openstacker]
+
+            openstack \
+                image \
+                list \
+                --format json \
+                | jq '.' \
+                | tee /tmp/image-list.json
+
+        # -----------------------------------------------------
+        # Select our target image identifier.
+        #[root@openstacker]
+
+            match='^fedora-27-docker'
+
+            fedora27=$(
+                jq -r "
+                    .[] | select(.Name | test(\"${match:?}\")) | .ID
+                    " /tmp/image-list.json
+                    )
+
+        # -----------------------------------------------------
+        # Function to create a virtual machine.
+        #[root@openstacker]
+
+            vmjsonpath()
+                {
+                echo "${1:-/tmp/vm-info.json}"
+                }
+
+            makevm()
+                {
+                local xxkey=${1:?}
+                local xxname=${2:?}
+                local xximage=${3:?}
+                local xxflavor=${4:?}
+                local xxnet=${5:?}
+                local jsonfile=${6:-$(vmjsonpath)}
+
+                # TODO - connect to both internal and external networks ..
+                # TODO - always connect to internal network ?
+
+                openstack \
+                    server \
+                    create \
+                    --format json \
+                    --image "${xximage:?}" \
+                    --flavor "${xxflavor:?}" \
+                    --nic "net-id=${xxnet:?}" \
+                    --key-name "${xxkey:?}" \
+                    "${xxname:?}" \
+                    | jq '.' \
+                    > "${jsonfile:?}"
+
+                jq -r "
+                    .id
+                    " "${jsonfile:?}"
+                }
+
+        # -----------------------------------------------------
+        # Function to get our instance JSON.
+        #[root@openstacker]
+
+            getvminfo()
+                {
+                local vmident=${1:?}
+                local jsonfile=${2:-$(vmjsonpath)}
+                openstack \
+                    server \
+                    show \
+                    --format json \
+                    "${vmident:?}" \
+                    | jq '.' \
+                    > "${jsonfile}"
+                }
+
+        # -----------------------------------------------------
+        # Functions to read our instance JSON.
+        #[root@openstacker]
+
+            getvmname()
+                {
+                local jsonfile=${1:-$(vmjsonpath)}
+                jq -r "
+                    .name
+                    " "$(vmjsonpath)"
+                }
+
+            getvmimage()
+                {
+                local jsonfile=${1:-$(vmjsonpath)}
+                jq -r "
+                   .image
+                    " "${jsonfile:?}"
+                }
+
+            getvmflavor()
+                {
+                local jsonfile=${1:-$(vmjsonpath)}
+                jq -r "
+                   .flavor
+                    " "${jsonfile:?}"
+                }
+
+            getvmaddresses()
+                {
+                local jsonfile=${1:-$(vmjsonpath)}
+                jq -r "
+                    .addresses
+                    " "${jsonfile}"
+                }
+
+        # -----------------------------------------------------
+        # Function to parse OpenStack address information.
+        #[root@openstacker]
+
+            ipaddressmatch()
+                {
+                local network=${1:?}
+                local haystack=${2:?}
+                echo "${haystack}" | sed -n '
+                    s/,//g
+                    s/.*'${network}'=\([0-9. ]*\).*/\1/p
+                    '
+                }
+
+        # -----------------------------------------------------
+        # Functions to parse Eleanor OpenStack address information.
+        #[root@openstacker]
+
+            eleanorinternalmatch()
+                {
+                local haystack=${1:?}
+                ipaddressmatch \
+                    'vm-network-UoE-internal' \
+                    "${haystack}"
+                }
+
+            eleanorexternalmatch()
+                {
+                local haystack=${1:?}
+                ipaddressmatch \
+                    'vm-network-UoE-external' \
+                    "${haystack}"
+                }
+
+            eleanorexternal()
+                {
+                local jsonfile=${1:-$(vmjsonpath)}
+                eleanorexternalmatch \
+                    $(getvmaddresses \
+                            "${jsonfile}"
+                        )
+                }
+
+            eleanorinternal()
+                {
+                local jsonfile=${1:-$(vmjsonpath)}
+                eleanorinternalmatch \
+                    $(getvmaddresses \
+                        "${jsonfile}"
+                        )
+                }
+
+        # -----------------------------------------------------
+        # Function to create a floating IP address.
+        #[root@openstacker]
+
+            makefloat()
+                {
+                local network=${1:?}
+                openstack \
+                    floating ip \
+                    create \
+                    --format json \
+                    "${network:?}" \
+                    | jq '.' \
+                    > /tmp/floating-info.json
+
+                jq -r "
+                    .floating_ip_address
+                    " /tmp/floating-info.json
+                }
+
+        # -----------------------------------------------------
+        # Functions to create Eleanor floating IP addresses.
+        #[root@openstacker]
+
+            makeinternalfloat()
+                {
+                makefloat ${privatenet:?}
+                }
+
+            makeexternalfloat()
+                {
+                makefloat ${publicnet:?}
+                }
+
+        # -----------------------------------------------------
+        # Function to connect a floating address to an instances.
+        #[root@openstacker]
+
+            linkvmfloat()
+                {
+                local vmident=${1:?}
+                local vmaddress=${2:?}
+                local floating=${3:?}
+                openstack \
+                    server \
+                    add \
+                    floating ip \
+                    --fixed-ip-address "${vmaddress:?}" \
+                    "${vmident:?}" \
+                    "${floating:?}"
+                }
+
+        # -----------------------------------------------------
+        # Functions to add Eleanor floating IP addresses.
+        #[root@openstacker]
+
+            addinternalfloat()
+                {
+                local vmident=${1:?}
+                echo "vmident [${vmident}]"
+
+                getvminfo "${vmident}"
+
+                local vmaddresses=(
+                    $(eleanorinternal)
+                    )
+                local vmaddress=${vmaddresses[0]}
+                echo "vmaddress [${vmaddress}]"
+
+                local floating=$(makeinternalfloat)
+                echo "floating [${floating}]"
+
+                linkvmfloat \
+                    "${vmident}" \
+                    "${vmaddress}" \
+                    "${floating}"
+                }
+
+            addexternalfloat()
+                {
+                local vmident=${1:?}
+                echo "vmident [${vmident}]"
+
+                getvminfo "${vmident}"
+
+                local vmaddresses=(
+                    $(eleanorexternal)
+                    )
+                local vmaddress=${vmaddresses[0]}
+                echo "vmaddress [${vmadress}]"
+
+                local floating=$(makeexternalfloat)
+                echo "floating [${floating}]"
+
+                linkvmfloat \
+                    "${vmident}" \
+                    "${vmaddress}" \
+                    "${floating}"
+                }
+
+        # -----------------------------------------------------
+        # Function to display a JSON summary of a VM.
+        #[root@openstacker]
+
+        vmsummary()
+            {
+            local vmident=${1:?}
+
+            getvminfo "${vmident:?}"
+
+            echo "{
+                \"ident\": \"${vmident:?}\", 
+                \"name\":  \"$(getvmname)\", 
+                \"image\": \"$(getvmimage)\", 
+                \"flavor\": \"$(getvmflavor)\", 
+                \"addresses\": \"$(getvmaddresses)\",
+                }"
+            }
+
+        # -----------------------------------------------------
+        # Initialize our arrays.
+        #[root@openstacker]
+
+            unset kfidents
+            kfidents=()
+
+            unset mmidents
+            mmidents=()
+
+            unset zkidents
+            zkidents=()
+
+        # -----------------------------------------------------
+        # Create our Kafka instances.
+        #[root@openstacker]
+
+            echo ""
+            echo "Creating Kafka nodes"
+
+            for i in {0..3}
+            do
+                echo "Node [${i}]"
+                kfidents+=(
+                        "$(makevm \
+                            'dmr' \
+                            "kafka-${i}" \
+                            "${fedora27:?}" \
+                            "${m1medium:?}" \
+                            "${internalnet:?}"
+                        )"
+                    )
+            done
+
+        # -----------------------------------------------------
+        # Create our MirrorMaker instances.
+        #[root@openstacker]
+
+            echo ""
+            echo "Creating MirrorMaker nodes"
+
+            for i in {0..3}
+            do
+                echo "Node [${i}]"
+                mmidents+=(
+                        "$(makevm \
+                            'dmr' \
+                            "mirror-${i}" \
+                            "${fedora27:?}" \
+                            "${m1small:?}" \
+                            "${internalnet:?}"
+                        )"
+                    )
+            done
+
+        # -----------------------------------------------------
+        # Create our Zookeeper instances.
+        #[root@openstacker]
+
+            echo ""
+            echo "Creating Zookeeper nodes"
+
+            for i in {0..1}
+            do
+                echo "Node [${i}]"
+                zkidents+=(
+                        "$(makevm \
+                            'dmr' \
+                            "zookeeper-${i}" \
+                            "${fedora27:?}" \
+                            "${m1small:?}" \
+                            "${internalnet:?}"
+                        )"
+                    )
+            done
+
+        # -----------------------------------------------------
+        # Assign floating IP addresess to each of our Kafka nodes.
+        #[root@openstacker]
+
+            echo ""
+            echo "Adding floating addresses to Kafka nodes"
+
+            for ident in ${kfidents[@]}
+            do
+                echo "Ident [${ident}]"
+                getvminfo "${ident:?}"
+
+                echo "----"
+                addinternalfloat "${ident:?}"
+                echo "----"
+
+            done
+
+
+
+
+
+
+# -----------------------------------------------------
+# Re-building our lists.
+#
+
+        # -----------------------------------------------------
+        # Initialize our arrays.
+        #[root@openstacker]
+
+            unset kfidents
+            kfidents=()
+
+            unset mmidents
+            mmidents=()
+
+            unset zkidents
+            zkidents=()
+
+        # -----------------------------------------------------
+        # Iterate through our nodes.
+        #[root@openstacker]
+
+            echo ""
+            echo "Processing OpenStack nodes"
+            
+            for ident in $(
+                openstack \
+                    server list \
+                    --format json \
+                | jq -r '.[] | .ID'
+                )
+                do
+                    echo "Ident [$ident]"
+                    getvminfo "${ident:?}"
+
+                    name=$(getvmname)
+                    echo "Name  [$name]"
+
+                    case "${name}" in
+
+                        zookeeper*)
+                            echo "Match zookeeper"
+                            zkidents+=(${ident})
+                            ;;
+                            
+                        mirror*)
+                            echo "Match mirror"
+                            mmidents+=(${ident})
+                            ;;
+
+                        kafka*)
+                            echo "Match kafka"
+                            kfidents+=(${ident})
+                            ;;
+                        *)
+                            echo "unknown"
+                            ;;
+                    esac
+                done
+
+# -----------------------------------------------------
+# List our virtual machines.
+#
+
+            echo ""
+            echo "Listing Kafka nodes"
+            for ident in ${kfidents[@]}
+            do
+                echo "Ident [${ident}]"
+                getvminfo "${ident:?}"
+                name=$(getvmname)
+                echo "Name  [$name]"
+            done
+
+            echo ""
+            echo "Listing Mirror nodes"
+            for ident in ${mmidents[@]}
+            do
+                echo "Ident [${ident}]"
+                getvminfo "${ident:?}"
+                name=$(getvmname)
+                echo "Name  [$name]"
+            done
+
+            echo ""
+            echo "Listing Zookeeper nodes"
+            for ident in ${zkidents[@]}
+            do
+                echo "Ident [${ident}]"
+                getvminfo "${ident:?}"
+                name=$(getvmname)
+                echo "Name  [$name]"
+            done
+
+
+# -----------------------------------------------------
+# Testing the connection chain.
+#
+
+    # Desktop to trop 
+    ssh trop02
+
+        # Uni network to kafka-0
+        ssh -A Stevedore@172.16.49.74
+
+            # kafka-0 to mirror-0
+            ssh -A Stevedore@192.168.1.16 
+
+                # mirror-0 to zookeeper-0
+                ssh -A Stevedore@192.168.1.8 
+
+                    # zookeeper-0 to zookeeper-1
+                    ssh -A Stevedore@192.168.1.13
+                        exit
+                    exit
+                exit
+
+            # kafka-0 to zookeeper-0
+            ssh -A Stevedore@192.168.1.8
+                # zookeeper-0 to zookeeper-1
+                ssh -A Stevedore@192.168.1.13
+                    exit
+                exit
+            
+            # kafka-0 to zookeeper-1
+            ssh -A Stevedore@192.168.1.13
+                # zookeeper-1 to zookeeper-0
+                ssh -A Stevedore@192.168.1.8
+                    exit
+                exit
+
+# -----------------------------------------------------
+# Tidying up after an experiment.
+#
+
+        # -----------------------------------------------------
+        # List all our nodes.
+        #[root@openstacker]
+
+            openstack \
+                server list
+
+        # -----------------------------------------------------
+        # List all our floating addresses.
+        #[root@openstacker]
+
+            openstack \
+                floating ip list
+
+        # -----------------------------------------------------
+        # Delete all our nodes.
+        # WARNING - use with care - this will do what it says.
+        #[root@openstacker]
+
+            for ident in $(
+                openstack \
+                    server list \
+                    --format json \
+                | jq -r '.[] | .ID'
+                )
+                do
+                    echo "ID [$ident]"
+                    openstack \
+                        server \
+                        delete \
+                            "${ident}"
+                done
+
+        # -----------------------------------------------------
+        # Delete all our floating addresses.
+        # WARNING - use with care - this will do what it says.
+        #[root@openstacker]
+
+            for ident in $(
+                openstack \
+                    floating ip list \
+                    --format json \
+                | jq -r '.[] | .ID'
+                )
+                do
+                    echo "ID [$ident]"
+                    openstack \
+                        floating ip \
+                        delete \
+                            "${ident}"
+                done
+
+

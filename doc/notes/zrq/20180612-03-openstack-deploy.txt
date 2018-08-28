@@ -1,0 +1,355 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2018, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#  
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+# PASS-Eeshue2o
+
+# -----------------------------------------------------
+# Create an external VM to work with.
+#[user@trop]
+
+    createvm
+
+        INFO : Node name [Etalema]
+        INFO : Base name [fedora-27-docker-base-20180129.qcow]
+        INFO : Base path [/var/lib/libvirt/images/base/fedora-27-docker-base-20180129.qcow]
+        INFO : Disc name [Etalema.qcow]
+        INFO : Disc size [16GiB]
+
+        INFO : MAC  [52:54:00:02:03:09]
+        INFO : IPv4 [192.168.203.9]
+        INFO : IPv6 []
+
+# -----------------------------------------------------
+# Login to our external VM.
+#[user@trop]
+
+    ssh Etalema
+
+    # -----------------------------------------------------
+    # Configure our secrets function.
+    #[user@virtual]
+
+        mkdir "${HOME}/bin"
+        pushd "${HOME}/bin"
+
+            cat > "secret" << 'EOF'
+....
+....
+EOF
+
+            chmod u=rwx,og= "secret"
+        popd
+
+        secret frog
+
+    # -----------------------------------------------------
+    # Configure our OpenStack settings.
+    # https://horizon.ecdf.ed.ac.uk/dashboard/project/access_and_security/api_access/openrc/
+    #[user@virtual]
+
+        cat > "${HOME}/openstack.settings" << EOF
+
+export OS_INTERFACE=public
+export OS_IDENTITY_API_VERSION=3
+
+export OS_AUTH_URL=https://keystone.ecdf.ed.ac.uk/v3
+
+export OS_USER_DOMAIN_NAME="ed"
+export OS_REGION_NAME="Edinburgh"
+
+export OS_USERNAME=$(secret openstack.user)
+export OS_PASSWORD=$(secret openstack.pass)
+
+export OS_PROJECT_ID=fcef6dd450f64a1ab4ffa5a7234c4161
+export OS_PROJECT_NAME=lsst
+
+EOF
+
+    # -----------------------------------------------------
+    # Create a container to work with.
+    #[user@virtual]
+
+        docker run \
+            --rm \
+            --tty \
+            --interactive \
+            --hostname openstacker \
+            --env SSH_AUTH_SOCK=/tmp/ssh_auth_sock \
+            --volume "${HOME}/openstack.settings:/etc/phymatopus/openstack.settings" \
+            --volume ${SSH_AUTH_SOCK}:/tmp/ssh_auth_sock \
+            phymatopus/openstack-client \
+            bash
+
+        # -----------------------------------------------------
+        # Load our OpenStack settings.
+        #[root@openstacker]
+
+            source '/etc/phymatopus/openstack.settings'
+
+        # -----------------------------------------------------
+        # Load our OpenStack and Eleanor functions.
+        #[root@openstacker]
+
+            source openstack-utils.sh
+            source eleanor-utils.sh
+            source eleanor-init.sh
+
+        # -----------------------------------------------------
+        # Initialize our cluster settings.
+        #[root@openstacker]
+
+if [ ! -e '/etc/phymatopus/cluster.settings' ]
+then
+    cat > '/etc/phymatopus/cluster.settings' << EOF
+
+    phym_userkey=dmr
+    phym_project=Raminiara
+
+    phym_image=\${fedora27:?}
+    phym_flavor=\${m1small:?}
+
+    phym_sshuser=Stevedore
+    phym_sshopts=(
+        '-o CheckHostIP=no'
+        '-o UserKnownHostsFile=/dev/null'
+        '-o StrictHostKeyChecking=no'
+        )
+
+EOF
+fi
+
+        # -----------------------------------------------------
+        # Load our project settings.
+        #[root@openstacker]
+
+            source '/etc/phymatopus/cluster.settings'
+
+        # -----------------------------------------------------
+        # Create our controller instance.
+        #[root@openstacker]
+
+            controller=$(makevm "control")
+
+        # -----------------------------------------------------
+        # Create our Zookeeper instances.
+        #[root@openstacker]
+
+            echo ""
+            echo "Creating Zookeeper nodes"
+
+            unset zkidents
+            zkidents=()
+
+            for i in {0..2}
+            do
+                echo "Node [${i}]"
+                zkidents+=(
+                    "$(makevm "zookeeper-${i}")"
+                    )
+            done
+
+        # -----------------------------------------------------
+        # Create our Kafka instances.
+        #[root@openstacker]
+
+            echo ""
+            echo "Creating Kafka nodes"
+
+            unset kfidents
+            kfidents=()
+
+            for i in {0..3}
+            do
+                echo "Node [${i}]"
+                kfidents+=(
+                    "$(makevm \
+                        "kafka-${i}" \
+                        "${m1medium}"
+                        )"
+                    )
+            done
+
+        # -----------------------------------------------------
+        # Create our MirrorMaker instances.
+        #[root@openstacker]
+
+            echo ""
+            echo "Creating MirrorMaker nodes"
+
+            unset mmidents
+            mmidents=()
+
+            for i in {0..3}
+            do
+                echo "Node [${i}]"
+                mmidents+=(
+                    "$(makevm "mirror-${i}")"
+                    )
+            done
+
+        # -----------------------------------------------------
+        # Assign a floating IP addresess to our controller.
+        #[root@openstacker]
+
+            echo ""
+            echo "Adding floating address to controller node"
+
+            controlip=$(
+                addinternalfloat "${controller:?}"
+                )
+
+            echo "Controller [${controlip:?}]"
+
+        # -----------------------------------------------------
+        # Assign floating IP addresess to each of our Kafka nodes.
+        #[root@openstacker]
+
+            echo ""
+            echo "Adding floating addresses to Kafka nodes"
+
+            for ident in ${kfidents[@]}
+            do
+                echo "---- ---- ---- ----"
+                getvminfo "${ident:?}"
+                echo "Name    [$(getvmname)]"
+                echo "Ident   [${ident}]"
+
+                floating=$(
+                    addinternalfloat "${ident:?}"
+                    )
+
+                echo "Address [${floating}]"
+            done
+
+        # -----------------------------------------------------
+        # Create our Kafka security group.
+        #[root@openstacker]
+
+            openstack \
+                security group \
+                create \
+                --format json \
+                --description "Kafka broker service" \
+                "${phym_project}-kafka" \
+                | jq '.' \
+                > /tmp/security-info.json
+
+            groupid=$(
+                jq -r "
+                    .id
+                    " /tmp/security-info.json
+                )
+
+            openstack \
+                security group rule \
+                create \
+                --format json \
+                --description "Kafka broker ipv4" \
+                --ingress \
+                --protocol  'tcp' \
+                --ethertype 'IPv4' \
+                --remote-ip '0.0.0.0/0' \
+                --dst-port  '9092' \
+                "${groupid}" \
+                | jq '.'
+
+            openstack \
+                security group rule \
+                create \
+                --format json \
+                --description "Kafka broker ipv6" \
+                --ingress \
+                --protocol  'tcp' \
+                --ethertype 'IPv6' \
+                --remote-ip '::/0' \
+                --dst-port  '9092' \
+                "${groupid}" \
+                | jq '.'
+
+        # -----------------------------------------------------
+        # Remove the default egress rules ?
+
+            for ident in $(
+                openstack \
+                    security group \
+                    rule list \
+                    --format json \
+                    "${groupid}" \
+                | jq -r '.[] | select((."IP Protocol" == null) and (."IP Range" == null)) | .ID'
+                )
+                do
+                    openstack \
+                        security group rule \
+                        delete \
+                        "${ident}"
+                done
+
+        # -----------------------------------------------------
+        # Add the security group to our Kafka nodes.
+        #[root@openstacker]
+
+            for ident in ${kfidents[@]}
+            do
+
+                echo "---- ---- ---- ----"
+                getvminfo "${ident:?}"
+                echo "Name    [$(getvmname)]"
+                echo "Ident   [${ident:?}]"
+
+                openstack \
+                    server add security group \
+                    "${ident:?}" \
+                    "${groupid}"
+            done
+
+        # -----------------------------------------------------
+        # Test login to each of our Kafka nodes.
+        #[root@openstacker]
+
+            for ident in ${kfidents[@]}
+            do
+
+                echo "---- ---- ---- ----"
+                getvminfo "${ident:?}"
+                echo "Name    [$(getvmname)]"
+                echo "Ident   [${ident:?}]"
+
+                externalip=$(geteleanor172)
+                echo "Address [${externalip:?}]"
+
+                ssh ${phym_sshopts[@]} \
+                    "${phym_sshuser:?}@${externalip:?}" \
+                    hostname
+
+            done
+
+        # -----------------------------------------------------
+        # Assign a data volume to each of our Kafka nodes.
+        #[root@openstacker]
+
+            ....
+            gedit doc/notes/zrq/20180615-02-kafka-volumes.txt
+            ....
+
+
+
+
