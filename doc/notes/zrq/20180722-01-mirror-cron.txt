@@ -67,7 +67,7 @@
 
             source '/etc/phymatopus/cluster.settings'
             source '/etc/phymatopus/ztf.settings'
-    
+
         # -----------------------------------------------------
         # Process the gobal list of nodes.
         #[root@openstacker]
@@ -88,7 +88,7 @@
 
             echo ""
             echo "Processing OpenStack nodes"
-            
+
             for ident in $(
                 openstack \
                     server list \
@@ -108,7 +108,7 @@
                             echo "Match zookeeper"
                             zkidents+=(${ident})
                             ;;
-                            
+
                         ${phym_project:?}-mirror*)
                             echo "Match mirror"
                             mmidents+=(${ident})
@@ -241,52 +241,5 @@ EOF
                             "$(id -un)@${mirrorip:?}"
                     done
 
-                #
-                # Login to each node using the key.
-                for mirrorip in $(cat "${HOME}/mmidents.txt")
-                    do
-                        echo "mirrorip [${mirrorip}]"
 
-                        echo "
-                            hostname
-                            " \
-                        | ssh ${scpopts[*]} \
-                            -i "${HOME}/.ssh/control-key" \
-                            "$(id -un)@${mirrorip:?}"
-                    done
-
-                #
-                # Create our topic update script.
-
-cat > settopic.sh << 'EOF'
-                
-topiclist="ztf_$(date '+%Y%m%d')_programid1"
-
-for mirrorip in $(cat "${HOME}/mmidents.txt")
-    do
-        echo "Updating [${mirrorip}]"
-
-        echo "
-            docker-compose \
-                --file mirror.yml \
-                down
-
-            sed -i \"
-                s/^topiclist=.*/topiclist=${topiclist:?}/
-                \" mirror.env
-
-            docker-compose \
-                --file mirror.yml \
-                up -d
-            " \
-        | ssh ${scpopts[*]} \
-            -i "${HOME}/.ssh/control-key" \
-            "$(id -un)@${mirrorip:?}"
-    done
-
-EOF
-
-            chmod a+x ./settopic.sh
-
-            ./settopic.sh
 
