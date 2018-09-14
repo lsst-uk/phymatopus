@@ -21,11 +21,17 @@ package uk.ac.roe.wfau.phymatopus.kafka.tools;
 import static org.junit.Assert.*;
 
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * 
  * 
  */
+@Slf4j
+@RunWith(JUnit4.class)
 public class ZtfAvroReaderTest
 extends KafkaTestBase
     {
@@ -47,7 +53,7 @@ extends KafkaTestBase
      * Test we can load our Avro {@link Schema}.
      * 
      */
-    @Test
+    //@Test
     public void testInit()
         {
         final ZtfAvroReader reader = new ZtfAvroReader(
@@ -65,7 +71,7 @@ extends KafkaTestBase
      * Test we can read some messages.
      * 
      */
-    @Test
+    //@Test
     public void testLoop()
         {
         final ZtfAvroReader reader = new ZtfAvroReader(
@@ -77,5 +83,14 @@ extends KafkaTestBase
         reader.loop(10);
         }
 
-    
+
+    /**
+     * Test we can run a test.
+     * 
+     */
+    @Test
+    public void testTest()
+        {
+        log.debug("Testing the tester");
+        }
     }
