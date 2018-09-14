@@ -59,6 +59,13 @@ public class KafkaTestBase
     protected String topic;
 
     /**
+     * The target kafka group.
+     * 
+     */
+    @Value("${phymatopus.kafka.group:}")
+    protected String group;
+    
+    /**
      * 
      */
     public KafkaTestBase()

@@ -39,7 +39,7 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 public class StringWriter
-extends BaseWriter
+extends BaseClient
     {
 
     /**

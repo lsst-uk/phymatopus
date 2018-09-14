@@ -1,0 +1,330 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2018, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+
+# -----------------------------------------------------
+# Login to our external VM.
+#[user@desktop]
+
+    ssh Etalema
+
+    # -----------------------------------------------------
+    # Create a container to work with.
+    #[user@virtual]
+
+        docker run \
+            --rm \
+            --tty \
+            --interactive \
+            --hostname openstacker \
+            --env SSH_AUTH_SOCK=/tmp/ssh_auth_sock \
+            --volume "${HOME}/settings/:/etc/phymatopus/" \
+            --volume ${SSH_AUTH_SOCK}:/tmp/ssh_auth_sock \
+            phymatopus/openstack-client \
+            bash
+
+        # -----------------------------------------------------
+        # Load our OpenStack settings.
+        #[root@openstacker]
+
+            source '/etc/phymatopus/openstack.settings'
+
+        # -----------------------------------------------------
+        # Load our OpenStack and Eleanor functions.
+        #[root@openstacker]
+
+            source 'openstack-utils.sh'
+            source 'eleanor-utils.sh'
+            source 'eleanor-init.sh'
+
+        # -----------------------------------------------------
+        # Load our cluster and ZTF settings.
+        #[root@openstacker]
+
+            source '/etc/phymatopus/cluster.settings'
+            source '/etc/phymatopus/ztf.settings'
+
+        # -----------------------------------------------------
+        # Configure our ssh proxy command.
+        #[root@openstacker]
+
+            sshproxy="ssh ${sshopts[*]} ${sshuser:?}@${controlip:?} nc %h %p"
+
+        # -----------------------------------------------------
+        # Stop the MirrorMaker container on each of our Mirror nodes.
+        #[root@openstacker]
+
+            for address in $(cat /etc/phymatopus/mmidents.txt)
+                do
+                    echo "${address:?}"
+                    echo "
+                        docker-compose \
+                            --file mirror.yml \
+                            down
+                        " \
+                    | ssh \
+                        ${sshopts[*]} \
+                        -o ProxyCommand="${sshproxy:?}" \
+                        ${sshuser:?}@${address:?}
+                done
+
+                > 192.168.1.25
+                > Stopping stevedore_tina_1 ... done
+                > Removing stevedore_tina_1 ... done
+                > Removing network stevedore_kafka
+                > 192.168.1.22
+                > Stopping stevedore_tina_1 ... done
+                > Removing stevedore_tina_1 ... done
+                > Removing network stevedore_kafka
+                > 192.168.1.7
+                > Stopping stevedore_tina_1 ... done
+                > Removing stevedore_tina_1 ... done
+                > Removing network stevedore_kafka
+                > 192.168.1.9
+                > Stopping stevedore_tina_1 ... done
+                > Removing stevedore_tina_1 ... done
+                > Removing network stevedore_kafka
+
+        # -----------------------------------------------------
+        # Check the Docker containers on each of our Mirror nodes.
+        #[root@openstacker]
+
+            for address in $(cat /etc/phymatopus/mmidents.txt)
+                do
+                    echo "${address:?}"
+                    echo "
+                        docker ps -a
+                        " \
+                    | ssh \
+                        ${sshopts[*]} \
+                        -o ProxyCommand="${sshproxy:?}" \
+                        ${sshuser:?}@${address:?}
+                done
+
+                > 192.168.1.25
+                > CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS               NAMES
+                > 192.168.1.22
+                > CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS               NAMES
+                > 192.168.1.7
+                > CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS               NAMES
+                > 192.168.1.9
+                > CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS               NAMES
+
+        # -----------------------------------------------------
+        # Check the topic name on each of our Mirror nodes.
+        #[root@openstacker]
+
+            for address in $(cat /etc/phymatopus/mmidents.txt)
+                do
+                    echo "${address:?}"
+                    echo "
+                        grep 'topiclist' mirror.env
+                        " \
+                    | ssh \
+                        ${sshopts[*]} \
+                        -o ProxyCommand="${sshproxy:?}" \
+                        ${sshuser:?}@${address:?}
+                done
+
+                > 192.168.1.25
+                > topiclist=ztf_20180906_programid1
+                > 192.168.1.22
+                > topiclist=ztf_20180906_programid1
+                > 192.168.1.7
+                > topiclist=ztf_20180906_programid1
+                > 192.168.1.9
+                > topiclist=ztf_20180906_programid1
+
+        # -----------------------------------------------------
+        # Check the offsets.
+        #[root@openstacker]
+
+            date ; \
+            echo "
+                docker run --rm phymatopus/kafka-core \
+                    bin/kafka-consumer-groups.sh \
+                        --bootstrap-server "${ztfconnect:?}" \
+                        --describe \
+                        --group "${groupid:?}"
+                " \
+            | ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${controlip:?} | sort | tee lits.txt \
+            ; date
+
+
+                > Thu Sep  6 10:21:01 UTC 2018
+                > Note: This will not show information about old Zookeeper-based consumers.
+                > Consumer group 'ztf-mirror.roe.ac.uk' has no active members.
+                >
+                > TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID     HOST            CLIENT-ID
+                > ztf_20180905_programid1 0          14867           14867           0               -               -               -
+                > ztf_20180905_programid1 1          14867           14867           0               -               -               -
+                > ztf_20180905_programid1 10         14867           14867           0               -               -               -
+                > ztf_20180905_programid1 11         14868           14868           0               -               -               -
+                > ztf_20180905_programid1 12         14867           14867           0               -               -               -
+                > ztf_20180905_programid1 13         14867           14867           0               -               -               -
+                > ztf_20180905_programid1 2          14868           14868           0               -               -               -
+                > ztf_20180905_programid1 3          14867           14867           0               -               -               -
+                > ztf_20180905_programid1 4          14868           14868           0               -               -               -
+                > ztf_20180905_programid1 5          14868           14868           0               -               -               -
+                > ztf_20180905_programid1 6          14867           14867           0               -               -               -
+                > ztf_20180905_programid1 7          14867           14867           0               -               -               -
+                > ztf_20180905_programid1 8          14868           14868           0               -               -               -
+                > ztf_20180905_programid1 9          14867           14867           0               -               -               -
+                > ztf_20180906_programid1 0          14124           14921           797             -               -               -
+                > ztf_20180906_programid1 1          14133           14922           789             -               -               -
+                > ztf_20180906_programid1 10         14114           14922           808             -               -               -
+                > ztf_20180906_programid1 11         14117           14921           804             -               -               -
+                > ztf_20180906_programid1 12         14132           14923           791             -               -               -
+                > ztf_20180906_programid1 13         14128           14922           794             -               -               -
+                > ztf_20180906_programid1 2          14117           14921           804             -               -               -
+                > ztf_20180906_programid1 3          14112           14922           810             -               -               -
+                > ztf_20180906_programid1 4          14132           14923           791             -               -               -
+                > ztf_20180906_programid1 5          14127           14920           793             -               -               -
+                > ztf_20180906_programid1 6          14130           14920           790             -               -               -
+                > ztf_20180906_programid1 7          14134           14922           788             -               -               -
+                > ztf_20180906_programid1 8          14112           14921           809             -               -               -
+                > ztf_20180906_programid1 9          14133           14922           789             -               -               -
+                > Thu Sep  6 10:21:20 UTC 2018
+
+
+        # -----------------------------------------------------
+        # -----------------------------------------------------
+
+        # -----------------------------------------------------
+        # Re-start our MirrorMaker container on each of our Mirror nodes.
+        #[root@openstacker]
+
+            ssh ${sshopts[*]} \
+                ${sshuser:?}@${controlip:?}
+
+                bin/settopic.sh
+
+
+                > HTTP/1.1 404 Not Found
+                > Date: Thu, 06 Sep 2018 14:00:55 GMT
+                > Server: Apache/2.2.15 (CentOS)
+                > Connection: close
+                > Content-Type: text/html; charset=iso-8859-1
+                >
+                > Removing network stevedore_kafka
+                > Network stevedore_kafka not found.
+                > Creating network "stevedore_kafka" with the default driver
+                > Creating stevedore_tina_1 ...
+                > Creating stevedore_tina_1 ... done
+                > HTTP/1.1 404 Not Found
+                > Date: Thu, 06 Sep 2018 14:00:58 GMT
+                > Server: Apache/2.2.15 (CentOS)
+                > Connection: close
+                > Content-Type: text/html; charset=iso-8859-1
+                >
+                > Removing network stevedore_kafka
+                > Network stevedore_kafka not found.
+                > Creating network "stevedore_kafka" with the default driver
+                > Creating stevedore_tina_1 ...
+                > Creating stevedore_tina_1 ... done
+                > HTTP/1.1 404 Not Found
+                > Date: Thu, 06 Sep 2018 14:01:01 GMT
+                > Server: Apache/2.2.15 (CentOS)
+                > Connection: close
+                > Content-Type: text/html; charset=iso-8859-1
+                >
+                > Removing network stevedore_kafka
+                > Network stevedore_kafka not found.
+                > Creating network "stevedore_kafka" with the default driver
+                > Creating stevedore_tina_1 ...
+                > Creating stevedore_tina_1 ... done
+                > HTTP/1.1 404 Not Found
+                > Date: Thu, 06 Sep 2018 14:01:04 GMT
+                > Server: Apache/2.2.15 (CentOS)
+                > Connection: close
+                > Content-Type: text/html; charset=iso-8859-1
+                >
+                > Removing network stevedore_kafka
+                > Network stevedore_kafka not found.
+                > Creating network "stevedore_kafka" with the default driver
+                > Creating stevedore_tina_1 ...
+                > Creating stevedore_tina_1 ... done
+
+        # -----------------------------------------------------
+        # Check the offsets.
+        #[root@openstacker]
+
+            date ; \
+            echo "
+                docker run --rm phymatopus/kafka-core \
+                    bin/kafka-consumer-groups.sh \
+                        --bootstrap-server "${ztfconnect:?}" \
+                        --describe \
+                        --group "${groupid:?}"
+                " \
+            | ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${controlip:?} | sort | tee lits.txt \
+            ; date
+
+
+                > Thu Sep  6 14:02:51 UTC 2018
+                > Note: This will not show information about old Zookeeper-based consumers.
+                >
+                > TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                 HOST             CLIENT-ID
+                > ztf_20180906_programid1 0          14484           16768           2284            ztf-mirror.roe.ac.uk-0-7d435b7a-2f83-46fa-a44b-40bec63beb67 /129.215.255.235 ztf-mirror.roe.ac.uk-0
+                > ztf_20180906_programid1 1          14536           16769           2233            ztf-mirror.roe.ac.uk-0-a29a8ed0-9d9b-49d0-9b37-7b257f77969c /129.215.255.235 ztf-mirror.roe.ac.uk-0
+                > ztf_20180906_programid1 10         14496           16768           2272            ztf-mirror.roe.ac.uk-2-a4cc3f5c-e41b-4a29-bf93-4900d8918c34 /129.215.255.235 ztf-mirror.roe.ac.uk-2
+                > ztf_20180906_programid1 11         14562           16768           2206            ztf-mirror.roe.ac.uk-2-d1d8b522-f011-4a7f-8d62-ce7ce75c214d /129.215.255.235 ztf-mirror.roe.ac.uk-2
+                > ztf_20180906_programid1 12         14578           16768           2190            ztf-mirror.roe.ac.uk-3-14f9e9e2-ef3d-4193-b9ec-2494737edeb1 /129.215.255.235 ztf-mirror.roe.ac.uk-3
+                > ztf_20180906_programid1 13         14552           16769           2217            ztf-mirror.roe.ac.uk-3-38afd13c-7b5d-43a2-83d3-df37575298b6 /129.215.255.235 ztf-mirror.roe.ac.uk-3
+                > ztf_20180906_programid1 2          14564           16768           2204            ztf-mirror.roe.ac.uk-0-cd4b6adc-bd2f-4691-8b4a-c25ce2b45563 /129.215.255.235 ztf-mirror.roe.ac.uk-0
+                > ztf_20180906_programid1 3          14535           16768           2233            ztf-mirror.roe.ac.uk-0-e2ef0e7b-b98c-4984-921f-a398ebf8969d /129.215.255.235 ztf-mirror.roe.ac.uk-0
+                > ztf_20180906_programid1 4          14533           16769           2236            ztf-mirror.roe.ac.uk-1-6967edb0-6f6e-4a0c-9c93-b4b742a34629 /129.215.255.235 ztf-mirror.roe.ac.uk-1
+                > ztf_20180906_programid1 5          14571           16768           2197            ztf-mirror.roe.ac.uk-1-6c288aff-9092-47c5-b530-74f3b6bec787 /129.215.255.235 ztf-mirror.roe.ac.uk-1
+                > ztf_20180906_programid1 6          14552           16768           2216            ztf-mirror.roe.ac.uk-1-6cece88c-7f19-4fc2-9b13-e37f459cef95 /129.215.255.235 ztf-mirror.roe.ac.uk-1
+                > ztf_20180906_programid1 7          14473           16769           2296            ztf-mirror.roe.ac.uk-1-f8b6b823-d50a-4750-a58f-904d645dbc41 /129.215.255.235 ztf-mirror.roe.ac.uk-1
+                > ztf_20180906_programid1 8          14535           16768           2233            ztf-mirror.roe.ac.uk-2-8fe2758f-132e-4b4c-844b-cc7977b5bde3 /129.215.255.235 ztf-mirror.roe.ac.uk-2
+                > ztf_20180906_programid1 9          14537           16768           2231            ztf-mirror.roe.ac.uk-2-9c637422-b122-46b6-9d4c-13ae888bd6c1 /129.215.255.235 ztf-mirror.roe.ac.uk-2
+                > Thu Sep  6 14:03:03 UTC 2018
+
+                ....
+                ....
+
+                > Thu Sep  6 16:00:45 UTC 2018
+                > Note: This will not show information about old Zookeeper-based consumers.
+                >
+                > TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                 HOST             CLIENT-ID
+                > ztf_20180906_programid1 0          16768           16768           0               ztf-mirror.roe.ac.uk-0-7d435b7a-2f83-46fa-a44b-40bec63beb67 /129.215.255.235 ztf-mirror.roe.ac.uk-0
+                > ztf_20180906_programid1 1          16769           16769           0               ztf-mirror.roe.ac.uk-0-a29a8ed0-9d9b-49d0-9b37-7b257f77969c /129.215.255.235 ztf-mirror.roe.ac.uk-0
+                > ztf_20180906_programid1 10         16768           16768           0               ztf-mirror.roe.ac.uk-2-a4cc3f5c-e41b-4a29-bf93-4900d8918c34 /129.215.255.235 ztf-mirror.roe.ac.uk-2
+                > ztf_20180906_programid1 11         16768           16768           0               ztf-mirror.roe.ac.uk-2-d1d8b522-f011-4a7f-8d62-ce7ce75c214d /129.215.255.235 ztf-mirror.roe.ac.uk-2
+                > ztf_20180906_programid1 12         16768           16768           0               ztf-mirror.roe.ac.uk-3-14f9e9e2-ef3d-4193-b9ec-2494737edeb1 /129.215.255.235 ztf-mirror.roe.ac.uk-3
+                > ztf_20180906_programid1 13         16769           16769           0               ztf-mirror.roe.ac.uk-3-38afd13c-7b5d-43a2-83d3-df37575298b6 /129.215.255.235 ztf-mirror.roe.ac.uk-3
+                > ztf_20180906_programid1 2          16768           16768           0               ztf-mirror.roe.ac.uk-0-cd4b6adc-bd2f-4691-8b4a-c25ce2b45563 /129.215.255.235 ztf-mirror.roe.ac.uk-0
+                > ztf_20180906_programid1 3          16768           16768           0               ztf-mirror.roe.ac.uk-0-e2ef0e7b-b98c-4984-921f-a398ebf8969d /129.215.255.235 ztf-mirror.roe.ac.uk-0
+                > ztf_20180906_programid1 4          16769           16769           0               ztf-mirror.roe.ac.uk-1-6967edb0-6f6e-4a0c-9c93-b4b742a34629 /129.215.255.235 ztf-mirror.roe.ac.uk-1
+                > ztf_20180906_programid1 5          16768           16768           0               ztf-mirror.roe.ac.uk-1-6c288aff-9092-47c5-b530-74f3b6bec787 /129.215.255.235 ztf-mirror.roe.ac.uk-1
+                > ztf_20180906_programid1 6          16768           16768           0               ztf-mirror.roe.ac.uk-1-6cece88c-7f19-4fc2-9b13-e37f459cef95 /129.215.255.235 ztf-mirror.roe.ac.uk-1
+                > ztf_20180906_programid1 7          16769           16769           0               ztf-mirror.roe.ac.uk-1-f8b6b823-d50a-4750-a58f-904d645dbc41 /129.215.255.235 ztf-mirror.roe.ac.uk-1
+                > ztf_20180906_programid1 8          16768           16768           0               ztf-mirror.roe.ac.uk-2-8fe2758f-132e-4b4c-844b-cc7977b5bde3 /129.215.255.235 ztf-mirror.roe.ac.uk-2
+                > ztf_20180906_programid1 9          16768           16768           0               ztf-mirror.roe.ac.uk-2-9c637422-b122-46b6-9d4c-13ae888bd6c1 /129.215.255.235 ztf-mirror.roe.ac.uk-2
+                > Thu Sep  6 16:00:55 UTC 2018
+
+

@@ -19,14 +19,14 @@
 package uk.ac.roe.wfau.phymatopus.kafka.tools;
 
 /**
- * Common base class for kafka writers.
+ * Common base class for Kafka clients.
  * 
  */
-public class BaseWriter
+public class BaseClient
     {
 
     /**
-     * Our target kafka servers.
+     * Our target Kafka server name(s).
      * 
      */
     protected String servers;
@@ -36,7 +36,7 @@ public class BaseWriter
         }
 
     /**
-     * Our target kafka topic.
+     * Our target Kafka topic.
      * 
      */
     protected String topic;
@@ -47,9 +47,11 @@ public class BaseWriter
 
     /**
      * Public constructor.
+     * @param servers The list of bootstrap Kafka server names.
+     * @param topic The Kafka topic name.
      *  
      */
-    public BaseWriter(final String servers, final String topic)
+    public BaseClient(final String servers, final String topic)
         {
         this.topic   = topic;
         this.servers = servers;
