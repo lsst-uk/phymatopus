@@ -153,7 +153,7 @@ extends BaseReader
             );
         properties.put(
             ConsumerConfig.GROUP_ID_CONFIG,
-            "KafkaExampleConsumer"
+            group()
             );
         properties.put(
             ConsumerConfig.AUTO_COMMIT_INTERVAL_MS_CONFIG,
