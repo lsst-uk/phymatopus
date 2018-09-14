@@ -31,6 +31,7 @@ import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.common.TopicPartition;
 
 import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
@@ -201,6 +202,11 @@ extends BaseReader
                     )
                 );
 
+        log.debug("Seeking ..");
+        consumer.seekToBeginning(
+            Collections.emptyList()
+            );
+        
         log.debug("Looping ..");
         for (int i = 0 ; i < count ; i++)
             {
