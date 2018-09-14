@@ -20,6 +20,7 @@ package uk.ac.roe.wfau.phymatopus.kafka.tools;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.time.Duration;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Properties;
@@ -204,14 +205,18 @@ extends BaseReader
 
         log.debug("Seeking ..");
         consumer.seekToBeginning(
-            Collections.emptyList()
+            consumer.assignment()
             );
         
         log.debug("Looping ..");
         for (int i = 0 ; i < count ; i++)
             {
             log.debug("Polling ..");
-            ConsumerRecords<Object, Object> records = consumer.poll(wait);
+            ConsumerRecords<Object, Object> records = consumer.poll(
+                Duration.ofSeconds(
+                    wait
+                    )
+                );
             
             for (ConsumerRecord<Object, Object> record : records)
                 {
