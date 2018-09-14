@@ -33,6 +33,9 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.serialization.ByteArrayDeserializer;
+import org.apache.kafka.common.serialization.LongDeserializer;
+import org.apache.kafka.common.serialization.StringDeserializer;
 
 import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
@@ -146,7 +149,7 @@ extends BaseReader
      * Create our {@link Consumer}.
      * 
      */
-    public Consumer<Object, Object> consumer()
+    public Consumer<Long, byte[]> consumer()
         {
         final Properties properties = new Properties();
         properties.put(
@@ -177,7 +180,9 @@ extends BaseReader
             );
  *         
  */
-        
+
+        /*
+         * 
         final Consumer<Object, Object> consumer = new KafkaConsumer<Object, Object>(
             properties,
             new KafkaAvroDeserializer(
@@ -187,6 +192,14 @@ extends BaseReader
                 registry()
                 )
             );
+         * 
+         */
+
+        final Consumer<Long, byte[]> consumer = new KafkaConsumer<Long, byte[]>(
+                properties,
+                new LongDeserializer(),
+                new ByteArrayDeserializer()
+                );
         
         return consumer;
         }    
@@ -194,7 +207,7 @@ extends BaseReader
     
     public void loop(int count, int wait)
         {
-        Consumer<Object, Object> consumer = consumer(); 
+        Consumer<Long, byte[]> consumer = consumer(); 
 
         log.debug("Subscribing ..");
         consumer.subscribe(
@@ -212,20 +225,35 @@ extends BaseReader
         for (int i = 0 ; i < count ; i++)
             {
             log.debug("Polling ..");
-            ConsumerRecords<Object, Object> records = consumer.poll(
+            ConsumerRecords<Long, byte[]> records = consumer.poll(
                 Duration.ofSeconds(
                     wait
                     )
                 );
             
-            for (ConsumerRecord<Object, Object> record : records)
+            for (ConsumerRecord<Long, byte[]> record : records)
                 {
                 log.debug("----");
                 log.debug("Offset [{}]", record.offset());
                 log.debug("Key    [{}]", record.key());
-                log.debug("Class  [{}]", record.value().getClass().getName());
+                log.debug("Size   [{}]", record.value().length);
                 }        
             }
         }
 
+    
+    /*
+     * Issues -
+     * ZTF Python producer just adds raw Avro, with no schema.
+     * The Confluent deserializer expects schema registry magic bytes at the start of the message.
+     * https://groups.google.com/forum/#!topic/confluent-platform/9LZh3JvnTtI
+     * 
+     * IF we owned the producer, we could add the Schema-Registry bytes to our message.
+     * https://stackoverflow.com/questions/39489649/encoding-formatting-issues-with-python-kafka-library
+     * 
+     * There is a Python Schema-Registry ..
+     * https://github.com/verisign/python-confluent-schemaregistry
+     * 
+     */
+    
     }
