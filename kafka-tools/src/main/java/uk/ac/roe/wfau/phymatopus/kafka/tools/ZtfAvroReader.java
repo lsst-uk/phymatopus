@@ -205,7 +205,7 @@ extends BaseReader
         for (int i = 0 ; i < count ; i++)
             {
             log.debug("Polling ..");
-            ConsumerRecords<Object, Object> records = consumer.poll(10);
+            ConsumerRecords<Object, Object> records = consumer.poll(1000);
             
             for (ConsumerRecord<Object, Object> record : records)
                 {

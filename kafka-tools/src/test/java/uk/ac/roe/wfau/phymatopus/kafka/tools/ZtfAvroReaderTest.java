@@ -43,9 +43,9 @@ extends KafkaTestBase
         {
         super();
 
-        this.group   = "" ;
-        this.topic   = "" ;
-        this.servers = "" ;
+        this.group   = "java-test" ;
+        this.topic   = "ztf_20180811_programid1" ;
+        this.servers = "172.16.49.217:9092,172.16.49.214:9092,172.16.49.12:9092,172.16.49.208:9092" ;
 
         }
 
