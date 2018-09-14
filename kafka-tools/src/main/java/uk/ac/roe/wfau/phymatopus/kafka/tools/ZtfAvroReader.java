@@ -190,7 +190,7 @@ extends BaseReader
         }    
 
     
-    public void loop(int count)
+    public void loop(int count, int wait)
         {
         Consumer<Object, Object> consumer = consumer(); 
 
@@ -205,7 +205,7 @@ extends BaseReader
         for (int i = 0 ; i < count ; i++)
             {
             log.debug("Polling ..");
-            ConsumerRecords<Object, Object> records = consumer.poll(1000);
+            ConsumerRecords<Object, Object> records = consumer.poll(wait);
             
             for (ConsumerRecord<Object, Object> record : records)
                 {

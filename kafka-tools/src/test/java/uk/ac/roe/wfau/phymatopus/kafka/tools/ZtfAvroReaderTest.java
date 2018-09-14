@@ -43,8 +43,8 @@ extends KafkaTestBase
         {
         super();
 
-        this.group   = "java-test" ;
-        this.topic   = "ztf_20180811_programid1" ;
+        this.group   = "java-test-000" ;
+        this.topic   = "ztf_20180901_programid1" ;
         this.servers = "172.16.49.217:9092,172.16.49.214:9092,172.16.49.12:9092,172.16.49.208:9092" ;
 
         }
@@ -80,7 +80,7 @@ extends KafkaTestBase
             topic
             ); 
         reader.init();
-        reader.loop(10);
+        reader.loop(1, 1000);
         }
 
 
