@@ -41,8 +41,8 @@ import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import lombok.extern.slf4j.Slf4j;
 
-import ztf.Alert;
-import ztf.Cutout;
+import ztf.alert;
+import ztf.cutout;
 
 /**
  * 
@@ -265,15 +265,15 @@ extends BaseReader
         {
         try {
             log.debug("Hydrating ....");
-            final Alert alert = Alert.fromByteBuffer(buffer);
+            final alert frog = alert.fromByteBuffer(buffer);
 
-            log.debug("candId    [{}]", alert.getCandid());
-            log.debug("objectId  [{}]", alert.getObjectId());
-            log.debug("schemavsn [{}]", alert.getSchemavsn().toString());
+            log.debug("candId    [{}]", frog.getCandid());
+            log.debug("objectId  [{}]", frog.getObjectId());
+            log.debug("schemavsn [{}]", frog.getSchemavsn().toString());
         
-            final Cutout science    = alert.getCutoutScience();
-            final Cutout template   = alert.getCutoutTemplate();
-            final Cutout difference = alert.getCutoutDifference();
+            final cutout science    = frog.getCutoutScience();
+            final cutout template   = frog.getCutoutTemplate();
+            final cutout difference = frog.getCutoutDifference();
 
             if (null != science)
                 {
