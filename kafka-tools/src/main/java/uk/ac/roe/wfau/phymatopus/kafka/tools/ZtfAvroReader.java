@@ -20,6 +20,7 @@ package uk.ac.roe.wfau.phymatopus.kafka.tools;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.Map;
@@ -32,16 +33,16 @@ import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
-import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
+import org.apache.kafka.common.serialization.ByteBufferDeserializer;
 import org.apache.kafka.common.serialization.LongDeserializer;
-import org.apache.kafka.common.serialization.StringDeserializer;
 
 import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
-import io.confluent.kafka.serializers.KafkaAvroDeserializer;
-
 import lombok.extern.slf4j.Slf4j;
+
+import ztf.Alert;
+import ztf.Cutout;
 
 /**
  * 
@@ -128,7 +129,6 @@ extends BaseReader
     /**
      * Create our {@link SchemaRegistryClient}.
      * 
-     */
     public SchemaRegistryClient registry()
         {
         final SchemaRegistryClient registry = new MockSchemaRegistryClient(); 
@@ -144,12 +144,13 @@ extends BaseReader
             }
         return registry;
         }
+     */
     
     /**
      * Create our {@link Consumer}.
      * 
      */
-    public Consumer<Long, byte[]> consumer()
+    public Consumer<Long, ByteBuffer> consumer()
         {
         final Properties properties = new Properties();
         properties.put(
@@ -195,10 +196,10 @@ extends BaseReader
          * 
          */
 
-        final Consumer<Long, byte[]> consumer = new KafkaConsumer<Long, byte[]>(
+        final Consumer<Long, ByteBuffer> consumer = new KafkaConsumer<Long, ByteBuffer>(
                 properties,
                 new LongDeserializer(),
-                new ByteArrayDeserializer()
+                new ByteBufferDeserializer()
                 );
         
         return consumer;
@@ -207,7 +208,7 @@ extends BaseReader
     
     public void loop(int count, int wait)
         {
-        Consumer<Long, byte[]> consumer = consumer(); 
+        Consumer<Long, ByteBuffer> consumer = consumer(); 
 
         log.debug("Subscribing ..");
         consumer.subscribe(
@@ -225,18 +226,20 @@ extends BaseReader
         for (int i = 0 ; i < count ; i++)
             {
             log.debug("Polling ..");
-            ConsumerRecords<Long, byte[]> records = consumer.poll(
+            ConsumerRecords<Long, ByteBuffer> records = consumer.poll(
                 Duration.ofSeconds(
                     wait
                     )
                 );
             
-            for (ConsumerRecord<Long, byte[]> record : records)
+            for (ConsumerRecord<Long, ByteBuffer> record : records)
                 {
                 log.debug("----");
                 log.debug("Offset [{}]", record.offset());
                 log.debug("Key    [{}]", record.key());
-                log.debug("Size   [{}]", record.value().length);
+                process(
+                    record.value()
+                    );
                 }        
             }
         }
@@ -256,4 +259,36 @@ extends BaseReader
      * 
      */
     
+    public void process(final ByteBuffer buffer)
+        {
+        try {
+            log.debug("Hydrating ....");
+            final Alert alert = Alert.fromByteBuffer(buffer);
+
+            log.debug("candId    [{}]", alert.getCandid());
+            log.debug("objectId  [{}]", alert.getObjectId());
+            log.debug("schemavsn [{}]", alert.getSchemavsn().toString());
+        
+            final Cutout science    = alert.getCutoutScience();
+            final Cutout template   = alert.getCutoutTemplate();
+            final Cutout difference = alert.getCutoutDifference();
+
+            if (null != science)
+                {
+                log.debug("science    [{}][{}][{}]", science.getFileName(), science.getStampData().limit(), science.getStampData().capacity());
+                }
+            if (null != template)
+                {
+                log.debug("template   [{}][{}][{}]", template.getFileName(), template.getStampData().limit(), template.getStampData().capacity());
+                }
+            if (null != difference)
+                {
+                log.debug("difference [{}][{}][{}]", difference.getFileName(), difference.getStampData().limit(), difference.getStampData().capacity());
+                }
+            }
+        catch (IOException ouch)
+            {
+            log.error("IOException hydrating Alert [{}]", ouch.getMessage());
+            }
+        }
     }

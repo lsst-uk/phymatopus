@@ -91,7 +91,7 @@
             | Build for 1.8 triggers a problem in Eclipse.
             | https://bugs.eclipse.org/bugs/show_bug.cgi?id=490698
             +-->
-        <project.javaversion>1.8</project.javaversion>
+        <project.javaversion>1.7</project.javaversion>
         <project.build.sourceencoding>UTF-8</project.build.sourceencoding>
 
         <!--+
@@ -105,6 +105,12 @@
             | Docker container tag.
             +-->
         <docker.buildtag>${project.version}</docker.buildtag>
+
+        <!--+
+            | Avro version.
+            +-->
+        <avro.version>1.8.2</avro.version>
+        <confluent.version>5.0.0</confluent.version>
 
     </properties>
 
@@ -239,16 +245,36 @@
         <dependency>
             <groupId>org.apache.avro</groupId>
             <artifactId>avro</artifactId>
-            <version>1.8.2</version>
+            <version>${avro.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.avro</groupId>
+            <artifactId>avro-maven-plugin</artifactId>
+            <version>${avro.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.avro</groupId>
+            <artifactId>avro-compiler</artifactId>
+            <version>${avro.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.avro</groupId>
+            <artifactId>avro-ipc</artifactId>
+            <version>${avro.version}</version>
         </dependency>
 
         <!--+
             | Kafka Avro serialization.
+        <dependency>
+            <groupId>io.confluent</groupId>
+            <artifactId>kafka-serializers</artifactId>
+            <version>${confluent.version}</version>
+        </dependency>
             +-->
         <dependency>
             <groupId>io.confluent</groupId>
             <artifactId>kafka-avro-serializer</artifactId>
-            <version>5.0.0</version>
+            <version>${confluent.version}</version>
         </dependency>
 
         <!--+
@@ -281,14 +307,14 @@
 
             <!--+
                 | Avro schema.
-                +-->
     		<resource>
-    			<directory>${basedir}/src/main/schema</directory>
+    			<directory>${basedir}/src/main/avro</directory>
                 <filtering>true</filtering>
                 <includes>
                     <include>*.avsc</include>
                 </includes>
     		</resource>
+                +-->
 
         </resources>
 
@@ -408,6 +434,8 @@
                 </executions>
             </plugin>
 
+            <!--+
+                |
             <plugin>
                 <groupId>org.basepom.maven</groupId>
                 <artifactId>duplicate-finder-maven-plugin</artifactId>
@@ -437,6 +465,7 @@
                     <resultFile>${project.build.directory}/duplicate-finder-result.xml</resultFile>
                 </configuration>
             </plugin>
+                +-->
 
             <!--+
                 | Maven Docker plugin.
@@ -452,6 +481,31 @@
                     <removeIntermediateImages>true</removeIntermediateImages>
                     <cache>true</cache>
                 </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.avro</groupId>
+                <artifactId>avro-maven-plugin</artifactId>
+                <version>${avro.version}</version>
+                <executions>
+                    <execution>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>schema</goal>
+                        </goals>
+                        <configuration>
+                            <sourceDirectory>${project.basedir}/src/main/avro</sourceDirectory>
+                            <outputDirectory>${project.build.directory}/generated-sources</outputDirectory>
+                            <includes>
+                                <!--include>**/*.avsc</include-->
+                                <include>*combined.avsc</include>
+                            </includes>
+                            <!--imports>
+                                <import>candidate.avsc</import>
+                            </imports-->
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
 
         </plugins>
