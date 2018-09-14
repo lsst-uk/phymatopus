@@ -52,8 +52,7 @@ extends KafkaTestBase
     /**
      * Test we can load our Avro {@link Schema}.
      * 
-     */
-    //@Test
+    @Test
     public void testInit()
         {
         final ZtfAvroReader reader = new ZtfAvroReader(
@@ -66,12 +65,13 @@ extends KafkaTestBase
             reader.schema()
             );
         }
+     */
 
     /**
      * Test we can read some messages.
      * 
      */
-    //@Test
+    @Test
     public void testLoop()
         {
         final ZtfAvroReader reader = new ZtfAvroReader(
@@ -79,10 +79,8 @@ extends KafkaTestBase
             group,
             topic
             ); 
-        reader.init();
         reader.loop(1, 1000);
         }
-
 
     /**
      * Test we can run a test.

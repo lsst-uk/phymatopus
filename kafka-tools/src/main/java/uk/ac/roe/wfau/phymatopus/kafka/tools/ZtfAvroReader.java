@@ -65,6 +65,7 @@ extends BaseReader
         super(servers, group, topic);
         }
 
+    /*
     private String[] schemaNames = {
         "cutout",
         "candidate",
@@ -125,6 +126,7 @@ extends BaseReader
             "ztf.alert"
             );
         }
+     */
 
     /**
      * Create our {@link SchemaRegistryClient}.
