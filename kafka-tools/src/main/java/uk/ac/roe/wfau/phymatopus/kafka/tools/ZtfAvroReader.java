@@ -293,4 +293,14 @@ extends BaseReader
             log.error("IOException hydrating Alert [{}]", ouch.getMessage());
             }
         }
+    
+    
+    // Read test data from files to check ..
+    // Read the message as a byte[] and tweak the headers ..
+    // Save the generated class and tweak the schema ...
+
+    
+    
+    
+    
     }

@@ -20,11 +20,14 @@ package uk.ac.roe.wfau.phymatopus.kafka.tools;
 
 import static org.junit.Assert.*;
 
+import org.apache.avro.Schema;
+import org.apache.avro.message.BinaryMessageDecoder;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import lombok.extern.slf4j.Slf4j;
+import ztf.alert;
 
 /**
  * 
@@ -71,7 +74,7 @@ extends KafkaTestBase
      * Test we can read some messages.
      * 
      */
-    @Test
+    //@Test
     public void testLoop()
         {
         final ZtfAvroReader reader = new ZtfAvroReader(
@@ -85,10 +88,33 @@ extends KafkaTestBase
     /**
      * Test we can run a test.
      * 
-     */
     @Test
     public void testTest()
         {
         log.debug("Testing the tester");
         }
+     */
+
+    @Test
+    public void testAvro()
+        {
+        log.debug("Testing Avro serializers ..");
+        BinaryMessageDecoder<alert> decoder = alert.getDecoder();
+        
+        Schema s = alert.SCHEMA$;
+        log.debug("Schema name [{}]", s.getName());
+        log.debug("Schema full name  [{}]", s.getFullName());
+        log.debug("Schema name space [{}]", s.getNamespace());
+
+        
+        
+        
+        
+        
+        
+        
+        }
+    
+    
+    
     }
