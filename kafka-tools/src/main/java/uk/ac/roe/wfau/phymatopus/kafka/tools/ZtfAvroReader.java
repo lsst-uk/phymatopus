@@ -182,6 +182,19 @@ implements ConsumerRebalanceListener
             ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG,
             "false"
             );
+        properties.put(
+            ConsumerConfig.FETCH_MAX_BYTES_CONFIG,
+            Integer.toString(
+                52428800 * 4
+                )
+            );
+        properties.put(
+            ConsumerConfig.MAX_PARTITION_FETCH_BYTES_CONFIG,
+            Integer.toString(
+                1048576 * 4
+                )
+            );
+        
         /*
          * 
         properties.put(
@@ -196,9 +209,9 @@ implements ConsumerRebalanceListener
             ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
             KafkaAvroDeserializer.class.getName()
             );
- *         
- */
-
+         *         
+         */
+        
         /*
          * 
         final Consumer<Object, Object> consumer = new KafkaConsumer<Object, Object>(
@@ -222,10 +235,9 @@ implements ConsumerRebalanceListener
         return consumer;
         }    
 
-    
     public void loop(int loops, int timeout)
         {
-        long count = 0 ;
+        long time001 = System.nanoTime();
         
         Consumer<Long, byte[]> consumer = consumer(); 
 
@@ -244,7 +256,7 @@ implements ConsumerRebalanceListener
         log.debug("First poll ..");
         ConsumerRecords<Long, byte[]> skip = consumer.poll(
             Duration.ofMillis(
-                10000
+                1000
                 )
             );
 
@@ -265,20 +277,26 @@ implements ConsumerRebalanceListener
          * 
          */
 
-/*
- * 
- *         
- */
         log.debug("Seeking ..");
         consumer.seekToBeginning(
             consumer.assignment()
             );
         log.debug("Committing ..");
         consumer.commitSync();
+
+        long time002 = System.nanoTime();
+
+        long loopcount = 0 ;
+        long recordcount = 0 ;
+        long eventcount = 0 ;
+        long bytecount = 0 ;
+        long start = System.nanoTime();
         
         log.debug("Looping ..");
         for (int i = 0 ; i < loops ; i++)
             {
+            
+            log.debug("Loop [{}]", loopcount);
             log.debug("Polling ..");
             ConsumerRecords<Long, byte[]> records = consumer.poll(
                 Duration.ofSeconds(
@@ -287,15 +305,20 @@ implements ConsumerRebalanceListener
                 );
             for (ConsumerRecord<Long, byte[]> record : records)
                 {
-                log.debug("[{}] ----", count++);
+                log.debug("Record [{}] ----", recordcount++);
                 log.debug("Offset [{}]", record.offset());
                 log.debug("Key    [{}]", record.key());
-                process(
-                    record.value()
+                byte[] bytes = record.value();
+                bytecount += bytes.length;
+                eventcount  += process(
+                    bytes
                     );
                 }        
             log.debug("Committing ..");
             consumer.commitSync();
+
+            log.debug("Loop done [{}] [{}] [{}] [{}] in [{}]ns", loopcount, recordcount, eventcount, bytecount, (System.nanoTime() - start));
+            log.debug("----");
             }
         }
 
@@ -314,57 +337,10 @@ implements ConsumerRebalanceListener
      * 
      */
     
-    public void process(final byte[] bytes)
+    public long process(final byte[] bytes)
         {
         log.debug("Hydrating ....");
-
-/*
- * 
-        for (int i = 0 ; i < 0x10 ; i++)
-            {
-            StringBuffer string = new StringBuffer();
-            Formatter formatter = new Formatter(string); 
-            for (int j = 0 ; j < 0x10 ; j++)
-                {
-                int k = (i * 0x10) + j;
-                formatter.format(
-                    "%s%02X",
-                    ((j > 0) ? " " : ""),
-                    bytes[k]
-                    );                
-                }
-            formatter.close();
-            log.debug("Bytes [{}]", string.toString());
-            }
-
-        for (int i = 0 ; i < 0x10 ; i++)
-            {
-            StringBuffer string = new StringBuffer();
-            Formatter formatter = new Formatter(string); 
-            for (int j = 0 ; j < 0x10 ; j++)
-                {
-                int k = (i * 0x10) + j;
-                char ascii ;
-                if ((k < bytes.length) && (bytes[k] >= ' ') && (bytes[k] <= '~'))
-                    {
-                    ascii = (char) bytes[k];
-                    }
-                else {
-                    ascii = '.'; 
-                    }
-                formatter.format(
-                    "%s%c",
-                    ((j > 0) ? " " : ""),
-                    ascii
-                    );                
-                }
-            formatter.close();
-            log.debug("ASCII [{}]", string.toString());
-            }
- *             
- */
-
-        log.debug("Creating reader");
+        long count = 0 ;
         DataFileReader<alert> reader = null;
         try {
             reader = new DataFileReader<alert>(
@@ -383,19 +359,9 @@ implements ConsumerRebalanceListener
         while (reader.hasNext())
             {
             try {
-                log.debug("Hydrating alert");
+                log.debug("Hydrating alert [{}]", count++);
                 final alert frog = reader.next();
         
-/*
- * 
-            final alert frog = alert.fromByteBuffer(
-                ByteBuffer.wrap(
-                    bytes
-                    )
-                );
- *             
- */
-
                 log.debug("candId    [{}]", frog.getCandid());
                 log.debug("objectId  [{}]", frog.getObjectId());
                 log.debug("schemavsn [{}]", frog.getSchemavsn().toString());
@@ -422,6 +388,7 @@ implements ConsumerRebalanceListener
                 log.error("RuntimeException hydrating alert [{}]", ouch.getMessage());
                 }
             }
+        return count ;
         }
 
     @Override
@@ -444,14 +411,51 @@ implements ConsumerRebalanceListener
             }
         }
 
+    public void hexBytes(byte[] bytes)
+        {
+        for (int i = 0 ; i < 0x10 ; i++)
+            {
+            StringBuffer string = new StringBuffer();
+            Formatter formatter = new Formatter(string); 
+            for (int j = 0 ; j < 0x10 ; j++)
+                {
+                int k = (i * 0x10) + j;
+                formatter.format(
+                    "%s%02X",
+                    ((j > 0) ? " " : ""),
+                    bytes[k]
+                    );                
+                }
+            formatter.close();
+            log.debug("Bytes [{}]", string.toString());
+            }
+        }
     
-    
-    // Latest news ... every messages contains a copy of the schema !!
-    
-    
-    
-    // Read test data from files to check ..
-    // Read the message as a byte[] and tweak the headers ..
-    // Save the generated class and tweak the schema ...
-    
+    public void asciiBytes(byte[] bytes)
+        {
+        for (int i = 0 ; i < 0x10 ; i++)
+            {
+            StringBuffer string = new StringBuffer();
+            Formatter formatter = new Formatter(string); 
+            for (int j = 0 ; j < 0x10 ; j++)
+                {
+                int k = (i * 0x10) + j;
+                char ascii ;
+                if ((k < bytes.length) && (bytes[k] >= ' ') && (bytes[k] <= '~'))
+                    {
+                    ascii = (char) bytes[k];
+                    }
+                else {
+                    ascii = '.'; 
+                    }
+                formatter.format(
+                    "%s%c",
+                    ((j > 0) ? " " : ""),
+                    ascii
+                    );                
+                }
+            formatter.close();
+            log.debug("ASCII [{}]", string.toString());
+            }
+        }
     }
