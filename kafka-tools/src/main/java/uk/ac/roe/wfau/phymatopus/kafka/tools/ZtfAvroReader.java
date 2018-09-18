@@ -289,35 +289,63 @@ implements ConsumerRebalanceListener
 
         long loopcount = 0 ;
         long recordcount = 0 ;
-        long eventcount = 0 ;
+        long recordtotal = 0 ;
         long bytecount = 0 ;
+        long bytetotal = 0 ;
         long start = System.nanoTime();
+        long uncommitted = 0 ;
         
         log.debug("Looping ..");
         for (int i = 0 ; i < loops ; i++)
             {
-            
             log.debug("Loop [{}]", loopcount++);
-            log.debug("Polling ..");
-            ConsumerRecords<Long, byte[]> records = consumer.poll(
-                timeout
-                );
-            for (ConsumerRecord<Long, byte[]> record : records)
-                {
-                log.debug("Record [{}] ----", recordcount++);
-                log.debug("Offset [{}]", record.offset());
-                log.debug("Key    [{}]", record.key());
-                byte[] bytes = record.value();
-                bytecount += bytes.length;
-                eventcount += process(
-                    bytes
+            do {
+                log.debug("Polling ..");
+                recordcount = 0;
+                ConsumerRecords<Long, byte[]> records = consumer.poll(
+                    timeout
                     );
-                }        
-            log.debug("Committing ..");
-            consumer.commitSync();
+                for (ConsumerRecord<Long, byte[]> record : records)
+                    {
+                    recordcount++;
+                    recordtotal++;
+                    uncommitted++;
+                    log.debug("Record [{}]", recordcount);
+                    log.debug("Offset [{}]", record.offset());
+                    log.debug("Key    [{}]", record.key());
+                    byte[] bytes = record.value();
+                    bytecount += bytes.length;
+                    process(
+                        bytes
+                        );
+                    }
+                if (uncommitted > 1000)
+                    {
+                    log.debug("Committing [{}]", uncommitted);
+                    consumer.commitSync();
+                    uncommitted = 0 ;
+                    }
+                long nanotime = (System.nanoTime() - start); 
+                log.debug("Loop done [{}] [{}][{}] [{}][{}] in [{}]ns [{}]ms [{}]s",
+                    loopcount,
+                    recordcount,
+                    recordtotal,
+                    bytecount,
+                    bytetotal,
+                    nanotime,
+                    (nanotime/1000),
+                    (nanotime/1000000)
+                    );
+                log.debug("----");
+                }
+            while (recordcount > 0);
 
-            log.debug("Loop done [{}] [{}] [{}] [{}] in [{}]ns", loopcount, recordcount, eventcount, bytecount, (System.nanoTime() - start));
-            log.debug("----");
+            if (uncommitted > 0)
+                {
+                log.debug("Committing [{}]", uncommitted);
+                consumer.commitSync();
+                uncommitted = 0 ;
+                }
             }
         }
 
