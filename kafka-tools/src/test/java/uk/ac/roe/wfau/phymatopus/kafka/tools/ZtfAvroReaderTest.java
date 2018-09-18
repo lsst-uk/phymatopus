@@ -47,7 +47,7 @@ extends KafkaTestBase
         super();
 
         this.group   = "java-test-000" ;
-        this.topic   = "ztf_20180914_programid1" ;
+        this.topic   = "ztf_20180917_programid1" ;
         this.servers = "172.16.49.217:9092,172.16.49.214:9092,172.16.49.12:9092,172.16.49.208:9092" ;
 
         }
@@ -74,7 +74,7 @@ extends KafkaTestBase
      * Test we can read some messages.
      * 
      */
-    //@Test
+    @Test
     public void testLoop()
         {
         final ZtfAvroReader reader = new ZtfAvroReader(
@@ -82,7 +82,7 @@ extends KafkaTestBase
             group,
             topic
             ); 
-        reader.loop(1, 1000);
+        reader.loop(100, 10000);
         }
 
     /**
@@ -95,7 +95,7 @@ extends KafkaTestBase
         }
      */
 
-    @Test
+    //@Test
     public void testAvro()
         {
         log.debug("Testing Avro serializers ..");

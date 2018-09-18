@@ -22,17 +22,27 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.time.Duration;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.Formatter;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 
 import org.apache.avro.Schema;
 import org.apache.avro.Schema.Parser;
+import org.apache.avro.file.DataFileReader;
+import org.apache.avro.file.SeekableByteArrayInput;
+import org.apache.avro.reflect.ReflectDatumReader;
+import org.apache.commons.lang.reflect.FieldUtils;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.ConsumerRebalanceListener;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.clients.consumer.internals.ConsumerCoordinator;
+import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.ByteBufferDeserializer;
 import org.apache.kafka.common.serialization.LongDeserializer;
@@ -51,6 +61,7 @@ import ztf.cutout;
 @Slf4j
 public class ZtfAvroReader
 extends BaseReader
+implements ConsumerRebalanceListener
     {
     
     /**
@@ -152,7 +163,7 @@ extends BaseReader
      * Create our {@link Consumer}.
      * 
      */
-    public Consumer<Long, ByteBuffer> consumer()
+    public Consumer<Long, byte[]> consumer()
         {
         final Properties properties = new Properties();
         properties.put(
@@ -169,10 +180,14 @@ extends BaseReader
             );
         properties.put(
             ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG,
-            "true"
+            "false"
             );
         /*
          * 
+        properties.put(
+            ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,
+            "earliest"
+            );
         properties.put(
             ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
             null
@@ -198,51 +213,89 @@ extends BaseReader
          * 
          */
 
-        final Consumer<Long, ByteBuffer> consumer = new KafkaConsumer<Long, ByteBuffer>(
+        final Consumer<Long, byte[]> consumer = new KafkaConsumer<Long, byte[]>(
                 properties,
                 new LongDeserializer(),
-                new ByteBufferDeserializer()
+                new ByteArrayDeserializer()
                 );
         
         return consumer;
         }    
 
     
-    public void loop(int count, int wait)
+    public void loop(int loops, int timeout)
         {
-        Consumer<Long, ByteBuffer> consumer = consumer(); 
+        long count = 0 ;
+        
+        Consumer<Long, byte[]> consumer = consumer(); 
 
         log.debug("Subscribing ..");
         consumer.subscribe(
                 Collections.singletonList(
                     topic()
-                    )
+                    ),
+                this
                 );
 
+        /*
+         * https://stackoverflow.com/a/40017688
+         * 
+         */ 
+        log.debug("First poll ..");
+        ConsumerRecords<Long, byte[]> skip = consumer.poll(
+            Duration.ofMillis(
+                10000
+                )
+            );
+
+        /*
+         * 
+        //
+        // Get the ConsumerCoordinator from the private field of the Consumer:
+        ConsumerCoordinator coordinator = (ConsumerCoordinator) FieldUtils.readField(consumer, "coordinator", true);
+
+        // Force partition assignment.
+        coordinator.ensureActiveGroup();
+        
+        //ensurePartitionAssignment();
+        // Get the list of partitions assigned to this specific consumer:
+        Set<TopicPartition> assigned = consumer.assignment();
+
+        // Now we can call seek(), sequined() or seekToBeginning()) on those partitions only for this consumer as above.
+         * 
+         */
+
+/*
+ * 
+ *         
+ */
         log.debug("Seeking ..");
         consumer.seekToBeginning(
             consumer.assignment()
             );
+        log.debug("Committing ..");
+        consumer.commitSync();
         
         log.debug("Looping ..");
-        for (int i = 0 ; i < count ; i++)
+        for (int i = 0 ; i < loops ; i++)
             {
             log.debug("Polling ..");
-            ConsumerRecords<Long, ByteBuffer> records = consumer.poll(
+            ConsumerRecords<Long, byte[]> records = consumer.poll(
                 Duration.ofSeconds(
-                    wait
+                    timeout
                     )
                 );
-            
-            for (ConsumerRecord<Long, ByteBuffer> record : records)
+            for (ConsumerRecord<Long, byte[]> record : records)
                 {
-                log.debug("----");
+                log.debug("[{}] ----", count++);
                 log.debug("Offset [{}]", record.offset());
                 log.debug("Key    [{}]", record.key());
                 process(
                     record.value()
                     );
                 }        
+            log.debug("Committing ..");
+            consumer.commitSync();
             }
         }
 
@@ -261,46 +314,144 @@ extends BaseReader
      * 
      */
     
-    public void process(final ByteBuffer buffer)
+    public void process(final byte[] bytes)
         {
+        log.debug("Hydrating ....");
+
+/*
+ * 
+        for (int i = 0 ; i < 0x10 ; i++)
+            {
+            StringBuffer string = new StringBuffer();
+            Formatter formatter = new Formatter(string); 
+            for (int j = 0 ; j < 0x10 ; j++)
+                {
+                int k = (i * 0x10) + j;
+                formatter.format(
+                    "%s%02X",
+                    ((j > 0) ? " " : ""),
+                    bytes[k]
+                    );                
+                }
+            formatter.close();
+            log.debug("Bytes [{}]", string.toString());
+            }
+
+        for (int i = 0 ; i < 0x10 ; i++)
+            {
+            StringBuffer string = new StringBuffer();
+            Formatter formatter = new Formatter(string); 
+            for (int j = 0 ; j < 0x10 ; j++)
+                {
+                int k = (i * 0x10) + j;
+                char ascii ;
+                if ((k < bytes.length) && (bytes[k] >= ' ') && (bytes[k] <= '~'))
+                    {
+                    ascii = (char) bytes[k];
+                    }
+                else {
+                    ascii = '.'; 
+                    }
+                formatter.format(
+                    "%s%c",
+                    ((j > 0) ? " " : ""),
+                    ascii
+                    );                
+                }
+            formatter.close();
+            log.debug("ASCII [{}]", string.toString());
+            }
+ *             
+ */
+
+        log.debug("Creating reader");
+        DataFileReader<alert> reader = null;
         try {
-            log.debug("Hydrating ....");
-            final alert frog = alert.fromByteBuffer(buffer);
-
-            log.debug("candId    [{}]", frog.getCandid());
-            log.debug("objectId  [{}]", frog.getObjectId());
-            log.debug("schemavsn [{}]", frog.getSchemavsn().toString());
-        
-            final cutout science    = frog.getCutoutScience();
-            final cutout template   = frog.getCutoutTemplate();
-            final cutout difference = frog.getCutoutDifference();
-
-            if (null != science)
-                {
-                log.debug("science    [{}][{}][{}]", science.getFileName(), science.getStampData().limit(), science.getStampData().capacity());
-                }
-            if (null != template)
-                {
-                log.debug("template   [{}][{}][{}]", template.getFileName(), template.getStampData().limit(), template.getStampData().capacity());
-                }
-            if (null != difference)
-                {
-                log.debug("difference [{}][{}][{}]", difference.getFileName(), difference.getStampData().limit(), difference.getStampData().capacity());
-                }
+            reader = new DataFileReader<alert>(
+                new SeekableByteArrayInput(
+                    bytes
+                    ),
+                new ReflectDatumReader<alert>(
+                    alert.class
+                    )
+                );             
             }
         catch (IOException ouch)
             {
-            log.error("IOException hydrating Alert [{}]", ouch.getMessage());
+            log.error("IOException creating reader [{}]", ouch.getMessage());
+            }
+        while (reader.hasNext())
+            {
+            try {
+                log.debug("Hydrating alert");
+                final alert frog = reader.next();
+        
+/*
+ * 
+            final alert frog = alert.fromByteBuffer(
+                ByteBuffer.wrap(
+                    bytes
+                    )
+                );
+ *             
+ */
+
+                log.debug("candId    [{}]", frog.getCandid());
+                log.debug("objectId  [{}]", frog.getObjectId());
+                log.debug("schemavsn [{}]", frog.getSchemavsn().toString());
+            
+                final cutout science    = frog.getCutoutScience();
+                final cutout template   = frog.getCutoutTemplate();
+                final cutout difference = frog.getCutoutDifference();
+    
+                if (null != science)
+                    {
+                    log.debug("science    [{}][{}][{}]", science.getFileName(), science.getStampData().limit(), science.getStampData().capacity());
+                    }
+                if (null != template)
+                    {
+                    log.debug("template   [{}][{}][{}]", template.getFileName(), template.getStampData().limit(), template.getStampData().capacity());
+                    }
+                if (null != difference)
+                    {
+                    log.debug("difference [{}][{}][{}]", difference.getFileName(), difference.getStampData().limit(), difference.getStampData().capacity());
+                    }
+                }
+            catch (RuntimeException ouch)
+                {
+                log.error("RuntimeException hydrating alert [{}]", ouch.getMessage());
+                }
             }
         }
+
+    @Override
+    public void onPartitionsAssigned(Collection<TopicPartition> partitions)
+        {
+        log.debug("PartitionsAssigned()");
+        for (TopicPartition partition : partitions)
+            {
+            log.debug("Partition [{}],[{}]", partition.topic(), partition.partition());
+            }
+        }
+
+    @Override
+    public void onPartitionsRevoked(Collection<TopicPartition> partitions)
+        {
+        log.debug("PartitionsRevoked()");
+        for (TopicPartition partition : partitions)
+            {
+            log.debug("Partition [{}],[{}]", partition.topic(), partition.partition());
+            }
+        }
+
+    
+    
+    // Latest news ... every messages contains a copy of the schema !!
+    
     
     
     // Read test data from files to check ..
     // Read the message as a byte[] and tweak the headers ..
     // Save the generated class and tweak the schema ...
-
-    
-    
-    
     
     }
