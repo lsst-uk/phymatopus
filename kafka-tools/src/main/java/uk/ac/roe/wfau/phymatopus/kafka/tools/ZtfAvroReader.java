@@ -260,7 +260,7 @@ implements ConsumerRebalanceListener
          */ 
         log.debug("First poll ..");
         ConsumerRecords<Long, byte[]> skip = consumer.poll(
-            timeout
+            Duration.ofSeconds(20)
             );
 
         /*
