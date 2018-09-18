@@ -284,8 +284,6 @@ implements ConsumerRebalanceListener
         log.debug("Committing ..");
         consumer.commitSync();
 
-        long time002 = System.nanoTime();
-
         long loopcount = 0 ;
         long recordcount = 0 ;
         long eventcount = 0 ;
@@ -296,7 +294,7 @@ implements ConsumerRebalanceListener
         for (int i = 0 ; i < loops ; i++)
             {
             
-            log.debug("Loop [{}]", loopcount);
+            log.debug("Loop [{}]", loopcount++);
             log.debug("Polling ..");
             ConsumerRecords<Long, byte[]> records = consumer.poll(
                 Duration.ofSeconds(
@@ -310,7 +308,7 @@ implements ConsumerRebalanceListener
                 log.debug("Key    [{}]", record.key());
                 byte[] bytes = record.value();
                 bytecount += bytes.length;
-                eventcount  += process(
+                eventcount += process(
                     bytes
                     );
                 }        
