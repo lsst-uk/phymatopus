@@ -85,7 +85,7 @@ extends KafkaTestBase
             topic
             ); 
         reader.loop(
-            20,
+            5,
             Duration.ofSeconds(
                 120
                 )

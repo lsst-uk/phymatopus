@@ -315,6 +315,7 @@ implements ConsumerRebalanceListener
                     log.debug("Key    [{}]", record.key());
                     byte[] bytes = record.value();
                     bytecount += bytes.length;
+                    bytetotal += bytes.length;
                     process(
                         bytes
                         );
@@ -326,7 +327,7 @@ implements ConsumerRebalanceListener
                     uncommitted = 0 ;
                     }
                 long nanotime = (System.nanoTime() - start); 
-                log.debug("Loop done [{}] [{}][{}] [{}][{}] in [{}]ns [{}]ms [{}]s",
+                log.debug("Loop done [{}] [{}][{}] [{}][{}] in [{}]ns [{}]µs [{}]ms [{}]s",
                     loopcount,
                     recordcount,
                     recordtotal,
@@ -334,7 +335,8 @@ implements ConsumerRebalanceListener
                     bytetotal,
                     nanotime,
                     (nanotime/1000),
-                    (nanotime/1000000)
+                    (nanotime/1000000),
+                    (nanotime/1000000000)
                     );
                 log.debug("----");
                 }
