@@ -28,6 +28,7 @@ import java.util.Formatter;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
+import java.util.Timer;
 
 import org.apache.avro.Schema;
 import org.apache.avro.Schema.Parser;
@@ -178,6 +179,8 @@ implements ConsumerRebalanceListener
             ConsumerConfig.AUTO_COMMIT_INTERVAL_MS_CONFIG,
             "1000"
             );
+        // Optimise for large messages.
+        // https://community.hortonworks.com/questions/73895/any-experience-based-tips-to-optimize-kafka-broker.html
         properties.put(
             ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG,
             "false"
@@ -194,13 +197,13 @@ implements ConsumerRebalanceListener
                 1048576 * 4
                 )
             );
-        
-        /*
-         * 
         properties.put(
             ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,
             "earliest"
             );
+        
+        /*
+         * 
         properties.put(
             ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
             null
@@ -235,7 +238,7 @@ implements ConsumerRebalanceListener
         return consumer;
         }    
 
-    public void loop(int loops, int timeout)
+    public void loop(int loops, Duration timeout)
         {
         long time001 = System.nanoTime();
         
@@ -248,16 +251,16 @@ implements ConsumerRebalanceListener
                     ),
                 this
                 );
-
+        
+        //List<PartitionInfo> partitionsFor(java.lang.String topic)
+        
         /*
          * https://stackoverflow.com/a/40017688
          * 
          */ 
         log.debug("First poll ..");
         ConsumerRecords<Long, byte[]> skip = consumer.poll(
-            Duration.ofMillis(
-                1000
-                )
+            timeout
             );
 
         /*
@@ -297,9 +300,7 @@ implements ConsumerRebalanceListener
             log.debug("Loop [{}]", loopcount++);
             log.debug("Polling ..");
             ConsumerRecords<Long, byte[]> records = consumer.poll(
-                Duration.ofSeconds(
-                    timeout
-                    )
+                timeout
                 );
             for (ConsumerRecord<Long, byte[]> record : records)
                 {

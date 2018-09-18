@@ -20,6 +20,8 @@ package uk.ac.roe.wfau.phymatopus.kafka.tools;
 
 import static org.junit.Assert.*;
 
+import java.time.Duration;
+
 import org.apache.avro.Schema;
 import org.apache.avro.message.BinaryMessageDecoder;
 import org.junit.Test;
@@ -46,7 +48,7 @@ extends KafkaTestBase
         {
         super();
 
-        this.group   = "java-test-000" ;
+        this.group   = "java-test-001" ;
         this.topic   = "ztf_20180917_programid1" ;
         this.servers = "172.16.49.217:9092,172.16.49.214:9092,172.16.49.12:9092,172.16.49.208:9092" ;
 
@@ -82,7 +84,12 @@ extends KafkaTestBase
             group,
             topic
             ); 
-        reader.loop(100, 10000);
+        reader.loop(
+            20,
+            Duration.ofSeconds(
+                120
+                )
+            );
         }
 
     /**
@@ -107,14 +114,5 @@ extends KafkaTestBase
         log.debug("Schema name space [{}]", s.getNamespace());
 
         
-        
-        
-        
-        
-        
-        
         }
-    
-    
-    
     }
