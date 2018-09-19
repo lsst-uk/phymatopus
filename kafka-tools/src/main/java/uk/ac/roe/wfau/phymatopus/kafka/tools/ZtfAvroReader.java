@@ -297,6 +297,7 @@ implements ConsumerRebalanceListener
             log.debug("Loop [{}]", loopcount++);
             do {
                 log.debug("Polling ..");
+                bytecount   = 0;
                 recordcount = 0;
                 ConsumerRecords<Long, byte[]> records = consumer.poll(
                     timeout
@@ -323,7 +324,7 @@ implements ConsumerRebalanceListener
                     uncommitted = 0 ;
                     }
                 long nanotime = (System.nanoTime() - start); 
-                log.debug("Loop done [{}] [{}][{}] [{}][{}] in [{}]ns [{}]µs [{}]ms [{}]s",
+                log.debug("Loop done [{}] [{}][{}] [{}][{}] in [{}]ns [{}]µs [{}]ms [{}]s => [{}]µs per event",
                     loopcount,
                     recordcount,
                     recordtotal,
@@ -332,7 +333,8 @@ implements ConsumerRebalanceListener
                     nanotime,
                     (nanotime/1000),
                     (nanotime/1000000),
-                    (nanotime/1000000000)
+                    (nanotime/1000000000),
+                    (nanotime/(recordtotal*1000))
                     );
                 log.debug("----");
                 }
