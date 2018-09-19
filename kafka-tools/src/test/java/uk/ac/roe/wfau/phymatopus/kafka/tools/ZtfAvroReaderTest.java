@@ -90,7 +90,7 @@ extends KafkaTestBase
         reader.loop(
             5,
             Duration.ofSeconds(
-                120
+                5
                 )
             );
         }

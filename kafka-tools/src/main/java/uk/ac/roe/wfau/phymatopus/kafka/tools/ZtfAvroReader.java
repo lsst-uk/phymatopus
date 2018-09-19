@@ -307,7 +307,7 @@ implements ConsumerRebalanceListener
                     recordcount++;
                     recordtotal++;
                     uncommitted++;
-                    log.debug("Record [{}]", recordcount);
+                    log.debug("Record [{}][{}]", recordcount, recordtotal);
                     log.debug("Offset [{}]", record.offset());
                     log.debug("Key    [{}]", record.key());
                     byte[] bytes = record.value();
