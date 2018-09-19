@@ -19,41 +19,36 @@
 package uk.ac.roe.wfau.phymatopus.kafka.tools;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.ByteBuffer;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Formatter;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.Set;
-import java.util.Timer;
 
-import org.apache.avro.Schema;
-import org.apache.avro.Schema.Parser;
 import org.apache.avro.file.DataFileReader;
 import org.apache.avro.file.SeekableByteArrayInput;
 import org.apache.avro.reflect.ReflectDatumReader;
-import org.apache.commons.lang.reflect.FieldUtils;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRebalanceListener;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
-import org.apache.kafka.clients.consumer.internals.ConsumerCoordinator;
+import org.apache.kafka.clients.consumer.OffsetAndMetadata; 
+
+import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
-import org.apache.kafka.common.serialization.ByteBufferDeserializer;
 import org.apache.kafka.common.serialization.LongDeserializer;
 
-import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
-import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import lombok.extern.slf4j.Slf4j;
-
 import ztf.alert;
 import ztf.cutout;
+
 
 /**
  * 
@@ -229,7 +224,7 @@ implements ConsumerRebalanceListener
          * 
          */
 
-        final Consumer<Long, byte[]> consumer = new KafkaConsumer<Long, byte[]>(
+        final KafkaConsumer<Long, byte[]> consumer = new KafkaConsumer<Long, byte[]>(
                 properties,
                 new LongDeserializer(),
                 new ByteArrayDeserializer()
@@ -240,8 +235,7 @@ implements ConsumerRebalanceListener
 
     public void loop(int loops, Duration timeout)
         {
-        long time001 = System.nanoTime();
-        
+        log.debug("Creating consumer");
         Consumer<Long, byte[]> consumer = consumer(); 
 
         log.debug("Subscribing ..");
@@ -257,11 +251,11 @@ implements ConsumerRebalanceListener
         /*
          * https://stackoverflow.com/a/40017688
          * 
-         */ 
         log.debug("First poll ..");
         ConsumerRecords<Long, byte[]> skip = consumer.poll(
             Duration.ofSeconds(20)
             );
+         */ 
 
         /*
          * 
@@ -280,13 +274,15 @@ implements ConsumerRebalanceListener
          * 
          */
 
+        /*
         log.debug("Seeking ..");
         consumer.seekToBeginning(
             consumer.assignment()
             );
         log.debug("Committing ..");
         consumer.commitSync();
-
+         */
+        
         long loopcount = 0 ;
         long recordcount = 0 ;
         long recordtotal = 0 ;
@@ -487,4 +483,55 @@ implements ConsumerRebalanceListener
             log.debug("ASCII [{}]", string.toString());
             }
         }
+    
+    
+    public void rewind()
+        {
+        log.debug("Creating consumer");
+        Consumer<Long, byte[]> consumer = consumer(); 
+
+        log.debug("Fetching PartitionInfo for topic");
+        List<PartitionInfo> partitions = consumer.partitionsFor(
+            topic()
+            );
+
+        log.debug("Creating TopicPartitions");
+        List<TopicPartition> topicpartitions = new ArrayList<TopicPartition>();
+        for(PartitionInfo partition : partitions)
+            {
+            log.debug("Partition [{}][{}]", partition.topic(), partition.partition());
+            topicpartitions.add(
+                new TopicPartition(
+                    partition.topic(),
+                    partition.partition()
+                    )
+                );
+            }
+        log.debug("Fetching beginning offsets for partitions");
+        Map<TopicPartition,Long> offsets = consumer.beginningOffsets(
+            topicpartitions
+            );
+
+        log.debug("Creating TopicPartition map");
+        Map<TopicPartition, OffsetAndMetadata> offsetmeta = new HashMap<TopicPartition, OffsetAndMetadata>();
+        for (TopicPartition partition : offsets.keySet())
+            {
+            offsetmeta.put(
+                partition,
+                new OffsetAndMetadata(
+                    offsets.get(
+                        partition
+                        )
+                    )
+                );
+            }
+        
+        log.debug("Committing ...");
+        consumer.commitSync(offsetmeta);
+        
+        log.debug("Closing ...");
+        consumer.close();
+        }
+    
+    
     }

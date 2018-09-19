@@ -84,35 +84,14 @@ extends KafkaTestBase
             group,
             topic
             ); 
+
+        reader.rewind();
+
         reader.loop(
             5,
             Duration.ofSeconds(
                 120
                 )
             );
-        }
-
-    /**
-     * Test we can run a test.
-     * 
-    @Test
-    public void testTest()
-        {
-        log.debug("Testing the tester");
-        }
-     */
-
-    //@Test
-    public void testAvro()
-        {
-        log.debug("Testing Avro serializers ..");
-        BinaryMessageDecoder<alert> decoder = alert.getDecoder();
-        
-        Schema s = alert.SCHEMA$;
-        log.debug("Schema name [{}]", s.getName());
-        log.debug("Schema full name  [{}]", s.getFullName());
-        log.debug("Schema name space [{}]", s.getNamespace());
-
-        
         }
     }
