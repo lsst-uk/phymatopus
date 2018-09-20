@@ -29,8 +29,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
+import org.apache.avro.Schema;
+import org.apache.avro.SchemaNormalization;
 import org.apache.avro.file.DataFileReader;
 import org.apache.avro.file.SeekableByteArrayInput;
+import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.reflect.ReflectDatumReader;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -334,7 +337,7 @@ implements ConsumerRebalanceListener
                     (nanotime/1000),
                     (nanotime/1000000),
                     (nanotime/1000000000),
-                    (nanotime/(recordtotal*1000))
+                    (nanotime/((recordtotal > 0) ? recordtotal : 1) *1000)
                     );
                 log.debug("----");
                 }
@@ -363,14 +366,12 @@ implements ConsumerRebalanceListener
      * https://github.com/verisign/python-confluent-schemaregistry
      * 
      */
-    
-    public long process(final byte[] bytes)
+
+    public DataFileReader<alert> reader(final byte[] bytes)
         {
-        log.debug("Hydrating ....");
-        long count = 0 ;
-        DataFileReader<alert> reader = null;
+        log.debug("Creating alert reader");
         try {
-            reader = new DataFileReader<alert>(
+            return new DataFileReader<alert>(
                 new SeekableByteArrayInput(
                     bytes
                     ),
@@ -382,11 +383,65 @@ implements ConsumerRebalanceListener
         catch (IOException ouch)
             {
             log.error("IOException creating reader [{}]", ouch.getMessage());
+            return null ;
             }
+        }
+
+    public Schema schema(final byte[] bytes)
+        {
+        log.debug("Extracting message schema");
+        DataFileReader<Object> reader = null;
+        Schema schema = null ;
+        try {
+            reader = new DataFileReader<Object>(
+                new SeekableByteArrayInput(
+                    bytes
+                    ),
+                new GenericDatumReader<Object>()
+                );
+            schema = reader.getSchema();
+            log.debug("Message schema [{}][{}]", schema.getFullName(), schema.getDoc());
+            }
+        catch (IOException ouch)
+            {
+            log.error("IOException creating reader [{}]", ouch.getMessage());
+            return null ;
+            }
+        finally {
+            if (null != reader)
+                {
+                try {
+                    reader.close();
+                    }
+                catch (Exception ouch)
+                    {
+                    log.error("Exception closing reader [{}]", ouch.getMessage());
+                    }
+                }
+            }
+        return schema;
+        }
+    
+    public long process(final byte[] bytes)
+        {
+        log.debug("Hydrating ....");
+        long count = 0 ;
+
+        Schema schema = schema(bytes);
+        final Long fingerprint = SchemaNormalization.parsingFingerprint64(schema);
+        log.debug("Schema fingerprint [{}]", fingerprint);
+        
+        DataFileReader<alert> reader = reader(bytes);
+        
         while (reader.hasNext())
             {
             try {
                 log.debug("Hydrating alert [{}]", count++);
+
+                //
+                // Select the implementation type based on the schema fingerprint ...
+                //
+                
                 final alert frog = reader.next();
         
                 log.debug("candId    [{}]", frog.getCandid());
