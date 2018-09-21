@@ -1,0 +1,299 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2018, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+    Tests to see if the LSST alert messages contain a copy of the schema ....
+    
+# -----------------------------------------------------
+# Create a new VM.
+#[user@trop03]
+
+    createvm
+
+        INFO : Node name [Umiawyth]
+        INFO : Base name [fedora-28-docker-base-20180708.qcow]
+        INFO : Base path [/var/lib/libvirt/images/base/fedora-28-docker-base-20180708.qcow]
+        INFO : Disc name [Umiawyth.qcow]
+        INFO : Disc size [16GiB]
+
+        INFO : MAC  [52:54:00:02:03:08]
+        INFO : IPv4 [192.168.203.8]
+        INFO : IPv6 []
+    
+# -----------------------------------------------------
+# Login to the new VM.
+#[user@trop03]
+
+    ssh Umiawyth
+
+# -----------------------------------------------------
+# Download a copy of the lsst-dm/alert_stream sorce code.
+#[user@Umiawyth]
+
+        git clone 'https://github.com/lsst-dm/alert_stream.git'
+
+        #git clone 'https://github.com/mtpatter/alert_stream.git'
+
+# -----------------------------------------------------
+# Checkout a specific branch.
+#[user@Umiawyth]
+
+        pushd alert_stream
+
+            git checkout dmtn-028-2018-03-29
+
+        popd
+
+# -----------------------------------------------------
+# Run the docker compose set to create Kafka and Zookeper.
+#[user@Umiawyth]
+
+        pushd alert_stream
+
+            docker-compose up -d
+
+        popd
+
+# -----------------------------------------------------
+# List the running containers.
+#[user@Umiawyth]
+
+    docker ps
+
+        CONTAINER ID        IMAGE                             COMMAND                  CREATED             STATUS              PORTS                                                    NAMES
+        951da757012b        confluentinc/cp-kafka:3.2.0       "/etc/confluent/dock…"   11 minutes ago      Up 11 minutes       0.0.0.0:9092->9092/tcp                                   alert_stream_kafka_1
+        e8a793c8692c        confluentinc/cp-zookeeper:3.2.0   "/etc/confluent/dock…"   11 minutes ago      Up 11 minutes       2181/tcp, 2888/tcp, 3888/tcp, 0.0.0.
+
+# -----------------------------------------------------
+# Build the alert_stream image.
+#[user@Umiawyth]
+
+        pushd alert_stream
+
+            docker build -t "alert_stream" .
+
+        popd
+
+# -----------------------------------------------------
+# Send some alerts to Kafka.
+#[user@Umiawyth]
+
+    docker run -it --rm \
+        --network=alert_stream_default \
+        -v $(pwd)/alert_stream/data:/home/alert_stream/data:ro \
+        alert_stream python \
+            bin/sendAlertStream.py \
+                --encode \
+                --repeat \
+                'my-stream' \
+                '100' 
+
+# -----------------------------------------------------
+# Login in another terminal.
+#[user@trop03]
+
+    ssh Umiawyth
+
+# -----------------------------------------------------
+# Read alerts from the Kafka topic.
+#[user@Umiawyth]
+
+    docker run -it --rm \
+        --network=alert_stream_default \
+        alert_stream python \
+            bin/printStream.py \
+                --decode \
+                'my-stream'
+
+# -----------------------------------------------------
+# Install tcpdump network monitoring tool.
+#[user@Umiawyth]
+
+    sudo dnf install tcpdump
+
+    #
+    # tcpdump - Linux man page
+    # https://linux.die.net/man/8/tcpdump
+
+    #
+    # Capturing with tcpdump for viewing with Wireshark
+    # https://www.wireshark.org/docs/wsug_html_chunked/AppToolstcpdump.html
+
+    #
+    # Test - dump network traffic, excluding SSH and DHCP
+    sudo tcpdump \
+        --interface any \
+        '(port not 22) and (port not 67) and (port not 68)'
+
+    #
+    # Get the IP addresses of our kafka and client containers.
+    docker ps
+
+        CONTAINER ID        IMAGE                             COMMAND                  CREATED             STATUS              PORTS                                                    NAMES
+        5150a4b0b6d2        alert_stream                      "python bin/printStr…"   10 minutes ago      Up 10 minutes                                                                eloquent_heyrovsky
+        02ca3720518d        alert_stream                      "python bin/sendAler…"   12 minutes ago      Up 12 minutes                                                                cocky_rosalind
+        951da757012b        confluentinc/cp-kafka:3.2.0       "/etc/confluent/dock…"   18 minutes ago      Up 18 minutes       0.0.0.0:9092->9092/tcp                                   alert_stream_kafka_1
+        e8a793c8692c        confluentinc/cp-zookeeper:3.2.0   "/etc/confluent/dock…"   18 minutes ago      Up 18 minutes       2181/tcp, 2888/tcp, 3888/tcp, 0.0.0.0:32181->32181/tcp   alert_stream_zookeeper_1
+    
+    kafkaip=$(
+        docker inspect \
+            '951da757012b' \
+            | jq -r '.[].NetworkSettings.Networks.alert_stream_default.IPAddress'
+            )      
+
+    clientip=$(
+        docker inspect \
+            '5150a4b0b6d2' \
+            | jq -r '.[].NetworkSettings.Networks.alert_stream_default.IPAddress'
+            )      
+
+    echo "kafkaip  [${kafkaip:?}]"
+    echo "clientip [${clientip:?}]"
+
+    #
+    # Dump network traffic between kafka and the client. 
+    # http://www.tcpdump.org/manpages/tcpdump.1.html#lbAF
+    sudo tcpdump \
+        --interface any \
+        host ${kafkaip:?} and ${clientip:?}
+
+    #
+    # Dump network traffic between kafka and the client.
+    # Save the data for analysis by WireShark.
+    # https://www.wireshark.org/docs/wsug_html_chunked/AppToolstcpdump.html
+    sudo tcpdump \
+        --interface any \
+        host ${kafkaip:?} and ${clientip:?} -w "tcpdump-$(date +%Y%m%d%H%M%S).log"
+
+        tcpdump: listening on any, link-type LINUX_SLL (Linux cooked), capture size 262144 bytes
+        ^C
+        31776 packets captured
+        31776 packets received by filter
+        0 packets dropped by kernel
+        
+
+    ls -alh
+
+        ....
+        -rw-r--r--. 1 tcpdump   tcpdump   66M Sep 21 16:33 tcpdump-20180921163116.log
+
+# -----------------------------------------------------
+# Copy the capture file back to laptop.
+#[user@laptop]
+
+    scp Umiawyth:tcpdump-20180921163116.log .
+
+# -----------------------------------------------------
+# Analyse the capture file with WireShark.
+#[user@laptop]
+
+    wireshark tcpdump-20180921163116.log
+
+        #
+        # Binary data in the messages.
+
+...1..........my-stream............................................rdkafka......
+..O...........my-stream.................j..?........i..?..><......e..........?..
+...........................!..A.rw5.. .u@eV.t.(.?....9...9$..933.B33.B....?...?.
+..?..ff$B. .D.............................................................!..A.r
+w5.. .u@eV.t.(.?....9...9$..933.B33.B....?...?...?..ff$B. .D....................
+.......................................!..A.rw5.. .u@eV.t.(.?....9...9$..933.B33
+.B....?...?...?..ff$B. .D....................................................w5.
+. .u@eV.t.(.?....9...9$..9....!..A.P.9...9...@..P.9.P.9.P.9.P.9.P.9.P.9.P.9.P.9.
+..............................................................................q=
+.#..@........@./n..<<.@...G....@.3333...A..-...c`@......_.A.....@.(..I.j..I.....
+PDE....F...V.m..@..O.cv..@...NF..tNF....F.m..F.6;gC.v..F........................
+.................w5.. .u@eV.t.(.?....9...9$..9....!..A.P.9...9...@..P.9.P.9.P.9.
+P.9.P.9.P.9.P.9.P.9.............................................................
+...............................!..A.rw5.. .u@eV.t.(.?....9...9$..933.B33.B....?.
+..?...?..ff$B. .D...........................................................!..A
+
+        #
+        # Only the FITS headers show up as clear text.
+
+.rw5.. .u@eV.t.(.?....9...9$..933.B33.B....?...?...?..ff$B. .D..................
+..........................stamp-676.fits...SIMPLE  =                    T / conf
+orms to FITS standard                      BITPIX  =                  -32 / arra
+y data type                                NAXIS   =                    2 / numb
+er of array dimensions                     NAXIS1  =                   31       
+                                           NAXIS2  =                   31       
+                                           EXTEND  =                    T        
+                                           CD1_1   = -3.0298457783144E-05        
+                                           CD1_2   = 4.65770542146534E-05        
+                                           CD2_1   = -4.6588044497537E-05        
+                                           CD2_2   = -3.0306475118993E-05        
+                                           CRPIX1  =    1929.722072056903        
+                                           CRPIX1A =                    1        
+                                           CRPIX2  =    214.8792590683224        
+                                           CRPIX2A =                    1        
+                                           CRVAL1  =    53.00566810681171        
+                                           CRVAL1A =                  122        
+                                           CRVAL2  =   -27.44262443999945        
+                                           CRVAL2A =                 1885        
+
+# -----------------------------------------------------
+# Repeat the capture with encode-off and decode-off on the Python writer and reader.
+#[user@laptop]
+
+    wireshark tcpdump-20180921164858.log
+
+        #
+        # JSON data visible in the message body
+        #
+
+    ...1..........my-stream............................................rdkafka......
+    ......my-stream.................................e.._?........{'alertId': 1231321
+    321, 'l1dbId': 222222222, 'diaSource': {'diaSourceId': 281323062375219200, 'ccdV
+    isitId': 111111, 'midPointTai': 1480360995, 'filterName': 'r', 'ra': 351.5705469
+    78, 'decl': 0.126243049656, 'ra_decl_Cov': {'raSigma': 0.00028, 'declSigma': 0.0
+    0028, 'ra_decl_Cov': 0.00029}, 'x': 112.1, 'y': 121.1, 'x_y_Cov': {'xSigma': 1.2
+    , 'ySigma': 1.1, 'x_y_Cov': 1.2}, 'snr': 41.1, 'psFlux': 1241.0, 'flags': 0}, 'p
+    rv_diaSources': [{'diaSourceId': 281323062375219198, 'ccdVisitId': 111111, 'midP
+    ointTai': 1480360995, 'filterName': 'r', 'ra': 351.570546978, 'decl': 0.12624304
+    9656, 'ra_decl_Cov': {'raSigma': 0.00028, 'declSigma': 0.00028, 'ra_decl_Cov': 0
+    .00029}, 'x': 112.1, 'y': 121.1, 'x_y_Cov': {'xSigma': 1.2, 'ySigma': 1.1, 'x_y_
+    Cov': 1.2}, 'snr': 41.1, 'psFlux': 1241.0, 'flags': 0}, {'diaSourceId': 28132306
+    2375219199, 'ccdVisitId': 111111, 'midPointTai': 1480360995, 'filterName': 'r', 
+    'ra': 351.570546978, 'decl': 0.126243049656, 'ra_decl_Cov': {'raSigma': 0.00028,
+     'declSigma': 0.00028, 'ra_decl_Cov': 0.00029}, 'x': 112.1, 'y': 121.1, 'x_y_Cov
+     ': {'xSigma': 1.2, 'ySigma': 1.1, 'x_y_Cov': 1.2}, 'snr': 41.1, 'psFlux': 1241.
+     0, 'flags': 0}], 'diaObject': {'diaObjectId': 281323062375219201, 'ra': 351.570
+     546978, 'decl': 0.126243049656, 'ra_decl_Cov': {'raSigma': 0.00028, 'declSigma'
+     : 0.00028, 'ra_decl_Cov': 0.00029}, 'radecTai': 1480360995, 'pmRa': 0.00013, 'p
+     mDecl': 0.00014, 'parallax': 2.124124, 'pm_parallax_Cov': {'pmRaSigma': 0.00013
+     , 'pmDeclSigma': 0.00013, 'parallaxSigma': 0.00013, 'pmRa_pmDecl_Cov': 0.00013,
+      'pmRa_parallax_Cov': 0.00013, 'pmDecl_parallax_Cov': 0.00013}, 'pmParallaxLnL'
+      : 0.00013, 'pmParallaxChi2': 0.00013, 'pmParallaxNdata': 1214, 'flags': 0}, 's
+      sObject': {'ssObjectId': 5364546, 'oe': {'q': 6654.14, 'e': 636.121, 'i': 5436
+      .2344, 'lan': 54325.34, 'aop': 344243.3, 'M': 131.1241, 'epoch': 134141}, 'arc
+      ': 2.124124, 'orbFitLnL': 1343141.0341, 'orbFitChi2': 1341421.2414, 'orbFitNda
+      ta': 1214, 'MOID1': 3141.0, 'MOID2': 23432.423, 'moidLon1': 2143.213, 'moidLon
+      2': 3142.23123, 'uH': 13231.231, 'uHErr': 13213.213, 'uG1': 32131.312, 'uG1Err
+      ': 31232.2132, 'uG2': 231.2313, 'uG2Err': 23132.231, 'flags': 0}, 'diaObjectL2
+
+
+        #
+        # Neither format contains the Avro schema.
+
+
+
+
+
