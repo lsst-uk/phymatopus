@@ -1,0 +1,126 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2018, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+    ZTF messages are raw Avro with no schema.
+
+    ---- ---- ---- ----
+
+    Confluent libraries
+
+    io.confluent.kafka.serializers.KafkaAvroDeserializer
+    io.confluent.kafka.schemaregistry.client.SchemaRegistryClient
+    io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient
+
+    The Confluent Avro deserializer expects schema registry magic bytes at the start of the message.
+    https://groups.google.com/forum/#!topic/confluent-platform/9LZh3JvnTtI
+
+    IF we owned the producer, we could add the Schema-Registry bytes to our message.
+    https://stackoverflow.com/questions/39489649/encoding-formatting-issues-with-python-kafka-library
+
+    There is a Python Schema-Registry ..
+    https://github.com/verisign/python-confluent-schemaregistry
+
+
+    https://github.com/confluentinc/schema-registry/blob/master/avro-serializer/src/main/java/io/confluent/kafka/serializers/KafkaAvroDeserializer.java
+
+    ---- ---- ---- ----
+
+    Alternative - deserialize the messages as byte array, and then pass to the Avro parser ourselves.
+
+    Avro has tools for generating Java classes from an Avro schema.
+    https://avro.apache.org/docs/1.8.2/gettingstartedjava.html#Serializing+and+deserializing+with+code+generation
+
+    There is a Maven tool for generating Java classes from a Avro schema.
+    http://grepalex.com/2013/05/24/avro-maven/
+
+    Problem - Despite this stackoverflow comment, the Maven tool doesn't handle included schema.
+    https://stackoverflow.com/questions/21539113/can-i-split-an-apache-avro-schema-across-multiple-files
+
+    The plugin socurce code doesn't show imports.
+    https://github.com/phunt/avro-maven-plugin
+    https://github.com/alexholmes/avro-maven/blob/master/pom-schema-fulldefs.xml
+
+    There is a GitHub issue about it ..
+    https://github.com/confluentinc/schema-registry/issues/523
+
+    https://dzone.com/articles/using-avros-code-generation
+
+    Fix #1 - Manually combine the schema into one file.
+
+    ---- ---- ---- ----
+
+    Problem with namespace and Java packages
+
+        namespace ztf
+        classname alert
+
+            => ztf.alert                'alert is a class'
+
+        namespace ztf.alert
+        classname candidate
+
+            => ztf.alert.candidate      'alert is part of the package name'
+
+    Fix #2 - Tweak the namespaces to avoid the conflict.
+
+        namespace ztf
+        classname alert
+
+            => ztf.alert                'alert is a class'
+
+        namespace ztf.alert
+        classname candidate
+
+            => ztf.candidate            'candidate os the class'
+
+    That works .. but schema fingerpring no longer matches
+
+        org.apache.avro.message.BadHeaderException: Unrecognized header bytes: 0x4F 0x62
+            at uk.ac.roe.wfau.phymatopus.kafka.tools.ZtfAvroReaderTest.testLoop(ZtfAvroReaderTest.java:82)
+
+
+    Finger print checks are part of the Kafka classes
+    https://github.com/apache/avro/blob/master/lang/java/avro/src/main/java/org/apache/avro/message/BinaryMessageDecoder.java
+
+        /**
+         * A {@link MessageDecoder} that reads a binary-encoded datum. This checks for
+         * the datum header and decodes the payload with the schema that corresponds to
+         * the 8-byte schema fingerprint.
+         * <p>
+         */
+        org.apache.avro.message.BinaryMessageDecoder
+
+
+        /**
+         *
+         * Exception thrown by a MessageDecoder when a message header is not recognized.
+         * This usually indicates that the encoded bytes were not an Avro message.
+         *
+         */
+        org.apache.avro.message.BadHeaderException
+
+
+    Fix #3 - Manually revert the modified schema finger print to match the expected fingerprint.
+    todo ..
+
+
+

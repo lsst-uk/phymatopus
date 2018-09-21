@@ -1,0 +1,214 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2018, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+# -----------------------------------------------------
+# Login to our external VM.
+#[user@desktop]
+
+    ssh Etalema
+
+    # -----------------------------------------------------
+    # Create a container to work with.
+    #[user@virtual]
+
+        docker run \
+            --rm \
+            --tty \
+            --interactive \
+            --hostname openstacker \
+            --env SSH_AUTH_SOCK=/tmp/ssh_auth_sock \
+            --volume "${HOME}/settings/:/etc/phymatopus/" \
+            --volume ${SSH_AUTH_SOCK}:/tmp/ssh_auth_sock \
+            phymatopus/openstack-client \
+            bash
+
+        # -----------------------------------------------------
+        # Load our OpenStack settings.
+        #[root@openstacker]
+
+            source '/etc/phymatopus/openstack.settings'
+
+        # -----------------------------------------------------
+        # Load our OpenStack and Eleanor functions.
+        #[root@openstacker]
+
+            source 'openstack-utils.sh'
+            source 'eleanor-utils.sh'
+            source 'eleanor-init.sh'
+
+        # -----------------------------------------------------
+        # Load our cluster and ZTF settings.
+        #[root@openstacker]
+
+            source '/etc/phymatopus/cluster.settings'
+            source '/etc/phymatopus/ztf.settings'
+
+        # -----------------------------------------------------
+        # Login to our controller and create our cron script.
+        #[root@openstacker]
+
+            ssh ${sshopts[*]} \
+                ${sshuser:?}@${controlip:?}
+
+
+                # -----------------------------------------------------
+                # Create our test script.
+                #[user@control]
+
+                    mkdir -p "${HOME}/bin"
+                    cat > "${HOME}/bin/settopic.sh" << 'EOF'
+
+topicname="ztf_$(date '+%Y%m%d')_programid1"
+
+for mirrorip in $(cat "${HOME}/mmidents.txt")
+    do
+        echo '
+            curl --head --silent "http://data.metagrid.co.uk/settopic/$(hostname -s)/'${topicname}'"
+            docker-compose \
+                --file mirror.yml \
+                down
+            sed -i "
+                s/^topiclist=.*/topiclist='${topicname:?}'/
+                " mirror.env
+            docker-compose \
+                --file mirror.yml \
+                up -d
+            ' \
+        | ssh -q -i "${HOME}/.ssh/control-key" \
+            "$(id -un)@${mirrorip:?}"
+    done
+EOF
+                    chmod a+x "${HOME}/bin/settopic.sh"
+
+                # -----------------------------------------------------
+                # Add our test script to our cron tab.
+                #[user@control]
+
+                    crontab -e
+
+                        4 * * * *	bin/crontest.sh > /dev/null
+                        8 2 * * *	bin/settopic.sh > /dev/null
+
+                # -----------------------------------------------------
+                # Watch the journal log.
+                #[user@control]
+
+                    journalctl -f
+
+# ---------------------------------------------------------------------
+# ---------------------------------------------------------------------
+# Login to our external VM.
+#[user@desktop]
+
+    ssh Etalema
+
+    # -----------------------------------------------------
+    # Create a container to work with.
+    #[user@virtual]
+
+        docker run \
+            --rm \
+            --tty \
+            --interactive \
+            --hostname openstacker \
+            --env SSH_AUTH_SOCK=/tmp/ssh_auth_sock \
+            --volume "${HOME}/settings/:/etc/phymatopus/" \
+            --volume ${SSH_AUTH_SOCK}:/tmp/ssh_auth_sock \
+            phymatopus/openstack-client \
+            bash
+
+        # -----------------------------------------------------
+        # Load our OpenStack settings.
+        #[root@openstacker]
+
+            source '/etc/phymatopus/openstack.settings'
+
+        # -----------------------------------------------------
+        # Load our OpenStack and Eleanor functions.
+        #[root@openstacker]
+
+            source 'openstack-utils.sh'
+            source 'eleanor-utils.sh'
+            source 'eleanor-init.sh'
+
+        # -----------------------------------------------------
+        # Load our cluster and ZTF settings.
+        #[root@openstacker]
+
+            source '/etc/phymatopus/cluster.settings'
+            source '/etc/phymatopus/ztf.settings'
+
+        # -----------------------------------------------------
+        # Login to our controller.
+        #[root@openstacker]
+
+            ssh ${sshopts[*]} \
+                ${sshuser:?}@${controlip:?}
+
+                # -----------------------------------------------------
+                # Check the mirror node topics.
+                #[user@control]
+
+                    for mirrorip in $(cat "${HOME}/mmidents.txt")
+                        do
+                            echo '
+                                echo ""
+                                echo "Mirror [$(hostname -s)]"
+                                cat mirror.env
+                                ' \
+                            | ssh -q -i "${HOME}/.ssh/control-key" \
+                                "$(id -un)@${mirrorip:?}"
+                        done
+
+                # -----------------------------------------------------
+                # Reset the mirror node topics.
+                #[user@control]
+
+                    for mirrorip in $(cat "${HOME}/mmidents.txt")
+                        do
+                            echo '
+                                echo ""
+                                echo "Mirror [$(hostname -s)]"
+                                sed -i "
+                                    s/^topiclist=.*/topiclist=unknown/
+                                    " mirror.env
+                                cat mirror.env
+                                ' \
+                            | ssh -q -i "${HOME}/.ssh/control-key" \
+                                "$(id -un)@${mirrorip:?}"
+                        done
+
+                # -----------------------------------------------------
+                # Login to one mirror node.
+                #[user@control]
+
+                    mirrorip=$(head -n 1 mmidents.txt)
+                    ssh -q -i "${HOME}/.ssh/control-key" \
+                            "$(id -un)@${mirrorip:?}"
+
+                        # -----------------------------------------------------
+                        # Watch the journal log.
+                        #[user@control]
+
+                            journalctl -f
+
+

@@ -1,0 +1,208 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2018, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+    Tests to see if the LSST alert messages contain a copy of the schema ....
+    
+# -----------------------------------------------------
+# Create a new VM.
+#[user@trop03]
+
+    createvm
+
+        INFO : Node name [Umiawyth]
+        INFO : Base name [fedora-28-docker-base-20180708.qcow]
+        INFO : Base path [/var/lib/libvirt/images/base/fedora-28-docker-base-20180708.qcow]
+        INFO : Disc name [Umiawyth.qcow]
+        INFO : Disc size [16GiB]
+
+        INFO : MAC  [52:54:00:02:03:08]
+        INFO : IPv4 [192.168.203.8]
+        INFO : IPv6 []
+    
+# -----------------------------------------------------
+# Login to the new VM.
+#[user@trop03]
+
+    ssh Umiawyth
+
+# -----------------------------------------------------
+# Download a copy of the lsst-dm/alert_stream sorce code.
+#[user@Umiawyth]
+
+        git clone 'https://github.com/lsst-dm/alert_stream.git'
+
+# -----------------------------------------------------
+# Run the docker compose set to create Kafka and Zookeper.
+#[user@Umiawyth]
+
+        pushd alert_stream
+
+            docker-compose up -d
+
+        popd
+
+# -----------------------------------------------------
+# List the running containers.
+#[user@Umiawyth]
+
+    docker ps
+
+        CONTAINER ID        IMAGE                             COMMAND                  CREATED             STATUS              PORTS                                                    NAMES
+        d4b9e945ff7a        confluentinc/cp-kafka:4.1.1       "/etc/confluent/dock…"   10 seconds ago      Up 6 seconds        0.0.0.0:32769->9092/tcp                                  alert_stream_kafka_1
+        c0a4d075139c        confluentinc/cp-zookeeper:4.1.1   "/etc/confluent/dock…"   14 seconds ago      Up 10 seconds       2181/tcp, 2888/tcp, 3888/tcp, 0.0.0.0:32768->32181/tcp   alert_stream_zookeeper_1
+
+# -----------------------------------------------------
+# Build the alert_stream image.
+#[user@Umiawyth]
+
+        pushd alert_stream
+
+            docker build -t "alert_stream" .
+
+        popd
+
+# -----------------------------------------------------
+# Send some alerts to Kafka.
+#[user@Umiawyth]
+
+    docker run -it --rm \
+        --network=alert_stream_default \
+        -v $(pwd)/alert_stream/data:/home/alert_stream/data:ro \
+        alert_stream python \
+            bin/sendAlertStream.py \
+                'kafka:9092' 'my-stream'
+
+# The example in README.md has a typo.
+# docker: Error response from daemon: network alertstream_default not found.
+
+# Python error after a few seconds .....
+
+    visit: 1574. 	time: 1537540407.0316324
+    Task exception was never retrieved
+    future: <Task finished coro=<schedule_delays() done, defined at bin/sendAlertStream.py:29> exception=ValueError('read length must be positive or -1',)>
+    Traceback (most recent call last):
+      File "bin/sendAlertStream.py", line 46, in schedule_delays
+        yield from asyncio.ensure_future(delay(wait_time, function, arg))
+      File "bin/sendAlertStream.py", line 26, in delay
+        return function(*args)
+      File "bin/sendAlertStream.py", line 81, in send_visit
+        data = avroUtils.readSchemaData(file_data)
+      File "/home/alert_stream/python/lsst/alert/stream/avroUtils.py", line 97, in readSchemaData
+        message = fastavro.reader(bytes_io)
+      File "fastavro/_read.pyx", line 688, in fastavro._read.reader.__init__
+      File "fastavro/_read.pyx", line 654, in fastavro._read.file_reader.__init__
+      File "fastavro/_read.pyx", line 539, in fastavro._read._read_data
+      File "fastavro/_read.pyx", line 451, in fastavro._read.read_record
+      File "fastavro/_read.pyx", line 535, in fastavro._read._read_data
+      File "fastavro/_read.pyx", line 399, in fastavro._read.read_map
+      File "fastavro/_read.pyx", line 527, in fastavro._read._read_data
+      File "fastavro/_read.pyx", line 299, in fastavro._read.read_bytes
+    ValueError: read length must be positive or -1
+    ^CTraceback (most recent call last):
+      File "bin/sendAlertStream.py", line 100, in <module>
+        main()
+      File "bin/sendAlertStream.py", line 95, in main
+        loop.run_forever()
+      File "/usr/local/lib/python3.6/asyncio/base_events.py", line 422, in run_forever
+        self._run_once()
+      File "/usr/local/lib/python3.6/asyncio/base_events.py", line 1398, in _run_once
+        event_list = self._selector.select(timeout)
+      File "/usr/local/lib/python3.6/selectors.py", line 445, in select
+        fd_event_list = self._epoll.poll(timeout, max_ev)
+
+
+# -----------------------------------------------------
+# Login in another terminal.
+#[user@trop03]
+
+    ssh Umiawyth
+
+# -----------------------------------------------------
+# Filter the alerts and send the results to new topics.
+#[user@Umiawyth]
+
+    docker run -it --rm \
+        --network=alert_stream_default \
+        alert_stream python \
+            bin/filterStream.py \
+                'kafka:9092' 'my-stream' 1 5
+
+# -----------------------------------------------------
+# Login in another terminal.
+#[user@trop03]
+
+    ssh Umiawyth
+
+# -----------------------------------------------------
+# Check the number of results in the 'Filter005' topic.
+#[user@Umiawyth]
+
+    docker run -it --rm \
+        --network=alert_stream_default \
+        alert_stream python \
+            bin/monitorStream.py \
+                'kafka:9092' 'Filter005'
+
+# No results in the topic .. ?
+
+# -----------------------------------------------------
+# Print the results from the 'Filter005' topic.
+#[user@Umiawyth]
+
+    docker run -it --rm \
+        --network=alert_stream_default \
+        alert_stream python \
+            bin/printStream.py \
+                'kafka:9092' 'Filter005' '1'
+
+
+# The example in README.md has a missing param.
+# printStream.py: error: the following arguments are required: interval
+
+# No results in the topic .. ?
+
+# -----------------------------------------------------
+# Shutdown the Kafka and Zookeper containers.
+#[user@Umiawyth]
+
+        pushd alert_stream
+
+            docker-compose down
+
+        popd
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

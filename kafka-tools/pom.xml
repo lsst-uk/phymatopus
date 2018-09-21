@@ -75,7 +75,7 @@
 		<connection>scm:git:git://github.com/Zarquan/phymatopus.git</connection>
 		<developerConnection>scm:git:git@github.com:Zarquan/phymatopus.git</developerConnection>
 	</scm>
-        
+
     <properties>
 
         <firethorn.version>2.1.15</firethorn.version>
@@ -105,6 +105,12 @@
             | Docker container tag.
             +-->
         <docker.buildtag>${project.version}</docker.buildtag>
+
+        <!--+
+            | Avro version.
+            +-->
+        <avro.version>1.8.2</avro.version>
+        <confluent.version>5.0.0</confluent.version>
 
     </properties>
 
@@ -198,7 +204,7 @@
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
-            <version>1.16.18</version>
+            <version>1.18.2</version>
         </dependency>
 
         <!--+
@@ -221,7 +227,7 @@
         <dependency>
             <groupId>joda-time</groupId>
             <artifactId>joda-time</artifactId>
-            <version>2.9.9</version>
+            <version>2.10</version>
         </dependency>
 
         <!--+
@@ -230,7 +236,7 @@
         <dependency>
             <groupId>org.apache.kafka</groupId>
             <artifactId>kafka-clients</artifactId>
-            <version>1.0.1</version>
+            <version>2.0.0</version>
         </dependency>
 
         <!--+
@@ -239,16 +245,36 @@
         <dependency>
             <groupId>org.apache.avro</groupId>
             <artifactId>avro</artifactId>
-            <version>1.8.2</version>
+            <version>${avro.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.avro</groupId>
+            <artifactId>avro-maven-plugin</artifactId>
+            <version>${avro.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.avro</groupId>
+            <artifactId>avro-compiler</artifactId>
+            <version>${avro.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.avro</groupId>
+            <artifactId>avro-ipc</artifactId>
+            <version>${avro.version}</version>
         </dependency>
 
         <!--+
             | Kafka Avro serialization.
+        <dependency>
+            <groupId>io.confluent</groupId>
+            <artifactId>kafka-serializers</artifactId>
+            <version>${confluent.version}</version>
+        </dependency>
             +-->
         <dependency>
             <groupId>io.confluent</groupId>
             <artifactId>kafka-avro-serializer</artifactId>
-            <version>3.2.1</version>
+            <version>${confluent.version}</version>
         </dependency>
 
         <!--+
@@ -266,6 +292,10 @@
     <build>
 
         <resources>
+
+            <!--+
+                | Project metadata.
+                +-->
     		<resource>
     			<directory>${basedir}/src/main/meta</directory>
                 <filtering>true</filtering>
@@ -274,6 +304,18 @@
                     <include>*.xml</include>
                 </includes>
     		</resource>
+
+            <!--+
+                | Avro schema.
+    		<resource>
+    			<directory>${basedir}/src/main/avro</directory>
+                <filtering>true</filtering>
+                <includes>
+                    <include>*.avsc</include>
+                </includes>
+    		</resource>
+                +-->
+
         </resources>
 
         <testResources>
@@ -292,12 +334,12 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-clean-plugin</artifactId>
-                <version>3.0.0</version>
+                <version>3.1.0</version>
             </plugin>
 
             <plugin>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.7.0</version>
+                <version>3.8.0</version>
                 <configuration>
                     <source>${project.javaversion}</source>
                     <target>${project.javaversion}</target>
@@ -314,7 +356,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-resources-plugin</artifactId>
-                <version>3.0.2</version>
+                <version>3.1.0</version>
                 <configuration>
                     <encoding>UTF-8</encoding>
                 </configuration>
@@ -334,7 +376,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-jar-plugin</artifactId>
-                <version>3.0.2</version>
+                <version>3.1.0</version>
                 <configuration>
                     <archive>
                         <manifest>
@@ -347,7 +389,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-war-plugin</artifactId>
-                <version>3.2.0</version>
+                <version>3.2.2</version>
                 <configuration>
                     <archiveClasses>true</archiveClasses>
                     <archive>
@@ -367,12 +409,12 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-dependency-plugin</artifactId>
-                <version>3.0.2</version>
+                <version>3.1.1</version>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>2.20.1</version>
+                <version>2.22.0</version>
             </plugin>
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
@@ -392,6 +434,8 @@
                 </executions>
             </plugin>
 
+            <!--+
+                |
             <plugin>
                 <groupId>org.basepom.maven</groupId>
                 <artifactId>duplicate-finder-maven-plugin</artifactId>
@@ -421,6 +465,7 @@
                     <resultFile>${project.build.directory}/duplicate-finder-result.xml</resultFile>
                 </configuration>
             </plugin>
+                +-->
 
             <!--+
                 | Maven Docker plugin.
@@ -436,6 +481,31 @@
                     <removeIntermediateImages>true</removeIntermediateImages>
                     <cache>true</cache>
                 </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.avro</groupId>
+                <artifactId>avro-maven-plugin</artifactId>
+                <version>${avro.version}</version>
+                <executions>
+                    <execution>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>schema</goal>
+                        </goals>
+                        <configuration>
+                            <sourceDirectory>${project.basedir}/src/main/avro</sourceDirectory>
+                            <outputDirectory>${project.build.directory}/generated-sources</outputDirectory>
+                            <includes>
+                                <!--include>**/*.avsc</include-->
+                                <include>*combined.avsc</include>
+                            </includes>
+                            <!--imports>
+                                <import>candidate.avsc</import>
+                            </imports-->
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
 
         </plugins>

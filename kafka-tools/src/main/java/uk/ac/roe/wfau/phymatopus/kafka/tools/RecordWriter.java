@@ -32,8 +32,6 @@ import org.apache.avro.SchemaBuilder ;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecordBuilder;
 import org.apache.kafka.common.serialization.LongSerializer;
-import org.apache.kafka.common.serialization.StringSerializer;
-
 import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import io.confluent.kafka.serializers.KafkaAvroSerializer;
@@ -45,7 +43,7 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 public class RecordWriter
-extends BaseWriter
+extends BaseClient
     {
 
     /**
@@ -59,10 +57,6 @@ extends BaseWriter
             topic
             );
         }
-
-
-    
-    
     
     /**
      * Create our {@link Producer}. 
@@ -115,7 +109,7 @@ extends BaseWriter
         }
 
     /**
-     * Create a new Avro {@link Record}.
+     * Create a new Avro {@link GenericData.Record}.
      * 
      */
     protected GenericData.Record record()
