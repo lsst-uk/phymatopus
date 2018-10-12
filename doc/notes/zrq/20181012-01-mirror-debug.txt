@@ -1,0 +1,727 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2018, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+# -----------------------------------------------------
+# Login to our external VM.
+#[user@desktop]
+
+    ssh Etalema
+
+    # -----------------------------------------------------
+    # Create a container to work with.
+    #[user@virtual]
+
+        docker run \
+            --rm \
+            --tty \
+            --interactive \
+            --hostname openstacker \
+            --env SSH_AUTH_SOCK=/tmp/ssh_auth_sock \
+            --volume "${HOME}/settings/:/etc/phymatopus/" \
+            --volume ${SSH_AUTH_SOCK}:/tmp/ssh_auth_sock \
+            phymatopus/openstack-client \
+            bash
+
+        # -----------------------------------------------------
+        # Load our OpenStack settings.
+        #[root@openstacker]
+
+            source '/etc/phymatopus/openstack.settings'
+
+        # -----------------------------------------------------
+        # Load our OpenStack and Eleanor functions.
+        #[root@openstacker]
+
+            source 'openstack-utils.sh'
+            source 'eleanor-utils.sh'
+            source 'eleanor-init.sh'
+
+        # -----------------------------------------------------
+        # Load our cluster and ZTF settings.
+        #[root@openstacker]
+
+            source '/etc/phymatopus/cluster.settings'
+            source '/etc/phymatopus/ztf.settings'
+
+        # -----------------------------------------------------
+        # Configure our ssh proxy command.
+        #[root@openstacker]
+
+            sshproxy="ssh ${sshopts[*]} ${sshuser:?}@${controlip:?} nc %h %p"
+
+        # -----------------------------------------------------
+        # Build a list of ROE Kafka nodes.
+        #[root@openstacker]
+
+            delim=''
+            port='9092'
+            roeconnect=''
+
+            for address in $(cat /etc/phymatopus/kfidents.txt)
+            do
+                roeconnect="${roeconnect}${delim}${address}:${port}"
+                delim=','
+            done
+
+            echo "Kafka brokers [${roeconnect}]"
+
+                Kafka brokers [172.16.49.217:9092,172.16.49.214:9092,172.16.49.12:9092,172.16.49.208:9092]
+
+        # -----------------------------------------------------
+        # Check the offsets in the ZTF brokers.
+        #[root@openstacker]
+
+            brokers=${ztfconnect:?}
+
+cat > topics.txt << EOF
+ztf_20181010_programid1
+ztf_20181011_programid1
+ztf_20181012_programid1
+EOF
+
+            for topicid in $(cat topics.txt)
+            do
+                echo "--------------------"
+                echo "Topic [${topicid:?}]"
+
+                if [[ "${topicid:?}" =~ ^ztf_[0-9]{8}_programid1$ ]]
+                then
+                    echo "
+                        docker run --rm phymatopus/kafka-core \
+                            bin/kafka-run-class.sh kafka.tools.GetOffsetShell \
+                                --broker-list "${brokers:?}" \
+                                --topic "${topicid:?}" \
+                                --time -1
+
+                        docker run --rm phymatopus/kafka-core \
+                            bin/kafka-run-class.sh kafka.tools.GetOffsetShell \
+                                --broker-list "${brokers:?}" \
+                                --topic "${topicid:?}" \
+                                --time -2
+                        " \
+                    | ssh \
+                        ${sshopts[*]} \
+                        ${sshuser:?}@${controlip:?} | sort
+                else
+                    echo "Skipping topic"
+                fi
+            done
+
+                --------------------
+                Topic [ztf_20181010_programid1]
+                ztf_20181010_programid1:0:0
+                ztf_20181010_programid1:0:0
+                ztf_20181010_programid1:10:0
+                ztf_20181010_programid1:10:0
+                ztf_20181010_programid1:11:0
+                ztf_20181010_programid1:11:0
+                ztf_20181010_programid1:12:0
+                ztf_20181010_programid1:12:0
+                ztf_20181010_programid1:13:0
+                ztf_20181010_programid1:13:0
+                ztf_20181010_programid1:1:0
+                ztf_20181010_programid1:1:0
+                ztf_20181010_programid1:2:0
+                ztf_20181010_programid1:2:0
+                ztf_20181010_programid1:3:0
+                ztf_20181010_programid1:3:0
+                ztf_20181010_programid1:4:0
+                ztf_20181010_programid1:4:0
+                ztf_20181010_programid1:5:0
+                ztf_20181010_programid1:5:0
+                ztf_20181010_programid1:6:0
+                ztf_20181010_programid1:6:0
+                ztf_20181010_programid1:7:0
+                ztf_20181010_programid1:7:0
+                ztf_20181010_programid1:8:0
+                ztf_20181010_programid1:8:0
+                ztf_20181010_programid1:9:0
+                ztf_20181010_programid1:9:0
+                --------------------
+                Topic [ztf_20181011_programid1]
+                ztf_20181011_programid1:0:0
+                ztf_20181011_programid1:0:0
+                ztf_20181011_programid1:10:0
+                ztf_20181011_programid1:10:0
+                ztf_20181011_programid1:11:0
+                ztf_20181011_programid1:11:0
+                ztf_20181011_programid1:12:0
+                ztf_20181011_programid1:12:0
+                ztf_20181011_programid1:13:0
+                ztf_20181011_programid1:13:0
+                ztf_20181011_programid1:1:0
+                ztf_20181011_programid1:1:0
+                ztf_20181011_programid1:2:0
+                ztf_20181011_programid1:2:0
+                ztf_20181011_programid1:3:0
+                ztf_20181011_programid1:3:0
+                ztf_20181011_programid1:4:0
+                ztf_20181011_programid1:4:0
+                ztf_20181011_programid1:5:0
+                ztf_20181011_programid1:5:0
+                ztf_20181011_programid1:6:0
+                ztf_20181011_programid1:6:0
+                ztf_20181011_programid1:7:0
+                ztf_20181011_programid1:7:0
+                ztf_20181011_programid1:8:0
+                ztf_20181011_programid1:8:0
+                ztf_20181011_programid1:9:0
+                ztf_20181011_programid1:9:0
+                --------------------
+                Topic [ztf_20181012_programid1]
+                ztf_20181012_programid1:0:0
+                ztf_20181012_programid1:0:0
+                ztf_20181012_programid1:10:0
+                ztf_20181012_programid1:10:0
+                ztf_20181012_programid1:11:0
+                ztf_20181012_programid1:11:0
+                ztf_20181012_programid1:12:0
+                ztf_20181012_programid1:12:0
+                ztf_20181012_programid1:13:0
+                ztf_20181012_programid1:13:0
+                ztf_20181012_programid1:1:0
+                ztf_20181012_programid1:1:0
+                ztf_20181012_programid1:2:0
+                ztf_20181012_programid1:2:0
+                ztf_20181012_programid1:3:0
+                ztf_20181012_programid1:3:0
+                ztf_20181012_programid1:4:0
+                ztf_20181012_programid1:4:0
+                ztf_20181012_programid1:5:0
+                ztf_20181012_programid1:5:0
+                ztf_20181012_programid1:6:0
+                ztf_20181012_programid1:6:0
+                ztf_20181012_programid1:7:0
+                ztf_20181012_programid1:7:0
+                ztf_20181012_programid1:8:0
+                ztf_20181012_programid1:8:0
+                ztf_20181012_programid1:9:0
+                ztf_20181012_programid1:9:0
+
+        # -----------------------------------------------------
+        # Check the offsets in the ROE brokers.
+        #[root@openstacker]
+
+            brokers=${roeconnect:?}
+
+            for topicid in $(cat topics.txt)
+            do
+                echo "--------------------"
+                echo "Topic [${topicid:?}]"
+
+                if [[ "${topicid:?}" =~ ^ztf_[0-9]{8}_programid1$ ]]
+                then
+                    echo "
+                        docker run --rm phymatopus/kafka-core \
+                            bin/kafka-run-class.sh kafka.tools.GetOffsetShell \
+                                --broker-list "${brokers:?}" \
+                                --topic "${topicid:?}" \
+                                --time -1
+
+                        docker run --rm phymatopus/kafka-core \
+                            bin/kafka-run-class.sh kafka.tools.GetOffsetShell \
+                                --broker-list "${brokers:?}" \
+                                --topic "${topicid:?}" \
+                                --time -2
+                        " \
+                    | ssh \
+                        ${sshopts[*]} \
+                        ${sshuser:?}@${controlip:?} | sort
+
+                else
+                    echo "Skipping topic"
+                fi
+            done
+
+            --------------------
+            Topic [ztf_20181010_programid1]
+            [2018-10-12 10:35:30,954] WARN Fetching topic metadata with correlation id 0 for topics [Set(ztf_20181010_programid1)] from broker [BrokerEndPoint(1,192.168.1.8,9092)] failed (kafka.client.ClientUtils$)
+            java.net.SocketTimeoutException
+	            at sun.nio.ch.SocketAdaptor$SocketInputStream.read(SocketAdaptor.java:211)
+	            at sun.nio.ch.ChannelInputStream.read(ChannelInputStream.java:103)
+	            at java.nio.channels.Channels$ReadableByteChannelImpl.read(Channels.java:385)
+	            at org.apache.kafka.common.network.NetworkReceive.readFromReadableChannel(NetworkReceive.java:122)
+	            at kafka.network.BlockingChannel.readCompletely(BlockingChannel.scala:131)
+	            at kafka.network.BlockingChannel.receive(BlockingChannel.scala:122)
+	            at kafka.producer.SyncProducer.liftedTree1$1(SyncProducer.scala:82)
+	            at kafka.producer.SyncProducer.kafka$producer$SyncProducer$$doSend(SyncProducer.scala:79)
+	            at kafka.producer.SyncProducer.send(SyncProducer.scala:124)
+	            at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:63)
+	            at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:98)
+	            at kafka.tools.GetOffsetShell$.main(GetOffsetShell.scala:79)
+	            at kafka.tools.GetOffsetShell.main(GetOffsetShell.scala)
+            [2018-10-12 10:35:31,986] WARN Fetching topic metadata with correlation id 0 for topics [Set(ztf_20181010_programid1)] from broker [BrokerEndPoint(0,192.168.1.5,9092)] failed (kafka.client.ClientUtils$)
+            java.net.SocketTimeoutException
+	            at sun.nio.ch.SocketAdaptor$SocketInputStream.read(SocketAdaptor.java:211)
+	            at sun.nio.ch.ChannelInputStream.read(ChannelInputStream.java:103)
+	            at java.nio.channels.Channels$ReadableByteChannelImpl.read(Channels.java:385)
+	            at org.apache.kafka.common.network.NetworkReceive.readFromReadableChannel(NetworkReceive.java:122)
+	            at kafka.network.BlockingChannel.readCompletely(BlockingChannel.scala:131)
+	            at kafka.network.BlockingChannel.receive(BlockingChannel.scala:122)
+	            at kafka.producer.SyncProducer.liftedTree1$1(SyncProducer.scala:82)
+	            at kafka.producer.SyncProducer.kafka$producer$SyncProducer$$doSend(SyncProducer.scala:79)
+	            at kafka.producer.SyncProducer.send(SyncProducer.scala:124)
+	            at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:63)
+	            at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:98)
+	            at kafka.tools.GetOffsetShell$.main(GetOffsetShell.scala:79)
+	            at kafka.tools.GetOffsetShell.main(GetOffsetShell.scala)
+            [2018-10-12 10:35:32,994] WARN Fetching topic metadata with correlation id 0 for topics [Set(ztf_20181010_programid1)] from broker [BrokerEndPoint(3,192.168.1.10,9092)] failed (kafka.client.ClientUtils$)
+            java.net.SocketTimeoutException
+	            at sun.nio.ch.SocketAdaptor$SocketInputStream.read(SocketAdaptor.java:211)
+	            at sun.nio.ch.ChannelInputStream.read(ChannelInputStream.java:103)
+	            at java.nio.channels.Channels$ReadableByteChannelImpl.read(Channels.java:385)
+	            at org.apache.kafka.common.network.NetworkReceive.readFromReadableChannel(NetworkReceive.java:122)
+	            at kafka.network.BlockingChannel.readCompletely(BlockingChannel.scala:131)
+	            at kafka.network.BlockingChannel.receive(BlockingChannel.scala:122)
+	            at kafka.producer.SyncProducer.liftedTree1$1(SyncProducer.scala:82)
+	            at kafka.producer.SyncProducer.kafka$producer$SyncProducer$$doSend(SyncProducer.scala:79)
+	            at kafka.producer.SyncProducer.send(SyncProducer.scala:124)
+	            at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:63)
+	            at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:98)
+	            at kafka.tools.GetOffsetShell$.main(GetOffsetShell.scala:79)
+	            at kafka.tools.GetOffsetShell.main(GetOffsetShell.scala)
+            [2018-10-12 10:35:34,002] WARN Fetching topic metadata with correlation id 0 for topics [Set(ztf_20181010_programid1)] from broker [BrokerEndPoint(2,192.168.1.15,9092)] failed (kafka.client.ClientUtils$)
+            java.net.SocketTimeoutException
+	            at sun.nio.ch.SocketAdaptor$SocketInputStream.read(SocketAdaptor.java:211)
+	            at sun.nio.ch.ChannelInputStream.read(ChannelInputStream.java:103)
+	            at java.nio.channels.Channels$ReadableByteChannelImpl.read(Channels.java:385)
+	            at org.apache.kafka.common.network.NetworkReceive.readFromReadableChannel(NetworkReceive.java:122)
+	            at kafka.network.BlockingChannel.readCompletely(BlockingChannel.scala:131)
+	            at kafka.network.BlockingChannel.receive(BlockingChannel.scala:122)
+	            at kafka.producer.SyncProducer.liftedTree1$1(SyncProducer.scala:82)
+	            at kafka.producer.SyncProducer.kafka$producer$SyncProducer$$doSend(SyncProducer.scala:79)
+	            at kafka.producer.SyncProducer.send(SyncProducer.scala:124)
+	            at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:63)
+	            at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:98)
+	            at kafka.tools.GetOffsetShell$.main(GetOffsetShell.scala:79)
+	            at kafka.tools.GetOffsetShell.main(GetOffsetShell.scala)
+            Exception in thread "main" kafka.common.KafkaException: fetching topic metadata for topics [Set(ztf_20181010_programid1)] from broker [ArrayBuffer(BrokerEndPoint(1,192.168.1.8,9092), BrokerEndPoint(0,192.168.1.5,9092), BrokerEndPoint(3,192.168.1.10,9092), BrokerEndPoint(2,192.168.1.15,9092))] failed
+	            at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:77)
+	            at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:98)
+	            at kafka.tools.GetOffsetShell$.main(GetOffsetShell.scala:79)
+	            at kafka.tools.GetOffsetShell.main(GetOffsetShell.scala)
+            Caused by: java.net.SocketTimeoutException
+	            at sun.nio.ch.SocketAdaptor$SocketInputStream.read(SocketAdaptor.java:211)
+	            at sun.nio.ch.ChannelInputStream.read(ChannelInputStream.java:103)
+	            at java.nio.channels.Channels$ReadableByteChannelImpl.read(Channels.java:385)
+	            at org.apache.kafka.common.network.NetworkReceive.readFromReadableChannel(NetworkReceive.java:122)
+	            at kafka.network.BlockingChannel.readCompletely(BlockingChannel.scala:131)
+	            at kafka.network.BlockingChannel.receive(BlockingChannel.scala:122)
+	            at kafka.producer.SyncProducer.liftedTree1$1(SyncProducer.scala:82)
+	            at kafka.producer.SyncProducer.kafka$producer$SyncProducer$$doSend(SyncProducer.scala:79)
+	            at kafka.producer.SyncProducer.send(SyncProducer.scala:124)
+	            at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:63)
+	            ... 3 more
+            [2018-10-12 10:35:40,588] WARN Fetching topic metadata with correlation id 0 for topics [Set(ztf_20181010_programid1)] from broker [BrokerEndPoint(3,192.168.1.10,9092)] failed (kafka.client.ClientUtils$)
+            java.net.SocketTimeoutException
+	            at sun.nio.ch.SocketAdaptor$SocketInputStream.read(SocketAdaptor.java:211)
+	            at sun.nio.ch.ChannelInputStream.read(ChannelInputStream.java:103)
+	            at java.nio.channels.Channels$ReadableByteChannelImpl.read(Channels.java:385)
+	            at org.apache.kafka.common.network.NetworkReceive.readFromReadableChannel(NetworkReceive.java:122)
+	            at kafka.network.BlockingChannel.readCompletely(BlockingChannel.scala:131)
+	            at kafka.network.BlockingChannel.receive(BlockingChannel.scala:122)
+	            at kafka.producer.SyncProducer.liftedTree1$1(SyncProducer.scala:82)
+	            at kafka.producer.SyncProducer.kafka$producer$SyncProducer$$doSend(SyncProducer.scala:79)
+	            at kafka.producer.SyncProducer.send(SyncProducer.scala:124)
+	            at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:63)
+	            at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:98)
+	            at kafka.tools.GetOffsetShell$.main(GetOffsetShell.scala:79)
+	            at kafka.tools.GetOffsetShell.main(GetOffsetShell.scala)
+            [2018-10-12 10:35:41,605] WARN Fetching topic metadata with correlation id 0 for topics [Set(ztf_20181010_programid1)] from broker [BrokerEndPoint(0,192.168.1.5,9092)] failed (kafka.client.ClientUtils$)
+            java.net.SocketTimeoutException
+	            at sun.nio.ch.SocketAdaptor$SocketInputStream.read(SocketAdaptor.java:211)
+	            at sun.nio.ch.ChannelInputStream.read(ChannelInputStream.java:103)
+	            at java.nio.channels.Channels$ReadableByteChannelImpl.read(Channels.java:385)
+	            at org.apache.kafka.common.network.NetworkReceive.readFromReadableChannel(NetworkReceive.java:122)
+	            at kafka.network.BlockingChannel.readCompletely(BlockingChannel.scala:131)
+	            at kafka.network.BlockingChannel.receive(BlockingChannel.scala:122)
+	            at kafka.producer.SyncProducer.liftedTree1$1(SyncProducer.scala:82)
+	            at kafka.producer.SyncProducer.kafka$producer$SyncProducer$$doSend(SyncProducer.scala:79)
+	            at kafka.producer.SyncProducer.send(SyncProducer.scala:124)
+	            at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:63)
+	            at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:98)
+	            at kafka.tools.GetOffsetShell$.main(GetOffsetShell.scala:79)
+	            at kafka.tools.GetOffsetShell.main(GetOffsetShell.scala)
+            [2018-10-12 10:35:42,614] WARN Fetching topic metadata with correlation id 0 for topics [Set(ztf_20181010_programid1)] from broker [BrokerEndPoint(1,192.168.1.8,9092)] failed (kafka.client.ClientUtils$)
+            java.net.SocketTimeoutException
+	            at sun.nio.ch.SocketAdaptor$SocketInputStream.read(SocketAdaptor.java:211)
+	            at sun.nio.ch.ChannelInputStream.read(ChannelInputStream.java:103)
+	            at java.nio.channels.Channels$ReadableByteChannelImpl.read(Channels.java:385)
+	            at org.apache.kafka.common.network.NetworkReceive.readFromReadableChannel(NetworkReceive.java:122)
+	            at kafka.network.BlockingChannel.readCompletely(BlockingChannel.scala:131)
+	            at kafka.network.BlockingChannel.receive(BlockingChannel.scala:122)
+	            at kafka.producer.SyncProducer.liftedTree1$1(SyncProducer.scala:82)
+	            at kafka.producer.SyncProducer.kafka$producer$SyncProducer$$doSend(SyncProducer.scala:79)
+	            at kafka.producer.SyncProducer.send(SyncProducer.scala:124)
+	            at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:63)
+	            at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:98)
+	            at kafka.tools.GetOffsetShell$.main(GetOffsetShell.scala:79)
+	            at kafka.tools.GetOffsetShell.main(GetOffsetShell.scala)
+            [2018-10-12 10:35:43,619] WARN Fetching topic metadata with correlation id 0 for topics [Set(ztf_20181010_programid1)] from broker [BrokerEndPoint(2,192.168.1.15,9092)] failed (kafka.client.ClientUtils$)
+            java.net.SocketTimeoutException
+	            at sun.nio.ch.SocketAdaptor$SocketInputStream.read(SocketAdaptor.java:211)
+	            at sun.nio.ch.ChannelInputStream.read(ChannelInputStream.java:103)
+	            at java.nio.channels.Channels$ReadableByteChannelImpl.read(Channels.java:385)
+	            at org.apache.kafka.common.network.NetworkReceive.readFromReadableChannel(NetworkReceive.java:122)
+	            at kafka.network.BlockingChannel.readCompletely(BlockingChannel.scala:131)
+	            at kafka.network.BlockingChannel.receive(BlockingChannel.scala:122)
+	            at kafka.producer.SyncProducer.liftedTree1$1(SyncProducer.scala:82)
+	            at kafka.producer.SyncProducer.kafka$producer$SyncProducer$$doSend(SyncProducer.scala:79)
+	            at kafka.producer.SyncProducer.send(SyncProducer.scala:124)
+	            at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:63)
+	            at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:98)
+	            at kafka.tools.GetOffsetShell$.main(GetOffsetShell.scala:79)
+	            at kafka.tools.GetOffsetShell.main(GetOffsetShell.scala)
+            Exception in thread "main" kafka.common.KafkaException: fetching topic metadata for topics [Set(ztf_20181010_programid1)] from broker [ArrayBuffer(BrokerEndPoint(3,192.168.1.10,9092), BrokerEndPoint(0,192.168.1.5,9092), BrokerEndPoint(1,192.168.1.8,9092), BrokerEndPoint(2,192.168.1.15,9092))] failed
+	            at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:77)
+	            at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:98)
+	            at kafka.tools.GetOffsetShell$.main(GetOffsetShell.scala:79)
+	            at kafka.tools.GetOffsetShell.main(GetOffsetShell.scala)
+            Caused by: java.net.SocketTimeoutException
+	            at sun.nio.ch.SocketAdaptor$SocketInputStream.read(SocketAdaptor.java:211)
+	            at sun.nio.ch.ChannelInputStream.read(ChannelInputStream.java:103)
+	            at java.nio.channels.Channels$ReadableByteChannelImpl.read(Channels.java:385)
+	            at org.apache.kafka.common.network.NetworkReceive.readFromReadableChannel(NetworkReceive.java:122)
+	            at kafka.network.BlockingChannel.readCompletely(BlockingChannel.scala:131)
+	            at kafka.network.BlockingChannel.receive(BlockingChannel.scala:122)
+	            at kafka.producer.SyncProducer.liftedTree1$1(SyncProducer.scala:82)
+	            at kafka.producer.SyncProducer.kafka$producer$SyncProducer$$doSend(SyncProducer.scala:79)
+	            at kafka.producer.SyncProducer.send(SyncProducer.scala:124)
+	            at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:63)
+	            ... 3 more
+            --------------------
+            Topic [ztf_20181011_programid1]
+            [2018-10-12 10:35:51,240] WARN Fetching topic metadata with correlation id 0 for topics [Set(ztf_20181011_programid1)] from broker [BrokerEndPoint(1,192.168.1.8,9092)] failed (kafka.client.ClientUtils$)
+            java.net.SocketTimeoutException
+	            at sun.nio.ch.SocketAdaptor$SocketInputStream.read(SocketAdaptor.java:211)
+	            at sun.nio.ch.ChannelInputStream.read(ChannelInputStream.java:103)
+	            at java.nio.channels.Channels$ReadableByteChannelImpl.read(Channels.java:385)
+	            at org.apache.kafka.common.network.NetworkReceive.readFromReadableChannel(NetworkReceive.java:122)
+	            at kafka.network.BlockingChannel.readCompletely(BlockingChannel.scala:131)
+	            at kafka.network.BlockingChannel.receive(BlockingChannel.scala:122)
+	            at kafka.producer.SyncProducer.liftedTree1$1(SyncProducer.scala:82)
+	            at kafka.producer.SyncProducer.kafka$producer$SyncProducer$$doSend(SyncProducer.scala:79)
+	            at kafka.producer.SyncProducer.send(SyncProducer.scala:124)
+	            at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:63)
+	            at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:98)
+	            at kafka.tools.GetOffsetShell$.main(GetOffsetShell.scala:79)
+	            at kafka.tools.GetOffsetShell.main(GetOffsetShell.scala)
+            [2018-10-12 10:35:52,260] WARN Fetching topic metadata with correlation id 0 for topics [Set(ztf_20181011_programid1)] from broker [BrokerEndPoint(0,192.168.1.5,9092)] failed (kafka.client.ClientUtils$)
+            java.net.SocketTimeoutException
+	            at sun.nio.ch.SocketAdaptor$SocketInputStream.read(SocketAdaptor.java:211)
+	            at sun.nio.ch.ChannelInputStream.read(ChannelInputStream.java:103)
+	            at java.nio.channels.Channels$ReadableByteChannelImpl.read(Channels.java:385)
+	            at org.apache.kafka.common.network.NetworkReceive.readFromReadableChannel(NetworkReceive.java:122)
+	            at kafka.network.BlockingChannel.readCompletely(BlockingChannel.scala:131)
+	            at kafka.network.BlockingChannel.receive(BlockingChannel.scala:122)
+	            at kafka.producer.SyncProducer.liftedTree1$1(SyncProducer.scala:82)
+	            at kafka.producer.SyncProducer.kafka$producer$SyncProducer$$doSend(SyncProducer.scala:79)
+	            at kafka.producer.SyncProducer.send(SyncProducer.scala:124)
+	            at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:63)
+	            at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:98)
+	            at kafka.tools.GetOffsetShell$.main(GetOffsetShell.scala:79)
+	            at kafka.tools.GetOffsetShell.main(GetOffsetShell.scala)
+            [2018-10-12 10:35:53,268] WARN Fetching topic metadata with correlation id 0 for topics [Set(ztf_20181011_programid1)] from broker [BrokerEndPoint(3,192.168.1.10,9092)] failed (kafka.client.ClientUtils$)
+            java.net.SocketTimeoutException
+	            at sun.nio.ch.SocketAdaptor$SocketInputStream.read(SocketAdaptor.java:211)
+	            at sun.nio.ch.ChannelInputStream.read(ChannelInputStream.java:103)
+	            at java.nio.channels.Channels$ReadableByteChannelImpl.read(Channels.java:385)
+	            at org.apache.kafka.common.network.NetworkReceive.readFromReadableChannel(NetworkReceive.java:122)
+	            at kafka.network.BlockingChannel.readCompletely(BlockingChannel.scala:131)
+	            at kafka.network.BlockingChannel.receive(BlockingChannel.scala:122)
+	            at kafka.producer.SyncProducer.liftedTree1$1(SyncProducer.scala:82)
+	            at kafka.producer.SyncProducer.kafka$producer$SyncProducer$$doSend(SyncProducer.scala:79)
+	            at kafka.producer.SyncProducer.send(SyncProducer.scala:124)
+	            at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:63)
+	            at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:98)
+	            at kafka.tools.GetOffsetShell$.main(GetOffsetShell.scala:79)
+	            at kafka.tools.GetOffsetShell.main(GetOffsetShell.scala)
+            [2018-10-12 10:35:54,275] WARN Fetching topic metadata with correlation id 0 for topics [Set(ztf_20181011_programid1)] from broker [BrokerEndPoint(2,192.168.1.15,9092)] failed (kafka.client.ClientUtils$)
+            java.net.SocketTimeoutException
+	            at sun.nio.ch.SocketAdaptor$SocketInputStream.read(SocketAdaptor.java:211)
+	            at sun.nio.ch.ChannelInputStream.read(ChannelInputStream.java:103)
+	            at java.nio.channels.Channels$ReadableByteChannelImpl.read(Channels.java:385)
+	            at org.apache.kafka.common.network.NetworkReceive.readFromReadableChannel(NetworkReceive.java:122)
+	            at kafka.network.BlockingChannel.readCompletely(BlockingChannel.scala:131)
+	            at kafka.network.BlockingChannel.receive(BlockingChannel.scala:122)
+	            at kafka.producer.SyncProducer.liftedTree1$1(SyncProducer.scala:82)
+	            at kafka.producer.SyncProducer.kafka$producer$SyncProducer$$doSend(SyncProducer.scala:79)
+	            at kafka.producer.SyncProducer.send(SyncProducer.scala:124)
+	            at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:63)
+	            at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:98)
+	            at kafka.tools.GetOffsetShell$.main(GetOffsetShell.scala:79)
+	            at kafka.tools.GetOffsetShell.main(GetOffsetShell.scala)
+            Exception in thread "main" kafka.common.KafkaException: fetching topic metadata for topics [Set(ztf_20181011_programid1)] from broker [ArrayBuffer(BrokerEndPoint(1,192.168.1.8,9092), BrokerEndPoint(0,192.168.1.5,9092), BrokerEndPoint(3,192.168.1.10,9092), BrokerEndPoint(2,192.168.1.15,9092))] failed
+	            at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:77)
+	            at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:98)
+	            at kafka.tools.GetOffsetShell$.main(GetOffsetShell.scala:79)
+	            at kafka.tools.GetOffsetShell.main(GetOffsetShell.scala)
+            Caused by: java.net.SocketTimeoutException
+	            at sun.nio.ch.SocketAdaptor$SocketInputStream.read(SocketAdaptor.java:211)
+	            at sun.nio.ch.ChannelInputStream.read(ChannelInputStream.java:103)
+	            at java.nio.channels.Channels$ReadableByteChannelImpl.read(Channels.java:385)
+	            at org.apache.kafka.common.network.NetworkReceive.readFromReadableChannel(NetworkReceive.java:122)
+	            at kafka.network.BlockingChannel.readCompletely(BlockingChannel.scala:131)
+	            at kafka.network.BlockingChannel.receive(BlockingChannel.scala:122)
+	            at kafka.producer.SyncProducer.liftedTree1$1(SyncProducer.scala:82)
+	            at kafka.producer.SyncProducer.kafka$producer$SyncProducer$$doSend(SyncProducer.scala:79)
+	            at kafka.producer.SyncProducer.send(SyncProducer.scala:124)
+	            at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:63)
+	            ... 3 more
+            [2018-10-12 10:36:00,895] WARN Fetching topic metadata with correlation id 0 for topics [Set(ztf_20181011_programid1)] from broker [BrokerEndPoint(1,192.168.1.8,9092)] failed (kafka.client.ClientUtils$)
+            java.net.SocketTimeoutException
+	            at sun.nio.ch.SocketAdaptor$SocketInputStream.read(SocketAdaptor.java:211)
+	            at sun.nio.ch.ChannelInputStream.read(ChannelInputStream.java:103)
+	            at java.nio.channels.Channels$ReadableByteChannelImpl.read(Channels.java:385)
+	            at org.apache.kafka.common.network.NetworkReceive.readFromReadableChannel(NetworkReceive.java:122)
+	            at kafka.network.BlockingChannel.readCompletely(BlockingChannel.scala:131)
+	            at kafka.network.BlockingChannel.receive(BlockingChannel.scala:122)
+	            at kafka.producer.SyncProducer.liftedTree1$1(SyncProducer.scala:82)
+	            at kafka.producer.SyncProducer.kafka$producer$SyncProducer$$doSend(SyncProducer.scala:79)
+	            at kafka.producer.SyncProducer.send(SyncProducer.scala:124)
+	            at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:63)
+	            at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:98)
+	            at kafka.tools.GetOffsetShell$.main(GetOffsetShell.scala:79)
+	            at kafka.tools.GetOffsetShell.main(GetOffsetShell.scala)
+            [2018-10-12 10:36:01,914] WARN Fetching topic metadata with correlation id 0 for topics [Set(ztf_20181011_programid1)] from broker [BrokerEndPoint(2,192.168.1.15,9092)] failed (kafka.client.ClientUtils$)
+            java.net.SocketTimeoutException
+	            at sun.nio.ch.SocketAdaptor$SocketInputStream.read(SocketAdaptor.java:211)
+	            at sun.nio.ch.ChannelInputStream.read(ChannelInputStream.java:103)
+	            at java.nio.channels.Channels$ReadableByteChannelImpl.read(Channels.java:385)
+	            at org.apache.kafka.common.network.NetworkReceive.readFromReadableChannel(NetworkReceive.java:122)
+	            at kafka.network.BlockingChannel.readCompletely(BlockingChannel.scala:131)
+	            at kafka.network.BlockingChannel.receive(BlockingChannel.scala:122)
+	            at kafka.producer.SyncProducer.liftedTree1$1(SyncProducer.scala:82)
+	            at kafka.producer.SyncProducer.kafka$producer$SyncProducer$$doSend(SyncProducer.scala:79)
+	            at kafka.producer.SyncProducer.send(SyncProducer.scala:124)
+	            at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:63)
+	            at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:98)
+	            at kafka.tools.GetOffsetShell$.main(GetOffsetShell.scala:79)
+	            at kafka.tools.GetOffsetShell.main(GetOffsetShell.scala)
+            [2018-10-12 10:36:02,922] WARN Fetching topic metadata with correlation id 0 for topics [Set(ztf_20181011_programid1)] from broker [BrokerEndPoint(0,192.168.1.5,9092)] failed (kafka.client.ClientUtils$)
+            java.net.SocketTimeoutException
+	            at sun.nio.ch.SocketAdaptor$SocketInputStream.read(SocketAdaptor.java:211)
+	            at sun.nio.ch.ChannelInputStream.read(ChannelInputStream.java:103)
+	            at java.nio.channels.Channels$ReadableByteChannelImpl.read(Channels.java:385)
+	            at org.apache.kafka.common.network.NetworkReceive.readFromReadableChannel(NetworkReceive.java:122)
+	            at kafka.network.BlockingChannel.readCompletely(BlockingChannel.scala:131)
+	            at kafka.network.BlockingChannel.receive(BlockingChannel.scala:122)
+	            at kafka.producer.SyncProducer.liftedTree1$1(SyncProducer.scala:82)
+	            at kafka.producer.SyncProducer.kafka$producer$SyncProducer$$doSend(SyncProducer.scala:79)
+	            at kafka.producer.SyncProducer.send(SyncProducer.scala:124)
+	            at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:63)
+	            at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:98)
+	            at kafka.tools.GetOffsetShell$.main(GetOffsetShell.scala:79)
+	            at kafka.tools.GetOffsetShell.main(GetOffsetShell.scala)
+            [2018-10-12 10:36:03,928] WARN Fetching topic metadata with correlation id 0 for topics [Set(ztf_20181011_programid1)] from broker [BrokerEndPoint(3,192.168.1.10,9092)] failed (kafka.client.ClientUtils$)
+            java.net.SocketTimeoutException
+	            at sun.nio.ch.SocketAdaptor$SocketInputStream.read(SocketAdaptor.java:211)
+	            at sun.nio.ch.ChannelInputStream.read(ChannelInputStream.java:103)
+	            at java.nio.channels.Channels$ReadableByteChannelImpl.read(Channels.java:385)
+	            at org.apache.kafka.common.network.NetworkReceive.readFromReadableChannel(NetworkReceive.java:122)
+	            at kafka.network.BlockingChannel.readCompletely(BlockingChannel.scala:131)
+	            at kafka.network.BlockingChannel.receive(BlockingChannel.scala:122)
+	            at kafka.producer.SyncProducer.liftedTree1$1(SyncProducer.scala:82)
+	            at kafka.producer.SyncProducer.kafka$producer$SyncProducer$$doSend(SyncProducer.scala:79)
+	            at kafka.producer.SyncProducer.send(SyncProducer.scala:124)
+	            at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:63)
+	            at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:98)
+	            at kafka.tools.GetOffsetShell$.main(GetOffsetShell.scala:79)
+	            at kafka.tools.GetOffsetShell.main(GetOffsetShell.scala)
+            Exception in thread "main" kafka.common.KafkaException: fetching topic metadata for topics [Set(ztf_20181011_programid1)] from broker [ArrayBuffer(BrokerEndPoint(1,192.168.1.8,9092), BrokerEndPoint(2,192.168.1.15,9092), BrokerEndPoint(0,192.168.1.5,9092), BrokerEndPoint(3,192.168.1.10,9092))] failed
+	            at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:77)
+	            at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:98)
+	            at kafka.tools.GetOffsetShell$.main(GetOffsetShell.scala:79)
+	            at kafka.tools.GetOffsetShell.main(GetOffsetShell.scala)
+            Caused by: java.net.SocketTimeoutException
+	            at sun.nio.ch.SocketAdaptor$SocketInputStream.read(SocketAdaptor.java:211)
+	            at sun.nio.ch.ChannelInputStream.read(ChannelInputStream.java:103)
+	            at java.nio.channels.Channels$ReadableByteChannelImpl.read(Channels.java:385)
+	            at org.apache.kafka.common.network.NetworkReceive.readFromReadableChannel(NetworkReceive.java:122)
+	            at kafka.network.BlockingChannel.readCompletely(BlockingChannel.scala:131)
+	            at kafka.network.BlockingChannel.receive(BlockingChannel.scala:122)
+	            at kafka.producer.SyncProducer.liftedTree1$1(SyncProducer.scala:82)
+	            at kafka.producer.SyncProducer.kafka$producer$SyncProducer$$doSend(SyncProducer.scala:79)
+	            at kafka.producer.SyncProducer.send(SyncProducer.scala:124)
+	            at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:63)
+	            ... 3 more
+            --------------------
+            Topic [ztf_20181012_programid1]
+            [2018-10-12 10:36:11,110] WARN Fetching topic metadata with correlation id 0 for topics [Set(ztf_20181012_programid1)] from broker [BrokerEndPoint(2,192.168.1.15,9092)] failed (kafka.client.ClientUtils$)
+            java.net.SocketTimeoutException
+	            at sun.nio.ch.SocketAdaptor$SocketInputStream.read(SocketAdaptor.java:211)
+	            at sun.nio.ch.ChannelInputStream.read(ChannelInputStream.java:103)
+	            at java.nio.channels.Channels$ReadableByteChannelImpl.read(Channels.java:385)
+	            at org.apache.kafka.common.network.NetworkReceive.readFromReadableChannel(NetworkReceive.java:122)
+	            at kafka.network.BlockingChannel.readCompletely(BlockingChannel.scala:131)
+	            at kafka.network.BlockingChannel.receive(BlockingChannel.scala:122)
+	            at kafka.producer.SyncProducer.liftedTree1$1(SyncProducer.scala:82)
+	            at kafka.producer.SyncProducer.kafka$producer$SyncProducer$$doSend(SyncProducer.scala:79)
+	            at kafka.producer.SyncProducer.send(SyncProducer.scala:124)
+	            at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:63)
+	            at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:98)
+	            at kafka.tools.GetOffsetShell$.main(GetOffsetShell.scala:79)
+	            at kafka.tools.GetOffsetShell.main(GetOffsetShell.scala)
+            [2018-10-12 10:36:12,129] WARN Fetching topic metadata with correlation id 0 for topics [Set(ztf_20181012_programid1)] from broker [BrokerEndPoint(0,192.168.1.5,9092)] failed (kafka.client.ClientUtils$)
+            java.net.SocketTimeoutException
+	            at sun.nio.ch.SocketAdaptor$SocketInputStream.read(SocketAdaptor.java:211)
+	            at sun.nio.ch.ChannelInputStream.read(ChannelInputStream.java:103)
+	            at java.nio.channels.Channels$ReadableByteChannelImpl.read(Channels.java:385)
+	            at org.apache.kafka.common.network.NetworkReceive.readFromReadableChannel(NetworkReceive.java:122)
+	            at kafka.network.BlockingChannel.readCompletely(BlockingChannel.scala:131)
+	            at kafka.network.BlockingChannel.receive(BlockingChannel.scala:122)
+	            at kafka.producer.SyncProducer.liftedTree1$1(SyncProducer.scala:82)
+	            at kafka.producer.SyncProducer.kafka$producer$SyncProducer$$doSend(SyncProducer.scala:79)
+	            at kafka.producer.SyncProducer.send(SyncProducer.scala:124)
+	            at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:63)
+	            at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:98)
+	            at kafka.tools.GetOffsetShell$.main(GetOffsetShell.scala:79)
+	            at kafka.tools.GetOffsetShell.main(GetOffsetShell.scala)
+            [2018-10-12 10:36:13,137] WARN Fetching topic metadata with correlation id 0 for topics [Set(ztf_20181012_programid1)] from broker [BrokerEndPoint(3,192.168.1.10,9092)] failed (kafka.client.ClientUtils$)
+            java.net.SocketTimeoutException
+	            at sun.nio.ch.SocketAdaptor$SocketInputStream.read(SocketAdaptor.java:211)
+	            at sun.nio.ch.ChannelInputStream.read(ChannelInputStream.java:103)
+	            at java.nio.channels.Channels$ReadableByteChannelImpl.read(Channels.java:385)
+	            at org.apache.kafka.common.network.NetworkReceive.readFromReadableChannel(NetworkReceive.java:122)
+	            at kafka.network.BlockingChannel.readCompletely(BlockingChannel.scala:131)
+	            at kafka.network.BlockingChannel.receive(BlockingChannel.scala:122)
+	            at kafka.producer.SyncProducer.liftedTree1$1(SyncProducer.scala:82)
+	            at kafka.producer.SyncProducer.kafka$producer$SyncProducer$$doSend(SyncProducer.scala:79)
+	            at kafka.producer.SyncProducer.send(SyncProducer.scala:124)
+	            at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:63)
+	            at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:98)
+	            at kafka.tools.GetOffsetShell$.main(GetOffsetShell.scala:79)
+	            at kafka.tools.GetOffsetShell.main(GetOffsetShell.scala)
+            [2018-10-12 10:36:14,145] WARN Fetching topic metadata with correlation id 0 for topics [Set(ztf_20181012_programid1)] from broker [BrokerEndPoint(1,192.168.1.8,9092)] failed (kafka.client.ClientUtils$)
+            java.net.SocketTimeoutException
+	            at sun.nio.ch.SocketAdaptor$SocketInputStream.read(SocketAdaptor.java:211)
+	            at sun.nio.ch.ChannelInputStream.read(ChannelInputStream.java:103)
+	            at java.nio.channels.Channels$ReadableByteChannelImpl.read(Channels.java:385)
+	            at org.apache.kafka.common.network.NetworkReceive.readFromReadableChannel(NetworkReceive.java:122)
+	            at kafka.network.BlockingChannel.readCompletely(BlockingChannel.scala:131)
+	            at kafka.network.BlockingChannel.receive(BlockingChannel.scala:122)
+	            at kafka.producer.SyncProducer.liftedTree1$1(SyncProducer.scala:82)
+	            at kafka.producer.SyncProducer.kafka$producer$SyncProducer$$doSend(SyncProducer.scala:79)
+	            at kafka.producer.SyncProducer.send(SyncProducer.scala:124)
+	            at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:63)
+	            at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:98)
+	            at kafka.tools.GetOffsetShell$.main(GetOffsetShell.scala:79)
+	            at kafka.tools.GetOffsetShell.main(GetOffsetShell.scala)
+            Exception in thread "main" kafka.common.KafkaException: fetching topic metadata for topics [Set(ztf_20181012_programid1)] from broker [ArrayBuffer(BrokerEndPoint(2,192.168.1.15,9092), BrokerEndPoint(0,192.168.1.5,9092), BrokerEndPoint(3,192.168.1.10,9092), BrokerEndPoint(1,192.168.1.8,9092))] failed
+	            at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:77)
+	            at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:98)
+	            at kafka.tools.GetOffsetShell$.main(GetOffsetShell.scala:79)
+	            at kafka.tools.GetOffsetShell.main(GetOffsetShell.scala)
+            Caused by: java.net.SocketTimeoutException
+	            at sun.nio.ch.SocketAdaptor$SocketInputStream.read(SocketAdaptor.java:211)
+	            at sun.nio.ch.ChannelInputStream.read(ChannelInputStream.java:103)
+	            at java.nio.channels.Channels$ReadableByteChannelImpl.read(Channels.java:385)
+	            at org.apache.kafka.common.network.NetworkReceive.readFromReadableChannel(NetworkReceive.java:122)
+	            at kafka.network.BlockingChannel.readCompletely(BlockingChannel.scala:131)
+	            at kafka.network.BlockingChannel.receive(BlockingChannel.scala:122)
+	            at kafka.producer.SyncProducer.liftedTree1$1(SyncProducer.scala:82)
+	            at kafka.producer.SyncProducer.kafka$producer$SyncProducer$$doSend(SyncProducer.scala:79)
+	            at kafka.producer.SyncProducer.send(SyncProducer.scala:124)
+	            at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:63)
+	            ... 3 more
+            [2018-10-12 10:36:20,874] WARN Fetching topic metadata with correlation id 0 for topics [Set(ztf_20181012_programid1)] from broker [BrokerEndPoint(3,192.168.1.10,9092)] failed (kafka.client.ClientUtils$)
+            java.net.SocketTimeoutException
+	            at sun.nio.ch.SocketAdaptor$SocketInputStream.read(SocketAdaptor.java:211)
+	            at sun.nio.ch.ChannelInputStream.read(ChannelInputStream.java:103)
+	            at java.nio.channels.Channels$ReadableByteChannelImpl.read(Channels.java:385)
+	            at org.apache.kafka.common.network.NetworkReceive.readFromReadableChannel(NetworkReceive.java:122)
+	            at kafka.network.BlockingChannel.readCompletely(BlockingChannel.scala:131)
+	            at kafka.network.BlockingChannel.receive(BlockingChannel.scala:122)
+	            at kafka.producer.SyncProducer.liftedTree1$1(SyncProducer.scala:82)
+	            at kafka.producer.SyncProducer.kafka$producer$SyncProducer$$doSend(SyncProducer.scala:79)
+	            at kafka.producer.SyncProducer.send(SyncProducer.scala:124)
+	            at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:63)
+	            at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:98)
+	            at kafka.tools.GetOffsetShell$.main(GetOffsetShell.scala:79)
+	            at kafka.tools.GetOffsetShell.main(GetOffsetShell.scala)
+            [2018-10-12 10:36:21,891] WARN Fetching topic metadata with correlation id 0 for topics [Set(ztf_20181012_programid1)] from broker [BrokerEndPoint(2,192.168.1.15,9092)] failed (kafka.client.ClientUtils$)
+            java.net.SocketTimeoutException
+	            at sun.nio.ch.SocketAdaptor$SocketInputStream.read(SocketAdaptor.java:211)
+	            at sun.nio.ch.ChannelInputStream.read(ChannelInputStream.java:103)
+	            at java.nio.channels.Channels$ReadableByteChannelImpl.read(Channels.java:385)
+	            at org.apache.kafka.common.network.NetworkReceive.readFromReadableChannel(NetworkReceive.java:122)
+	            at kafka.network.BlockingChannel.readCompletely(BlockingChannel.scala:131)
+	            at kafka.network.BlockingChannel.receive(BlockingChannel.scala:122)
+	            at kafka.producer.SyncProducer.liftedTree1$1(SyncProducer.scala:82)
+	            at kafka.producer.SyncProducer.kafka$producer$SyncProducer$$doSend(SyncProducer.scala:79)
+	            at kafka.producer.SyncProducer.send(SyncProducer.scala:124)
+	            at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:63)
+	            at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:98)
+	            at kafka.tools.GetOffsetShell$.main(GetOffsetShell.scala:79)
+	            at kafka.tools.GetOffsetShell.main(GetOffsetShell.scala)
+            [2018-10-12 10:36:22,905] WARN Fetching topic metadata with correlation id 0 for topics [Set(ztf_20181012_programid1)] from broker [BrokerEndPoint(0,192.168.1.5,9092)] failed (kafka.client.ClientUtils$)
+            java.net.SocketTimeoutException
+	            at sun.nio.ch.SocketAdaptor$SocketInputStream.read(SocketAdaptor.java:211)
+	            at sun.nio.ch.ChannelInputStream.read(ChannelInputStream.java:103)
+	            at java.nio.channels.Channels$ReadableByteChannelImpl.read(Channels.java:385)
+	            at org.apache.kafka.common.network.NetworkReceive.readFromReadableChannel(NetworkReceive.java:122)
+	            at kafka.network.BlockingChannel.readCompletely(BlockingChannel.scala:131)
+	            at kafka.network.BlockingChannel.receive(BlockingChannel.scala:122)
+	            at kafka.producer.SyncProducer.liftedTree1$1(SyncProducer.scala:82)
+	            at kafka.producer.SyncProducer.kafka$producer$SyncProducer$$doSend(SyncProducer.scala:79)
+	            at kafka.producer.SyncProducer.send(SyncProducer.scala:124)
+	            at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:63)
+	            at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:98)
+	            at kafka.tools.GetOffsetShell$.main(GetOffsetShell.scala:79)
+	            at kafka.tools.GetOffsetShell.main(GetOffsetShell.scala)
+            [2018-10-12 10:36:23,910] WARN Fetching topic metadata with correlation id 0 for topics [Set(ztf_20181012_programid1)] from broker [BrokerEndPoint(1,192.168.1.8,9092)] failed (kafka.client.ClientUtils$)
+            java.net.SocketTimeoutException
+	            at sun.nio.ch.SocketAdaptor$SocketInputStream.read(SocketAdaptor.java:211)
+	            at sun.nio.ch.ChannelInputStream.read(ChannelInputStream.java:103)
+	            at java.nio.channels.Channels$ReadableByteChannelImpl.read(Channels.java:385)
+	            at org.apache.kafka.common.network.NetworkReceive.readFromReadableChannel(NetworkReceive.java:122)
+	            at kafka.network.BlockingChannel.readCompletely(BlockingChannel.scala:131)
+	            at kafka.network.BlockingChannel.receive(BlockingChannel.scala:122)
+	            at kafka.producer.SyncProducer.liftedTree1$1(SyncProducer.scala:82)
+	            at kafka.producer.SyncProducer.kafka$producer$SyncProducer$$doSend(SyncProducer.scala:79)
+	            at kafka.producer.SyncProducer.send(SyncProducer.scala:124)
+	            at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:63)
+	            at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:98)
+	            at kafka.tools.GetOffsetShell$.main(GetOffsetShell.scala:79)
+	            at kafka.tools.GetOffsetShell.main(GetOffsetShell.scala)
+            Exception in thread "main" kafka.common.KafkaException: fetching topic metadata for topics [Set(ztf_20181012_programid1)] from broker [ArrayBuffer(BrokerEndPoint(3,192.168.1.10,9092), BrokerEndPoint(2,192.168.1.15,9092), BrokerEndPoint(0,192.168.1.5,9092), BrokerEndPoint(1,192.168.1.8,9092))] failed
+	            at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:77)
+	            at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:98)
+	            at kafka.tools.GetOffsetShell$.main(GetOffsetShell.scala:79)
+	            at kafka.tools.GetOffsetShell.main(GetOffsetShell.scala)
+            Caused by: java.net.SocketTimeoutException
+	            at sun.nio.ch.SocketAdaptor$SocketInputStream.read(SocketAdaptor.java:211)
+	            at sun.nio.ch.ChannelInputStream.read(ChannelInputStream.java:103)
+	            at java.nio.channels.Channels$ReadableByteChannelImpl.read(Channels.java:385)
+	            at org.apache.kafka.common.network.NetworkReceive.readFromReadableChannel(NetworkReceive.java:122)
+	            at kafka.network.BlockingChannel.readCompletely(BlockingChannel.scala:131)
+	            at kafka.network.BlockingChannel.receive(BlockingChannel.scala:122)
+	            at kafka.producer.SyncProducer.liftedTree1$1(SyncProducer.scala:82)
+	            at kafka.producer.SyncProducer.kafka$producer$SyncProducer$$doSend(SyncProducer.scala:79)
+	            at kafka.producer.SyncProducer.send(SyncProducer.scala:124)
+	            at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:63)
+	            ... 3 more
+            [root@openstacker /]#
+
+
+
+
