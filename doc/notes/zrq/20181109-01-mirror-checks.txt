@@ -1,0 +1,711 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2018, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+# -----------------------------------------------------
+# Login to our external VM.
+#[user@trop03]
+
+    ssh Etalema
+
+    # -----------------------------------------------------
+    # Check our secret function.
+    #[user@virtual]
+
+        secret 'frog'
+
+    # -----------------------------------------------------
+    # Create a container to work with.
+    #[user@virtual]
+
+        docker run \
+            --rm \
+            --tty \
+            --interactive \
+            --hostname openstacker \
+            --env SSH_AUTH_SOCK=/tmp/ssh_auth_sock \
+            --volume "${HOME}/settings/:/etc/phymatopus/" \
+            --volume ${SSH_AUTH_SOCK}:/tmp/ssh_auth_sock \
+            phymatopus/openstack-client \
+            bash
+
+        # -----------------------------------------------------
+        # Load our OpenStack settings.
+        #[root@openstacker]
+
+            source '/etc/phymatopus/openstack.settings'
+
+        # -----------------------------------------------------
+        # Load our OpenStack and Eleanor functions.
+        #[root@openstacker]
+
+            source 'openstack-utils.sh'
+            source 'eleanor-utils.sh'
+            source 'eleanor-init.sh'
+
+        # -----------------------------------------------------
+        # Load our cluster and ZTF settings.
+        #[root@openstacker]
+
+            source '/etc/phymatopus/cluster.settings'
+            source '/etc/phymatopus/ztf.settings'
+
+        # -----------------------------------------------------
+        # Configure our ssh proxy command.
+        #[root@openstacker]
+
+            sshproxy="ssh ${sshopts[*]} ${sshuser:?}@${controlip:?} nc %h %p"
+
+        # -----------------------------------------------------
+        # Build a list of ROE Kafka nodes.
+        #[root@openstacker]
+
+            delim=''
+            port='9092'
+            roeconnect=''
+
+            for address in $(cat /etc/phymatopus/ipv4/kfip172.txt)
+            do
+
+                roeconnect="${roeconnect}${delim}${address}:${port}"
+
+                delim=','
+
+            done
+
+            echo "Kafka brokers [${roeconnect}]"
+
+                Kafka brokers [172.16.49.217:9092,172.16.49.214:9092,172.16.49.12:9092,172.16.49.208:9092]
+
+
+        # -----------------------------------------------------
+        # Check the offsets in the ROE brokers.
+        #[root@openstacker]
+
+cat > topics.txt << EOF
+ztf_20181101_programid1
+ztf_20181102_programid1
+ztf_20181103_programid1
+ztf_20181104_programid1
+ztf_20181105_programid1
+ztf_20181106_programid1
+ztf_20181107_programid1
+ztf_20181108_programid1
+ztf_20181109_programid1
+EOF
+
+cat > topics.txt << EOF
+ztf_20181108_programid1
+ztf_20181109_programid1
+ztf_20181110_programid1
+EOF
+
+            brokers=${roeconnect:?}
+
+            for topicid in $(cat topics.txt)
+            do
+                echo "--------------------"
+                echo "Topic [${topicid:?}]"
+
+                if [[ "${topicid:?}" =~ ^ztf_[0-9]{8}_programid1$ ]]
+                then
+                    echo "
+                        docker run --rm phymatopus/kafka-core \
+                            bin/kafka-run-class.sh kafka.tools.GetOffsetShell \
+                                --broker-list "${brokers:?}" \
+                                --topic "${topicid:?}" \
+                                --time -1
+
+                        docker run --rm phymatopus/kafka-core \
+                            bin/kafka-run-class.sh kafka.tools.GetOffsetShell \
+                                --broker-list "${brokers:?}" \
+                                --topic "${topicid:?}" \
+                                --time -2
+                        " \
+                    | ssh \
+                        ${sshopts[*]} \
+                        ${sshuser:?}@${controlip:?} | sort
+                else
+                    echo "Skipping topic"
+                fi
+            done
+
+                --------------------
+                Topic [ztf_20181101_programid1]
+                ztf_20181101_programid1:0:0
+                ztf_20181101_programid1:0:9083
+                ztf_20181101_programid1:10:0
+                ztf_20181101_programid1:10:9083
+                ztf_20181101_programid1:11:0
+                ztf_20181101_programid1:11:9082
+                ztf_20181101_programid1:12:0
+                ztf_20181101_programid1:12:9084
+                ztf_20181101_programid1:13:0
+                ztf_20181101_programid1:13:9083
+                ztf_20181101_programid1:14:0
+                ztf_20181101_programid1:14:9082
+                ztf_20181101_programid1:15:0
+                ztf_20181101_programid1:15:9084
+                ztf_20181101_programid1:1:0
+                ztf_20181101_programid1:1:9082
+                ztf_20181101_programid1:2:0
+                ztf_20181101_programid1:2:9083
+                ztf_20181101_programid1:3:0
+                ztf_20181101_programid1:3:9084
+                ztf_20181101_programid1:4:0
+                ztf_20181101_programid1:4:9082
+                ztf_20181101_programid1:5:0
+                ztf_20181101_programid1:5:9082
+                ztf_20181101_programid1:6:0
+                ztf_20181101_programid1:6:9083
+                ztf_20181101_programid1:7:0
+                ztf_20181101_programid1:7:9082
+                ztf_20181101_programid1:8:0
+                ztf_20181101_programid1:8:9082
+                ztf_20181101_programid1:9:0
+                ztf_20181101_programid1:9:9083
+                --------------------
+                Topic [ztf_20181102_programid1]
+                ztf_20181102_programid1:0:0
+                ztf_20181102_programid1:0:3694
+                ztf_20181102_programid1:10:0
+                ztf_20181102_programid1:10:3694
+                ztf_20181102_programid1:11:0
+                ztf_20181102_programid1:11:3693
+                ztf_20181102_programid1:12:0
+                ztf_20181102_programid1:12:3695
+                ztf_20181102_programid1:13:0
+                ztf_20181102_programid1:13:3694
+                ztf_20181102_programid1:14:0
+                ztf_20181102_programid1:14:3693
+                ztf_20181102_programid1:15:0
+                ztf_20181102_programid1:15:3694
+                ztf_20181102_programid1:1:0
+                ztf_20181102_programid1:1:3694
+                ztf_20181102_programid1:2:0
+                ztf_20181102_programid1:2:3693
+                ztf_20181102_programid1:3:0
+                ztf_20181102_programid1:3:3695
+                ztf_20181102_programid1:4:0
+                ztf_20181102_programid1:4:3693
+                ztf_20181102_programid1:5:0
+                ztf_20181102_programid1:5:3694
+                ztf_20181102_programid1:6:0
+                ztf_20181102_programid1:6:3694
+                ztf_20181102_programid1:7:0
+                ztf_20181102_programid1:7:3694
+                ztf_20181102_programid1:8:0
+                ztf_20181102_programid1:8:3694
+                ztf_20181102_programid1:9:0
+                ztf_20181102_programid1:9:3694
+                --------------------
+                Topic [ztf_20181103_programid1]
+                ztf_20181103_programid1:0:0
+                ztf_20181103_programid1:0:14892
+                ztf_20181103_programid1:10:0
+                ztf_20181103_programid1:10:14824
+                ztf_20181103_programid1:11:0
+                ztf_20181103_programid1:11:14858
+                ztf_20181103_programid1:12:0
+                ztf_20181103_programid1:12:14892
+                ztf_20181103_programid1:13:0
+                ztf_20181103_programid1:13:14893
+                ztf_20181103_programid1:14:0
+                ztf_20181103_programid1:14:14827
+                ztf_20181103_programid1:15:0
+                ztf_20181103_programid1:15:14857
+                ztf_20181103_programid1:1:0
+                ztf_20181103_programid1:1:14891
+                ztf_20181103_programid1:2:0
+                ztf_20181103_programid1:2:14826
+                ztf_20181103_programid1:3:0
+                ztf_20181103_programid1:3:14857
+                ztf_20181103_programid1:4:0
+                ztf_20181103_programid1:4:14892
+                ztf_20181103_programid1:5:0
+                ztf_20181103_programid1:5:14893
+                ztf_20181103_programid1:6:0
+                ztf_20181103_programid1:6:14825
+                ztf_20181103_programid1:7:0
+                ztf_20181103_programid1:7:14857
+                ztf_20181103_programid1:8:0
+                ztf_20181103_programid1:8:14892
+                ztf_20181103_programid1:9:0
+                ztf_20181103_programid1:9:14891
+                --------------------
+                Topic [ztf_20181104_programid1]
+                ztf_20181104_programid1:0:0
+                ztf_20181104_programid1:0:15305
+                ztf_20181104_programid1:10:0
+                ztf_20181104_programid1:10:15297
+                ztf_20181104_programid1:11:0
+                ztf_20181104_programid1:11:15296
+                ztf_20181104_programid1:12:0
+                ztf_20181104_programid1:12:15308
+                ztf_20181104_programid1:13:0
+                ztf_20181104_programid1:13:15296
+                ztf_20181104_programid1:14:0
+                ztf_20181104_programid1:14:15298
+                ztf_20181104_programid1:15:0
+                ztf_20181104_programid1:15:15297
+                ztf_20181104_programid1:1:0
+                ztf_20181104_programid1:1:15297
+                ztf_20181104_programid1:2:0
+                ztf_20181104_programid1:2:15296
+                ztf_20181104_programid1:3:0
+                ztf_20181104_programid1:3:15299
+                ztf_20181104_programid1:4:0
+                ztf_20181104_programid1:4:15296
+                ztf_20181104_programid1:5:0
+                ztf_20181104_programid1:5:15298
+                ztf_20181104_programid1:6:0
+                ztf_20181104_programid1:6:15297
+                ztf_20181104_programid1:7:0
+                ztf_20181104_programid1:7:15298
+                ztf_20181104_programid1:8:0
+                ztf_20181104_programid1:8:15305
+                ztf_20181104_programid1:9:0
+                ztf_20181104_programid1:9:15297
+                --------------------
+                Topic [ztf_20181105_programid1]
+                ztf_20181105_programid1:0:0
+                ztf_20181105_programid1:0:30210
+                ztf_20181105_programid1:10:0
+                ztf_20181105_programid1:10:30210
+                ztf_20181105_programid1:11:0
+                ztf_20181105_programid1:11:30210
+                ztf_20181105_programid1:12:0
+                ztf_20181105_programid1:12:30209
+                ztf_20181105_programid1:13:0
+                ztf_20181105_programid1:13:30210
+                ztf_20181105_programid1:14:0
+                ztf_20181105_programid1:14:30209
+                ztf_20181105_programid1:15:0
+                ztf_20181105_programid1:15:30208
+                ztf_20181105_programid1:1:0
+                ztf_20181105_programid1:1:30210
+                ztf_20181105_programid1:2:0
+                ztf_20181105_programid1:2:30210
+                ztf_20181105_programid1:3:0
+                ztf_20181105_programid1:3:30209
+                ztf_20181105_programid1:4:0
+                ztf_20181105_programid1:4:30210
+                ztf_20181105_programid1:5:0
+                ztf_20181105_programid1:5:30209
+                ztf_20181105_programid1:6:0
+                ztf_20181105_programid1:6:30209
+                ztf_20181105_programid1:7:0
+                ztf_20181105_programid1:7:30210
+                ztf_20181105_programid1:8:0
+                ztf_20181105_programid1:8:30210
+                ztf_20181105_programid1:9:0
+                ztf_20181105_programid1:9:30210
+                --------------------
+                Topic [ztf_20181106_programid1]
+                ztf_20181106_programid1:0:0
+                ztf_20181106_programid1:0:15939
+                ztf_20181106_programid1:10:0
+                ztf_20181106_programid1:10:15940
+                ztf_20181106_programid1:11:0
+                ztf_20181106_programid1:11:15941
+                ztf_20181106_programid1:12:0
+                ztf_20181106_programid1:12:15939
+                ztf_20181106_programid1:13:0
+                ztf_20181106_programid1:13:15940
+                ztf_20181106_programid1:14:0
+                ztf_20181106_programid1:14:15941
+                ztf_20181106_programid1:15:0
+                ztf_20181106_programid1:15:15940
+                ztf_20181106_programid1:1:0
+                ztf_20181106_programid1:1:15940
+                ztf_20181106_programid1:2:0
+                ztf_20181106_programid1:2:15941
+                ztf_20181106_programid1:3:0
+                ztf_20181106_programid1:3:15940
+                ztf_20181106_programid1:4:0
+                ztf_20181106_programid1:4:15940
+                ztf_20181106_programid1:5:0
+                ztf_20181106_programid1:5:15941
+                ztf_20181106_programid1:6:0
+                ztf_20181106_programid1:6:15940
+                ztf_20181106_programid1:7:0
+                ztf_20181106_programid1:7:15941
+                ztf_20181106_programid1:8:0
+                ztf_20181106_programid1:8:15939
+                ztf_20181106_programid1:9:0
+                ztf_20181106_programid1:9:15940
+                --------------------
+                Topic [ztf_20181107_programid1]
+                ztf_20181107_programid1:0:0
+                ztf_20181107_programid1:0:19337
+                ztf_20181107_programid1:10:0
+                ztf_20181107_programid1:10:19335
+                ztf_20181107_programid1:11:0
+                ztf_20181107_programid1:11:19336
+                ztf_20181107_programid1:12:0
+                ztf_20181107_programid1:12:19335
+                ztf_20181107_programid1:13:0
+                ztf_20181107_programid1:13:19335
+                ztf_20181107_programid1:14:0
+                ztf_20181107_programid1:14:19336
+                ztf_20181107_programid1:15:0
+                ztf_20181107_programid1:15:19337
+                ztf_20181107_programid1:1:0
+                ztf_20181107_programid1:1:19335
+                ztf_20181107_programid1:2:0
+                ztf_20181107_programid1:2:19336
+                ztf_20181107_programid1:3:0
+                ztf_20181107_programid1:3:19337
+                ztf_20181107_programid1:4:0
+                ztf_20181107_programid1:4:19336
+                ztf_20181107_programid1:5:0
+                ztf_20181107_programid1:5:19336
+                ztf_20181107_programid1:6:0
+                ztf_20181107_programid1:6:19337
+                ztf_20181107_programid1:7:0
+                ztf_20181107_programid1:7:19335
+                ztf_20181107_programid1:8:0
+                ztf_20181107_programid1:8:19337
+                ztf_20181107_programid1:9:0
+                ztf_20181107_programid1:9:19335
+                --------------------
+                Topic [ztf_20181108_programid1]
+                ztf_20181108_programid1:0:0
+                ztf_20181108_programid1:0:13435
+                ztf_20181108_programid1:10:0
+                ztf_20181108_programid1:10:13435
+                ztf_20181108_programid1:11:0
+                ztf_20181108_programid1:11:13435
+                ztf_20181108_programid1:12:0
+                ztf_20181108_programid1:12:13435
+                ztf_20181108_programid1:13:0
+                ztf_20181108_programid1:13:13435
+                ztf_20181108_programid1:14:0
+                ztf_20181108_programid1:14:13435
+                ztf_20181108_programid1:15:0
+                ztf_20181108_programid1:15:13436
+                ztf_20181108_programid1:1:0
+                ztf_20181108_programid1:1:13436
+                ztf_20181108_programid1:2:0
+                ztf_20181108_programid1:2:13435
+                ztf_20181108_programid1:3:0
+                ztf_20181108_programid1:3:13436
+                ztf_20181108_programid1:4:0
+                ztf_20181108_programid1:4:13436
+                ztf_20181108_programid1:5:0
+                ztf_20181108_programid1:5:13435
+                ztf_20181108_programid1:6:0
+                ztf_20181108_programid1:6:13436
+                ztf_20181108_programid1:7:0
+                ztf_20181108_programid1:7:13435
+                ztf_20181108_programid1:8:0
+                ztf_20181108_programid1:8:13435
+                ztf_20181108_programid1:9:0
+                ztf_20181108_programid1:9:13435
+                --------------------
+                Topic [ztf_20181109_programid1]
+                ztf_20181109_programid1:0:0
+                ztf_20181109_programid1:0:63082
+                ztf_20181109_programid1:10:0
+                ztf_20181109_programid1:10:63080
+                ztf_20181109_programid1:11:0
+                ztf_20181109_programid1:11:63082
+                ztf_20181109_programid1:12:0
+                ztf_20181109_programid1:12:63081
+                ztf_20181109_programid1:13:0
+                ztf_20181109_programid1:13:63081
+                ztf_20181109_programid1:14:0
+                ztf_20181109_programid1:14:63081
+                ztf_20181109_programid1:15:0
+                ztf_20181109_programid1:15:63082
+                ztf_20181109_programid1:1:0
+                ztf_20181109_programid1:1:63080
+                ztf_20181109_programid1:2:0
+                ztf_20181109_programid1:2:63083
+                ztf_20181109_programid1:3:0
+                ztf_20181109_programid1:3:63081
+                ztf_20181109_programid1:4:0
+                ztf_20181109_programid1:4:63080
+                ztf_20181109_programid1:5:0
+                ztf_20181109_programid1:5:63081
+                ztf_20181109_programid1:6:0
+                ztf_20181109_programid1:6:63083
+                ztf_20181109_programid1:7:0
+                ztf_20181109_programid1:7:63080
+                ztf_20181109_programid1:8:0
+                ztf_20181109_programid1:8:63082
+                ztf_20181109_programid1:9:0
+                ztf_20181109_programid1:9:63081
+
+
+
+
+                --------------------
+                Topic [ztf_20181108_programid1]
+                ztf_20181108_programid1:0:0
+                ztf_20181108_programid1:0:13435
+                ztf_20181108_programid1:10:0
+                ztf_20181108_programid1:10:13435
+                ztf_20181108_programid1:11:0
+                ztf_20181108_programid1:11:13435
+                ztf_20181108_programid1:12:0
+                ztf_20181108_programid1:12:13435
+                ztf_20181108_programid1:13:0
+                ztf_20181108_programid1:13:13435
+                ztf_20181108_programid1:14:0
+                ztf_20181108_programid1:14:13435
+                ztf_20181108_programid1:15:0
+                ztf_20181108_programid1:15:13436
+                ztf_20181108_programid1:1:0
+                ztf_20181108_programid1:1:13436
+                ztf_20181108_programid1:2:0
+                ztf_20181108_programid1:2:13435
+                ztf_20181108_programid1:3:0
+                ztf_20181108_programid1:3:13436
+                ztf_20181108_programid1:4:0
+                ztf_20181108_programid1:4:13436
+                ztf_20181108_programid1:5:0
+                ztf_20181108_programid1:5:13435
+                ztf_20181108_programid1:6:0
+                ztf_20181108_programid1:6:13436
+                ztf_20181108_programid1:7:0
+                ztf_20181108_programid1:7:13435
+                ztf_20181108_programid1:8:0
+                ztf_20181108_programid1:8:13435
+                ztf_20181108_programid1:9:0
+                ztf_20181108_programid1:9:13435
+                --------------------
+                Topic [ztf_20181109_programid1]
+                ztf_20181109_programid1:0:0
+                ztf_20181109_programid1:0:63082
+                ztf_20181109_programid1:10:0
+                ztf_20181109_programid1:10:63080
+                ztf_20181109_programid1:11:0
+                ztf_20181109_programid1:11:63082
+                ztf_20181109_programid1:12:0
+                ztf_20181109_programid1:12:63081
+                ztf_20181109_programid1:13:0
+                ztf_20181109_programid1:13:63081
+                ztf_20181109_programid1:14:0
+                ztf_20181109_programid1:14:63081
+                ztf_20181109_programid1:15:0
+                ztf_20181109_programid1:15:63082
+                ztf_20181109_programid1:1:0
+                ztf_20181109_programid1:1:63080
+                ztf_20181109_programid1:2:0
+                ztf_20181109_programid1:2:63083
+                ztf_20181109_programid1:3:0
+                ztf_20181109_programid1:3:63081
+                ztf_20181109_programid1:4:0
+                ztf_20181109_programid1:4:63080
+                ztf_20181109_programid1:5:0
+                ztf_20181109_programid1:5:63081
+                ztf_20181109_programid1:6:0
+                ztf_20181109_programid1:6:63083
+                ztf_20181109_programid1:7:0
+                ztf_20181109_programid1:7:63080
+                ztf_20181109_programid1:8:0
+                ztf_20181109_programid1:8:63082
+                ztf_20181109_programid1:9:0
+                ztf_20181109_programid1:9:63081
+                --------------------
+                Topic [ztf_20181110_programid1]
+                ztf_20181110_programid1:0:0
+                ztf_20181110_programid1:0:17028
+                ztf_20181110_programid1:10:0
+                ztf_20181110_programid1:10:17030
+                ztf_20181110_programid1:11:0
+                ztf_20181110_programid1:11:17029
+                ztf_20181110_programid1:12:0
+                ztf_20181110_programid1:12:17028
+                ztf_20181110_programid1:13:0
+                ztf_20181110_programid1:13:17031
+                ztf_20181110_programid1:14:0
+                ztf_20181110_programid1:14:17029
+                ztf_20181110_programid1:15:0
+                ztf_20181110_programid1:15:17028
+                ztf_20181110_programid1:1:0
+                ztf_20181110_programid1:1:17030
+                ztf_20181110_programid1:2:0
+                ztf_20181110_programid1:2:17029
+                ztf_20181110_programid1:3:0
+                ztf_20181110_programid1:3:17028
+                ztf_20181110_programid1:4:0
+                ztf_20181110_programid1:4:17031
+                ztf_20181110_programid1:5:0
+                ztf_20181110_programid1:5:17029
+                ztf_20181110_programid1:6:0
+                ztf_20181110_programid1:6:17028
+                ztf_20181110_programid1:7:0
+                ztf_20181110_programid1:7:17030
+                ztf_20181110_programid1:8:0
+                ztf_20181110_programid1:8:17029
+                ztf_20181110_programid1:9:0
+                ztf_20181110_programid1:9:17029
+
+
+        # -----------------------------------------------------
+        # Check the disc space on each of our Kafka nodes.
+        #[root@openstacker]
+
+            innerpath=/var/local/inner/kafka
+            outerpath=/var/local/outer/kafka
+
+            for address in $(cat /etc/phymatopus/ipv4/kfip192.txt)
+                do
+                    echo "
+                        echo \"\"
+                        echo \"[${address:?}][$(date)]\"
+                        echo \"\"
+                        df -h /
+                        echo \"---- ----\"
+                        df -h \"${outerpath:?}/data-00\"
+                        echo "---- ----"
+                        df -h \"${outerpath:?}/data-01\"
+                        " \
+                    | ssh \
+                        ${sshopts[*]} \
+                        -o ProxyCommand="${sshproxy:?}" \
+                        ${sshuser:?}@${address:?}
+                done
+
+
+                [192.168.1.5][Fri Nov  9 17:00:44 UTC 2018]
+
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vda3        39G  5.8G   32G  16% /
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdb        512G  469G   42G  92% /var/local/outer/kafka/data-00
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdc        512G  469G   42G  92% /var/local/outer/kafka/data-01
+
+                [192.168.1.8][Fri Nov  9 17:00:50 UTC 2018]
+
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vda3        39G   12G   26G  31% /
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdb        512G  469G   42G  92% /var/local/outer/kafka/data-00
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdc        512G  469G   42G  92% /var/local/outer/kafka/data-01
+
+                [192.168.1.15][Fri Nov  9 17:00:56 UTC 2018]
+
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vda3        39G   11G   27G  30% /
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdb        512G  469G   42G  92% /var/local/outer/kafka/data-00
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdc        512G  469G   42G  92% /var/local/outer/kafka/data-01
+
+                [192.168.1.10][Fri Nov  9 17:01:01 UTC 2018]
+
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vda3        39G   13G   25G  34% /
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdb        512G  469G   42G  92% /var/local/outer/kafka/data-00
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdc        512G  469G   42G  92% /var/local/outer/kafka/data-01
+
+
+        # -----------------------------------------------------
+        # -----------------------------------------------------
+
+
+                [192.168.1.5][Thu Nov  1 18:06:40 UTC 2018]
+                /dev/vdb        512G  405G  108G  80% /var/local/outer/kafka/data-00
+
+                [192.168.1.8][Fri Nov  9 17:00:50 UTC 2018]
+                /dev/vdb        512G  469G   42G  92% /var/local/outer/kafka/data-00
+
+                108-42=66G used in 8 nights
+                
+                ~8.25/night
+                
+                ~5 nights space remaining
+
+        # -----------------------------------------------------
+        # -----------------------------------------------------
+
+                [192.168.1.5][Sat Nov 10 22:40:23 UTC 2018]
+
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vda3        39G  5.8G   32G  16% /
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdb        512G  476G   36G  94% /var/local/outer/kafka/data-00
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdc        512G  476G   36G  94% /var/local/outer/kafka/data-01
+
+                [192.168.1.8][Sat Nov 10 22:40:27 UTC 2018]
+
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vda3        39G   12G   26G  31% /
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdb        512G  476G   36G  94% /var/local/outer/kafka/data-00
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdc        512G  476G   36G  94% /var/local/outer/kafka/data-01
+
+                [192.168.1.15][Sat Nov 10 22:40:30 UTC 2018]
+
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vda3        39G   11G   27G  30% /
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdb        512G  476G   36G  94% /var/local/outer/kafka/data-00
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdc        512G  476G   36G  94% /var/local/outer/kafka/data-01
+
+                [192.168.1.10][Sat Nov 10 22:40:34 UTC 2018]
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vda3        39G   13G   25G  34% /
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdb        512G  475G   36G  94% /var/local/outer/kafka/data-00
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdc        512G  476G   36G  94% /var/local/outer/kafka/data-01
+
+        # -----------------------------------------------------
+        # -----------------------------------------------------
+
+                [192.168.1.8][Fri Nov  9 17:00:50 UTC 2018]
+                /dev/vdb        512G  469G   42G  92% /var/local/outer/kafka/data-00
+
+                [192.168.1.8][Sat Nov 10 22:40:27 UTC 2018]
+                /dev/vdb        512G  476G   36G  94% /var/local/outer/kafka/data-00
+
+                42 - 36 = 6G used
+
+
+
+

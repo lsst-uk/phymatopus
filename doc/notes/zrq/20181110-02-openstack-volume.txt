@@ -1,0 +1,522 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2018, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#  
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+
+    #
+    # Assign a new data volume to one of our Kafka nodes.
+    # There is a better version in 20181110-03
+    #
+
+# -----------------------------------------------------
+# Login to our external VM.
+#[user@trop03]
+
+    ssh Etalema
+
+    # -----------------------------------------------------
+    # Check our secret function.
+    #[user@virtual]
+
+        secret 'frog'
+
+    # -----------------------------------------------------
+    # Create a container to work with.
+    #[user@virtual]
+
+        docker run \
+            --rm \
+            --tty \
+            --interactive \
+            --hostname openstacker \
+            --env SSH_AUTH_SOCK=/tmp/ssh_auth_sock \
+            --volume "${HOME}/settings/:/etc/phymatopus/" \
+            --volume ${SSH_AUTH_SOCK}:/tmp/ssh_auth_sock \
+            phymatopus/openstack-client \
+            bash
+
+        # -----------------------------------------------------
+        # Load our OpenStack settings.
+        #[root@openstacker]
+
+            source '/etc/phymatopus/openstack.settings'
+
+        # -----------------------------------------------------
+        # Load our OpenStack and Eleanor functions.
+        #[root@openstacker]
+
+            source 'openstack-utils.sh'
+            source 'eleanor-utils.sh'
+            source 'eleanor-init.sh'
+
+        # -----------------------------------------------------
+        # Load our cluster and ZTF settings.
+        #[root@openstacker]
+
+            source '/etc/phymatopus/cluster.settings'
+            source '/etc/phymatopus/ztf.settings'
+
+        # -----------------------------------------------------
+        # Load our node lists.
+        #[root@openstacker]
+
+            unset kfidents
+            kfidents=()
+
+            unset mmidents
+            mmidents=()
+
+            unset zkidents
+            zkidents=()
+
+            for ident in $(cat /etc/phymatopus/nodes/kfidents.txt) 
+            do
+                echo "Ident [${ident}]"
+                kfidents+=(${ident})
+            done
+
+            for ident in $(cat /etc/phymatopus/nodes/mmidents.txt) 
+            do
+                echo "Ident [${ident}]"
+                mmidents+=(${ident})
+            done
+
+            for ident in $(cat /etc/phymatopus/nodes/zkidents.txt) 
+            do
+                echo "Ident [${ident}]"
+                zkidents+=(${ident})
+            done
+
+        # -----------------------------------------------------
+        # List our Kafka nodes.
+        #[root@openstacker]
+
+            for ident in ${kfidents[@]}
+            do
+                echo "Ident [${ident}]"
+                getvminfo "${ident:?}"
+                name=$(getvmname)
+                echo "Name  [$name]"
+            done
+
+        # -----------------------------------------------------
+        # List the availability zones ?
+        #[root@openstacker]
+
+            openstack availability zone list
+
+                +-----------+---------------+
+                | Zone Name | Zone Status   |
+                +-----------+---------------+
+                | nova      | available     |
+                | gpu       | not available |
+                | nova      | available     |
+                | nova      | available     |
+                | nova      | available     |
+                +-----------+---------------+
+
+        # -----------------------------------------------------
+        # List the available volume types.
+        #[root@openstacker]
+
+            openstack \
+                volume type \
+                list \
+                 --format json
+
+                []
+
+        # -----------------------------------------------------
+        # List the current volumes.
+        #[root@openstacker]
+
+            openstack \
+                volume list \
+                 --format json
+
+                [
+                    {
+                    "Status": "in-use", 
+                    "Size": 512, 
+                    "Attached to": "Attached to Raminiara-kafka-4 on /dev/vdc ", 
+                    "ID": "7df96e55-d788-449d-ab1e-2048ee039e82", 
+                    "Name": "Raminiara-kafka-4-data-01"
+                    }, 
+                    {
+                    "Status": "in-use", 
+                    "Size": 512, 
+                    "Attached to": "Attached to Raminiara-kafka-4 on /dev/vdb ", 
+                    "ID": "e1fe1551-89b7-436c-b6c8-55d56a99c8fa", 
+                    "Name": "Raminiara-kafka-4-data-00"
+                    }, 
+                    {
+                    "Status": "in-use", 
+                    "Size": 512, 
+                    "Attached to": "Attached to Raminiara-kafka-3 on /dev/vdc ", 
+                    "ID": "e70936e5-5a0a-4268-b199-9121fb4d057d", 
+                    "Name": "Raminiara-kafka-3-data-01"
+                    }, 
+                    {
+                    "Status": "in-use", 
+                    "Size": 512, 
+                    "Attached to": "Attached to Raminiara-kafka-3 on /dev/vdb ", 
+                    "ID": "507b5b94-124a-4b44-8898-ea5473df2d96", 
+                    "Name": "Raminiara-kafka-3-data-00"
+                    }, 
+                    {
+                    "Status": "in-use", 
+                    "Size": 512, 
+                    "Attached to": "Attached to Raminiara-kafka-2 on /dev/vdc ", 
+                    "ID": "777ae1e6-6e62-4451-a0cd-e4ebc0873bd4", 
+                    "Name": "Raminiara-kafka-2-data-01"
+                    }, 
+                    {
+                    "Status": "in-use", 
+                    "Size": 512, 
+                    "Attached to": "Attached to Raminiara-kafka-2 on /dev/vdb ", 
+                    "ID": "5ebe7efb-6b46-49e9-9cc2-b9cf2a8cede7", 
+                    "Name": "Raminiara-kafka-2-data-00"
+                    }, 
+                    {
+                    "Status": "in-use", 
+                    "Size": 512, 
+                    "Attached to": "Attached to Raminiara-kafka-1 on /dev/vdc ", 
+                    "ID": "f14fe77a-242e-49d2-8a8f-c7070f19cbc6", 
+                    "Name": "Raminiara-kafka-1-data-01"
+                    }, 
+                    {
+                    "Status": "in-use", 
+                    "Size": 512, 
+                    "Attached to": "Attached to Raminiara-kafka-1 on /dev/vdb ", 
+                    "ID": "80848d34-edd9-48ce-8949-2785f4982461", 
+                    "Name": "Raminiara-kafka-1-data-00"
+                    }
+                ]
+
+# -----------------------------------------------------
+# Better version in next notes ...
+#
+
+#
+# For each node ..
+#
+
+            volname=data-02
+            volsize=512
+            voldevice=/dev/vdd
+
+            vmident=${kfidents[0]}
+            vmident=${kfidents[1]}
+            vmident=${kfidents[2]}
+            vmident=${kfidents[3]}
+
+            echo "Ident [${vmident}]"
+
+        # -----------------------------------------------------
+        # Create a new volume.
+        #[root@openstacker]
+
+            openstack \
+                volume create \
+                 --size "${volsize:?}"  \
+                 --format json  \
+                "${volname:?}"  \
+                | jq '.' \
+                | tee /tmp/volume-info.json
+
+            volident=$(
+                jq -r "
+                    .id
+                    " /tmp/volume-info.json
+                    )
+
+        # -----------------------------------------------------
+        # Display the new volume.
+        #[root@openstacker]
+
+            openstack \
+                volume show \
+                 --format json  \
+                "${volident:?}" \
+                | jq '.' \
+                | tee /tmp/volume-info.json
+
+                {
+                  "status": "available",
+                  "properties": "",
+                  "user_id": "3d241b5fa2d0b3378901e08e86e10284dc9f9dae3732b99f71f809cf46ccb0d5",
+                  "description": null,
+                  "availability_zone": "nova",
+                  "bootable": "false",
+                  "encrypted": false,
+                  "created_at": "2018-11-10T23:24:22.000000",
+                  "multiattach": false,
+                  "updated_at": "2018-11-10T23:24:23.000000",
+                  "source_volid": null,
+                  "name": "data-02",
+                  "snapshot_id": null,
+                  "consistencygroup_id": null,
+                  "replication_status": null,
+                  "os-vol-tenant-attr:tenant_id": "fcef6dd450f64a1ab4ffa5a7234c4161",
+                  "size": 512,
+                  "type": null,
+                  "id": "e2e87fce-5c8f-46e0-afdf-5bc11afdcaf7",
+                  "attachments": []
+                }
+
+        # -----------------------------------------------------
+        # Attach the new volume to our instance.
+        #[root@openstacker]
+
+            openstack \
+                server add volume \
+                "${vmident:?}" \
+                "${volident:?}" \
+                --device "${voldevice:?}"
+
+        # -----------------------------------------------------
+        # Check the instance.
+        #[root@openstacker]
+
+            openstack \
+                server show \
+                 --format json \
+                "${vmident:?}" \
+                | jq '.'
+
+
+                {
+                "OS-EXT-STS:task_state": null,
+                "addresses": "vm-network-UoE-internal=192.168.1.5, 172.16.49.217",
+                "image": "fedora-27-docker-base-20180129 (407a5d09-cd97-455f-9bdb-4fb7f54dd4ff)",
+                "OS-EXT-STS:vm_state": "active",
+                "OS-SRV-USG:launched_at": "2018-06-15T16:07:07.000000",
+                "flavor": "m1.medium (3)",
+                "id": "bb409e47-cf2c-4e64-aea6-e893e5d05100",
+                "security_groups": "name='Raminiara-kafka'\nname='default'",
+                "volumes_attached": "id='e1fe1551-89b7-436c-b6c8-55d56a99c8fa'\nid='7df96e55-d788-449d-ab1e-2048ee039e82'\nid='e2e87fce-5c8f-46e0-afdf-5bc11afdcaf7'",
+                "user_id": "3d241b5fa2d0b3378901e08e86e10284dc9f9dae3732b99f71f809cf46ccb0d5",
+                "OS-DCF:diskConfig": "MANUAL",
+                "accessIPv4": "",
+                "accessIPv6": "",
+                "progress": 0,
+                "OS-EXT-STS:power_state": "Running",
+                "project_id": "fcef6dd450f64a1ab4ffa5a7234c4161",
+                "config_drive": "",
+                "status": "ACTIVE",
+                "updated": "2018-10-29T17:09:39Z",
+                "hostId": "5f66288f9639d626d0a48fcd6733dfe0eea80fb1e51903aa04592288",
+                "OS-SRV-USG:terminated_at": null,
+                "key_name": "dmr",
+                "properties": "",
+                "OS-EXT-AZ:availability_zone": "nova",
+                "name": "Raminiara-kafka-4",
+                "created": "2018-06-15T16:06:54Z"
+                }
+
+        # -----------------------------------------------------
+        # Check the volume.
+        #[root@openstacker]
+
+            openstack \
+                volume show \
+                 --format json \
+                "${volident:?}" \
+                | jq '.'
+
+
+                {
+                "status": "in-use",
+                "properties": "attached_mode='rw', readonly='False'",
+                "user_id": "3d241b5fa2d0b3378901e08e86e10284dc9f9dae3732b99f71f809cf46ccb0d5",
+                "description": null,
+                "availability_zone": "nova",
+                "bootable": "false",
+                "encrypted": false,
+                "created_at": "2018-11-10T23:24:22.000000",
+                "multiattach": false,
+                "updated_at": "2018-11-10T23:27:36.000000",
+                "source_volid": null,
+                "name": "data-02",
+                "snapshot_id": null,
+                "consistencygroup_id": null,
+                "replication_status": null,
+                "os-vol-tenant-attr:tenant_id": "fcef6dd450f64a1ab4ffa5a7234c4161",
+                "size": 512,
+                "type": null,
+                "id": "e2e87fce-5c8f-46e0-afdf-5bc11afdcaf7",
+                "attachments": [
+                    {
+                    "server_id": "bb409e47-cf2c-4e64-aea6-e893e5d05100",
+                    "attachment_id": "b61cc2d5-cef0-476f-aeb2-1fd82e59d80f",
+                    "attached_at": "2018-11-10T23:27:36.000000",
+                    "host_name": null,
+                    "volume_id": "e2e87fce-5c8f-46e0-afdf-5bc11afdcaf7",
+                    "device": "/dev/vdd",
+                    "id": "e2e87fce-5c8f-46e0-afdf-5bc11afdcaf7"
+                    }
+                  ]
+                }
+
+        # -----------------------------------------------------
+        # Login to our instamce.
+        #[root@openstacker]
+
+            vmident=${kfidents[0]}
+            vmident=${kfidents[1]}
+            vmident=${kfidents[2]}
+            vmident=${kfidents[3]}
+
+            getvminfo "${vmident:?}"
+            vmipv4=$(geteleanor172)
+
+            echo "Ident [${vmident}]"
+            echo "IPv4  [${vmipv4}]"
+
+            ssh-keygen -q -R "${vmipv4:?}"
+            ssh-keyscan "${vmipv4:?}" >> "${HOME}/.ssh/known_hosts"
+            ssh-keyscan -t ecdsa "${vmipv4:?}" >> "${HOME}/.ssh/known_hosts"
+
+            ssh ${sshuser:?}@${vmipv4:?}
+
+                sudo -s 
+
+                fsdev=/dev/vdd
+                fspath=/var/local/outer/kafka/data-02
+                
+            #---------------------------------------------------------------------
+            # Check the new disc is available.
+            # ** may need time for the OS to detect the new disc.
+            #[root@virtual]
+
+                fdisk -l | grep '^Disk'
+
+                    Disk /dev/vda: 40 GiB, 42949672960 bytes, 83886080 sectors
+                    Disklabel type: dos
+                    Disk identifier: 0x69cd8248
+                    Disk /dev/vdb: 512 GiB, 549755813888 bytes, 1073741824 sectors
+                    Disk /dev/vdc: 512 GiB, 549755813888 bytes, 1073741824 sectors
+                    Disk /dev/vdd: 512 GiB, 549755813888 bytes, 1073741824 sectors
+
+            #---------------------------------------------------------------------
+            # Check the new disc is not mounted yet.
+            #[root@virtual]
+
+                cat /etc/fstab 
+
+                    ....
+                    UUID=19dabdb0-7b63-4b9f-9c6f-8a20ec994bfe /                       btrfs   subvol=root     0 0
+                    UUID=d4840aee-1788-4811-b929-ab1a431edb22 /boot                   ext4    defaults        1 2
+                    UUID=6355952a-ef5f-48de-8257-aaed61c4f3c4 swap                    swap    defaults        0 0
+                    UUID=2fa1e7b1-3aa4-47f0-9311-7ebc54ae715a /var/local/outer/kafka/data-00    btrfs    defaults,noatime    0  0
+                    UUID=857b4675-9b64-4d13-978d-804dfb9b05dc /var/local/outer/kafka/data-01    btrfs    defaults,noatime    0  0
+
+            #---------------------------------------------------------------------
+            # Create a BTRFS filesystem on the volume.
+            #[root@virtual]
+
+                mkfs.btrfs \
+                    --force \
+                    "${fsdev:?}"
+
+
+                    btrfs-progs v4.11.1
+                    See http://btrfs.wiki.kernel.org for more information.
+
+                    Label:              (null)
+                    UUID:               be487386-2c1e-4439-b5df-8c0aad9efa20
+                    Node size:          16384
+                    Sector size:        4096
+                    Filesystem size:    512.00GiB
+                    Block group profiles:
+                      Data:             single            8.00MiB
+                      Metadata:         DUP               1.00GiB
+                      System:           DUP               8.00MiB
+                    SSD detected:       no
+                    Incompat features:  extref, skinny-metadata
+                    Number of devices:  1
+                    Devices:
+                       ID        SIZE  PATH
+                        1   512.00GiB  /dev/vdd
+
+                btrfs \
+                    filesystem show \
+                    "${fsdev:?}"
+
+                    Label: none  uuid: be487386-2c1e-4439-b5df-8c0aad9efa20
+                        Total devices 1 FS bytes used 112.00KiB
+                        devid    1 size 512.00GiB used 2.02GiB path /dev/vdd
+
+            #---------------------------------------------------------------------
+            # Create our mount point.
+            #[root@virtual]
+
+                mkdir -p "${fspath:?}"
+                touch "${fspath:?}/mount-failed"
+
+            #---------------------------------------------------------------------
+            # Add the volume to our FileSystemTABle.
+            # https://www.howtoforge.com/reducing-disk-io-by-mounting-partitions-with-noatime
+            #[root@virtual]
+               
+                fsuuid=$(
+                    lsblk --noheadings --output UUID "${fsdev:?}"
+                    )
+
+cat >> /etc/fstab << EOF
+UUID=${fsuuid:?} ${fspath:?}    btrfs    defaults,noatime    0  0
+EOF
+
+            #---------------------------------------------------------------------
+            # Mount the new volume.
+            #[root@virtual]
+
+                mount "${fspath:?}"
+
+            #---------------------------------------------------------------------
+            # Check the new volume.
+            #[root@virtual]
+
+                df -h "${fspath:?}"
+
+                    Filesystem      Size  Used Avail Use% Mounted on
+                    /dev/vdd        512G   17M  510G   1% /var/local/outer/kafka/data-02
+
+                lsblk
+
+                    NAME   MAJ:MIN RM  SIZE RO TYPE MOUNTPOINT
+                    vda    252:0    0   40G  0 disk 
+                    ├─vda1 252:1    0  256M  0 part /boot
+                    ├─vda2 252:2    0    1G  0 part [SWAP]
+                    └─vda3 252:3    0 38.8G  0 part /var/lib/docker/btrfs
+                    vdb    252:16   0  512G  0 disk /var/local/outer/kafka/data-00
+                    vdc    252:32   0  512G  0 disk /var/local/outer/kafka/data-01
+                    vdd    252:48   0  512G  0 disk /var/local/outer/kafka/data-02
+
+            #---------------------------------------------------------------------
+            # Ext back to our controller.
+            #[root@virtual]
+
+                exit
+            exit
+
+
+
