@@ -128,10 +128,10 @@ implements ConsumerRebalanceListener
 
     public void loop(int loops, Duration timeout)
         {
-        log.debug("Creating consumer");
+        log.trace("Creating consumer");
         Consumer<Long, byte[]> consumer = consumer();
 
-        log.debug("Subscribing ..");
+        log.trace("Subscribing ..");
         consumer.subscribe(
                 Collections.singletonList(
                     topic()
@@ -236,19 +236,19 @@ implements ConsumerRebalanceListener
 
     public long process(final byte[] bytes)
         {
-        log.debug("Hydrating ....");
+        log.trace("Hydrating ....");
         long count = 0 ;
 
         Schema schema = schema(bytes);
         final Long fingerprint = SchemaNormalization.parsingFingerprint64(schema);
-        log.debug("Schema fingerprint [{}]", fingerprint);
+        log.trace("Schema fingerprint [{}]", fingerprint);
 
         DataFileReader<alert> reader = reader(bytes);
 
         while (reader.hasNext())
             {
             try {
-                log.debug("Hydrating alert [{}]", count++);
+                log.trace("Hydrating alert [{}]", count++);
 
                 //
                 // Select the implementation type based on the schema fingerprint ...
@@ -256,9 +256,9 @@ implements ConsumerRebalanceListener
 
                 final alert frog = reader.next();
 
-                log.debug("candId    [{}]", frog.getCandid());
-                log.debug("objectId  [{}]", frog.getObjectId());
-                log.debug("schemavsn [{}]", frog.getSchemavsn().toString());
+                log.trace("candId    [{}]", frog.getCandid());
+                log.trace("objectId  [{}]", frog.getObjectId());
+                log.trace("schemavsn [{}]", frog.getSchemavsn().toString());
 
                 final cutout science    = frog.getCutoutScience();
                 final cutout template   = frog.getCutoutTemplate();
@@ -266,15 +266,15 @@ implements ConsumerRebalanceListener
 
                 if (null != science)
                     {
-                    log.debug("science    [{}][{}][{}]", science.getFileName(), science.getStampData().limit(), science.getStampData().capacity());
+                    log.trace("science    [{}][{}][{}]", science.getFileName(), science.getStampData().limit(), science.getStampData().capacity());
                     }
                 if (null != template)
                     {
-                    log.debug("template   [{}][{}][{}]", template.getFileName(), template.getStampData().limit(), template.getStampData().capacity());
+                    log.trace("template   [{}][{}][{}]", template.getFileName(), template.getStampData().limit(), template.getStampData().capacity());
                     }
                 if (null != difference)
                     {
-                    log.debug("difference [{}][{}][{}]", difference.getFileName(), difference.getStampData().limit(), difference.getStampData().capacity());
+                    log.trace("difference [{}][{}][{}]", difference.getFileName(), difference.getStampData().limit(), difference.getStampData().capacity());
                     }
                 }
             catch (RuntimeException ouch)
@@ -287,7 +287,7 @@ implements ConsumerRebalanceListener
 
     public Schema schema(final byte[] bytes)
         {
-        log.debug("Extracting message schema");
+        log.trace("Extracting message schema");
         DataFileReader<Object> reader = null;
         Schema schema = null ;
         try {
@@ -298,7 +298,7 @@ implements ConsumerRebalanceListener
                 new GenericDatumReader<Object>()
                 );
             schema = reader.getSchema();
-            log.debug("Message schema [{}][{}]", schema.getFullName(), schema.getDoc());
+            log.trace("Message schema [{}][{}]", schema.getFullName(), schema.getDoc());
             }
         catch (IOException ouch)
             {
@@ -322,7 +322,7 @@ implements ConsumerRebalanceListener
 
     public DataFileReader<alert> reader(final byte[] bytes)
         {
-        log.debug("Creating alert reader");
+        log.trace("Creating alert reader");
         try {
             return new DataFileReader<alert>(
                 new SeekableByteArrayInput(
@@ -342,19 +342,19 @@ implements ConsumerRebalanceListener
 
     public void rewind()
         {
-        log.debug("Creating consumer");
+        log.trace("Creating consumer");
         Consumer<Long, byte[]> consumer = consumer();
 
-        log.debug("Fetching PartitionInfo for topic");
+        log.trace("Fetching PartitionInfo for topic");
         List<PartitionInfo> partitions = consumer.partitionsFor(
             topic()
             );
 
-        log.debug("Creating TopicPartitions");
+        log.trace("Creating TopicPartitions");
         List<TopicPartition> topicpartitions = new ArrayList<TopicPartition>();
         for(PartitionInfo partition : partitions)
             {
-            log.debug("Partition [{}][{}]", partition.topic(), partition.partition());
+            log.trace("Partition [{}][{}]", partition.topic(), partition.partition());
             topicpartitions.add(
                 new TopicPartition(
                     partition.topic(),
@@ -362,12 +362,12 @@ implements ConsumerRebalanceListener
                     )
                 );
             }
-        log.debug("Fetching beginning offsets for partitions");
+        log.trace("Fetching beginning offsets for partitions");
         Map<TopicPartition,Long> offsets = consumer.beginningOffsets(
             topicpartitions
             );
 
-        log.debug("Creating TopicPartition map");
+        log.trace("Creating TopicPartition map");
         Map<TopicPartition, OffsetAndMetadata> offsetmeta = new HashMap<TopicPartition, OffsetAndMetadata>();
         for (TopicPartition partition : offsets.keySet())
             {
@@ -381,30 +381,30 @@ implements ConsumerRebalanceListener
                 );
             }
 
-        log.debug("Committing ...");
+        log.trace("Committing ...");
         consumer.commitSync(offsetmeta);
 
-        log.debug("Closing ...");
+        log.trace("Closing ...");
         consumer.close();
         }
 
     @Override
     public void onPartitionsAssigned(Collection<TopicPartition> partitions)
         {
-        log.debug("PartitionsAssigned()");
+        log.trace("PartitionsAssigned()");
         for (TopicPartition partition : partitions)
             {
-            log.debug("Partition [{}],[{}]", partition.topic(), partition.partition());
+            log.trace("Partition [{}],[{}]", partition.topic(), partition.partition());
             }
         }
 
     @Override
     public void onPartitionsRevoked(Collection<TopicPartition> partitions)
         {
-        log.debug("PartitionsRevoked()");
+        log.trace("PartitionsRevoked()");
         for (TopicPartition partition : partitions)
             {
-            log.debug("Partition [{}],[{}]", partition.topic(), partition.partition());
+            log.trace("Partition [{}],[{}]", partition.topic(), partition.partition());
             }
         }
 
@@ -424,7 +424,7 @@ implements ConsumerRebalanceListener
                     );
                 }
             formatter.close();
-            log.debug("Bytes [{}]", string.toString());
+            log.trace("Bytes [{}]", string.toString());
             }
         }
 
@@ -452,7 +452,7 @@ implements ConsumerRebalanceListener
                     );
                 }
             formatter.close();
-            log.debug("ASCII [{}]", string.toString());
+            log.trace("ASCII [{}]", string.toString());
             }
         }
     }
