@@ -187,18 +187,21 @@ implements ConsumerRebalanceListener
                     consumer.commitSync();
                     uncommitted = 0;
                     }
-                long polltime = (System.nanoTime() - pollstart);
-                log.debug("Poll done [{}] [{}][{}] [{}][{}] in [{}]ns [{}]µs [{}]ms [{}]s => [{}]ns per event",
-                    loopcount,
+                long pollnano  = (System.nanoTime() - pollstart);
+                long pollmicro = pollnano / 1000 ;
+                long pollmilli = pollnano / 1000000 ;
+                log.debug("Poll [{}] done [{}:{}] records [{}:{}] bytes in [{}]ns [{}]µs [{}]ms => [{}]ns [{}]µs [{}]ms per event",
+                    pollcount,
                     pollrecords,
                     totalrecords,
                     pollbytes,
                     totalbytes,
-                    polltime,
-                    (polltime/1000),
-                    (polltime/1000000),
-                    (polltime/1000000000),
-                    (polltime/((pollrecords > 0) ? pollrecords : 1))
+                    pollnano,
+                    pollmicro,
+                    pollmilli,
+                    (pollnano/(( pollrecords > 0) ? pollrecords : 1)),
+                    (pollmicro/((pollrecords > 0) ? pollrecords : 1)),
+                    (pollmilli/((pollrecords > 0) ? pollrecords : 1))
                     );
                 log.debug("----");
                 }
@@ -207,30 +210,39 @@ implements ConsumerRebalanceListener
             log.trace("After loop commit");
             consumer.commitSync();
 
-            long looptime = (System.nanoTime() - loopstart);
-            log.debug("Loop done [{}] [{}][{}] [{}][{}] in [{}]ns [{}]µs [{}]ms [{}]s => [{}]ns per event",
+            long loopnano  = (System.nanoTime() - loopstart);
+            long loopmicro = loopnano / 1000 ;
+            long loopmilli = loopnano / 1000000 ;
+            log.debug("Loop [{}] done [{}:{}] records [{}:{}] bytes in [{}]ns [{}]µs [{}]ms => [{}]ns [{}]µs [{}]ms per event",
                 loopcount,
                 looprecords,
                 totalrecords,
                 loopbytes,
                 totalbytes,
-                looptime,
-                (looptime/1000),
-                (looptime/1000000),
-                (looptime/1000000000),
-                (looptime/((looprecords > 0) ? looprecords : 1))
+                loopnano,
+                loopmicro,
+                loopmilli,
+                (loopnano/(( looprecords > 0) ? looprecords : 1)),
+                (loopmicro/((looprecords > 0) ? looprecords : 1)),
+                (loopmilli/((looprecords > 0) ? looprecords : 1))
                 );
             }
 
-        long totaltime = (System.nanoTime() - totalstart);
-        log.debug("Total done [{}] [{}] in [{}]ns [{}]µs [{}]ms [{}]s => [{}]ns per event",
+        long totalnano = (System.nanoTime() - totalstart);
+        long totalmicro = totalnano / 1000 ;
+        long totalmilli = totalnano / 1000000 ;
+        long totaltime  = totalnano / 1000000000 ;
+
+        log.debug("Total done [{}] [{}] in [{}]ns [{}]µs [{}]ms [{}]s => [{}]ns [{}]µs [{}]ms per event",
             totalrecords,
             totalbytes,
+            totalnano,
+            totalmicro,
+            totalmilli,
             totaltime,
-            (totaltime/1000),
-            (totaltime/1000000),
-            (totaltime/1000000000),
-            (totaltime/((totalrecords > 0) ? totalrecords : 1))
+            (totalnano/(( totalrecords > 0) ? totalrecords : 1)),
+            (totalmicro/((totalrecords > 0) ? totalrecords : 1)),
+            (totalmilli/((totalrecords > 0) ? totalrecords : 1))
             );
         }
 
