@@ -61,7 +61,6 @@ extends KafkaTestBase
      * Test we can read some messages.
      *
      */
-    @Test
     public void testLoop()
         {
         final ZtfAvroReader reader = new ZtfAvroReader(
