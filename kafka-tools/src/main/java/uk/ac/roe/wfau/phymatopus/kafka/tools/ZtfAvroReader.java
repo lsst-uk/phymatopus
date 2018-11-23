@@ -188,7 +188,7 @@ implements ConsumerRebalanceListener
                     uncommitted = 0;
                     }
                 long polltime = (System.nanoTime() - pollstart);
-                log.trace("Poll done [{}] [{}][{}] [{}][{}] in [{}]ns [{}]µs [{}]ms [{}]s => [{}]ns per event",
+                log.debug("Poll done [{}] [{}][{}] [{}][{}] in [{}]ns [{}]µs [{}]ms [{}]s => [{}]ns per event",
                     loopcount,
                     pollrecords,
                     totalrecords,
