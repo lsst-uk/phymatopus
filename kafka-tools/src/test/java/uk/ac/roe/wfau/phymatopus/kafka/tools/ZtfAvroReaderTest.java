@@ -41,6 +41,9 @@ public class ZtfAvroReaderTest
 extends KafkaTestBase
     {
 
+    private int loopcount = 6 ;
+    private Duration loopwait = Duration.ofSeconds(6);
+
     /**
      *
      */
@@ -55,24 +58,6 @@ extends KafkaTestBase
         }
 
     /**
-     * Test we can load our Avro {@link Schema}.
-     *
-    @Test
-    public void testInit()
-        {
-        final ZtfAvroReader reader = new ZtfAvroReader(
-            servers,
-            group,
-            topic
-            );
-        reader.init();
-        assertNotNull(
-            reader.schema()
-            );
-        }
-     */
-
-    /**
      * Test we can read some messages.
      *
      */
@@ -84,14 +69,85 @@ extends KafkaTestBase
             group,
             topic
             );
-
         reader.rewind();
-
         reader.loop(
-            5,
-            Duration.ofSeconds(
-                5
-                )
+            loopcount,
+            loopwait
             );
+        }
+
+
+    /**
+     * Runnable Reader.
+     *
+     */
+    public static class RunnableReader
+    implements Runnable
+        {
+        public RunnableReader(final ZtfAvroReader reader)
+            {
+            this.reader = reader;
+            }
+
+        private final ZtfAvroReader reader ;
+
+        public ZtfAvroReader reader()
+            {
+            return this.reader ;
+            }
+
+        public void rewind()
+            {
+            this.reader.rewind();
+            }
+
+        public void run()
+            {
+            reader.loop(
+                loopcount,
+                loopwait
+                );
+            }
+        }
+
+    /**
+     * Test multiple threads.
+     *
+     */
+    @Test
+    public void testThreads()
+        {
+        final RunnableReader[3] readers = {
+            new RunnableReader(
+                new ZtfAvroReader(
+                    servers,
+                    group,
+                    topic
+                    )
+                ),
+            new RunnableReader(
+                new ZtfAvroReader(
+                    servers,
+                    group,
+                    topic
+                    )
+                ),
+            new RunnableReader(
+                new ZtfAvroReader(
+                    servers,
+                    group,
+                    topic
+                    )
+                )
+            };
+
+        readers[0].rewind();
+
+        for (RunnableReader reader : readers)
+            {
+            Thread thread = new Thread(reader);
+            thread.start();
+            }
+
         }
     }
