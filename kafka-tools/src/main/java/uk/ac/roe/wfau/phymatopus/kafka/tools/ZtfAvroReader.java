@@ -153,12 +153,15 @@ implements ConsumerRebalanceListener
             long looprecords = 0;
             long uncommitted = 0;
 
-            long pollcount = 0;
+            long pollstart   = 0;
+            long pollbytes   = 0;
+            long pollcount   = 0;
+            long pollrecords = 0;
             do {
                 log.trace("Poll [{}]", pollcount++);
-                long pollstart = System.nanoTime();
-                long pollbytes = 0;
-                long pollrecords = 0;
+                pollstart = System.nanoTime();
+                pollbytes = 0;
+                pollrecords = 0;
                 ConsumerRecords<Long, byte[]> records = consumer.poll(
                     timeout
                     );
