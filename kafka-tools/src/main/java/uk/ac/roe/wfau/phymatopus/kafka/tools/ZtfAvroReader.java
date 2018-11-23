@@ -226,7 +226,7 @@ implements ConsumerRebalanceListener
                 (loopmicro/((looprecords > 0) ? looprecords : 1)),
                 (loopmilli/((looprecords > 0) ? looprecords : 1))
                 );
-            loopcount++
+            loopcount++;
             }
 
         long totalnano = (System.nanoTime() - totalstart);

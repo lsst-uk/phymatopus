@@ -147,6 +147,6 @@ extends KafkaTestBase
             Thread thread = new Thread(reader);
             thread.start();
             }
-
         }
     }
+
