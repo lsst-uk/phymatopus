@@ -42,8 +42,9 @@ public class ZtfAvroReaderTest
 extends KafkaTestBase
     {
 
-    private int loopcount = 6 ;
-    private Duration loopwait = Duration.ofSeconds(6);
+    private int loopcount = 1 ;
+    private Duration loopwait = Duration.ofSeconds(1);
+    private int threadcount = 10 ;
 
     /**
      *
@@ -131,7 +132,7 @@ extends KafkaTestBase
         {
         final List<CallableReader> readers = new ArrayList<CallableReader>(); 
 
-        for (int i = 0 ; i < 4 ; i++)   
+        for (int i = 0 ; i < threadcount ; i++)   
             {
             readers.add(
                 new CallableReader()
