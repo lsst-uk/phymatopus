@@ -80,7 +80,7 @@ extends KafkaTestBase
      * Runnable Reader.
      *
      */
-    public static class RunnableReader
+    public class RunnableReader
     implements Runnable
         {
         public RunnableReader(final ZtfAvroReader reader)
