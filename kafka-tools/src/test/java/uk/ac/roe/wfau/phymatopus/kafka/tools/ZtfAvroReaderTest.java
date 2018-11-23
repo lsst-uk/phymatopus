@@ -18,18 +18,19 @@
 
 package uk.ac.roe.wfau.phymatopus.kafka.tools;
 
-import static org.junit.Assert.*;
-
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.Future;
+import java.util.concurrent.Callable;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ExecutorService;
 
-import org.apache.avro.Schema;
-import org.apache.avro.message.BinaryMessageDecoder;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import lombok.extern.slf4j.Slf4j;
-import ztf.alert;
 
 /**
  *
@@ -77,13 +78,24 @@ extends KafkaTestBase
 
 
     /**
-     * Runnable Reader.
+     * Callable Reader.
      *
      */
-    public class RunnableReader
-    implements Runnable
+    public class CallableReader
+    implements Callable<Long>
         {
-        public RunnableReader(final ZtfAvroReader reader)
+        public CallableReader()
+            {
+            this(
+                new ZtfAvroReader(
+                    servers,
+                    group,
+                    topic
+                    )
+                );
+            }
+        
+        public CallableReader(final ZtfAvroReader reader)
             {
             this.reader = reader;
             }
@@ -100,9 +112,9 @@ extends KafkaTestBase
             this.reader.rewind();
             }
 
-        public void run()
+        public Long call()
             {
-            reader.loop(
+            return reader.loop(
                 loopcount,
                 loopwait
                 );
@@ -115,37 +127,27 @@ extends KafkaTestBase
      */
     @Test
     public void testThreads()
+    throws Exception
         {
-        final RunnableReader[] readers = {
-            new RunnableReader(
-                new ZtfAvroReader(
-                    servers,
-                    group,
-                    topic
-                    )
-                ),
-            new RunnableReader(
-                new ZtfAvroReader(
-                    servers,
-                    group,
-                    topic
-                    )
-                ),
-            new RunnableReader(
-                new ZtfAvroReader(
-                    servers,
-                    group,
-                    topic
-                    )
-                )
-            };
+        final List<CallableReader> readers = new ArrayList<CallableReader>(); 
 
-        readers[0].rewind();
-
-        for (RunnableReader reader : readers)
+        for (int i = 0 ; i < 4 ; i++)   
             {
-            Thread thread = new Thread(reader);
-            thread.start();
+            readers.add(
+                new CallableReader()
+                );
+            }
+        
+        readers.get(0).rewind();
+
+        final ExecutorService executor = Executors.newFixedThreadPool(
+            readers.size()
+            );        
+        try{
+            List<Future<Long>> futures = executor.invokeAll(readers);
+            }
+        finally {
+            executor.shutdown();
             }
         }
     }

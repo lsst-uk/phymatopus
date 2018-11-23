@@ -126,7 +126,7 @@ implements ConsumerRebalanceListener
         return consumer;
         }
 
-    public void loop(int loops, Duration timeout)
+    public long loop(int loops, Duration timeout)
         {
         log.trace("Creating consumer");
         Consumer<Long, byte[]> consumer = consumer();
@@ -245,6 +245,8 @@ implements ConsumerRebalanceListener
             (totalmicro/((totalrecords > 0) ? totalrecords : 1)),
             (totalmilli/((totalrecords > 0) ? totalrecords : 1))
             );
+        
+        return totalrecords ;
         }
 
     public long process(final byte[] bytes)
