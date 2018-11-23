@@ -179,7 +179,7 @@ implements ConsumerRebalanceListener
                     uncommitted = 0 ;
                     }
                 long nanotime = (System.nanoTime() - pollstart);
-                log.debug("Poll done [{}] [{}][{}] [{}][{}] in [{}]ns [{}]µs [{}]ms [{}]s => [{}]µs per event",
+                log.debug("Poll done [{}] [{}][{}] [{}][{}] in [{}]ns [{}]µs [{}]ms [{}]s => [{}]ns per event",
                     loopcount,
                     recordcount,
                     recordtotal,
@@ -189,7 +189,7 @@ implements ConsumerRebalanceListener
                     (nanotime/1000),
                     (nanotime/1000000),
                     (nanotime/1000000000),
-                    (nanotime/((recordtotal > 0) ? recordtotal : 1) *1000)
+                    (nanotime/((recordcount > 0) ? recordcount : 1))
                     );
                 log.debug("----");
                 }
