@@ -116,7 +116,7 @@ extends KafkaTestBase
     @Test
     public void testThreads()
         {
-        final RunnableReader[3] readers = {
+        final RunnableReader[] readers = {
             new RunnableReader(
                 new ZtfAvroReader(
                     servers,
