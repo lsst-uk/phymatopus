@@ -146,7 +146,7 @@ implements ConsumerRebalanceListener
         long loopcount = 0;
         for (int i = 0 ; i < loops ; i++)
             {
-            log.debug("Loop [{}]", loopcount++);
+            log.trace("Loop [{}]", loopcount);
 
             long loopstart   = System.nanoTime();
             long loopbytes   = 0;
@@ -158,7 +158,7 @@ implements ConsumerRebalanceListener
             long pollcount   = 0;
             long pollrecords = 0;
             do {
-                log.trace("Poll [{}]", pollcount++);
+                log.trace("Poll [{}]", pollcount);
                 pollstart = System.nanoTime();
                 pollbytes = 0;
                 pollrecords = 0;
@@ -203,7 +203,7 @@ implements ConsumerRebalanceListener
                     (pollmicro/((pollrecords > 0) ? pollrecords : 1)),
                     (pollmilli/((pollrecords > 0) ? pollrecords : 1))
                     );
-                log.debug("----");
+                pollcount++;
                 }
             while (pollrecords > 0);
 
@@ -226,6 +226,7 @@ implements ConsumerRebalanceListener
                 (loopmicro/((looprecords > 0) ? looprecords : 1)),
                 (loopmilli/((looprecords > 0) ? looprecords : 1))
                 );
+            loopcount++
             }
 
         long totalnano = (System.nanoTime() - totalstart);
