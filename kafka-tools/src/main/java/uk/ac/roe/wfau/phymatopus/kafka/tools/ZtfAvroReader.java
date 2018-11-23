@@ -149,11 +149,11 @@ implements ConsumerRebalanceListener
             log.debug("Loop [{}]", loopcount++);
             long pollcount   = 0;
             long uncommitted = 0;
+            long recordcount = 0;
             do {
                 log.debug("Poll [{}]", pollcount++);
                 long pollstart = System.nanoTime();
                 long bytecount   = 0;
-                long recordcount = 0;
                 ConsumerRecords<Long, byte[]> records = consumer.poll(
                     timeout
                     );
