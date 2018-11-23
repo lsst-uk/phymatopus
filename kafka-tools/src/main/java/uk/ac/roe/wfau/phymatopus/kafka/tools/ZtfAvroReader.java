@@ -139,69 +139,96 @@ implements ConsumerRebalanceListener
                 this
                 );
 
-        long bytetotal   = 0 ;
-        long recordtotal = 0 ;
+        long totalbytes   = 0;
+        long totalrecords = 0;
+        long totalstart   = System.nanoTime();
 
-        log.debug("Looping ..");
-        long loopcount = 0 ;
+        long loopcount = 0;
         for (int i = 0 ; i < loops ; i++)
             {
             log.debug("Loop [{}]", loopcount++);
-            long pollcount   = 0;
+
+            long loopstart   = System.nanoTime();
+            long loopbytes   = 0;
+            long looprecords = 0;
             long uncommitted = 0;
-            long recordcount = 0;
+
+            long pollcount = 0;
             do {
-                log.debug("Poll [{}]", pollcount++);
+                log.trace("Poll [{}]", pollcount++);
                 long pollstart = System.nanoTime();
-                long bytecount   = 0;
+                long pollbytes = 0;
+                long pollrecords = 0;
                 ConsumerRecords<Long, byte[]> records = consumer.poll(
                     timeout
                     );
                 for (ConsumerRecord<Long, byte[]> record : records)
                     {
-                    recordcount++;
-                    recordtotal++;
+                    pollrecords++;
+                    totalrecords++;
                     uncommitted++;
-                    log.debug("Record [{}][{}]", recordcount, recordtotal);
-                    log.debug("Offset [{}]", record.offset());
-                    log.debug("Key    [{}]", record.key());
+                    log.trace("Record [{}][{}]", pollrecords, totalrecords);
+                    log.trace("Offset [{}]", record.offset());
+                    log.trace("Key    [{}]", record.key());
                     byte[] bytes = record.value();
-                    bytecount += bytes.length;
-                    bytetotal += bytes.length;
+                    pollbytes  += bytes.length;
+                    loopbytes  += bytes.length;
+                    totalbytes += bytes.length;
                     process(
                         bytes
                         );
                     }
                 if (uncommitted > 1000)
                     {
-                    log.debug("Committing [{}]", uncommitted);
+                    log.trace("Committing [{}]", uncommitted);
                     consumer.commitSync();
-                    uncommitted = 0 ;
+                    uncommitted = 0;
                     }
-                long nanotime = (System.nanoTime() - pollstart);
-                log.debug("Poll done [{}] [{}][{}] [{}][{}] in [{}]ns [{}]µs [{}]ms [{}]s => [{}]ns per event",
+                long polltime = (System.nanoTime() - pollstart);
+                log.trace("Poll done [{}] [{}][{}] [{}][{}] in [{}]ns [{}]µs [{}]ms [{}]s => [{}]ns per event",
                     loopcount,
-                    recordcount,
-                    recordtotal,
-                    bytecount,
-                    bytetotal,
-                    nanotime,
-                    (nanotime/1000),
-                    (nanotime/1000000),
-                    (nanotime/1000000000),
-                    (nanotime/((recordcount > 0) ? recordcount : 1))
+                    pollrecords,
+                    totalrecords,
+                    pollbytes,
+                    totalbytes,
+                    polltime,
+                    (polltime/1000),
+                    (polltime/1000000),
+                    (polltime/1000000000),
+                    (polltime/((pollrecords > 0) ? pollrecords : 1))
                     );
                 log.debug("----");
                 }
-            while (recordcount > 0);
+            while (pollrecords > 0);
 
-            if (uncommitted > 0)
-                {
-                log.debug("Committing [{}]", uncommitted);
-                consumer.commitSync();
-                uncommitted = 0 ;
-                }
+            log.trace("After loop commit");
+            consumer.commitSync();
+
+            long looptime = (System.nanoTime() - loopstart);
+            log.debug("Loop done [{}] [{}][{}] [{}][{}] in [{}]ns [{}]µs [{}]ms [{}]s => [{}]ns per event",
+                loopcount,
+                looprecords,
+                totalrecords,
+                loopbytes,
+                totalbytes,
+                looptime,
+                (looptime/1000),
+                (looptime/1000000),
+                (looptime/1000000000),
+                (looptime/((looprecords > 0) ? looprecords : 1))
+                );
             }
+
+        long totaltime = (System.nanoTime() - totalstart);
+        log.debug("Total done [{}] [{}] in [{}]ns [{}]µs [{}]ms [{}]s => [{}]ns per event",
+            totalrecords,
+            totalbytes,
+            totaltime,
+            (totaltime/1000),
+            (totaltime/1000000),
+            (totaltime/1000000000),
+            (totaltime/((totalrecords > 0) ? totalrecords : 1))
+            );
         }
 
     public long process(final byte[] bytes)

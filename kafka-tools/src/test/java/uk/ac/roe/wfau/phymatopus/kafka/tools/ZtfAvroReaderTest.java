@@ -32,8 +32,8 @@ import lombok.extern.slf4j.Slf4j;
 import ztf.alert;
 
 /**
- * 
- * 
+ *
+ *
  */
 @Slf4j
 @RunWith(JUnit4.class)
@@ -42,21 +42,21 @@ extends KafkaTestBase
     {
 
     /**
-     * 
+     *
      */
     public ZtfAvroReaderTest()
         {
         super();
 
         this.group   = "java-test-001" ;
-        this.topic   = "ztf_20180917_programid1" ;
+        this.topic   = "ztf_20181120_programid1" ;
         this.servers = "172.16.49.217:9092,172.16.49.214:9092,172.16.49.12:9092,172.16.49.208:9092" ;
 
         }
 
     /**
      * Test we can load our Avro {@link Schema}.
-     * 
+     *
     @Test
     public void testInit()
         {
@@ -64,7 +64,7 @@ extends KafkaTestBase
             servers,
             group,
             topic
-            ); 
+            );
         reader.init();
         assertNotNull(
             reader.schema()
@@ -74,7 +74,7 @@ extends KafkaTestBase
 
     /**
      * Test we can read some messages.
-     * 
+     *
      */
     @Test
     public void testLoop()
@@ -83,7 +83,7 @@ extends KafkaTestBase
             servers,
             group,
             topic
-            ); 
+            );
 
         reader.rewind();
 
