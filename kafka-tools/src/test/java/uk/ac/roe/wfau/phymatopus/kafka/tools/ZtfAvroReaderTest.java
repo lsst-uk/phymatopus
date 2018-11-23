@@ -43,7 +43,7 @@ extends KafkaTestBase
     {
 
     private int loopcount = 1 ;
-    private Duration loopwait = Duration.ofSeconds(1);
+    private Duration loopwait = Duration.ofSeconds(5);
     private int threadcount = 10 ;
 
     /**
