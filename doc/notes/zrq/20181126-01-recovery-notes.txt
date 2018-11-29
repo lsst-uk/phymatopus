@@ -1,0 +1,313 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2018, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+# -----------------------------------------------------
+# Login to our external VM.
+#[user@desktop]
+
+    ssh Etalema
+
+    # -----------------------------------------------------
+    # Create a container to work with.
+    #[user@virtual]
+
+        docker run \
+            --rm \
+            --tty \
+            --interactive \
+            --hostname openstacker \
+            --env SSH_AUTH_SOCK=/tmp/ssh_auth_sock \
+            --volume "${HOME}/settings/:/etc/phymatopus/" \
+            --volume ${SSH_AUTH_SOCK}:/tmp/ssh_auth_sock \
+            phymatopus/openstack-client \
+            bash
+
+        # -----------------------------------------------------
+        # Load our OpenStack settings.
+        #[root@openstacker]
+
+            source '/etc/phymatopus/openstack.settings'
+
+        # -----------------------------------------------------
+        # Load our OpenStack and Eleanor functions.
+        #[root@openstacker]
+
+            source 'openstack-utils.sh'
+            source 'eleanor-utils.sh'
+            source 'eleanor-init.sh'
+
+        # -----------------------------------------------------
+        # Load our cluster and ZTF settings.
+        #[root@openstacker]
+
+            source '/etc/phymatopus/cluster.settings'
+            source '/etc/phymatopus/ztf.settings'
+
+        # -----------------------------------------------------
+        # Process the list of nodes from OpenStack.
+        #[root@openstacker]
+
+            unset controlid
+            unset controlip
+
+            unset unknowns
+            unknowns=()
+
+            unset kfidents
+            kfidents=()
+
+            unset mmidents
+            mmidents=()
+
+            unset zkidents
+            zkidents=()
+
+            echo ""
+            echo "Processing OpenStack nodes"
+
+            for ident in $(
+                openstack \
+                    server list \
+                    --format json \
+                | jq -r '.[] | .ID'
+                )
+                do
+                    echo ""
+                    echo "Ident [$ident]"
+                    getvminfo "${ident:?}"
+
+                    name=$(getvmname)
+                    echo "Name  [$name]"
+
+                    case "${name}" in
+
+                        ${phym_project:?}-zookeeper*)
+                            echo "Match zookeeper"
+                            zkidents+=(${ident})
+                            ;;
+
+                        ${phym_project:?}-mirror*)
+                            echo "Match mirror"
+                            mmidents+=(${ident})
+                            ;;
+
+                        ${phym_project:?}-kafka*)
+                            echo "Match kafka"
+                            kfidents+=(${ident})
+                            ;;
+
+                        ${phym_project:?}-control*)
+                            echo "Match control"
+                            controlid=${ident}
+                            ;;
+
+                        *)
+                            echo "unknown"
+                            unknowns+=(${ident})
+                            ;;
+                    esac
+                done
+
+        # -----------------------------------------------------
+        # Get the controller address.
+        #[root@openstacker]
+
+            getvminfo "${controlid:?}"
+
+            controlip=$(
+                geteleanor172
+                )
+
+        # -----------------------------------------------------
+        # Test login to our controller node.
+        #[root@openstacker]
+
+echo "
+Control IP [${controlip:?}]
+Control ID [${controlid:?}]
+"
+
+            ssh ${sshopts[@]} ${sshuser:?}@${controlip:?} \
+                '
+                date
+                hostname
+                '
+
+        # -----------------------------------------------------
+        # Create our config directory.
+        #[root@openstacker]
+
+            confdir=/etc/phymatopus
+            nodedir=${confdir}/nodes
+
+            mkdir -p "${nodedir:?}"
+
+        # -----------------------------------------------------
+        # Save our controller address.
+        #[root@openstacker]
+
+            cat > "${confdir:?}/control.settings" << EOF
+
+controlid=${controlid:?}
+controlip=${controlip:?}
+
+EOF
+
+        # -----------------------------------------------------
+        # Save a list of the node identifiers.
+        #[root@openstacker]
+
+            listfile=${nodedir:?}/zkidents.txt
+
+            > "${listfile:?}"
+            for ident in ${zkidents[@]}
+                do
+                    echo "${ident:?}" >> "${listfile:?}"
+                done
+
+            listfile=${nodedir:?}/mmidents.txt
+
+            > "${listfile:?}"
+            for ident in ${mmidents[@]}
+                do
+                    echo "${ident:?}" >> "${listfile:?}"
+                done
+
+            listfile=${nodedir:?}/kfidents.txt
+
+            > "${listfile:?}"
+            for ident in ${kfidents[@]}
+                do
+                    echo "${ident:?}" >> "${listfile:?}"
+                done
+
+        # -----------------------------------------------------
+        # Save a list of the 192 address.
+        #[root@openstacker]
+
+            listfile=${nodedir:?}/zkip192.txt
+
+            > "${listfile:?}"
+            for ident in ${zkidents[@]}
+                do
+                    getvminfo "${ident:?}"
+                    echo "$(geteleanor192)" >> "${listfile:?}"
+                done
+
+            listfile=${nodedir:?}/mmip192.txt
+
+            > "${listfile:?}"
+            for ident in ${mmidents[@]}
+                do
+                    getvminfo "${ident:?}"
+                    echo "$(geteleanor192)" >> "${listfile:?}"
+                done
+
+            listfile=${nodedir:?}/kfip192.txt
+
+            > "${listfile:?}"
+            for ident in ${kfidents[@]}
+                do
+                    getvminfo "${ident:?}"
+                    echo "$(geteleanor192)" >> "${listfile:?}"
+                done
+
+        # -----------------------------------------------------
+        # Save a list of the 172 addresses.
+        #[root@openstacker]
+
+            listfile=${nodedir:?}/kfip172.txt
+
+            > "${listfile:?}"
+            for ident in ${kfidents[@]}
+                do
+                    getvminfo "${ident:?}"
+                    echo "$(geteleanor172)" >> "${listfile:?}"
+                done
+
+        # -----------------------------------------------------
+        # Build a list of ROE Kafka nodes.
+        #[root@openstacker]
+
+            delim=''
+            port='9092'
+            roeconnect=''
+
+            for ident in ${kfidents[@]}
+                do
+                    getvminfo "${ident:?}"
+                    connect=$(geteleanor172):${port}
+                    echo "Ident [${ident:?}][${connect:?}]"
+                    roeconnect=${roeconnect}${delim}${connect}
+                    delim=','
+                done
+
+        # -----------------------------------------------------
+        # Save our connection address.
+        #[root@openstacker]
+
+            cat > "${confdir:?}/roe.settings" << EOF
+
+roeconnect=${roeconnect:?}
+
+EOF
+
+        # -----------------------------------------------------
+        # Copy our settings to our controller.
+        #[root@openstacker]
+
+#
+# Do we need to do this ?
+# Not sure there is a case where they are used.
+# Alternatively, should we move all of the configuring steps to the controller ?
+#
+
+            scpopts=(
+                '-r'
+                '-o CheckHostIP=no'
+                '-o UserKnownHostsFile=/dev/null'
+                '-o StrictHostKeyChecking=no'
+                )
+
+            scp ${scpopts[*]} \
+                "${confdir:?}/" \
+                "${sshuser:?}@${controlip:?}:"
+
+        # -----------------------------------------------------
+        # Check the settings on our controller.
+        #[root@openstacker]
+
+#
+# Do we need to do this ?
+# Not sure there is a case where they are used.
+# Alternatively, should we move all of the configuring steps to the controller ?
+#
+
+            ssh ${sshopts[*]} ${sshuser:?}@${controlip:?} \
+                '
+                ls -al
+                ls -al phymatopus
+                ls -al phymatopus/nodes
+                '
+
+
+

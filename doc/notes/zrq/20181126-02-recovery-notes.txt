@@ -1,0 +1,255 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2018, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+# -----------------------------------------------------
+# Login to our external VM.
+#[user@desktop]
+
+    ssh Etalema
+
+    # -----------------------------------------------------
+    # Create a container to work with.
+    #[user@virtual]
+
+        docker run \
+            --rm \
+            --tty \
+            --interactive \
+            --hostname openstacker \
+            --env SSH_AUTH_SOCK=/tmp/ssh_auth_sock \
+            --volume "${HOME}/settings/:/etc/phymatopus/" \
+            --volume ${SSH_AUTH_SOCK}:/tmp/ssh_auth_sock \
+            phymatopus/openstack-client \
+            bash
+
+        # -----------------------------------------------------
+        # Set our config paths.
+        #[root@openstacker]
+
+            confdir=/etc/phymatopus
+            nodedir=${confdir:?}/nodes
+
+        # -----------------------------------------------------
+        # Load our OpenStack settings.
+        #[root@openstacker]
+
+            source "${confdir:?}/openstack.settings"
+
+        # -----------------------------------------------------
+        # Load our OpenStack and Eleanor functions.
+        #[root@openstacker]
+
+            source 'openstack-utils.sh'
+            source 'eleanor-utils.sh'
+            source 'eleanor-init.sh'
+
+        # -----------------------------------------------------
+        # Load our cluster and ZTF settings.
+        #[root@openstacker]
+
+            source "${confdir:?}/cluster.settings"
+            source "${confdir:?}/ztf.settings"
+            source "${confdir:?}/roe.settings"
+
+            source "${confdir:?}/control.settings"
+
+        # -----------------------------------------------------
+        # Load our node lists.
+        #[root@openstacker]
+
+            unset kfidents
+            kfidents=()
+
+            unset mmidents
+            mmidents=()
+
+            unset zkidents
+            zkidents=()
+
+            for ident in $(cat "${nodedir:?}/kfidents.txt")
+            do
+                echo "Ident [${ident}]"
+                kfidents+=(${ident})
+            done
+
+            for ident in $(cat "${nodedir:?}/mmidents.txt")
+            do
+                echo "Ident [${ident}]"
+                mmidents+=(${ident})
+            done
+
+            for ident in $(cat "${nodedir:?}/zkidents.txt")
+            do
+                echo "Ident [${ident}]"
+                zkidents+=(${ident})
+            done
+
+        # -----------------------------------------------------
+        # Check what is running on each of our nodes.
+        #[root@openstacker]
+
+            for ident in ${zkidents[@]}
+
+            for ident in ${mmidents[@]}
+
+            for ident in ${kfidents[@]}
+
+                do
+                    getvminfo "${ident:?}"
+                    vmname=$(getvmname)
+                    vmipv4=$(geteleanor192)
+                    echo ""
+                    echo "Node [${vmname}][${vmipv4}]"
+
+                    ssh \
+                        ${sshopts[*]} \
+                        -o ProxyCommand="ssh ${sshopts[*]} -W %h:%p ${sshuser:?}@${controlip:?}" \
+                        "${sshuser:?}@${vmipv4:?}" \
+                            '
+                            docker ps -a
+                            '
+                done
+
+
+            #
+            # Two of the three Zookeepers are down.
+
+                Node [Raminiara-zookeeper-3][192.168.1.14]
+                CONTAINER ID        IMAGE                             COMMAND                  CREATED             STATUS              PORTS                                                                    NAMES
+                0789712f75da        confluentinc/cp-zookeeper:4.1.1   "/etc/confluent/dock…"   6 weeks ago         Up 6 weeks          0.0.0.0:2181->2181/tcp, 0.0.0.0:2888->2888/tcp, 0.0.0.0:3888->3888/tcp   stevedore_courtney_1
+
+                Node [Raminiara-zookeeper-2][192.168.1.16]
+                CONTAINER ID        IMAGE                             COMMAND                  CREATED             STATUS                    PORTS               NAMES
+                e3a9f7ca3f87        confluentinc/cp-zookeeper:4.1.1   "/etc/confluent/dock…"   6 weeks ago         Exited (143) 2 days ago                       stevedore_courtney_1
+
+                Node [Raminiara-zookeeper-1][192.168.1.11]
+                CONTAINER ID        IMAGE                             COMMAND                  CREATED             STATUS                    PORTS               NAMES
+                e01541b8011d        confluentinc/cp-zookeeper:4.1.1   "/etc/confluent/dock…"   6 weeks ago         Exited (143) 3 days ago                       stevedore_courtney_1
+
+            #
+            # All four MirrorMakers are offline.
+
+                Node [Raminiara-mirror-3][192.168.1.25]
+
+                Node [Raminiara-mirror-2][192.168.1.22]
+
+                Node [Raminiara-mirror-1][192.168.1.7]
+
+                Node [Raminiara-mirror-0][192.168.1.9]
+
+            #
+            # One of the four Kafka nodes is offline.
+
+                Node [Raminiara-kafka-4][192.168.1.5]
+                CONTAINER ID        IMAGE                         COMMAND                  CREATED             STATUS              PORTS                    NAMES
+                414ce5540bd3        confluentinc/cp-kafka:4.1.1   "/etc/confluent/dock…"   2 weeks ago         Up 2 weeks          0.0.0.0:9092->9092/tcp   stevedore_emily_1
+
+                Node [Raminiara-kafka-3][192.168.1.8]
+                CONTAINER ID        IMAGE                         COMMAND                  CREATED             STATUS                    PORTS               NAMES
+                51d987c00793        confluentinc/cp-kafka:4.1.1   "/etc/confluent/dock…"   2 weeks ago         Exited (137) 3 days ago                       stevedore_emily_1
+
+                Node [Raminiara-kafka-2][192.168.1.15]
+                CONTAINER ID        IMAGE                         COMMAND                  CREATED             STATUS              PORTS                    NAMES
+                8b400c340b33        confluentinc/cp-kafka:4.1.1   "/etc/confluent/dock…"   4 days ago          Up 4 days           0.0.0.0:9092->9092/tcp   stevedore_emily_1
+
+                Node [Raminiara-kafka-1][192.168.1.10]
+                CONTAINER ID        IMAGE                         COMMAND                  CREATED             STATUS              PORTS                    NAMES
+                0b5a59a64dfc        confluentinc/cp-kafka:4.1.1   "/etc/confluent/dock…"   2 weeks ago         Up 5 days           0.0.0.0:9092->9092/tcp   stevedore_emily_1
+
+        # -----------------------------------------------------
+        # Restart all of the Zookeepers.
+        #[root@openstacker]
+
+            ident=${zkidents[0]}
+            ident=${zkidents[1]}
+            ident=${zkidents[2]}
+
+            getvminfo "${ident:?}"
+            vmname=$(getvmname)
+            vmipv4=$(geteleanor192)
+            echo ""
+            echo "Node [${vmname}][${vmipv4}]"
+
+            ssh \
+                ${sshopts[*]} \
+                -o ProxyCommand="ssh ${sshopts[*]} -W %h:%p ${sshuser:?}@${controlip:?}" \
+                "${sshuser:?}@${vmipv4:?}"
+
+                    docker-compose \
+                        --file 'zookeeper.yml' \
+                        down
+
+                    sleep 5
+
+                    docker-compose \
+                        --file 'zookeeper.yml' \
+                        up -d
+
+                    sleep 5
+
+                    docker logs \
+                       --follow \
+                       --tail 100 \
+                        stevedore_courtney_1
+
+        # -----------------------------------------------------
+        # Restart all of the Kafka nodes.
+        #[root@openstacker]
+
+            ident=${kfidents[0]}
+            ident=${kfidents[1]}
+            ident=${kfidents[2]}
+            ident=${kfidents[3]}
+
+            getvminfo "${ident:?}"
+            vmname=$(getvmname)
+            vmipv4=$(geteleanor192)
+            echo ""
+            echo "Node [${vmname}][${vmipv4}]"
+
+            ssh \
+                ${sshopts[*]} \
+                -o ProxyCommand="ssh ${sshopts[*]} -W %h:%p ${sshuser:?}@${controlip:?}" \
+                "${sshuser:?}@${vmipv4:?}"
+
+                    docker-compose \
+                        --file 'kafka.yml' \
+                        down
+
+                    sleep 5
+
+                    docker-compose \
+                        --file 'kafka.yml' \
+                        up -d
+
+                    sleep 5
+
+                    docker logs \
+                       --follow \
+                       --tail 100 \
+                        stevedore_emily_1
+
+        # -----------------------------------------------------
+        # Wait a few hours ....
+        # -----------------------------------------------------
+
+

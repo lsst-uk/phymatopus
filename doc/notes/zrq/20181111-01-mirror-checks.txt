@@ -1,0 +1,227 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2018, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+# -----------------------------------------------------
+# Login to our external VM.
+#[user@trop03]
+
+    ssh Etalema
+
+    # -----------------------------------------------------
+    # Check our secret function.
+    #[user@virtual]
+
+        secret 'frog'
+
+    # -----------------------------------------------------
+    # Create a container to work with.
+    #[user@virtual]
+
+        docker run \
+            --rm \
+            --tty \
+            --interactive \
+            --hostname openstacker \
+            --env SSH_AUTH_SOCK=/tmp/ssh_auth_sock \
+            --volume "${HOME}/settings/:/etc/phymatopus/" \
+            --volume ${SSH_AUTH_SOCK}:/tmp/ssh_auth_sock \
+            phymatopus/openstack-client \
+            bash
+
+        # -----------------------------------------------------
+        # Load our OpenStack settings.
+        #[root@openstacker]
+
+            source '/etc/phymatopus/openstack.settings'
+
+        # -----------------------------------------------------
+        # Load our OpenStack and Eleanor functions.
+        #[root@openstacker]
+
+            source 'openstack-utils.sh'
+            source 'eleanor-utils.sh'
+            source 'eleanor-init.sh'
+
+        # -----------------------------------------------------
+        # Load our cluster and ZTF settings.
+        #[root@openstacker]
+
+            source '/etc/phymatopus/cluster.settings'
+            source '/etc/phymatopus/ztf.settings'
+
+        # -----------------------------------------------------
+        # Load our node lists.
+        #[root@openstacker]
+
+            unset kfidents
+            kfidents=()
+
+            unset mmidents
+            mmidents=()
+
+            unset zkidents
+            zkidents=()
+
+            for ident in $(cat /etc/phymatopus/nodes/kfidents.txt) 
+            do
+                echo "Ident [${ident}]"
+                kfidents+=(${ident})
+            done
+
+            for ident in $(cat /etc/phymatopus/nodes/mmidents.txt) 
+            do
+                echo "Ident [${ident}]"
+                mmidents+=(${ident})
+            done
+
+            for ident in $(cat /etc/phymatopus/nodes/zkidents.txt) 
+            do
+                echo "Ident [${ident}]"
+                zkidents+=(${ident})
+            done
+
+        # -----------------------------------------------------
+        # Check the disc space on each of our Kafka nodes.
+        #[root@openstacker]
+
+            innerpath=/var/local/inner/kafka
+            outerpath=/var/local/outer/kafka
+
+            for address in $(cat /etc/phymatopus/ipv4/kfip192.txt)
+                do
+                    echo "
+                        echo \"\"
+                        echo \"[${address:?}][$(date)]\"
+                        echo \"\"
+                        df -h /
+                        echo \"---- ----\"
+                        df -h \"${outerpath:?}/data-00\"
+                        echo "---- ----"
+                        df -h \"${outerpath:?}/data-01\"
+                        echo "---- ----"
+                        df -h \"${outerpath:?}/data-02\"
+                        " \
+                    | ssh \
+                        ${sshopts[*]} \
+                        -o ProxyCommand="${sshproxy:?}" \
+                        ${sshuser:?}@${address:?}
+                done
+
+
+                [192.168.1.5][Sun Nov 11 14:27:40 UTC 2018]
+
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vda3        39G  4.4G   33G  12% /
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdb        512G  478G   33G  94% /var/local/outer/kafka/data-00
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdc        512G  478G   33G  94% /var/local/outer/kafka/data-01
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdd        512G   17M  510G   1% /var/local/outer/kafka/data-02
+
+                [192.168.1.8][Sun Nov 11 14:27:44 UTC 2018]
+
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vda3        39G   12G   26G  31% /
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdb        512G  478G   33G  94% /var/local/outer/kafka/data-00
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdc        512G  478G   33G  94% /var/local/outer/kafka/data-01
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdd        512G   17M  510G   1% /var/local/outer/kafka/data-02
+
+                [192.168.1.15][Sun Nov 11 14:27:46 UTC 2018]
+
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vda3        39G   11G   27G  30% /
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdb        512G  478G   33G  94% /var/local/outer/kafka/data-00
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdc        512G  478G   33G  94% /var/local/outer/kafka/data-01
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdd        512G   17M  510G   1% /var/local/outer/kafka/data-02
+
+                [192.168.1.10][Sun Nov 11 14:27:49 UTC 2018]
+
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vda3        39G   13G   25G  34% /
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdb        512G  478G   33G  94% /var/local/outer/kafka/data-00
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdc        512G  478G   33G  94% /var/local/outer/kafka/data-01
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdd        512G   17M  510G   1% /var/local/outer/kafka/data-02
+
+         # -----------------------------------------------------
+         # Check our offsets in the ZTF server.
+         #[root@openstacker]
+
+             date ; \
+             echo "
+                 docker run --rm phymatopus/kafka-core \
+                     bin/kafka-consumer-groups.sh \
+                         --bootstrap-server "${ztfconnect:?}" \
+                         --describe \
+                         --group "${groupid:?}"
+                 " \
+             | ssh \
+                 ${sshopts[*]} \
+                 ${sshuser:?}@${controlip:?} | sort | tee lits.txt \
+             ; date
+
+
+
+                Sun Nov 11 14:28:59 UTC 2018
+                Note: This will not show information about old Zookeeper-based consumers.
+
+                TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                 HOST             CLIENT-ID
+                ztf_20181111_programid1 0          8546            8546            0               ztf-mirror.roe.ac.uk-0-8945f891-323f-413c-986f-8871e934a60b /129.215.255.235 ztf-mirror.roe.ac.uk-0
+                ztf_20181111_programid1 1          8546            8546            0               ztf-mirror.roe.ac.uk-0-b0b716f8-7640-4a96-a4b2-9d1d715f1997 /129.215.255.235 ztf-mirror.roe.ac.uk-0
+                ztf_20181111_programid1 10         8546            8546            0               ztf-mirror.roe.ac.uk-2-75d7982b-e94e-4c9a-9041-75e0baae835b /129.215.255.235 ztf-mirror.roe.ac.uk-2
+                ztf_20181111_programid1 11         8546            8546            0               ztf-mirror.roe.ac.uk-2-e9733cf7-cee0-4dbb-8ffd-14b67ed2036d /129.215.255.235 ztf-mirror.roe.ac.uk-2
+                ztf_20181111_programid1 12         8546            8546            0               ztf-mirror.roe.ac.uk-3-20ab496e-1d52-475c-9d1f-8d2c9a92d413 /129.215.255.235 ztf-mirror.roe.ac.uk-3
+                ztf_20181111_programid1 13         8545            8545            0               ztf-mirror.roe.ac.uk-3-712136cb-10f6-42f1-894b-e4bcc4688322 /129.215.255.235 ztf-mirror.roe.ac.uk-3
+                ztf_20181111_programid1 2          8546            8546            0               ztf-mirror.roe.ac.uk-0-cad937c6-1989-4a2d-adeb-d11bbed20837 /129.215.255.235 ztf-mirror.roe.ac.uk-0
+                ztf_20181111_programid1 3          8546            8546            0               ztf-mirror.roe.ac.uk-0-d3c4af71-cc2b-4213-8f1a-e5974b2baf5c /129.215.255.235 ztf-mirror.roe.ac.uk-0
+                ztf_20181111_programid1 4          8546            8546            0               ztf-mirror.roe.ac.uk-1-3e1216d5-b9d7-4ca1-8c50-8c500736328b /129.215.255.235 ztf-mirror.roe.ac.uk-1
+                ztf_20181111_programid1 5          8545            8545            0               ztf-mirror.roe.ac.uk-1-8e266184-f59b-4f89-8f07-574f30195106 /129.215.255.235 ztf-mirror.roe.ac.uk-1
+                ztf_20181111_programid1 6          8546            8546            0               ztf-mirror.roe.ac.uk-1-a33a4435-dd41-4a85-8d75-61050a19b2a6 /129.215.255.235 ztf-mirror.roe.ac.uk-1
+                ztf_20181111_programid1 7          8546            8546            0               ztf-mirror.roe.ac.uk-1-f7c6cbd0-62ad-4e44-8511-5444028beb0a /129.215.255.235 ztf-mirror.roe.ac.uk-1
+                ztf_20181111_programid1 8          8546            8546            0               ztf-mirror.roe.ac.uk-2-0c5caaa2-853c-41c2-8efc-9d28dece5746 /129.215.255.235 ztf-mirror.roe.ac.uk-2
+                ztf_20181111_programid1 9          8546            8546            0               ztf-mirror.roe.ac.uk-2-225ef3f6-8ff6-46aa-8766-8cc4c1b9141a /129.215.255.235 ztf-mirror.roe.ac.uk-2
+                Sun Nov 11 14:29:13 UTC 2018
+
+
+
+

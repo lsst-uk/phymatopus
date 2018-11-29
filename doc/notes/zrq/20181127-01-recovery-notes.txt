@@ -1,0 +1,140 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2018, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+# -----------------------------------------------------
+# Login to our external VM.
+#[user@desktop]
+
+    ssh Etalema
+
+    # -----------------------------------------------------
+    # Create a container to work with.
+    #[user@virtual]
+
+        docker run \
+            --rm \
+            --tty \
+            --interactive \
+            --hostname openstacker \
+            --env SSH_AUTH_SOCK=/tmp/ssh_auth_sock \
+            --volume "${HOME}/settings/:/etc/phymatopus/" \
+            --volume ${SSH_AUTH_SOCK}:/tmp/ssh_auth_sock \
+            phymatopus/openstack-client \
+            bash
+
+        # -----------------------------------------------------
+        # Load our settings.
+        #[root@openstacker]
+
+            source '/etc/phymatopus/setup'
+
+        # -----------------------------------------------------
+        # Check the disc space on each of our Kafka nodes.
+        #[root@openstacker]
+
+            innerpath=/var/local/inner/kafka
+            outerpath=/var/local/outer/kafka
+
+            for address in $(cat /etc/phymatopus/nodes/kfip192.txt)
+                do
+
+                    ssh \
+                        ${sshopts[*]} \
+                        -o ProxyCommand="ssh ${sshopts[*]} -W %h:%p ${sshuser:?}@${controlip:?}" \
+                        "${sshuser:?}@${address:?}" \
+                            "
+                            echo \"\"
+                            echo \"[\$(hostname)][\$(date)]\"
+                            echo \"\"
+                            df -h /
+                            echo \"---- ----\"
+                            df -h \"${outerpath:?}/data-00\"
+                            echo "---- ----"
+                            df -h \"${outerpath:?}/data-01\"
+                            echo "---- ----"
+                            df -h \"${outerpath:?}/data-02\"
+                            "
+                done
+
+
+                    [raminiara-kafka-4.novalocal][Tue Nov 27 06:00:06 GMT 2018]
+
+                    Filesystem      Size  Used Avail Use% Mounted on
+                    /dev/vda3        39G  4.5G   33G  12% /
+                    ---- ----
+                    Filesystem      Size  Used Avail Use% Mounted on
+                    /dev/vdb        512G  478G   33G  94% /var/local/outer/kafka/data-00
+                    ---- ----
+                    Filesystem      Size  Used Avail Use% Mounted on
+                    /dev/vdc        512G  478G   33G  94% /var/local/outer/kafka/data-01
+                    ---- ----
+                    Filesystem      Size  Used Avail Use% Mounted on
+                    /dev/vdd        512G  220G  291G  44% /var/local/outer/kafka/data-02
+
+                    [raminiara-kafka-3.novalocal][Tue Nov 27 06:00:10 GMT 2018]
+
+                    Filesystem      Size  Used Avail Use% Mounted on
+                    /dev/vda3        39G  2.4G   35G   7% /
+                    ---- ----
+                    Filesystem      Size  Used Avail Use% Mounted on
+                    /dev/vdb        512G  492G   20G  97% /var/local/outer/kafka/data-00
+                    ---- ----
+                    Filesystem      Size  Used Avail Use% Mounted on
+                    /dev/vdc        512G  492G   20G  97% /var/local/outer/kafka/data-01
+                    ---- ----
+                    Filesystem      Size  Used Avail Use% Mounted on
+                    /dev/vdd        512G  194G  318G  38% /var/local/outer/kafka/data-02
+
+                    [raminiara-kafka-2.novalocal][Tue Nov 27 06:00:14 GMT 2018]
+
+                    Filesystem      Size  Used Avail Use% Mounted on
+                    /dev/vda3        39G  2.5G   35G   7% /
+                    ---- ----
+                    Filesystem      Size  Used Avail Use% Mounted on
+                    /dev/vdb        512G  492G   20G  97% /var/local/outer/kafka/data-00
+                    ---- ----
+                    Filesystem      Size  Used Avail Use% Mounted on
+                    /dev/vdc        512G  492G   20G  97% /var/local/outer/kafka/data-01
+                    ---- ----
+                    Filesystem      Size  Used Avail Use% Mounted on
+                    /dev/vdd        512G  110G  402G  22% /var/local/outer/kafka/data-02
+
+                    [raminiara-kafka-1.novalocal][Tue Nov 27 06:00:17 GMT 2018]
+
+                    Filesystem      Size  Used Avail Use% Mounted on
+                    /dev/vda3        39G  2.4G   35G   7% /
+                    ---- ----
+                    Filesystem      Size  Used Avail Use% Mounted on
+                    /dev/vdb        512G  492G   20G  97% /var/local/outer/kafka/data-00
+                    ---- ----
+                    Filesystem      Size  Used Avail Use% Mounted on
+                    /dev/vdc        512G  492G   20G  97% /var/local/outer/kafka/data-01
+                    ---- ----
+                    Filesystem      Size  Used Avail Use% Mounted on
+                    /dev/vdd        512G  194G  318G  38% /var/local/outer/kafka/data-02
+
+
+
+
+
+
+

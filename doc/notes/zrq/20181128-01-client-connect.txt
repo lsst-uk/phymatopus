@@ -1,0 +1,132 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2018, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+#
+# Passed broker IP address list to Roy's client.
+# Watching the broker logs ..
+#
+
+
+# -----------------------------------------------------
+# Login to our external VM.
+#[user@trop03]
+
+    ssh Etalema
+
+
+    # -----------------------------------------------------
+    # Create a container to work with.
+    #[user@virtual]
+
+        docker run \
+            --rm \
+            --tty \
+            --interactive \
+            --hostname openstacker \
+            --env SSH_AUTH_SOCK=/tmp/ssh_auth_sock \
+            --volume "${HOME}/settings/:/etc/phymatopus/" \
+            --volume ${SSH_AUTH_SOCK}:/tmp/ssh_auth_sock \
+            phymatopus/openstack-client \
+            bash
+
+        # -----------------------------------------------------
+        # Load our settings.
+        #[root@openstacker]
+
+            source '/etc/phymatopus/setup'
+
+        # -----------------------------------------------------
+        # Login to the Kafka nodes and tail the debug logs.
+        #[root@openstacker]
+
+            vmident=${kfidents[0]}
+            vmident=${kfidents[1]}
+            vmident=${kfidents[2]}
+            vmident=${kfidents[3]}
+
+            getvminfo "${vmident:?}"
+            vmip92=$(geteleanor192)
+
+            ssh \
+                ${sshopts[*]} \
+                -o ProxyCommand="ssh ${sshopts[*]} -W %h:%p ${sshuser:?}@${controlip:?}" \
+                "${sshuser:?}@${vmip92:?}" \
+
+                docker logs \
+                   --follow \
+                   --tail 100 \
+                    stevedore_emily_1
+
+
+# -----------------------------------------------------
+# Login to our external VM.
+#[user@trop03]
+
+    ssh Etalema
+
+
+    # -----------------------------------------------------
+    # Create a container to work with.
+    #[user@virtual]
+
+        docker run \
+            --rm \
+            --tty \
+            --interactive \
+            --hostname openstacker \
+            --env SSH_AUTH_SOCK=/tmp/ssh_auth_sock \
+            --volume "${HOME}/settings/:/etc/phymatopus/" \
+            --volume ${SSH_AUTH_SOCK}:/tmp/ssh_auth_sock \
+            phymatopus/openstack-client \
+            bash
+
+        # -----------------------------------------------------
+        # Load our settings.
+        #[root@openstacker]
+
+            source '/etc/phymatopus/setup'
+
+            cat settings/roe.settings
+            source settings/roe.settings
+
+            echo "ROE [${roeconnect}]"
+
+         # -----------------------------------------------------
+         # Check our client offsets in the ROE broker.
+         #[root@openstacker]
+
+            groupid=LASAIR_test
+
+             date ; \
+             echo "
+                 docker run --rm phymatopus/kafka-core \
+                     bin/kafka-consumer-groups.sh \
+                         --bootstrap-server "${roeconnect:?}" \
+                         --describe \
+                         --group "${groupid:?}"
+                 " \
+             | ssh \
+                 ${sshopts[*]} \
+                 ${sshuser:?}@${controlip:?} | sort | tee lits.txt \
+             ; date
+
+

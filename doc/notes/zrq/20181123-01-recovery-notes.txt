@@ -1,0 +1,1364 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2018, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+# -----------------------------------------------------
+# Login to our external VM.
+#[user@desktop]
+
+    ssh Etalema
+
+    # -----------------------------------------------------
+    # Create a container to work with.
+    #[user@virtual]
+
+        docker run \
+            --rm \
+            --tty \
+            --interactive \
+            --hostname openstacker \
+            --env SSH_AUTH_SOCK=/tmp/ssh_auth_sock \
+            --volume "${HOME}/settings/:/etc/phymatopus/" \
+            --volume ${SSH_AUTH_SOCK}:/tmp/ssh_auth_sock \
+            phymatopus/openstack-client \
+            bash
+
+        # -----------------------------------------------------
+        # Configure our container.
+        #[root@openstacker]
+
+            source /etc/phymatopus/setup
+
+        # -----------------------------------------------------
+        # Login to our controller.
+        #[root@openstacker]
+
+            ssh ${sshuser:?}@${controlip:?}
+
+                #
+                # FAILS - timeout
+                #
+
+        # -----------------------------------------------------
+        # List the containers runing on our kafka nodes (172 addresses).
+        #[root@openstacker]
+
+            for vmipv4 in $(cat "/etc/phymatopus/ipv4/kfip172.txt")
+                do
+                     echo "----"
+                     echo "[${vmipv4:?}]"
+                     echo "
+                         echo \"----\"
+                         echo \"[\$(hostname -f)]\"
+                         echo \"----\"
+                         echo \"\"
+                         docker ps -a | sed 's/^\(.*\)/\t\1/'
+                         echo \"\"
+                         " \
+                     | ssh \
+                         ${sshopts[*]} \
+                         ${sshuser:?}@${vmipv4:?}
+                done
+
+                ----
+                [172.16.49.217]
+                ----
+                [raminiara-kafka-4.novalocal]
+                ----
+
+	                CONTAINER ID        IMAGE                         COMMAND                  CREATED             STATUS              PORTS                    NAMES
+	                414ce5540bd3        confluentinc/cp-kafka:4.1.1   "/etc/confluent/dock…"   12 days ago         Up 12 days          0.0.0.0:9092->9092/tcp   stevedore_emily_1
+
+                ----
+                [172.16.49.214]
+                ----
+                [172.16.49.12]
+                ----
+                [raminiara-kafka-2.novalocal]
+                ----
+
+	                CONTAINER ID        IMAGE                         COMMAND                  CREATED             STATUS              PORTS                    NAMES
+	                8b400c340b33        confluentinc/cp-kafka:4.1.1   "/etc/confluent/dock…"   22 hours ago        Up 22 hours         0.0.0.0:9092->9092/tcp   stevedore_emily_1
+
+                ----
+                [172.16.49.208]
+                ----
+                [raminiara-kafka-1.novalocal]
+                ----
+
+	                CONTAINER ID        IMAGE                         COMMAND                  CREATED             STATUS              PORTS                    NAMES
+	                0b5a59a64dfc        confluentinc/cp-kafka:4.1.1   "/etc/confluent/dock…"   10 days ago         Up 2 days           0.0.0.0:9092->9092/tcp   stevedore_emily_1
+
+        #
+        # One down [172.16.49.214][raminiara-kafka-3]
+        #
+
+        # -----------------------------------------------------
+        # List our external 172 addresses.
+        #[root@openstacker]
+
+            cat /etc/phymatopus/ipv4/kfip172.txt
+
+                172.16.49.217
+                172.16.49.214
+                172.16.49.12
+                172.16.49.208
+
+        # -----------------------------------------------------
+        # List our local 192 addresses.
+        #[root@openstacker]
+
+            cat /etc/phymatopus/ipv4/kfip192.txt
+
+                192.168.1.5
+                192.168.1.8
+                192.168.1.15
+                192.168.1.10
+
+            cat /etc/phymatopus/ipv4/mmip192.txt
+
+                192.168.1.25
+                192.168.1.22
+                192.168.1.7
+                192.168.1.9
+
+            cat /etc/phymatopus/ipv4/zkip192.txt
+
+                192.168.1.14
+                192.168.1.16
+                192.168.1.11
+
+        # -----------------------------------------------------
+        # Login to one of our working kafka nodes (172 address).
+        #[root@openstacker]
+
+            vmipv4=172.16.49.217
+
+            ssh \
+                -A \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmipv4:?}
+
+            # -----------------------------------------------------
+            # Try reaching our 172 addresses.
+            #[user@instance]
+
+                ssh -v 172.16.49.217 // kafka-4 (self)
+                ssh -v 172.16.49.214 // fails
+                ssh -v 172.16.49.12  // kafka-2
+                ssh -v 172.16.49.208 // kafka-1
+
+            # -----------------------------------------------------
+            # Try reaching our 192 addresses.
+            #[user@instance]
+
+                ssh -v 192.168.1.6  // fails
+
+                ssh -v 192.168.1.5  // kafka-4 (self)
+                ssh -v 192.168.1.8  // fails
+                ssh -v 192.168.1.15 // kafka-2
+                ssh -v 192.168.1.10 // kafka-1
+
+                ssh -v 192.168.1.14 // zookeeper-3
+                ssh -v 192.168.1.16 // zookeeper-2
+                ssh -v 192.168.1.11 // fails
+
+                ssh -v 192.168.1.25 // mirror-3
+                ssh -v 192.168.1.22 // mirror-2
+                ssh -v 192.168.1.7  // fails
+                ssh -v 192.168.1.9  // fails
+
+            # -----------------------------------------------------
+            # Exit b to our openstacker container.
+            #[user@instance]
+
+                exit
+
+        # -----------------------------------------------------
+        # Work out the instance identifiers that are failing.
+        #[root@openstacker]
+
+            for vmident in $(cat "/etc/phymatopus/nodes/kfidents.txt")
+            for vmident in $(cat "/etc/phymatopus/nodes/mmidents.txt")
+            for vmident in $(cat "/etc/phymatopus/nodes/zkidents.txt")
+                do
+                    echo "----"
+                    echo "[${vmident:?}]"
+
+                    getvminfo "${vmident:?}"
+                    echo "[$(geteleanor192)]"
+
+                done
+
+
+                ----
+                [bb409e47-cf2c-4e64-aea6-e893e5d05100]
+                [192.168.1.5]
+                ----
+                [aa73a427-2e9f-413d-a37b-3eaf35799f00]
+                [192.168.1.8]
+                ----
+                [6f971e48-f760-43bf-ad98-c38a7b90c321]
+                [192.168.1.15]
+                ----
+                [0824e436-6213-4893-8a67-40d152e7402c]
+                [192.168.1.10]
+
+
+                ----
+                [c32e11f0-9d4f-49b0-bde5-a79306756a68]
+                [192.168.1.25]
+                ----
+                [e69f88ab-0da0-4faa-9aa7-ce1f71646dbf]
+                [192.168.1.22]
+                ----
+                [6883a92d-82e1-4635-8a36-2430597ade3f]
+                [192.168.1.7]
+                ----
+                [08aad6fe-3392-45f8-a49d-dc9aae314c7f]
+                [192.168.1.9]
+
+
+                ----
+                [8cd2c6af-88b2-4cff-8c8a-81240bf63f70]
+                [192.168.1.14]
+                ----
+                [4bd50e51-ec0e-4d8d-9a2b-9af9185aefba]
+                [192.168.1.16]
+                ----
+                [39cbbdb1-4adb-439d-b9fe-71b8c48ec14b]
+                [192.168.1.11]
+
+
+        # -----------------------------------------------------
+        # List the identifiers for the failed VMs.
+        #[root@openstacker]
+
+                [517b539b-0694-42d6-827e-016fb4474c68] [192.168.1.6]  Raminiara-control
+                [aa73a427-2e9f-413d-a37b-3eaf35799f00] [192.168.1.8]
+                [39cbbdb1-4adb-439d-b9fe-71b8c48ec14b] [192.168.1.11]
+                [6883a92d-82e1-4635-8a36-2430597ade3f] [192.168.1.7]
+                [08aad6fe-3392-45f8-a49d-dc9aae314c7f] [192.168.1.9]
+
+        # -----------------------------------------------------
+        # Reboot one of the VMs via the Horizon GUI.
+        #[root@openstacker]
+
+            Reboot instance
+            [aa73a427-2e9f-413d-a37b-3eaf35799f00][192.168.1.8]
+
+        # -----------------------------------------------------
+        # Login via our working kafka node.
+        #[root@openstacker]
+
+            vmipv4=172.16.49.217
+
+            ssh \
+                -A \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmipv4:?}
+
+                ssh -v 172.16.49.214 // works
+
+                    uptime
+
+                    >   18:09:32 up 2 min,  1 user,  load average: 0.23, 0.24, 0.10
+
+                    docker ps -a
+
+                    >   CONTAINER ID        IMAGE                         COMMAND                  CREATED             STATUS                       PORTS               NAMES
+                    >   51d987c00793        confluentinc/cp-kafka:4.1.1   "/etc/confluent/dock…"   11 days ago         Exited (137) 2 minutes ago                       stevedore_emily_1
+
+        # -----------------------------------------------------
+        # Iterate our list of instances and get the names.
+        #[root@openstacker]
+
+            echo ""
+            echo "Processing OpenStack nodes"
+
+            for ident in $(
+                openstack \
+                    server list \
+                    --format json \
+                | jq -r '.[] | .ID'
+                )
+                do
+                    getvminfo "${ident:?}"
+                    echo ""
+                    echo "Ident [$ident]"
+                    echo "IPv4  [$(geteleanor192)]"
+                    echo "IPv4  [$(geteleanor172)]"
+                    echo "Name  [$(getvmname)]"
+
+                done
+
+
+                Ident [45a97401-c65b-46b9-8f58-c75d8fe04859]
+                IPv4  [192.168.1.36]
+                IPv4  [172.16.50.50]
+                Name  [Raminiara-kafka-5]
+
+                Ident [c32e11f0-9d4f-49b0-bde5-a79306756a68]
+                IPv4  [192.168.1.25]
+                IPv4  []
+                Name  [Raminiara-mirror-3]
+
+                Ident [e69f88ab-0da0-4faa-9aa7-ce1f71646dbf]
+                IPv4  [192.168.1.22]
+                IPv4  []
+                Name  [Raminiara-mirror-2]
+
+                Ident [6883a92d-82e1-4635-8a36-2430597ade3f]
+                IPv4  [192.168.1.7]
+                IPv4  []
+                Name  [Raminiara-mirror-1]
+
+                Ident [08aad6fe-3392-45f8-a49d-dc9aae314c7f]
+                IPv4  [192.168.1.9]
+                IPv4  []
+                Name  [Raminiara-mirror-0]
+
+                Ident [bb409e47-cf2c-4e64-aea6-e893e5d05100]
+                IPv4  [192.168.1.5]
+                IPv4  [172.16.49.217]
+                Name  [Raminiara-kafka-4]
+
+                Ident [aa73a427-2e9f-413d-a37b-3eaf35799f00]
+                IPv4  [192.168.1.8]
+                IPv4  [172.16.49.214]
+                Name  [Raminiara-kafka-3]
+
+                Ident [6f971e48-f760-43bf-ad98-c38a7b90c321]
+                IPv4  [192.168.1.15]
+                IPv4  [172.16.49.12]
+                Name  [Raminiara-kafka-2]
+
+                Ident [0824e436-6213-4893-8a67-40d152e7402c]
+                IPv4  [192.168.1.10]
+                IPv4  [172.16.49.208]
+                Name  [Raminiara-kafka-1]
+
+                Ident [8cd2c6af-88b2-4cff-8c8a-81240bf63f70]
+                IPv4  [192.168.1.14]
+                IPv4  []
+                Name  [Raminiara-zookeeper-3]
+
+                Ident [4bd50e51-ec0e-4d8d-9a2b-9af9185aefba]
+                IPv4  [192.168.1.16]
+                IPv4  []
+                Name  [Raminiara-zookeeper-2]
+
+                Ident [39cbbdb1-4adb-439d-b9fe-71b8c48ec14b]
+                IPv4  [192.168.1.11]
+                IPv4  []
+                Name  [Raminiara-zookeeper-1]
+
+                Ident [517b539b-0694-42d6-827e-016fb4474c68]
+                IPv4  [192.168.1.6]
+                IPv4  [172.16.49.211]
+                Name  [Raminiara-control]
+
+
+        # -----------------------------------------------------
+        # Try rebooting the failed instances from the command line.
+        #[root@openstacker]
+
+            vmident=517b539b-0694-42d6-827e-016fb4474c68
+            vmident=aa73a427-2e9f-413d-a37b-3eaf35799f00
+            vmident=39cbbdb1-4adb-439d-b9fe-71b8c48ec14b
+            vmident=6883a92d-82e1-4635-8a36-2430597ade3f
+            vmident=08aad6fe-3392-45f8-a49d-dc9aae314c7f
+
+            openstack \
+                server reboot \
+                    --wait \
+                    "${vmident:?}"
+
+                >   Complete
+                >   Complete
+                >   Complete
+                >   Complete
+                >   Complete
+
+        # -----------------------------------------------------
+        # Reboot our controller and try login.
+        #[root@openstacker]
+
+            getvminfo "${controlid:?}"
+
+echo "----
+Ident [${controlid}]
+Name  [$(getvmname)]
+192   [$(geteleanor192)]
+172   [$(geteleanor172)]
+----"
+
+            >   Ident [517b539b-0694-42d6-827e-016fb4474c68]
+            >   Name  [Raminiara-control]
+            >   192   [192.168.1.6]
+            >   172   [172.16.49.211]
+
+            openstack \
+                server reboot \
+                    --wait \
+                    "${vmident:?}"
+
+                >   Complete
+
+
+            ssh ${sshuser:?}@$(geteleanor172)
+
+            >   ssh: connect to host 172.16.49.211 port 22: Connection timed out
+
+            #
+            # We can reboot instances, but they still can't be reached via ssh.
+            #
+
+
+        # -----------------------------------------------------
+        # Reboot our controller via the WebUI ...
+        #[root@openstacker]
+
+            ssh ${sshuser:?}@${controlip}
+
+            >   ssh: connect to host 172.16.49.211 port 22: Connection timed out
+
+            #
+            # We can reboot instances, but they still can't be reached via ssh.
+            #
+
+
+        # -----------------------------------------------------
+        # Replace our controller ...
+        #[root@openstacker]
+
+            openstack \
+                server stop \
+                    "${controlid:?}"
+
+            openstack \
+                server delete \
+                    "${controlid:?}"
+
+        # -----------------------------------------------------
+        # Create a new machine.
+        #[root@openstacker]
+
+            vmident=(
+                "$(makevm \
+                    "control-2" \
+                    "${m1small}"
+                    )"
+                )
+
+        # -----------------------------------------------------
+        # Check the machine state (takes ~8min to start the VM).
+        #[root@openstacker]
+
+            openstack \
+                server show \
+                 --format json \
+                "${vmident:?}" \
+                | jq '.'
+
+                {
+                "OS-EXT-STS:task_state": null,
+                "addresses": "vm-network-UoE-internal=192.168.1.17",
+                "image": "fedora-27-docker-base-20180129 (407a5d09-cd97-455f-9bdb-4fb7f54dd4ff)",
+                "OS-EXT-STS:vm_state": "active",
+                "OS-SRV-USG:launched_at": "2018-11-23T19:34:29.000000",
+                "flavor": "m1.small (2)",
+                "id": "4c80912d-146e-4f9a-b899-c1d5a9a1c6ab",
+                "security_groups": "name='default'",
+                "volumes_attached": "",
+                "user_id": "3d241b5fa2d0b3378901e08e86e10284dc9f9dae3732b99f71f809cf46ccb0d5",
+                "OS-DCF:diskConfig": "MANUAL",
+                "accessIPv4": "",
+                "accessIPv6": "",
+                "progress": 0,
+                "OS-EXT-STS:power_state": "Running",
+                "project_id": "fcef6dd450f64a1ab4ffa5a7234c4161",
+                "config_drive": "",
+                "status": "ACTIVE",
+                "updated": "2018-11-23T19:34:29Z",
+                "hostId": "253eb893267866bb31a7b1a733a6d76aa4d532cb077a6271cd274a96",
+                "OS-SRV-USG:terminated_at": null,
+                "key_name": "dmr",
+                "properties": "",
+                "OS-EXT-AZ:availability_zone": "nova",
+                "name": "Raminiara-control-2",
+                "created": "2018-11-23T19:28:11Z"
+                }
+
+        # -----------------------------------------------------
+        # Assign floating IP addresess.
+        #[root@openstacker]
+
+            addinternalfloat "${vmident:?}"
+
+        # -----------------------------------------------------
+        # Check the settings.
+        #[root@openstacker]
+
+            getvminfo "${vmident:?}"
+
+echo "----
+Ident [${vmident}]
+Name  [$(getvmname)]
+192   [$(geteleanor192)]
+172   [$(geteleanor172)]
+----"
+
+            >   Ident [4c80912d-146e-4f9a-b899-c1d5a9a1c6ab]
+            >   Name  [Raminiara-control-2]
+            >   192   [192.168.1.17]
+            >   172   [172.16.50.67]
+
+        # -----------------------------------------------------
+        # Update our cluster settings.
+        #[root@openstacker]
+
+            vi /etc/phymatopus/cluster.settings
+
+                controlid=4c80912d-146e-4f9a-b899-c1d5a9a1c6ab
+                controlip=172.16.50.67
+
+            source /etc/phymatopus/cluster.settings
+
+        # -----------------------------------------------------
+        # Check the settings.
+        #[root@openstacker]
+
+            getvminfo "${controlid:?}"
+
+echo "----
+Ident [${controlid}]
+Name  [$(getvmname)]
+192   [$(geteleanor192)]
+172   [$(geteleanor172)]
+172   [${controlip}]
+----"
+
+            >   Ident [4c80912d-146e-4f9a-b899-c1d5a9a1c6ab]
+            >   Name  [Raminiara-control-2]
+            >   192   [192.168.1.17]
+            >   172   [172.16.50.67]
+            >   172   [172.16.50.67]
+
+        # -----------------------------------------------------
+        # Check SSH access.
+        #[root@openstacker]
+
+            ssh \
+                ${sshopts[*]} \
+                "${sshuser:?}@${controlip}" \
+                    '
+                    echo "[$(hostname -f)][$(date)]"
+                    uptime
+                    '
+
+            >   [raminiara-control-2.novalocal][Fri Nov 23 19:55:23 GMT 2018]
+            >   19:40:09 up 5 min,  0 users,  load average: 0.00, 0.02, 0.00
+
+        # -----------------------------------------------------
+        # Test proxy access to another VM.
+        #[root@openstacker]
+
+            vmident=${zkidents[0]}
+            getvminfo "${vmident:?}"
+            vmipv4=$(geteleanor192)
+
+            ssh \
+                ${sshopts[*]} \
+                -o ProxyCommand="${sshproxy}" \
+                "${sshuser:?}@${vmipv4:?}" \
+                    '
+                    echo "[$(hostname -f)][$(date)]"
+                    uptime
+                    '
+
+            >   bash: nc: command not found
+
+        # -----------------------------------------------------
+        # Install nc.
+        #[root@openstacker]
+
+            ssh \
+                ${sshopts[*]} \
+                "${sshuser:?}@${controlip}" \
+                    '
+                    echo "[$(hostname -f)][$(date)]"
+                    sudo dnf -y install nc
+                    '
+
+        # -----------------------------------------------------
+        # Test proxy access ....
+        #[root@openstacker]
+
+            vmident=${zkidents[0]}
+            getvminfo "${vmident:?}"
+            vmipv4=$(geteleanor192)
+
+            ssh \
+                ${sshopts[*]} \
+                -o ProxyCommand="${sshproxy}" \
+                "${sshuser:?}@${vmipv4:?}" \
+                    '
+                    echo "[$(hostname -f)][$(date)]"
+                    uptime
+                    '
+
+            >   [raminiara-zookeeper-3.novalocal][Fri Nov 23 19:59:10 GMT 2018]
+            >   19:59:10 up 161 days,  3:59,  0 users,  load average: 0.00, 0.00, 0.00
+
+            #
+            # Work, but takes ages !!
+            #
+
+        # -----------------------------------------------------
+        # Time the connection.
+        #[root@openstacker]
+
+            time ssh \
+                ${sshopts[*]} \
+                -o ProxyCommand="${sshproxy}" \
+                "${sshuser:?}@${vmipv4:?}" \
+                    '
+                    echo "[$(hostname -f)][$(date)]"
+                    uptime
+                    '
+
+            >   real	0m57.043s
+            >   user	0m0.038s
+            >   sys	0m0.019s
+
+            #
+            # 57 seconds !!
+            #
+
+        # -----------------------------------------------------
+        # Make the connection in two steps.
+        #[root@openstacker]
+
+            time ssh \
+                ${sshopts[*]} \
+                "${sshuser:?}@${controlip}" \
+                    "
+                    ssh ${sshopts[*]} \
+                        ${sshuser:?}@${vmipv4} \
+                            '
+                            hostname
+                            '
+                    "
+
+            >   raminiara-zookeeper-3.novalocal
+            >
+            >   real	0m0.872s
+            >   user	0m0.019s
+            >   sys	0m0.010s
+
+            #
+            # 0.88 seconds - better
+            #
+
+        # -----------------------------------------------------
+        # Time the connection again.
+        #[root@openstacker]
+
+            time ssh \
+                ${sshopts[*]} \
+                -o ProxyCommand="${sshproxy}" \
+                "${sshuser:?}@${vmipv4:?}" \
+                    '
+                    echo "[$(hostname -f)][$(date)]"
+                    uptime
+                    '
+
+            >   [raminiara-zookeeper-3.novalocal][Fri Nov 23 20:09:01 GMT 2018]
+            >   20:09:01 up 161 days,  4:09,  0 users,  load average: 0.13, 0.05, 0.02
+            >
+            >   real	0m56.941s
+            >   user	0m0.041s
+            >   sys	0m0.016s
+
+            #
+            # Still 57 seconds !!
+            #
+
+        # -----------------------------------------------------
+        # Try it without the uptime ?
+        #[root@openstacker]
+
+            time ssh \
+                ${sshopts[*]} \
+                -o ProxyCommand="${sshproxy}" \
+                "${sshuser:?}@${vmipv4:?}" \
+                    '
+                    echo "[$(hostname -f)][$(date)]"
+                    '
+
+            >   [raminiara-zookeeper-3.novalocal][Fri Nov 23 20:11:39 GMT 2018]
+            >
+            >   real	0m56.937s
+            >   user	0m0.019s
+            >   sys	0m0.010s
+
+            #
+            # Still 56 seconds !!
+            #
+
+        # -----------------------------------------------------
+        # Something in the proxy command ?
+        #[root@openstacker]
+
+            echo "[${sshproxy}]"
+
+            >   [ssh -q -A -o CheckHostIP=no -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no Stevedore@172.16.50.67 nc %h %p]
+
+
+        # -----------------------------------------------------
+        # Try it with a verbose proxy command.
+        #[root@openstacker]
+
+            time ssh \
+                ${sshopts[*]} \
+                -o ProxyCommand='ssh -v -A Stevedore@172.16.50.67 nc %h %p' \
+                "${sshuser:?}@${vmipv4}" \
+                    '
+                    echo "[$(hostname -f)][$(date)]"
+                    '
+
+            >   ....
+            >   ....
+            >   Authenticated to 172.16.50.67 ([172.16.50.67]:22).
+            >   debug1: channel 0: new [client-session]
+            >   debug1: Requesting no-more-sessions@openssh.com
+            >   debug1: Entering interactive session.
+            >   debug1: pledge: network
+            >   debug1: client_input_global_request: rtype hostkeys-00@openssh.com want_reply 0
+            >   debug1: Requesting authentication agent forwarding.
+            >   debug1: Sending environment.
+            >   debug1: Sending command: nc 192.168.1.14 22
+            >   [raminiara-zookeeper-3.novalocal][Fri Nov 23 20:17:19 GMT 2018]
+            >   debug1: channel 0: free: client-session, nchannels 1
+            >   debug1: fd 0 clearing O_NONBLOCK
+            >   Killed by signal 1.
+            >
+            >   real	1m2.982s
+            >   user	0m0.043s
+            >   sys	0m0.018s
+
+            # It hangs for several seconds at this point
+
+            >   ....
+            >   debug1: Sending command: nc 192.168.1.14 22
+            >   ....
+
+
+        # -----------------------------------------------------
+        # Try telling nc to avoid a dns lookup.
+        #[root@openstacker]
+
+            time ssh \
+                ${sshopts[*]} \
+                -o ProxyCommand='ssh -v -A Stevedore@172.16.50.67 nc --nodns %h %p' \
+                "${sshuser:?}@${vmipv4}" \
+                    '
+                    echo "[$(hostname -f)][$(date)]"
+                    '
+
+            # Still slow :-(
+
+            >   real	0m56.955s
+            >   user	0m0.035s
+            >   sys	0m0.022s
+
+
+        # -----------------------------------------------------
+        # Try a dns lookup on the controller.
+        #[root@openstacker]
+
+            time ssh \
+                ${sshopts[*]} \
+                "${sshuser:?}@${controlip}" \
+                    "
+                    dig ${vmipv4}
+                    "
+
+            #
+            # Immediate response
+
+            >   real	0m0.565s
+            >   user	0m0.021s
+            >   sys	0m0.006s
+
+        # -----------------------------------------------------
+        # Try using ssh in natcat mode.
+        # https://serverfault.com/questions/447055/ssh-multi-hop-connections-with-netcat-mode-proxy
+        #[root@openstacker]
+
+            time ssh \
+                ${sshopts[*]} \
+                -o ProxyCommand='ssh -v -A -W %h:%p Stevedore@172.16.50.67' \
+                "${sshuser:?}@${vmipv4}" \
+                    '
+                    echo "[$(hostname -f)][$(date)]"
+                    '
+
+            # Still slow :-(
+
+            >   ....
+            >   ....
+            >   Authenticated to 172.16.50.67 ([172.16.50.67]:22).
+            >   debug1: channel_connect_stdio_fwd 192.168.1.14:22
+            >   debug1: channel 0: new [stdio-forward]
+            >   debug1: getpeername failed: Bad file descriptor
+            >   debug1: Requesting no-more-sessions@openssh.com
+            >   debug1: Entering interactive session.
+            >   debug1: pledge: network
+            >   debug1: client_input_global_request: rtype hostkeys-00@openssh.com want_reply 0
+            >
+            >   [raminiara-zookeeper-3.novalocal][Fri Nov 23 20:54:13 GMT 2018]
+            >   debug1: channel 0: free: direct-tcpip: listening port 0 for 192.168.1.14 port 22, connect from 127.0.0.1 port 65535 to UNKNOWN port 65536, nchannels 1
+            >   debug1: fd 0 clearing O_NONBLOCK
+            >   Killed by signal 1.
+            >
+            >   real	0m56.948s
+            >   user	0m0.037s
+            >   sys	0m0.022s
+
+        # -----------------------------------------------------
+        # Sanity check - try the connection in two steps again.
+        #[root@openstacker]
+
+            time ssh \
+                ${sshopts[*]} \
+                "${sshuser:?}@${controlip}" \
+                    "
+                    ssh ${sshopts[*]} \
+                        ${sshuser:?}@${vmipv4} \
+                            '
+                            hostname
+                            '
+                    "
+
+            # Still fast !?
+
+            >   raminiara-zookeeper-3.novalocal
+            >
+            >   real	0m0.926s
+            >   user	0m0.015s
+            >   sys	0m0.011s
+
+        # -----------------------------------------------------
+        # Sanity check - make it even simpler.
+        #[root@openstacker]
+
+            time ssh \
+                ${sshopts[*]} \
+                "${sshuser:?}@${controlip}" \
+                    "
+                    ssh ${vmipv4} \
+                        '
+                        hostname
+                        '
+                    "
+
+            # Perhaps a clue ?
+
+            >   Host key verification failed.
+
+
+#
+# Some time later ....
+#
+
+
+        # -----------------------------------------------------
+        # Using nc without dns lookup.
+        #[root@openstacker]
+
+            vmident=${zkidents[0]}
+            getvminfo "${vmident:?}"
+            vmipv4=$(geteleanor192)
+
+            time ssh \
+                ${sshopts[*]} \
+                -o ProxyCommand="ssh -v -A ${sshuser:?}@${controlip} nc --nodns %h %p" \
+                "${sshuser:?}@${vmipv4}" \
+                    '
+                    echo "[$(hostname -f)][$(date)]"
+                    '
+
+            # Still slow ...
+            >   [raminiara-zookeeper-3.novalocal][Sat Nov 24 02:38:52 GMT 2018]
+            >   real	0m57.036s
+            >   user	0m0.036s
+            >   sys	0m0.022s
+
+        # -----------------------------------------------------
+        # Try using ssh in natcat mode.
+        #[root@openstacker]
+
+            time ssh \
+                ${sshopts[*]} \
+                -o ProxyCommand="ssh -v -A -W %h:%p ${sshuser:?}@${controlip}" \
+                "${sshuser:?}@${vmipv4}" \
+                    '
+                    echo "[$(hostname -f)][$(date)]"
+                    '
+
+            # Still slow ...
+            >   [raminiara-zookeeper-3.novalocal][Sat Nov 24 02:40:06 GMT 2018]
+            >   real	0m56.882s
+            >   user	0m0.040s
+            >   sys	0m0.015s
+
+        # -----------------------------------------------------
+        # Two separate steps.
+        #[root@openstacker]
+
+            time ssh \
+                ${sshopts[*]} \
+                "${sshuser:?}@${controlip}" \
+                    "
+                    ssh ${sshopts[*]} \
+                        ${sshuser:?}@${vmipv4} \
+                            '
+                            hostname
+                            date
+                            '
+                    "
+
+            # Almost immediate !?
+            >   raminiara-zookeeper-3.novalocal
+            >   Sat Nov 24 02:42:19 GMT 2018
+            >
+            >   real	0m0.939s
+            >   user	0m0.023s
+            >   sys	0m0.005s
+
+
+        # -----------------------------------------------------
+        # Try using a different target.
+        #[root@openstacker]
+
+            vmident=${zkidents[1]}
+            getvminfo "${vmident:?}"
+            vmipv4=$(geteleanor192)
+
+            time ssh \
+                ${sshopts[*]} \
+                -o ProxyCommand="ssh -v -A -W %h:%p ${sshuser:?}@${controlip}" \
+                "${sshuser:?}@${vmipv4}" \
+                    '
+                    echo "[$(hostname -f)][$(date)]"
+                    '
+
+            # Still slow ...
+            >   [raminiara-zookeeper-2.novalocal][Sat Nov 24 02:48:38 GMT 2018]
+            >
+            >   real	0m56.978s
+            >   user	0m0.041s
+            >   sys	0m0.014s
+
+
+        # -----------------------------------------------------
+        # Routing on the control node ?
+        #[root@openstacker]
+
+            time ssh \
+                ${sshopts[*]} \
+                "${sshuser:?}@${controlip}" \
+                    '
+                    sudo dnf install -y iproute
+                    sudo ip route list
+                    '
+
+            >   default via 192.168.1.254 dev ens3 proto static metric 100
+            >   169.254.169.254 via 192.168.1.254 dev ens3 proto dhcp metric 100
+            >   172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown
+            >   192.168.1.0/24 dev ens3 proto kernel scope link src 192.168.1.17 metric 100
+
+            #
+            # Ok, not sure what that means ... might be useful later?
+            #
+
+        # -----------------------------------------------------
+        # Reboot the control node ?
+        #[root@openstacker]
+
+            time ssh \
+                ${sshopts[*]} \
+                "${sshuser:?}@${controlip}" \
+                    '
+                    sudo reboot
+                    '
+
+            time ssh \
+                ${sshopts[*]} \
+                -o ProxyCommand="ssh -v -A -W %h:%p ${sshuser:?}@${controlip}" \
+                "${sshuser:?}@${vmipv4}" \
+                    '
+                    echo "[$(hostname -f)][$(date)]"
+                    '
+
+            # Still slow ...
+            >   [raminiara-zookeeper-2.novalocal][Sat Nov 24 03:00:37 GMT 2018]
+            >
+            >   real	0m57.121s
+            >   user	0m0.037s
+            >   sys	0m0.020s
+
+        # -----------------------------------------------------
+        # Update the control node ?
+        #[root@openstacker]
+
+            time ssh \
+                ${sshopts[*]} \
+                "${sshuser:?}@${controlip}" \
+                    '
+                    sudo dnf update -y
+                    sudo reboot
+                    '
+
+            time ssh \
+                ${sshopts[*]} \
+                -o ProxyCommand="ssh -v -A -W %h:%p ${sshuser:?}@${controlip}" \
+                "${sshuser:?}@${vmipv4}" \
+                    '
+                    echo "[$(hostname -f)][$(date)]"
+                    '
+
+            #
+            # Still slow ...
+            >   [raminiara-zookeeper-2.novalocal][Sat Nov 24 03:00:37 GMT 2018]
+            >
+            >   real	0m57.218s
+            >   user	0m0.039s
+            >   sys	0m0.018s
+
+        # -----------------------------------------------------
+        # Create a new control node ..
+        #[root@openstacker]
+
+            openstack \
+                server stop \
+                    "${controlid:?}"
+
+            openstack \
+                server delete \
+                    "${controlid:?}"
+
+        # -----------------------------------------------------
+        # Create a new machine.
+        #[root@openstacker]
+
+            controlid=(
+                "$(makevm \
+                    "control-3" \
+                    "${m1small}"
+                    )"
+                )
+            #
+            # Slow ..
+            #
+
+        # -----------------------------------------------------
+        # Check the machine state.
+        #[root@openstacker]
+
+            openstack \
+                server show \
+                 --format json \
+                "${controlid:?}" \
+                | jq '.'
+
+                {
+                  "OS-EXT-STS:task_state": null,
+                  "addresses": "vm-network-UoE-internal=192.168.1.28",
+                  "image": "fedora-27-docker-base-20180129 (407a5d09-cd97-455f-9bdb-4fb7f54dd4ff)",
+                  "OS-EXT-STS:vm_state": "active",
+                  "OS-SRV-USG:launched_at": "2018-11-24T03:12:31.000000",
+                  "flavor": "m1.small (2)",
+                  "id": "a00facb8-3289-4dd5-bf2f-200ecc87564b",
+                  "security_groups": "name='default'",
+                  "volumes_attached": "",
+                  "user_id": "3d241b5fa2d0b3378901e08e86e10284dc9f9dae3732b99f71f809cf46ccb0d5",
+                  "OS-DCF:diskConfig": "MANUAL",
+                  "accessIPv4": "",
+                  "accessIPv6": "",
+                  "progress": 0,
+                  "OS-EXT-STS:power_state": "Running",
+                  "project_id": "fcef6dd450f64a1ab4ffa5a7234c4161",
+                  "config_drive": "",
+                  "status": "ACTIVE",
+                  "updated": "2018-11-24T03:12:31Z",
+                  "hostId": "253eb893267866bb31a7b1a733a6d76aa4d532cb077a6271cd274a96",
+                  "OS-SRV-USG:terminated_at": null,
+                  "key_name": "dmr",
+                  "properties": "",
+                  "OS-EXT-AZ:availability_zone": "nova",
+                  "name": "Raminiara-control-3",
+                  "created": "2018-11-24T03:12:16Z"
+                }
+
+        # -----------------------------------------------------
+        # Assign floating IP addresess.
+        #[root@openstacker]
+
+            addinternalfloat "${controlid:?}"
+
+            >   172.16.49.239
+
+        # -----------------------------------------------------
+        # Check the settings.
+        #[root@openstacker]
+
+            getvminfo "${controlid:?}"
+
+echo "----
+Ident [${controlid:?}]
+Name  [$(getvmname)]
+192   [$(geteleanor192)]
+172   [$(geteleanor172)]
+----"
+
+            >   Ident [a00facb8-3289-4dd5-bf2f-200ecc87564b]
+            >   Name  [Raminiara-control-3]
+            >   192   [192.168.1.28]
+            >   172   [172.16.49.239]
+
+        # -----------------------------------------------------
+        # Update our cluster settings.
+        #[root@openstacker]
+
+            vi /etc/phymatopus/cluster.settings
+
+                controlid=a00facb8-3289-4dd5-bf2f-200ecc87564b
+                controlip=172.16.49.239
+
+            source /etc/phymatopus/cluster.settings
+
+        # -----------------------------------------------------
+        # Check the settings.
+        #[root@openstacker]
+
+            getvminfo "${controlid:?}"
+
+echo "----
+Name  [$(getvmname)]
+192   [$(geteleanor192)]
+172   [$(geteleanor172)]
+172   [${controlip}]
+----"
+
+            >   Name  [Raminiara-control-3]
+            >   192   [192.168.1.28]
+            >   172   [172.16.49.239]
+            >   172   [172.16.49.239]
+
+        # -----------------------------------------------------
+        # Check SSH access.
+        #[root@openstacker]
+
+            ssh \
+                ${sshopts[*]} \
+                "${sshuser:?}@${controlip}" \
+                    '
+                    echo "[$(hostname -f)][$(date)]"
+                    uptime
+                    '
+
+            >   [raminiara-control-3.novalocal][Sat Nov 24 03:19:02 GMT 2018]
+            >   03:19:02 up 6 min,  0 users,  load average: 0.00, 0.02, 0.00
+
+        # -----------------------------------------------------
+        # SSH proxy test.
+        #[root@openstacker]
+
+            vmident=${zkidents[1]}
+            getvminfo "${vmident:?}"
+            vmipv4=$(geteleanor192)
+
+            time ssh \
+                ${sshopts[*]} \
+                -o ProxyCommand="ssh -v -A -W %h:%p ${sshuser:?}@${controlip}" \
+                "${sshuser:?}@${vmipv4}" \
+                    '
+                    echo "[$(hostname -f)][$(date)]"
+                    '
+
+            # Still slow ..
+            >   real	0m59.684s
+            >   user	0m0.038s
+            >   sys	0m0.017s
+
+        # -----------------------------------------------------
+        # Disable DNS lookup on the control node.
+        #[root@openstacker]
+
+            ssh \
+                ${sshopts[*]} \
+                "${sshuser:?}@${controlip}"
+
+                sudo -s
+                    cat > /etc/ssh/ssh_config.d/06-eleanor.conf << EOF
+                    # Prevent reverse DNS lookups
+                    # https://superuser.com/a/359345
+                    UseDNS no
+                    EOF
+                exit
+            exit
+
+            time ssh \
+                ${sshopts[*]} \
+                -o ProxyCommand="ssh -v -A -W %h:%p ${sshuser:?}@${controlip}" \
+                "${sshuser:?}@${vmipv4}" \
+                    '
+                    echo "[$(hostname -f)][$(date)]"
+                    '
+
+            # Still slow ..
+            >   real	0m56.911s
+            >   user	0m0.032s
+            >   sys	0m0.014s
+
+        # -----------------------------------------------------
+        # Disable DNS lookup on the target node.
+        #[root@openstacker]
+
+            ssh \
+                ${sshopts[*]} \
+                -o ProxyCommand="ssh -v -A -W %h:%p ${sshuser:?}@${controlip}" \
+                "${sshuser:?}@${vmipv4}"
+
+                sudo -s
+cat > /etc/ssh/ssh_config.d/06-eleanor.conf << EOF
+# Prevent reverse DNS lookups
+# https://superuser.com/a/359345
+Host *
+    UseDNS no
+EOF
+                exit
+            exit
+
+            time ssh \
+                ${sshopts[*]} \
+                -o ProxyCommand="ssh -v -A -W %h:%p ${sshuser:?}@${controlip}" \
+                "${sshuser:?}@${vmipv4}" \
+                    '
+                    echo "[$(hostname -f)][$(date)]"
+                    '
+
+            # Still slow ..
+            >   real	0m56.914s
+            >   user	0m0.033s
+            >   sys	0m0.022s
+
+
+        # -----------------------------------------------------
+        # Be careful what you ask for ...
+        #[root@openstacker]
+
+            time ssh \
+                ${sshopts[*]} \
+                -o ProxyCommand="ssh -v -A -W %h:%p ${sshuser:?}@${controlip}" \
+                "${sshuser:?}@${vmipv4}" \
+                    '
+                    echo "[$(hostname -f)][$(date)]"
+                    '
+
+            >   # Slow ..
+            >   real	0m57.021s
+            >   user	0m0.048s
+            >   sys	0m0.014s
+
+            time ssh \
+                ${sshopts[*]} \
+                -o ProxyCommand="ssh -v -A -W %h:%p ${sshuser:?}@${controlip}" \
+                "${sshuser:?}@${vmipv4}" \
+                    '
+                    hostname
+                    date
+                    '
+
+            >   # Fast
+            >   real	0m0.917s
+            >   user	0m0.036s
+            >   sys	0m0.022s
+
+
+        # -----------------------------------------------------
+        # Remove the changes we made earlier.
+        #[root@openstacker]
+
+            time ssh \
+                ${sshopts[*]} \
+                -o ProxyCommand="ssh -v -A -W %h:%p ${sshuser:?}@${controlip}" \
+                "${sshuser:?}@${vmipv4}" \
+                    '
+                    rm -f /etc/ssh/ssh_config.d/06-eleanor.conf
+                    reboot
+                    '
+
+        # -----------------------------------------------------
+        # Be careful what you ask for ...
+        #[root@openstacker]
+
+            time ssh \
+                ${sshopts[*]} \
+                -o ProxyCommand="ssh -v -A -W %h:%p ${sshuser:?}@${controlip}" \
+                "${sshuser:?}@${vmipv4}" \
+                    '
+                    hostname
+                    '
+
+            >   # Fast
+            >   real	0m0.871s
+            >   user	0m0.039s
+            >   sys	0m0.018s
+
+            time ssh \
+                ${sshopts[*]} \
+                -o ProxyCommand="ssh -v -A -W %h:%p ${sshuser:?}@${controlip}" \
+                "${sshuser:?}@${vmipv4}" \
+                    '
+                    hostname -f
+                    '
+
+            >   # Slow
+            >   real	0m56.928s
+            >   user	0m0.019s
+            >   sys	0m0.008s
+
+
+    #
+    # SSH connection issues identified as a relative of the Dahu.
+    # https://en.wikipedia.org/wiki/Dahu.
+    #
+
+    #
+    # It is still an issue with DNS, just not what we thought it was.
+    # We can work around it ...
+    #
+
+

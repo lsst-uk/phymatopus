@@ -1,0 +1,604 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2018, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+# -----------------------------------------------------
+# Login to our external VM.
+#[user@trop03]
+
+    ssh Etalema
+
+    # -----------------------------------------------------
+    # Create a container to work with.
+    #[user@virtual]
+
+        docker run \
+            --rm \
+            --tty \
+            --interactive \
+            --hostname openstacker \
+            --env SSH_AUTH_SOCK=/tmp/ssh_auth_sock \
+            --volume "${HOME}/settings/:/etc/phymatopus/" \
+            --volume ${SSH_AUTH_SOCK}:/tmp/ssh_auth_sock \
+            phymatopus/openstack-client \
+            bash
+
+        # -----------------------------------------------------
+        # Configure our container.
+        #[root@openstacker]
+
+            source /etc/phymatopus/setup
+
+        # -----------------------------------------------------
+        # Check the disc space on each of our Kafka nodes.
+        #[root@openstacker]
+
+            innerpath=/var/local/inner/kafka
+            outerpath=/var/local/outer/kafka
+
+            for address in $(cat /etc/phymatopus/ipv4/kfip192.txt)
+                do
+                    echo "
+                        echo \"\"
+                        echo \"[${address:?}][$(date)]\"
+                        echo \"\"
+                        df -h /
+                        echo \"---- ----\"
+                        df -h \"${outerpath:?}/data-00\"
+                        echo "---- ----"
+                        df -h \"${outerpath:?}/data-01\"
+                        echo "---- ----"
+                        df -h \"${outerpath:?}/data-02\"
+                        " \
+                    | ssh \
+                        ${sshopts[*]} \
+                        -o ProxyCommand="${sshproxy:?}" \
+                        ${sshuser:?}@${address:?}
+                done
+
+
+                [192.168.1.5][Tue Nov 13 19:36:19 UTC 2018]
+
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vda3        39G  4.5G   33G  13% /
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdb        512G  478G   33G  94% /var/local/outer/kafka/data-00
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdc        512G  478G   33G  94% /var/local/outer/kafka/data-01
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdd        512G  108G  403G  22% /var/local/outer/kafka/data-02
+
+                [192.168.1.8][Tue Nov 13 19:36:23 UTC 2018]
+
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vda3        39G  2.5G   35G   7% /
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdb        512G  492G   20G  97% /var/local/outer/kafka/data-00
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdc        512G  492G   20G  97% /var/local/outer/kafka/data-01
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdd        512G   82G  430G  16% /var/local/outer/kafka/data-02
+
+                [192.168.1.15][Tue Nov 13 19:36:28 UTC 2018]
+
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vda3        39G  2.4G   35G   7% /
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdb        512G  492G   20G  97% /var/local/outer/kafka/data-00
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdc        512G  492G   20G  97% /var/local/outer/kafka/data-01
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdd        512G   82G  430G  16% /var/local/outer/kafka/data-02
+
+                [192.168.1.10][Tue Nov 13 19:36:33 UTC 2018]
+
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vda3        39G  2.4G   35G   7% /
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdb        512G  491G   20G  97% /var/local/outer/kafka/data-00
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdc        512G  492G   20G  97% /var/local/outer/kafka/data-01
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdd        512G   82G  430G  16% /var/local/outer/kafka/data-02
+
+         # -----------------------------------------------------
+         # Check our offsets in the ZTF server.
+         #[root@openstacker]
+
+             date ; \
+             echo "
+                 docker run --rm phymatopus/kafka-core \
+                     bin/kafka-consumer-groups.sh \
+                         --bootstrap-server "${ztfconnect:?}" \
+                         --describe \
+                         --group "${groupid:?}"
+                 " \
+             | ssh \
+                 ${sshopts[*]} \
+                 ${sshuser:?}@${controlip:?} | sort | tee lits.txt \
+             ; date
+
+
+                Tue Nov 13 19:39:09 UTC 2018
+                Note: This will not show information about old Zookeeper-based consumers.
+
+                TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                 HOST             CLIENT-ID
+                ztf_20181113_programid1 0          123242          123242          0               ztf-mirror.roe.ac.uk-0-45f22418-0fad-427d-9c7f-fd8d3127d7e8 /129.215.255.235 ztf-mirror.roe.ac.uk-0
+                ztf_20181113_programid1 1          123242          123242          0               ztf-mirror.roe.ac.uk-0-ad167f71-8f66-46a7-861d-69828c4ccd78 /129.215.255.235 ztf-mirror.roe.ac.uk-0
+                ztf_20181113_programid1 10         123242          123242          0               ztf-mirror.roe.ac.uk-3-51c0dd70-f484-4418-ab3a-ea607c36f801 /129.215.255.235 ztf-mirror.roe.ac.uk-3
+                ztf_20181113_programid1 11         123241          123241          0               ztf-mirror.roe.ac.uk-3-f2af9217-9908-4441-84eb-0352e254c854 /129.215.255.235 ztf-mirror.roe.ac.uk-3
+                ztf_20181113_programid1 12         123242          123242          0               ztf-mirror.roe.ac.uk-0-45f22418-0fad-427d-9c7f-fd8d3127d7e8 /129.215.255.235 ztf-mirror.roe.ac.uk-0
+                ztf_20181113_programid1 13         123242          123242          0               ztf-mirror.roe.ac.uk-0-ad167f71-8f66-46a7-861d-69828c4ccd78 /129.215.255.235 ztf-mirror.roe.ac.uk-0
+                ztf_20181113_programid1 2          123241          123241          0               ztf-mirror.roe.ac.uk-0-c01d4d60-67aa-40e0-a64a-129dad0c634b /129.215.255.235 ztf-mirror.roe.ac.uk-0
+                ztf_20181113_programid1 3          123242          123242          0               ztf-mirror.roe.ac.uk-1-28078063-f734-4bed-8546-bc49df053267 /129.215.255.235 ztf-mirror.roe.ac.uk-1
+                ztf_20181113_programid1 4          123242          123242          0               ztf-mirror.roe.ac.uk-1-d780be90-b076-4f72-b1d5-76eeb669f066 /129.215.255.235 ztf-mirror.roe.ac.uk-1
+                ztf_20181113_programid1 5          123242          123242          0               ztf-mirror.roe.ac.uk-1-e9008ab2-e68b-4a7a-9bc8-6bed45b6a9fc /129.215.255.235 ztf-mirror.roe.ac.uk-1
+                ztf_20181113_programid1 6          123242          123242          0               ztf-mirror.roe.ac.uk-2-1ac59cd8-35b4-412d-a5c2-347867ee5dcc /129.215.255.235 ztf-mirror.roe.ac.uk-2
+                ztf_20181113_programid1 7          123242          123242          0               ztf-mirror.roe.ac.uk-2-3461d5e0-126c-45d9-a159-6a9c47d23938 /129.215.255.235 ztf-mirror.roe.ac.uk-2
+                ztf_20181113_programid1 8          123241          123241          0               ztf-mirror.roe.ac.uk-2-e24b13dd-0618-47e7-93a2-3a0b3bf15f7d /129.215.255.235 ztf-mirror.roe.ac.uk-2
+                ztf_20181113_programid1 9          123242          123242          0               ztf-mirror.roe.ac.uk-3-2ad84630-39a8-42ce-bbc7-8f8cccf03d1e /129.215.255.235 ztf-mirror.roe.ac.uk-3
+                Tue Nov 13 19:39:23 UTC 2018
+
+        # -----------------------------------------------------
+        # Check the offsets in the ROE brokers.
+        #[root@openstacker]
+
+cat > topics.txt << EOF
+ztf_20181110_programid1
+ztf_20181111_programid1
+ztf_20181112_programid1
+ztf_20181113_programid1
+EOF
+
+cat > topics.txt << EOF
+ztf_20181120_programid1
+ztf_20181121_programid1
+ztf_20181122_programid1
+EOF
+
+            brokers=${roeconnect:?}
+
+            for topicid in $(cat topics.txt)
+            do
+                echo "--------------------"
+                echo "Topic [${topicid:?}]"
+
+                if [[ "${topicid:?}" =~ ^ztf_[0-9]{8}_programid1$ ]]
+                then
+                    echo "
+                        docker run --rm phymatopus/kafka-core \
+                            bin/kafka-run-class.sh kafka.tools.GetOffsetShell \
+                                --broker-list "${brokers:?}" \
+                                --topic "${topicid:?}" \
+                                --time -1
+
+                        docker run --rm phymatopus/kafka-core \
+                            bin/kafka-run-class.sh kafka.tools.GetOffsetShell \
+                                --broker-list "${brokers:?}" \
+                                --topic "${topicid:?}" \
+                                --time -2
+                        " \
+                    | ssh \
+                        ${sshopts[*]} \
+                        ${sshuser:?}@${controlip:?} | sort
+                else
+                    echo "Skipping topic"
+                fi
+            done
+
+
+                --------------------
+                Topic [ztf_20181110_programid1]
+                ztf_20181110_programid1:0:0
+                ztf_20181110_programid1:0:17028
+                ztf_20181110_programid1:10:0
+                ztf_20181110_programid1:10:17030
+                ztf_20181110_programid1:11:0
+                ztf_20181110_programid1:11:17029
+                ztf_20181110_programid1:12:0
+                ztf_20181110_programid1:12:17028
+                ztf_20181110_programid1:13:0
+                ztf_20181110_programid1:13:17031
+                ztf_20181110_programid1:14:0
+                ztf_20181110_programid1:14:17029
+                ztf_20181110_programid1:15:0
+                ztf_20181110_programid1:15:17028
+                ztf_20181110_programid1:1:0
+                ztf_20181110_programid1:1:17030
+                ztf_20181110_programid1:2:0
+                ztf_20181110_programid1:2:17029
+                ztf_20181110_programid1:3:0
+                ztf_20181110_programid1:3:17028
+                ztf_20181110_programid1:4:0
+                ztf_20181110_programid1:4:17031
+                ztf_20181110_programid1:5:0
+                ztf_20181110_programid1:5:17029
+                ztf_20181110_programid1:6:0
+                ztf_20181110_programid1:6:17028
+                ztf_20181110_programid1:7:0
+                ztf_20181110_programid1:7:17030
+                ztf_20181110_programid1:8:0
+                ztf_20181110_programid1:8:17029
+                ztf_20181110_programid1:9:0
+                ztf_20181110_programid1:9:17029
+                --------------------
+                Topic [ztf_20181111_programid1]
+                ztf_20181111_programid1:0:0
+                ztf_20181111_programid1:0:7476
+                ztf_20181111_programid1:10:0
+                ztf_20181111_programid1:10:7478
+                ztf_20181111_programid1:11:0
+                ztf_20181111_programid1:11:7478
+                ztf_20181111_programid1:12:0
+                ztf_20181111_programid1:12:7478
+                ztf_20181111_programid1:13:0
+                ztf_20181111_programid1:13:7478
+                ztf_20181111_programid1:14:0
+                ztf_20181111_programid1:14:7477
+                ztf_20181111_programid1:15:0
+                ztf_20181111_programid1:15:7478
+                ztf_20181111_programid1:1:0
+                ztf_20181111_programid1:1:7478
+                ztf_20181111_programid1:2:0
+                ztf_20181111_programid1:2:7477
+                ztf_20181111_programid1:3:0
+                ztf_20181111_programid1:3:7478
+                ztf_20181111_programid1:4:0
+                ztf_20181111_programid1:4:7478
+                ztf_20181111_programid1:5:0
+                ztf_20181111_programid1:5:7477
+                ztf_20181111_programid1:6:0
+                ztf_20181111_programid1:6:7478
+                ztf_20181111_programid1:7:0
+                ztf_20181111_programid1:7:7478
+                ztf_20181111_programid1:8:0
+                ztf_20181111_programid1:8:7477
+                ztf_20181111_programid1:9:0
+                ztf_20181111_programid1:9:7478
+                --------------------
+                Topic [ztf_20181112_programid1]
+                ztf_20181112_programid1:0:0
+                ztf_20181112_programid1:0:35921
+                ztf_20181112_programid1:10:0
+                ztf_20181112_programid1:10:35922
+                ztf_20181112_programid1:11:0
+                ztf_20181112_programid1:11:35921
+                ztf_20181112_programid1:12:0
+                ztf_20181112_programid1:12:35921
+                ztf_20181112_programid1:13:0
+                ztf_20181112_programid1:13:35922
+                ztf_20181112_programid1:14:0
+                ztf_20181112_programid1:14:35921
+                ztf_20181112_programid1:15:0
+                ztf_20181112_programid1:15:35919
+                ztf_20181112_programid1:1:0
+                ztf_20181112_programid1:1:35921
+                ztf_20181112_programid1:2:0
+                ztf_20181112_programid1:2:35921
+                ztf_20181112_programid1:3:0
+                ztf_20181112_programid1:3:35921
+                ztf_20181112_programid1:4:0
+                ztf_20181112_programid1:4:35921
+                ztf_20181112_programid1:5:0
+                ztf_20181112_programid1:5:35921
+                ztf_20181112_programid1:6:0
+                ztf_20181112_programid1:6:35923
+                ztf_20181112_programid1:7:0
+                ztf_20181112_programid1:7:35921
+                ztf_20181112_programid1:8:0
+                ztf_20181112_programid1:8:35921
+                ztf_20181112_programid1:9:0
+                ztf_20181112_programid1:9:35922
+                --------------------
+                Topic [ztf_20181113_programid1]
+                ztf_20181113_programid1:0:0
+                ztf_20181113_programid1:0:107919
+                ztf_20181113_programid1:10:0
+                ztf_20181113_programid1:10:107951
+                ztf_20181113_programid1:11:0
+                ztf_20181113_programid1:11:107952
+                ztf_20181113_programid1:12:0
+                ztf_20181113_programid1:12:107920
+                ztf_20181113_programid1:13:0
+                ztf_20181113_programid1:13:107953
+                ztf_20181113_programid1:14:0
+                ztf_20181113_programid1:14:107952
+                ztf_20181113_programid1:15:0
+                ztf_20181113_programid1:15:107951
+                ztf_20181113_programid1:1:0
+                ztf_20181113_programid1:1:107951
+                ztf_20181113_programid1:2:0
+                ztf_20181113_programid1:2:107952
+                ztf_20181113_programid1:3:0
+                ztf_20181113_programid1:3:107951
+                ztf_20181113_programid1:4:0
+                ztf_20181113_programid1:4:107921
+                ztf_20181113_programid1:5:0
+                ztf_20181113_programid1:5:107952
+                ztf_20181113_programid1:6:0
+                ztf_20181113_programid1:6:107950
+                ztf_20181113_programid1:7:0
+                ztf_20181113_programid1:7:107951
+                ztf_20181113_programid1:8:0
+                ztf_20181113_programid1:8:107919
+                ztf_20181113_programid1:9:0
+                ztf_20181113_programid1:9:107952
+
+        # -----------------------------------------------------
+        # Check the offsets in the ZTF brokers.
+        #[root@openstacker]
+
+            brokers=${ztfconnect:?}
+
+
+                --------------------
+                Topic [ztf_20181110_programid1]
+                ztf_20181110_programid1:0:0
+                ztf_20181110_programid1:0:19462
+                ztf_20181110_programid1:10:0
+                ztf_20181110_programid1:10:19462
+                ztf_20181110_programid1:11:0
+                ztf_20181110_programid1:11:19462
+                ztf_20181110_programid1:12:0
+                ztf_20181110_programid1:12:19462
+                ztf_20181110_programid1:13:0
+                ztf_20181110_programid1:13:19461
+                ztf_20181110_programid1:1:0
+                ztf_20181110_programid1:1:19462
+                ztf_20181110_programid1:2:0
+                ztf_20181110_programid1:2:19462
+                ztf_20181110_programid1:3:0
+                ztf_20181110_programid1:3:19462
+                ztf_20181110_programid1:4:0
+                ztf_20181110_programid1:4:19462
+                ztf_20181110_programid1:5:0
+                ztf_20181110_programid1:5:19461
+                ztf_20181110_programid1:6:0
+                ztf_20181110_programid1:6:19462
+                ztf_20181110_programid1:7:0
+                ztf_20181110_programid1:7:19462
+                ztf_20181110_programid1:8:0
+                ztf_20181110_programid1:8:19462
+                ztf_20181110_programid1:9:0
+                ztf_20181110_programid1:9:19462
+                --------------------
+                Topic [ztf_20181111_programid1]
+                ztf_20181111_programid1:0:0
+                ztf_20181111_programid1:0:8546
+                ztf_20181111_programid1:10:0
+                ztf_20181111_programid1:10:8546
+                ztf_20181111_programid1:11:0
+                ztf_20181111_programid1:11:8546
+                ztf_20181111_programid1:12:0
+                ztf_20181111_programid1:12:8546
+                ztf_20181111_programid1:13:0
+                ztf_20181111_programid1:13:8545
+                ztf_20181111_programid1:1:0
+                ztf_20181111_programid1:1:8546
+                ztf_20181111_programid1:2:0
+                ztf_20181111_programid1:2:8546
+                ztf_20181111_programid1:3:0
+                ztf_20181111_programid1:3:8546
+                ztf_20181111_programid1:4:0
+                ztf_20181111_programid1:4:8546
+                ztf_20181111_programid1:5:0
+                ztf_20181111_programid1:5:8545
+                ztf_20181111_programid1:6:0
+                ztf_20181111_programid1:6:8546
+                ztf_20181111_programid1:7:0
+                ztf_20181111_programid1:7:8546
+                ztf_20181111_programid1:8:0
+                ztf_20181111_programid1:8:8546
+                ztf_20181111_programid1:9:0
+                ztf_20181111_programid1:9:8546
+                --------------------
+                Topic [ztf_20181112_programid1]
+                ztf_20181112_programid1:0:0
+                ztf_20181112_programid1:0:41053
+                ztf_20181112_programid1:10:0
+                ztf_20181112_programid1:10:41052
+                ztf_20181112_programid1:11:0
+                ztf_20181112_programid1:11:41053
+                ztf_20181112_programid1:12:0
+                ztf_20181112_programid1:12:41053
+                ztf_20181112_programid1:13:0
+                ztf_20181112_programid1:13:41053
+                ztf_20181112_programid1:1:0
+                ztf_20181112_programid1:1:41052
+                ztf_20181112_programid1:2:0
+                ztf_20181112_programid1:2:41053
+                ztf_20181112_programid1:3:0
+                ztf_20181112_programid1:3:41053
+                ztf_20181112_programid1:4:0
+                ztf_20181112_programid1:4:41053
+                ztf_20181112_programid1:5:0
+                ztf_20181112_programid1:5:41053
+                ztf_20181112_programid1:6:0
+                ztf_20181112_programid1:6:41053
+                ztf_20181112_programid1:7:0
+                ztf_20181112_programid1:7:41053
+                ztf_20181112_programid1:8:0
+                ztf_20181112_programid1:8:41053
+                ztf_20181112_programid1:9:0
+                ztf_20181112_programid1:9:41052
+                --------------------
+                Topic [ztf_20181113_programid1]
+                ztf_20181113_programid1:0:0
+                ztf_20181113_programid1:0:123242
+                ztf_20181113_programid1:10:0
+                ztf_20181113_programid1:10:123242
+                ztf_20181113_programid1:11:0
+                ztf_20181113_programid1:11:123241
+                ztf_20181113_programid1:12:0
+                ztf_20181113_programid1:12:123242
+                ztf_20181113_programid1:13:0
+                ztf_20181113_programid1:13:123242
+                ztf_20181113_programid1:1:0
+                ztf_20181113_programid1:1:123242
+                ztf_20181113_programid1:2:0
+                ztf_20181113_programid1:2:123241
+                ztf_20181113_programid1:3:0
+                ztf_20181113_programid1:3:123242
+                ztf_20181113_programid1:4:0
+                ztf_20181113_programid1:4:123242
+                ztf_20181113_programid1:5:0
+                ztf_20181113_programid1:5:123242
+                ztf_20181113_programid1:6:0
+                ztf_20181113_programid1:6:123242
+                ztf_20181113_programid1:7:0
+                ztf_20181113_programid1:7:123242
+                ztf_20181113_programid1:8:0
+                ztf_20181113_programid1:8:123241
+                ztf_20181113_programid1:9:0
+                ztf_20181113_programid1:9:123242
+
+        # -----------------------------------------------------
+        # Check the disc space on each of our Kafka nodes.
+        #[root@openstacker]
+
+                [192.168.1.5][Wed Nov 14 16:19:05 UTC 2018]
+
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vda3        39G  4.6G   33G  13% /
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdb        512G  478G   33G  94% /var/local/outer/kafka/data-00
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdc        512G  478G   33G  94% /var/local/outer/kafka/data-01
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdd        512G  136G  375G  27% /var/local/outer/kafka/data-02
+
+                [192.168.1.8][Wed Nov 14 16:19:10 UTC 2018]
+
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vda3        39G  2.6G   35G   7% /
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdb        512G  492G   20G  97% /var/local/outer/kafka/data-00
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdc        512G  492G   20G  97% /var/local/outer/kafka/data-01
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdd        512G  110G  402G  22% /var/local/outer/kafka/data-02
+
+                [192.168.1.15][Wed Nov 14 16:19:16 UTC 2018]
+
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vda3        39G  2.5G   35G   7% /
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdb        512G  492G   20G  97% /var/local/outer/kafka/data-00
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdc        512G  492G   20G  97% /var/local/outer/kafka/data-01
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdd        512G  110G  402G  22% /var/local/outer/kafka/data-02
+
+                [192.168.1.10][Wed Nov 14 16:19:22 UTC 2018]
+
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vda3        39G  2.5G   35G   7% /
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdb        512G  491G   20G  97% /var/local/outer/kafka/data-00
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdc        512G  492G   20G  97% /var/local/outer/kafka/data-01
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdd        512G  110G  402G  22% /var/local/outer/kafka/data-02
+
+        # -----------------------------------------------------
+        # Check the disc space on each of our Kafka nodes.
+        #[root@openstacker]
+
+                [192.168.1.5][Thu Nov 22 15:39:09 UTC 2018]
+
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vda3        39G  4.9G   33G  14% /
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdb        512G  478G   33G  94% /var/local/outer/kafka/data-00
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdc        512G  478G   33G  94% /var/local/outer/kafka/data-01
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdd        512G  220G  291G  44% /var/local/outer/kafka/data-02
+
+                [192.168.1.8][Thu Nov 22 15:39:10 UTC 2018]
+
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vda3        39G  3.3G   34G   9% /
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdb        512G  492G   20G  97% /var/local/outer/kafka/data-00
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdc        512G  492G   20G  97% /var/local/outer/kafka/data-01
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdd        512G  194G  318G  38% /var/local/outer/kafka/data-02
+
+                [192.168.1.15][Thu Nov 22 15:39:10 UTC 2018]
+
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vda3        39G  2.5G   35G   7% /
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdb        512G  492G   20G  97% /var/local/outer/kafka/data-00
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdc        512G  492G   20G  97% /var/local/outer/kafka/data-01
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdd        512G  110G  402G  22% /var/local/outer/kafka/data-02
+
+                [192.168.1.10][Thu Nov 22 15:39:11 UTC 2018]
+
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vda3        39G  2.8G   35G   8% /
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdb        512G  491G   20G  97% /var/local/outer/kafka/data-00
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdc        512G  492G   20G  97% /var/local/outer/kafka/data-01
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdd        512G  194G  318G  38% /var/local/outer/kafka/data-02
+

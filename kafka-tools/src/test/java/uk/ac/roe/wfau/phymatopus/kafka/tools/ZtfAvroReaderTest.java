@@ -18,22 +18,23 @@
 
 package uk.ac.roe.wfau.phymatopus.kafka.tools;
 
-import static org.junit.Assert.*;
-
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.Future;
+import java.util.concurrent.Callable;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ExecutorService;
 
-import org.apache.avro.Schema;
-import org.apache.avro.message.BinaryMessageDecoder;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import lombok.extern.slf4j.Slf4j;
-import ztf.alert;
 
 /**
- * 
- * 
+ *
+ *
  */
 @Slf4j
 @RunWith(JUnit4.class)
@@ -41,57 +42,115 @@ public class ZtfAvroReaderTest
 extends KafkaTestBase
     {
 
+    private int loopcount = 1 ;
+    private Duration loopwait = Duration.ofSeconds(5);
+    private int threadcount = 4 ;
+
     /**
-     * 
+     *
      */
     public ZtfAvroReaderTest()
         {
         super();
 
         this.group   = "java-test-001" ;
-        this.topic   = "ztf_20180917_programid1" ;
+        //this.topic   = "ztf_20181120_programid1" ;
+        this.topic   = "ztf_20181113_programid1" ;
         this.servers = "172.16.49.217:9092,172.16.49.214:9092,172.16.49.12:9092,172.16.49.208:9092" ;
 
         }
 
     /**
-     * Test we can load our Avro {@link Schema}.
-     * 
-    @Test
-    public void testInit()
-        {
-        final ZtfAvroReader reader = new ZtfAvroReader(
-            servers,
-            group,
-            topic
-            ); 
-        reader.init();
-        assertNotNull(
-            reader.schema()
-            );
-        }
-     */
-
-    /**
      * Test we can read some messages.
-     * 
+     *
      */
-    @Test
     public void testLoop()
         {
         final ZtfAvroReader reader = new ZtfAvroReader(
             servers,
             group,
             topic
-            ); 
-
+            );
         reader.rewind();
-
         reader.loop(
-            5,
-            Duration.ofSeconds(
-                5
-                )
+            loopcount,
+            loopwait
             );
         }
+
+
+    /**
+     * Callable Reader.
+     *
+     */
+    public class CallableReader
+    implements Callable<Long>
+        {
+        public CallableReader()
+            {
+            this(
+                new ZtfAvroReader(
+                    servers,
+                    group,
+                    topic
+                    )
+                );
+            }
+        
+        public CallableReader(final ZtfAvroReader reader)
+            {
+            this.reader = reader;
+            }
+
+        private final ZtfAvroReader reader ;
+
+        public ZtfAvroReader reader()
+            {
+            return this.reader ;
+            }
+
+        public void rewind()
+            {
+            this.reader.rewind();
+            }
+
+        public Long call()
+            {
+            return reader.loop(
+                loopcount,
+                loopwait
+                );
+            }
+        }
+
+    /**
+     * Test multiple threads.
+     *
+     */
+    @Test
+    public void testThreads()
+    throws Exception
+        {
+        final List<CallableReader> readers = new ArrayList<CallableReader>(); 
+
+        for (int i = 0 ; i < threadcount ; i++)   
+            {
+            readers.add(
+                new CallableReader()
+                );
+            }
+        
+        readers.get(0).rewind();
+
+        final ExecutorService executor = Executors.newFixedThreadPool(
+            readers.size()
+            );        
+        try{
+            List<Future<Long>> futures = executor.invokeAll(readers);
+            }
+        finally {
+            executor.shutdown();
+            }
+        }
     }
+

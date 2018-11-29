@@ -1,0 +1,170 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2018, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+# -----------------------------------------------------
+# Login to our external VM.
+#[user@trop03]
+
+    ssh Etalema
+
+    # -----------------------------------------------------
+    # Create a container to work with.
+    #[user@virtual]
+
+        docker run \
+            --rm \
+            --tty \
+            --interactive \
+            --hostname openstacker \
+            --env SSH_AUTH_SOCK=/tmp/ssh_auth_sock \
+            --volume "${HOME}/settings/:/etc/phymatopus/" \
+            --volume ${SSH_AUTH_SOCK}:/tmp/ssh_auth_sock \
+            phymatopus/openstack-client \
+            bash
+
+        # -----------------------------------------------------
+        # Configure our container.
+        #[root@openstacker]
+
+            source /etc/phymatopus/setup
+
+        # -----------------------------------------------------
+        # Check the disc space on each of our Kafka nodes.
+        #[root@openstacker]
+
+            innerpath=/var/local/inner/kafka
+            outerpath=/var/local/outer/kafka
+
+            for address in $(cat /etc/phymatopus/ipv4/kfip192.txt)
+                do
+                    echo "
+                        echo \"\"
+                        echo \"[${address:?}][$(date)]\"
+                        echo \"\"
+                        df -h /
+                        echo \"---- ----\"
+                        df -h \"${outerpath:?}/data-00\"
+                        echo "---- ----"
+                        df -h \"${outerpath:?}/data-01\"
+                        echo "---- ----"
+                        df -h \"${outerpath:?}/data-02\"
+                        " \
+                    | ssh \
+                        ${sshopts[*]} \
+                        -o ProxyCommand="${sshproxy:?}" \
+                        ${sshuser:?}@${address:?}
+                done
+
+
+                [192.168.1.5][Mon Nov 12 19:16:46 UTC 2018]
+
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vda3        39G  4.5G   33G  12% /
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdb        512G  478G   33G  94% /var/local/outer/kafka/data-00
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdc        512G  478G   33G  94% /var/local/outer/kafka/data-01
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdd        512G   27G  484G   6% /var/local/outer/kafka/data-02
+
+                [192.168.1.8][Mon Nov 12 19:16:49 UTC 2018]
+
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vda3        39G  2.4G   35G   7% /
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdb        512G  492G   20G  97% /var/local/outer/kafka/data-00
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdc        512G  492G   20G  97% /var/local/outer/kafka/data-01
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdd        512G   17M  510G   1% /var/local/outer/kafka/data-02
+
+                [192.168.1.15][Mon Nov 12 19:16:53 UTC 2018]
+
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vda3        39G  2.3G   35G   7% /
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdb        512G  492G   20G  97% /var/local/outer/kafka/data-00
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdc        512G  492G   20G  97% /var/local/outer/kafka/data-01
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdd        512G   17M  510G   1% /var/local/outer/kafka/data-02
+
+                [192.168.1.10][Mon Nov 12 19:16:58 UTC 2018]
+
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vda3        39G  2.3G   35G   7% /
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdb        512G  492G   20G  97% /var/local/outer/kafka/data-00
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdc        512G  492G   20G  97% /var/local/outer/kafka/data-01
+                ---- ----
+                Filesystem      Size  Used Avail Use% Mounted on
+                /dev/vdd        512G   17M  510G   1% /var/local/outer/kafka/data-02
+
+
+
+        # -----------------------------------------------------
+        # Login to each Kafka node and tail the Kafka logs.
+        #[root@openstacker]
+
+            vmident=${kfidents[0]}
+            vmident=${kfidents[1]}
+            vmident=${kfidents[2]}
+            vmident=${kfidents[3]}
+
+            getvminfo "${vmident:?}"
+            vmipv4=$(geteleanor172)
+
+            echo "Ident [${vmident}]"
+            echo "IPv4  [${vmipv4}]"
+
+            mkdir -p "${HOME}/.ssh"
+            ssh-keyscan "${vmipv4:?}" >> "${HOME}/.ssh/known_hosts"
+            ssh-keyscan -t ecdsa "${vmipv4:?}" >> "${HOME}/.ssh/known_hosts"
+
+            ssh ${sshuser:?}@${vmipv4:?}
+
+                    ls -al /var/local/outer/kafka/data-00/
+                    ls -al /var/local/outer/kafka/data-01/
+                    ls -al /var/local/outer/kafka/data-02/
+
+                    docker logs \
+                       --follow \
+                       --tail 100 \
+                        stevedore_emily_1
+
+
+
+
+
+

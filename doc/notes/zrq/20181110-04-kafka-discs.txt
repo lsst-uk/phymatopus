@@ -1,0 +1,259 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2018, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+#
+# For each node ..
+#
+
+        # -----------------------------------------------------
+        # Login to our instamce.
+        #[root@openstacker]
+
+            vmident=${kfidents[0]}
+            vmident=${kfidents[1]}
+            vmident=${kfidents[2]}
+            vmident=${kfidents[3]}
+
+            getvminfo "${vmident:?}"
+            vmipv4=$(geteleanor172)
+
+            echo "Ident [${vmident}]"
+            echo "IPv4  [${vmipv4}]"
+
+            mkdir -p "${HOME}/.ssh"
+            #ssh-keygen -q -R "${vmipv4:?}"
+            ssh-keyscan "${vmipv4:?}" >> "${HOME}/.ssh/known_hosts"
+            ssh-keyscan -t ecdsa "${vmipv4:?}" >> "${HOME}/.ssh/known_hosts"
+
+            ssh ${sshuser:?}@${vmipv4:?}
+
+                # -----------------------------------------------------
+                # Edit the Kafka config.
+                #[root@virtual]
+
+                    vi "${HOME}/kafka.yml"
+
+                    +   - type:   "bind"
+                    +     source: "${outerpath}/data-02"
+                    +     target: "${innerpath}/data-02"
+
+                    vi "${HOME}/kafka.env"
+
+                    -   KAFKA_LOG_DIRS=/var/local/inner/kafka/data-00,/var/local/inner/kafka/data-01
+                    +   KAFKA_LOG_DIRS=/var/local/inner/kafka/data-00,/var/local/inner/kafka/data-01,/var/local/inner/kafka/data-02
+
+                # -----------------------------------------------------
+                # Restart the Kafka service.
+                #[root@virtual]
+
+
+                    docker ps
+
+                        CONTAINER ID        IMAGE                         COMMAND                  CREATED             STATUS              PORTS                    NAMES
+                        27cc83641088        confluentinc/cp-kafka:4.1.1   "/etc/confluent/dock…"   4 months ago        Up 4 months         0.0.0.0:9092->9092/tcp   stevedore_emily_1
+
+#
+# Stop/start just restarts Kafka, with the same ENV ..
+# Needs to take the service down and bring a new one up.
+#
+
+                    docker-compose \
+                        --file "${HOME}/kafka.yml" \
+                        down
+
+                    docker-compose \
+                        --file "${HOME}/kafka.yml" \
+                        up -d
+
+                    docker logs \
+                       --follow \
+                       --tail 100 \
+                        stevedore_emily_1 \
+                      | grep 'data-0'
+
+                    docker logs \
+                       --follow \
+                       --tail 100 \
+                        stevedore_emily_1 \
+                      | grep 'data-0'
+
+# -----------------------------------------------------
+# Re-building the indexes ..
+[2018-11-11 14:17:04,641] WARN [Log partition=ztf_20180714_programid1-9, dir=/var/local/inner/kafka/data-01] Found a corrupted index file corresponding to log file /var/local/inner/kafka/data-01/ztf_20180714_programid1-9/00000000000000000000.log due to Corrupt index found, index file (/var/local/inner/kafka/data-01/ztf_20180714_programid1-9/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
+[2018-11-11 14:17:05,710] INFO [Log partition=ztf_20180713_programid1-3, dir=/var/local/inner/kafka/data-00] Recovering unflushed segment 0 (kafka.log.Log)
+[2018-11-11 14:17:06,697] INFO [Log partition=ztf_20180713_programid1-3, dir=/var/local/inner/kafka/data-00] Loading producer state from offset 5516 with message format version 2 (kafka.log.Log)
+[2018-11-11 14:17:06,697] INFO [ProducerStateManager partition=ztf_20180713_programid1-3] Loading producer state from snapshot file '/var/local/inner/kafka/data-00/ztf_20180713_programid1-3/00000000000000005516.snapshot' (kafka.log.ProducerStateManager)
+[2018-11-11 14:17:06,697] INFO [Log partition=ztf_20180713_programid1-3, dir=/var/local/inner/kafka/data-00] Completed load of log with 1 segments, log start offset 0 and log end offset 5516 in 4032 ms (kafka.log.Log)
+
+# -----------------------------------------------------
+# Leader negotiation ..
+[2018-11-04 08:02:58,587] TRACE [Broker id=3] Received LeaderAndIsr request PartitionState(controllerEpoch=31, leader=3, leaderEpoch=11, isr=3, zkVersion=42, replicas=3,0,1, isNew=false) correlation id 3 from controller 3 epoch 31 for partition ztf_20181031_programid1-10 (state.change.logger)
+[2018-11-04 08:02:58,587] TRACE [Broker id=3] Received LeaderAndIsr request PartitionState(controllerEpoch=31, leader=3, leaderEpoch=70, isr=3, zkVersion=163, replicas=1,2,3, isNew=false) correlation id 3 from controller 3 epoch 31 for partition ztf_20180620_programid1-6 (state.change.logger)
+[2018-11-04 08:02:58,587] TRACE [Broker id=3] Received LeaderAndIsr request PartitionState(controllerEpoch=31, leader=3, leaderEpoch=6, isr=3, zkVersion=36, replicas=0,2,3, isNew=false) correlation id 3 from controller 3 epoch 31 for partition ztf_20181019_programid1-6 (state.change.logger)
+[2018-11-04 08:02:58,587] TRACE [Broker id=3] Received LeaderAndIsr request PartitionState(controllerEpoch=31, leader=3, leaderEpoch=65, isr=3, zkVersion=156, replicas=2,3,0, isNew=false) correlation id 3 from controller 3 epoch 31 for partition ztf_20180813_programid1-9 (state.change.logger)
+[2018-11-04 08:02:58,588] TRACE [Broker id=3] Received LeaderAndIsr request PartitionState(controllerEpoch=31, leader=3, leaderEpoch=80, isr=3, zkVersion=192, replicas=0,2,3, isNew=false) correlation id 3 from controller 3 epoch 31 for partition ztf_20180801_programid1-4 (state.change.logger)
+
+[2018-11-11 15:22:20,012] INFO [ReplicaFetcher replicaId=3, leaderId=0, fetcherId=0] Remote broker is not the leader for partition ztf_20180825_programid1-12, which could indicate that the partition is being moved (kafka.server.ReplicaFetcherThread)
+[2018-11-11 15:22:20,026] INFO [ReplicaFetcher replicaId=3, leaderId=1, fetcherId=0] Remote broker is not the leader for partition ztf_20180924_programid1-7, which could indicate that the partition is being moved (kafka.server.ReplicaFetcherThread)
+[2018-11-11 15:22:20,027] INFO [ReplicaFetcher replicaId=3, leaderId=1, fetcherId=0] Remote broker is not the leader for partition ztf_20181020_programid1-13, which could indicate that the partition is being moved (kafka.server.ReplicaFetcherThread)
+[2018-11-11 15:22:20,040] INFO [ReplicaFetcher replicaId=3, leaderId=2, fetcherId=0] Remote broker is not the leader for partition ztf_20181026_programid1-9, which could indicate that the partition is being moved (kafka.server.ReplicaFetcherThread)
+[2018-11-11 15:22:20,048] INFO [ReplicaFetcher replicaId=3, leaderId=1, fetcherId=0] Remote broker is not the leader for partition ztf_20181006_programid1-10, which could indicate that the partition is being moved (kafka.server.ReplicaFetcherThread)
+
+[2018-11-11 15:22:20,057] TRACE [Broker id=3] Stopped fetchers as part of become-leader request from controller 1 epoch 34 with correlation id 9 for partition ztf_20181011_programid1-4 (last update controller epoch 34) (state.change.logger)
+
+# -----------------------------------------------------
+# Re-building the indexes ..
+
+[2018-11-12 17:51:29,003] INFO [ProducerStateManager partition=ztf_20181105_programid1-3] Loading producer state from snapshot file '/var/local/inner/kafka/data-00/ztf_20181105_programid1-3/00000000000000030209.snapshot' (kafka.log.ProducerStateManager)
+[2018-11-12 17:51:29,003] INFO [Log partition=ztf_20181105_programid1-3, dir=/var/local/inner/kafka/data-00] Completed load of log with 2 segments, log start offset 0 and log end offset 30209 in 7231 ms (kafka.log.Log)
+[2018-11-12 17:51:29,070] WARN [Log partition=ztf_20181106_programid1-0, dir=/var/local/inner/kafka/data-00] Found a corrupted index file corresponding to log file /var/local/inner/kafka/data-00/ztf_20181106_programid1-0/00000000000000000000.log due to Corrupt index found, index file (/var/local/inner/kafka/data-00/ztf_20181106_programid1-0/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
+
+[2018-11-12 17:51:37,103] INFO [ProducerStateManager partition=ztf_20181106_programid1-12] Writing producer snapshot at offset 15939 (kafka.log.ProducerStateManager)
+[2018-11-12 17:51:37,104] INFO [Log partition=ztf_20181106_programid1-12, dir=/var/local/inner/kafka/data-01] Recovering unflushed segment 0 (kafka.log.Log)
+
+[2018-11-12 17:51:38,949] INFO [ProducerStateManager partition=ztf_20181106_programid1-12] Writing producer snapshot at offset 15939 (kafka.log.ProducerStateManager)
+[2018-11-12 17:51:38,950] INFO [Log partition=ztf_20181106_programid1-12, dir=/var/local/inner/kafka/data-01] Loading producer state from offset 15939 with message format version 2 (kafka.log.Log)
+
+[2018-11-12 17:51:38,950] INFO [ProducerStateManager partition=ztf_20181106_programid1-12] Loading producer state from snapshot file '/var/local/inner/kafka/data-01/ztf_20181106_programid1-12/00000000000000015939.snapshot' (kafka.log.ProducerStateManager)
+[2018-11-12 17:51:38,950] INFO [Log partition=ztf_20181106_programid1-12, dir=/var/local/inner/kafka/data-01] Completed load of log with 1 segments, log start offset 0 and log end offset 15939 in 14087 ms (kafka.log.Log)
+[2018-11-12 17:51:38,957] WARN [Log partition=ztf_20181106_programid1-4, dir=/var/local/inner/kafka/data-01] Found a corrupted index file corresponding to log file /var/local/inner/kafka/data-01/ztf_20181106_programid1-4/00000000000000000000.log due to Corrupt index found, index file (/var/local/inner/kafka/data-01/ztf_20181106_programid1-4/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
+
+# Looks like it is processing the partitions in date order.
+# (probably file name order)
+
+[2018-11-12 17:53:48,204] WARN [Log partition=ztf_20181108_programid1-10, dir=/var/local/inner/kafka/data-00] Found a corrupted index file corresponding to log file /var/local/inner/kafka/data-00/ztf_20181108_programid1-10/00000000000000000000.log due to Corrupt index found, index file (/var/local/inner/kafka/data-00/ztf_20181108_programid1-10/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
+
+[2018-11-12 17:54:00,075] WARN [Log partition=ztf_20181109_programid1-9, dir=/var/local/inner/kafka/data-01] Found a corrupted index file corresponding to log file /var/local/inner/kafka/data-01/ztf_20181109_programid1-9/00000000000000049062.log due to Corrupt index found, index file (/var/local/inner/kafka/data-01/ztf_20181109_programid1-9/00000000000000049062.index) has non-zero size but the last offset is 49062 which is no greater than the base offset 49062.}, recovering segment and rebuilding index files... (kafka.log.Log)
+
+[2018-11-12 17:54:05,740] INFO [ProducerStateManager partition=ztf_20181108_programid1-1] Writing producer snapshot at offset 13436 (kafka.log.ProducerStateManager)
+[2018-11-12 17:54:05,741] INFO [Log partition=ztf_20181108_programid1-1, dir=/var/local/inner/kafka/data-00] Recovering unflushed segment 0 (kafka.log.Log)
+
+[2018-11-12 17:54:06,820] INFO [ProducerStateManager partition=ztf_20181108_programid1-1] Writing producer snapshot at offset 13436 (kafka.log.ProducerStateManager)
+[2018-11-12 17:54:06,820] INFO [Log partition=ztf_20181108_programid1-1, dir=/var/local/inner/kafka/data-00] Loading producer state from offset 13436 with message format version 2 (kafka.log.Log)
+
+
+
+
+[2018-11-12 17:55:50,776] INFO [ProducerStateManager partition=ztf_20181112_programid1-10] Loading producer state from snapshot file '/var/local/inner/kafka/data-00/ztf_20181112_programid1-10/00000000000000035922.snapshot' (kafka.log.ProducerStateManager)
+[2018-11-12 17:55:50,776] INFO [Log partition=ztf_20181112_programid1-10, dir=/var/local/inner/kafka/data-00] Completed load of log with 3 segments, log start offset 0 and log end offset 35922 in 1573 ms (kafka.log.Log)
+[2018-11-12 17:55:50,826] INFO Logs loading complete in 4540065 ms. (kafka.log.LogManager)
+[2018-11-12 17:55:51,028] INFO Starting log cleanup with a period of 300000 ms. (kafka.log.LogManager)
+[2018-11-12 17:55:51,030] INFO Starting log flusher with a default period of 9223372036854775807 ms. (kafka.log.LogManager)
+[2018-11-12 17:55:51,033] INFO Starting the log cleaner (kafka.log.LogCleaner)
+[2018-11-12 17:55:51,612] INFO [kafka-log-cleaner-thread-0]: Starting (kafka.log.LogCleaner)
+[2018-11-12 17:55:52,223] INFO Awaiting socket connections on 0.0.0.0:9092. (kafka.network.Acceptor)
+[2018-11-12 17:55:52,331] INFO [SocketServer brokerId=1] Started 1 acceptor threads (kafka.network.SocketServer)
+[2018-11-12 17:55:52,496] INFO [ExpirationReaper-1-Produce]: Starting (kafka.server.DelayedOperationPurgatory$ExpiredOperationReaper)
+[2018-11-12 17:55:52,497] INFO [ExpirationReaper-1-Fetch]: Starting (kafka.server.DelayedOperationPurgatory$ExpiredOperationReaper)
+[2018-11-12 17:55:52,498] INFO [ExpirationReaper-1-DeleteRecords]: Starting (kafka.server.DelayedOperationPurgatory$ExpiredOperationReaper)
+[2018-11-12 17:55:52,541] INFO [LogDirFailureHandler]: Starting (kafka.server.ReplicaManager$LogDirFailureHandler)
+[2018-11-12 17:55:52,972] INFO Creating /brokers/ids/1 (is it secure? false) (kafka.zk.KafkaZkClient)
+[2018-11-12 17:55:52,998] INFO Result of znode creation at /brokers/ids/1 is: OK (kafka.zk.KafkaZkClient)
+[2018-11-12 17:55:52,998] INFO Registered broker 1 at path /brokers/ids/1 with addresses: ArrayBuffer(EndPoint(172.16.49.12,9092,ListenerName(PLAINTEXT),PLAINTEXT)) (kafka.zk.KafkaZkClient)
+[2018-11-12 17:55:53,020] WARN No meta.properties file under dir /var/local/inner/kafka/data-02/meta.properties (kafka.server.BrokerMetadataCheckpoint)
+[2018-11-12 17:55:53,286] INFO [ControllerEventThread controllerId=1] Starting (kafka.controller.ControllerEventManager$ControllerEventThread)
+[2018-11-12 17:55:53,289] INFO [ExpirationReaper-1-topic]: Starting (kafka.server.DelayedOperationPurgatory$ExpiredOperationReaper)
+[2018-11-12 17:55:53,300] INFO [ExpirationReaper-1-Heartbeat]: Starting (kafka.server.DelayedOperationPurgatory$ExpiredOperationReaper)
+[2018-11-12 17:55:53,302] INFO [ExpirationReaper-1-Rebalance]: Starting (kafka.server.DelayedOperationPurgatory$ExpiredOperationReaper)
+[2018-11-12 17:55:53,361] INFO [GroupCoordinator 1]: Starting up. (kafka.coordinator.group.GroupCoordinator)
+[2018-11-12 17:55:53,364] INFO [GroupCoordinator 1]: Startup complete. (kafka.coordinator.group.GroupCoordinator)
+[2018-11-12 17:55:53,369] INFO [GroupMetadataManager brokerId=1] Removed 0 expired offsets in 5 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+[2018-11-12 17:55:53,372] DEBUG [Controller id=1] Broker 0 has been elected as the controller, so stopping the election process. (kafka.controller.KafkaController)
+[2018-11-12 17:55:53,410] INFO [ProducerId Manager 1]: Acquired new producerId block (brokerId:1,blockStartProducerId:7000,blockEndProducerId:7999) by writing to Zk with path version 8 (kafka.coordinator.transaction.ProducerIdManager)
+[2018-11-12 17:55:53,445] INFO [TransactionCoordinator id=1] Starting up. (kafka.coordinator.transaction.TransactionCoordinator)
+[2018-11-12 17:55:53,447] INFO [TransactionCoordinator id=1] Startup complete. (kafka.coordinator.transaction.TransactionCoordinator)
+[2018-11-12 17:55:53,464] INFO [Transaction Marker Channel Manager 1]: Starting (kafka.coordinator.transaction.TransactionMarkerChannelManager)
+[2018-11-12 17:55:53,479] INFO [/config/changes-event-process-thread]: Starting (kafka.common.ZkNodeChangeNotificationListener$ChangeEventProcessThread)
+[2018-11-12 17:55:53,669] INFO [SocketServer brokerId=1] Started processors for 1 acceptors (kafka.network.SocketServer)
+[2018-11-12 17:55:53,686] INFO Kafka version : 1.1.1-cp1 (org.apache.kafka.common.utils.AppInfoParser)
+[2018-11-12 17:55:53,686] INFO Kafka commitId : 0a5db4d59ee15a47 (org.apache.kafka.common.utils.AppInfoParser)
+[2018-11-12 17:55:53,688] INFO [KafkaServer id=1] started (kafka.server.KafkaServer)
+[2018-11-12 17:55:53,710] INFO Waiting 10033 ms for the monitored service to finish starting up... (io.confluent.support.metrics.BaseMetricsReporter)
+[2018-11-12 17:55:53,803] TRACE [Broker id=1] Cached leader info PartitionState(controllerEpoch=34, leader=3, leaderEpoch=70, isr=[0, 3, 2], zkVersion=192, replicas=[3, 2, 0], offlineReplicas=[]) for partition ztf_20180824_programid1-8 in response to UpdateMetadata request sent by controller 0 epoch 35 with correlation id 0 (state.change.logger)
+[2018-11-12 17:55:53,803] TRACE [Broker id=1] Cached leader info PartitionState(controllerEpoch=34, leader=0, leaderEpoch=92, isr=[0, 3, 2], zkVersion=235, replicas=[0, 2, 3], offlineReplicas=[]) for partition ztf_20180714_programid1-6 in response to UpdateMetadata request sent by controller 0 epoch 35 with correlation id 0 (state.change.logger)
+[2018-11-12 17:55:53,805] TRACE [Broker id=1] Cached leader info PartitionState(controllerEpoch=34, leader=3, leaderEpoch=5, isr=[0, 3], zkVersion=7, replicas=[3, 0, 1], offlineReplicas=[]) for partition ztf_20181108_programid1-1 in response to UpdateMetadata request sent by controller 0 epoch 35 with correlation id 0 (state.change.logger)
+[2018-11-12 17:55:53,805] TRACE [Broker id=1] Cached leader info PartitionState(controllerEpoch=34, leader=0, leaderEpoch=115, isr=[0, 2], zkVersion=262, replicas=[0, 1, 2], offlineReplicas=[]) for partition ztf_20180618_programid1-15 in response to UpdateMetadata request sent by controller 0 epoch 35 with correlation id 0 (state.change.logger)
+[2018-11-12 17:55:53,805] TRACE [Broker id=1] Cached leader info PartitionState(controllerEpoch=34, leader=2, leaderEpoch=22, isr=[3, 2], zkVersion=91, replicas=[2, 1, 3], offlineReplicas=[]) for partition ztf_20181005_programid1-8 in response to UpdateMetadata request sent by controller 0 epoch 35 with correlation id 0 (state.change.logger)
+[2018-11-12 17:55:53,805] TRACE [Broker id=1] Cached leader info PartitionState(controllerEpoch=34, leader=0, leaderEpoch=72, isr=[0, 2], zkVersion=174, replicas=[0, 1, 2], offlineReplicas=[]) for partition ztf_20180927_programid1-2 in response to UpdateMetadata request sent by controller 0 epoch 35 with correlation id 0 (state.change.logger)
+[2018-11-12 17:55:53,805] TRACE [Broker id=1] Cached leader info PartitionState(controllerEpoch=34, leader=0, leaderEpoch=76, isr=[0, 2], zkVersion=186, replicas=[0, 1, 2], offlineReplicas=[]) for partition ztf_20180817_programid1-0 in response to UpdateMetadata request sent by controller 0 epoch 35 with correlation id 0 (state.change.logger)
+
+
+    docker ps
+
+        CONTAINER ID        IMAGE                         COMMAND                  CREATED             STATUS              PORTS                    NAMES
+        5fd679524c0b        confluentinc/cp-kafka:4.1.1   "/etc/confluent/dock…"   About an hour ago   Up About an hour    0.0.0.0:9092->9092/tcp   stevedore_emily_1
+
+[2018-11-12 17:59:06,373] TRACE [Broker id=1] Stopped fetchers as part of become-leader request from controller 0 epoch 35 with correlation id 1217 for partition ztf_20180704_programid1-1 (last update controller epoch 35) (state.change.logger)
+[2018-11-12 17:59:06,373] TRACE [Broker id=1] Completed LeaderAndIsr request correlationId 1217 from controller 0 epoch 35 for the become-leader transition for partition ztf_20180704_programid1-1 (state.change.logger)
+[2018-11-12 17:59:06,373] INFO [ReplicaAlterLogDirsManager on broker 1] Added fetcher for partitions List() (kafka.server.ReplicaAlterLogDirsManager)
+[2018-11-12 17:59:06,373] TRACE [Broker id=1] Cached leader info PartitionState(controllerEpoch=35, leader=1, leaderEpoch=75, isr=[0, 3, 1], zkVersion=175, replicas=[1, 3, 0], offlineReplicas=[]) for partition ztf_20180704_programid1-1 in response to UpdateMetadata request sent by controller 0 epoch 35 with correlation id 1218 (state.change.logger)
+[2018-11-12 17:59:06,382] TRACE [Broker id=1] Received LeaderAndIsr request PartitionState(controllerEpoch=35, leader=1, leaderEpoch=75, isr=0,3,1, zkVersion=187, replicas=1,3,0, isNew=false) correlation id 1219 from controller 0 epoch 35 for partition ztf_20180701_programid1-4 (state.change.logger)
+[2018-11-12 17:59:06,382] TRACE [Broker id=1] Handling LeaderAndIsr request correlationId 1219 from controller 0 epoch 35 starting the become-leader transition for partition ztf_20180701_programid1-4 (state.change.logger)
+[2018-11-12 17:59:06,382] INFO [ReplicaFetcherManager on broker 1] Removed fetcher for partitions ztf_20180701_programid1-4 (kafka.server.ReplicaFetcherManager)
+[2018-11-12 17:59:06,382] INFO [Partition ztf_20180701_programid1-4 broker=1] ztf_20180701_programid1-4 starts at Leader Epoch 75 from offset 3566. Previous Leader Epoch was: 74 (kafka.cluster.Partition)
+[2018-11-12 17:59:06,382] TRACE [Broker id=1] Stopped fetchers as part of become-leader request from controller 0 epoch 35 with correlation id 1219 for partition ztf_20180701_programid1-4 (last update controller epoch 35) (state.change.logger)
+[2018-11-12 17:59:06,382] TRACE [Broker id=1] Completed LeaderAndIsr request correlationId 1219 from controller 0 epoch 35 for the become-leader transition for partition ztf_20180701_programid1-4 (state.change.logger)
+[2018-11-12 17:59:06,382] INFO [ReplicaAlterLogDirsManager on broker 1] Added fetcher for partitions List() (kafka.server.ReplicaAlterLogDirsManager)
+[2018-11-12 17:59:06,383] TRACE [Broker id=1] Cached leader info PartitionState(controllerEpoch=35, leader=1, leaderEpoch=75, isr=[0, 3, 1], zkVersion=187, replicas=[1, 3, 0], offlineReplicas=[]) for partition ztf_20180701_programid1-4 in response to UpdateMetadata request sent by controller 0 epoch 35 with correlation id 1220 (state.change.logger)
+[2018-11-12 17:59:06,391] TRACE [Broker id=1] Received LeaderAndIsr request PartitionState(controllerEpoch=35, leader=1, leaderEpoch=61, isr=0,2,1, zkVersion=150, replicas=1,0,2, isNew=false) correlation id 1221 from controller 0 epoch 35 for partition ztf_20180913_programid1-14 (state.change.logger)
+[2018-11-12 17:59:06,391] TRACE [Broker id=1] Handling LeaderAndIsr request correlationId 1221 from controller 0 epoch 35 starting the become-leader transition for partition ztf_20180913_programid1-14 (state.change.logger)
+[2018-11-12 17:59:06,391] INFO [ReplicaFetcherManager on broker 1] Removed fetcher for partitions ztf_20180913_programid1-14 (kafka.server.ReplicaFetcherManager)
+[2018-11-12 17:59:06,391] INFO [Partition ztf_20180913_programid1-14 broker=1] ztf_20180913_programid1-14 starts at Leader Epoch 61 from offset 13408. Previous Leader Epoch was: 60 (kafka.cluster.Partition)
+[2018-11-12 17:59:06,392] TRACE [Broker id=1] Stopped fetchers as part of become-leader request from controller 0 epoch 35 with correlation id 1221 for partition ztf_20180913_programid1-14 (last update controller epoch 35) (state.change.logger)
+[2018-11-12 17:59:06,392] TRACE [Broker id=1] Completed LeaderAndIsr request correlationId 1221 from controller 0 epoch 35 for the become-leader transition for partition ztf_20180913_programid1-14 (state.change.logger)
+[2018-11-12 17:59:06,392] INFO [ReplicaAlterLogDirsManager on broker 1] Added fetcher for partitions List() (kafka.server.ReplicaAlterLogDirsManager)
+[2018-11-12 17:59:06,392] TRACE [Broker id=1] Cached leader info PartitionState(controllerEpoch=35, leader=1, leaderEpoch=61, isr=[0, 2, 1], zkVersion=150, replicas=[1, 0, 2], offlineReplicas=[]) for partition ztf_20180913_programid1-14 in response to UpdateMetadata request sent by controller 0 epoch 35 with correlation id 1222 (state.change.logger)
+[2018-11-12 17:59:06,402] TRACE [Broker id=1] Received LeaderAndIsr request PartitionState(controllerEpoch=35, leader=1, leaderEpoch=7, isr=0,2,1, zkVersion=12, replicas=1,0,2, isNew=false) correlation id 1223 from controller 0 epoch 35 for partition ztf_20181107_programid1-3 (state.change.logger)
+[2018-11-12 17:59:06,402] TRACE [Broker id=1] Handling LeaderAndIsr request correlationId 1223 from controller 0 epoch 35 starting the become-leader transition for partition ztf_20181107_programid1-3 (state.change.logger)
+[2018-11-12 17:59:06,403] INFO [ReplicaFetcherManager on broker 1] Removed fetcher for partitions ztf_20181107_programid1-3 (kafka.server.ReplicaFetcherManager)
+[2018-11-12 17:59:06,403] INFO [Partition ztf_20181107_programid1-3 broker=1] ztf_20181107_programid1-3 starts at Leader Epoch 7 from offset 19337. Previous Leader Epoch was: 6 (kafka.cluster.Partition)
+[2018-11-12 17:59:06,403] TRACE [Broker id=1] Stopped fetchers as part of become-leader request from controller 0 epoch 35 with correlation id 1223 for partition ztf_20181107_programid1-3 (last update controller epoch 35) (state.change.logger)
+[2018-11-12 17:59:06,403] TRACE [Broker id=1] Completed LeaderAndIsr request correlationId 1223 from controller 0 epoch 35 for the become-leader transition for partition ztf_20181107_programid1-3 (state.change.logger)
+[2018-11-12 17:59:06,403] INFO [ReplicaAlterLogDirsManager on broker 1] Added fetcher for partitions List() (kafka.server.ReplicaAlterLogDirsManager)
+[2018-11-12 17:59:06,403] TRACE [Broker id=1] Cached leader info PartitionState(controllerEpoch=35, leader=1, leaderEpoch=7, isr=[0, 2, 1], zkVersion=12, replicas=[1, 0, 2], offlineReplicas=[]) for partition ztf_20181107_programid1-3 in response to UpdateMetadata request sent by controller 0 epoch 35 with correlation id 1224 (state.change.logger)
+
+
+
+
+
+[2018-11-12 19:28:46,704] TRACE [Broker id=0] Stopped fetchers as part of become-leader request from controller 2 epoch 36 with correlation id 1227 for partition ztf_20181107_programid1-14 (last update controller epoch 36) (state.change.logger)
+[2018-11-12 19:28:46,704] TRACE [Broker id=0] Completed LeaderAndIsr request correlationId 1227 from controller 2 epoch 36 for the become-leader transition for partition ztf_20181107_programid1-14 (state.change.logger)
+[2018-11-12 19:28:46,704] INFO [ReplicaAlterLogDirsManager on broker 0] Added fetcher for partitions List() (kafka.server.ReplicaAlterLogDirsManager)
+[2018-11-12 19:28:46,706] TRACE [Broker id=0] Cached leader info PartitionState(controllerEpoch=36, leader=0, leaderEpoch=9, isr=[3, 1, 0], zkVersion=15, replicas=[0, 3, 1], offlineReplicas=[]) for partition ztf_20181107_programid1-14 in response to UpdateMetadata request sent by controller 2 epoch 36 with correlation id 1228 (state.change.logger)
+
+[2018-11-12 19:37:47,701] INFO [GroupMetadataManager brokerId=0] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+[2018-11-12 19:47:47,702] INFO [GroupMetadataManager brokerId=0] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+[2018-11-12 19:57:47,702] INFO [GroupMetadataManager brokerId=0] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+[2018-11-12 20:07:47,702] INFO [GroupMetadataManager brokerId=0] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+[2018-11-12 20:17:47,702] INFO [GroupMetadataManager brokerId=0] Removed 0 expired offsets in 1 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+[2018-11-12 20:27:47,703] INFO [GroupMetadataManager brokerId=0] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+
+
+
+
+
+
+
+
+
+
+
