@@ -1,0 +1,421 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2018, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+    #
+    # Eleanor Cloud Service network connectivity issues ..
+    #  09:00 03 Dec 2018 - Ongoing
+    # http://reports.is.ed.ac.uk/alerts/index.cfm?fuseaction=view_alert&alert_id=8146
+    #
+
+
+# -----------------------------------------------------
+# Login to our external VM.
+#[user@trop03]
+
+    ssh Etalema
+
+    # -----------------------------------------------------
+    # Create a container to work with.
+    #[user@virtual]
+
+        docker run \
+            --rm \
+            --tty \
+            --interactive \
+            --hostname openstacker \
+            --env SSH_AUTH_SOCK=/tmp/ssh_auth_sock \
+            --volume "${HOME}/settings/:/etc/phymatopus/" \
+            --volume ${SSH_AUTH_SOCK}:/tmp/ssh_auth_sock \
+            phymatopus/openstack-client \
+            bash
+
+        # -----------------------------------------------------
+        # Configure our container.
+        #[root@openstacker]
+
+            source /etc/phymatopus/setup
+
+        # -----------------------------------------------------
+        # List our OpenStack nodes.
+        #[root@openstacker]
+
+
+            for vmident in $(
+                openstack \
+                    server list \
+                    --format json \
+                | jq -r '.[] | .ID'
+                )
+                do
+                    getvminfo "${vmident:?}"
+                    echo ""
+                    echo "Ident [$vmident]"
+                    echo "ip192 [$(geteleanor192)]"
+                    echo "ip172 [$(geteleanor172)]"
+                    echo "Name  [$(getvmname)]"
+                done
+
+
+                Ident [a00facb8-3289-4dd5-bf2f-200ecc87564b]
+                ip192 [192.168.1.28]
+                ip172 [172.16.49.239]
+                Name  [Raminiara-control-3]
+
+                Ident [c32e11f0-9d4f-49b0-bde5-a79306756a68]
+                ip192 [192.168.1.25]
+                ip172 []
+                Name  [Raminiara-mirror-3]
+
+                Ident [e69f88ab-0da0-4faa-9aa7-ce1f71646dbf]
+                ip192 [192.168.1.22]
+                ip172 []
+                Name  [Raminiara-mirror-2]
+
+                Ident [6883a92d-82e1-4635-8a36-2430597ade3f]
+                ip192 [192.168.1.7]
+                ip172 []
+                Name  [Raminiara-mirror-1]
+
+                Ident [08aad6fe-3392-45f8-a49d-dc9aae314c7f]
+                ip192 [192.168.1.9]
+                ip172 []
+                Name  [Raminiara-mirror-0]
+
+                Ident [bb409e47-cf2c-4e64-aea6-e893e5d05100]
+                ip192 [192.168.1.5]
+                ip172 [172.16.49.217]
+                Name  [Raminiara-kafka-4]
+
+                Ident [aa73a427-2e9f-413d-a37b-3eaf35799f00]
+                ip192 [192.168.1.8]
+                ip172 [172.16.49.214]
+                Name  [Raminiara-kafka-3]
+
+                Ident [6f971e48-f760-43bf-ad98-c38a7b90c321]
+                ip192 [192.168.1.15]
+                ip172 [172.16.49.12]
+                Name  [Raminiara-kafka-2]
+
+                Ident [0824e436-6213-4893-8a67-40d152e7402c]
+                ip192 [192.168.1.10]
+                ip172 [172.16.49.208]
+                Name  [Raminiara-kafka-1]
+
+                Ident [8cd2c6af-88b2-4cff-8c8a-81240bf63f70]
+                ip192 [192.168.1.14]
+                ip172 []
+                Name  [Raminiara-zookeeper-3]
+
+                Ident [4bd50e51-ec0e-4d8d-9a2b-9af9185aefba]
+                ip192 [192.168.1.16]
+                ip172 []
+                Name  [Raminiara-zookeeper-2]
+
+                Ident [39cbbdb1-4adb-439d-b9fe-71b8c48ec14b]
+                ip192 [192.168.1.11]
+                ip172 []
+                Name  [Raminiara-zookeeper-1]
+
+
+        # -----------------------------------------------------
+        # Try login to our control node.
+        #[root@openstacker]
+
+            ssh ${sshuser:?}@${controlip:?} \
+                "
+                hostname
+                "
+
+                #
+                # FAILS - timeout
+                #
+
+        # -----------------------------------------------------
+        # Reboot our control node.
+        #[root@openstacker]
+
+            openstack \
+                server reboot \
+                    --wait \
+                    "${controlid:?}"
+
+        # -----------------------------------------------------
+        # Try login to our control node.
+        #[root@openstacker]
+
+            ssh ${sshuser:?}@${controlip:?} \
+                "
+                hostname
+                "
+
+        # -----------------------------------------------------
+        # Try login to our Kafka nodes.
+        #[root@openstacker]
+
+            for vmident in ${kfidents[@]}
+            do
+                getvminfo "${vmident:?}"
+                echo ""
+                echo "Ident [$vmident]"
+                echo "ip172 [$(geteleanor172)]"
+                echo "--"
+                ssh ${sshopts[@]} ${sshuser:?}@$(geteleanor172) \
+                    "
+                    hostname
+                    "
+                echo "--"
+            done
+
+
+                Ident [bb409e47-cf2c-4e64-aea6-e893e5d05100]
+                ip172 [172.16.49.217]
+
+                --
+                raminiara-kafka-4.novalocal
+                --
+
+                Ident [aa73a427-2e9f-413d-a37b-3eaf35799f00]
+                ip172 [172.16.49.214]
+
+                --
+                raminiara-kafka-3.novalocal
+                --
+
+                Ident [6f971e48-f760-43bf-ad98-c38a7b90c321]
+                ip172 [172.16.49.12]
+
+                --
+                --
+
+                Ident [0824e436-6213-4893-8a67-40d152e7402c]
+                ip172 [172.16.49.208]
+
+                --
+                --
+
+
+        # -----------------------------------------------------
+        # Reboot the failed Kafka nodes.
+        #[root@openstacker]
+
+            vmident=6f971e48-f760-43bf-ad98-c38a7b90c321
+            vmident=0824e436-6213-4893-8a67-40d152e7402c
+
+            openstack \
+                server reboot \
+                    --wait \
+                    "${vmident:?}"
+
+        # -----------------------------------------------------
+        # Try login to our control node.
+        #[root@openstacker]
+
+            ssh ${sshuser:?}@${controlip:?} \
+                "
+                hostname
+                "
+
+            >   ssh: connect to host 172.16.49.239 port 22: Connection timed out
+
+        # -----------------------------------------------------
+        # Try login to our Kafka nodes.
+        #[root@openstacker]
+
+            for vmident in ${kfidents[@]}
+            do
+                getvminfo "${vmident:?}"
+                echo "--"
+                echo "Ident [$vmident]"
+                echo "ip172 [$(geteleanor172)]"
+                ssh ${sshopts[@]} ${sshuser:?}@$(geteleanor172) \
+                    "
+                    hostname
+                    "
+            done
+            echo "--"
+
+                --
+                Ident [bb409e47-cf2c-4e64-aea6-e893e5d05100]
+                ip172 [172.16.49.217]
+                raminiara-kafka-4.novalocal
+                --
+                Ident [aa73a427-2e9f-413d-a37b-3eaf35799f00]
+                ip172 [172.16.49.214]
+                raminiara-kafka-3.novalocal
+                --
+                Ident [6f971e48-f760-43bf-ad98-c38a7b90c321]
+                ip172 [172.16.49.12]
+                raminiara-kafka-2.novalocal
+                --
+                Ident [0824e436-6213-4893-8a67-40d152e7402c]
+                ip172 [172.16.49.208]
+                ssh: connect to host 172.16.49.208 port 22: Connection timed out
+                --
+
+
+        # -----------------------------------------------------
+        # Try using one of our Kafka nodes as a proxy to the other nodes.
+        #[root@openstacker]
+
+            controlip=172.16.49.217
+
+# https://superuser.com/a/1328919
+'-o LogLevel=ERROR'
+
+            for vmident in $(
+                openstack \
+                    server list \
+                    --format json \
+                | jq -r '.[] | .ID'
+                )
+                do
+                    getvminfo "${vmident:?}"
+                    echo "---- ----"
+                    echo "Ident [$vmident]"
+                    echo "Name  [$(getvmname)]"
+                    echo "ip192 [$(geteleanor192)]"
+                    echo ""
+                    ssh ${sshopts[@]} \
+                        -o ProxyCommand="ssh ${sshopts[*]} -W %h:%p ${sshuser:?}@${controlip:?}" \
+                        ${sshuser:?}@$(geteleanor192) \
+                            "
+                            hostname
+                            "
+                    echo ""
+                done
+
+
+                ---- ----
+                Ident [a00facb8-3289-4dd5-bf2f-200ecc87564b]
+                Name  [Raminiara-control-3]
+                ip192 [192.168.1.28]
+
+                stdio forwarding failed
+                ssh_exchange_identification: Connection closed by remote host
+
+                ---- ----
+                Ident [c32e11f0-9d4f-49b0-bde5-a79306756a68]
+                Name  [Raminiara-mirror-3]
+                ip192 [192.168.1.25]
+
+                raminiara-mirror-3.novalocal
+
+                ---- ----
+                Ident [e69f88ab-0da0-4faa-9aa7-ce1f71646dbf]
+                Name  [Raminiara-mirror-2]
+                ip192 [192.168.1.22]
+
+                raminiara-mirror-2.novalocal
+
+                ---- ----
+                Ident [6883a92d-82e1-4635-8a36-2430597ade3f]
+                Name  [Raminiara-mirror-1]
+                ip192 [192.168.1.7]
+
+                stdio forwarding failed
+                ssh_exchange_identification: Connection closed by remote host
+
+                ---- ----
+                Ident [08aad6fe-3392-45f8-a49d-dc9aae314c7f]
+                Name  [Raminiara-mirror-0]
+                ip192 [192.168.1.9]
+
+                raminiara-mirror-0.novalocal
+
+                ---- ----
+                Ident [bb409e47-cf2c-4e64-aea6-e893e5d05100]
+                Name  [Raminiara-kafka-4]
+                ip192 [192.168.1.5]
+
+                raminiara-kafka-4.novalocal
+
+                ---- ----
+                Ident [aa73a427-2e9f-413d-a37b-3eaf35799f00]
+                Name  [Raminiara-kafka-3]
+                ip192 [192.168.1.8]
+
+                raminiara-kafka-3.novalocal
+
+                ---- ----
+                Ident [6f971e48-f760-43bf-ad98-c38a7b90c321]
+                Name  [Raminiara-kafka-2]
+                ip192 [192.168.1.15]
+
+                raminiara-kafka-2.novalocal
+
+                ---- ----
+                Ident [0824e436-6213-4893-8a67-40d152e7402c]
+                Name  [Raminiara-kafka-1]
+                ip192 [192.168.1.10]
+
+                stdio forwarding failed
+                ssh_exchange_identification: Connection closed by remote host
+
+                ---- ----
+                Ident [8cd2c6af-88b2-4cff-8c8a-81240bf63f70]
+                Name  [Raminiara-zookeeper-3]
+                ip192 [192.168.1.14]
+
+                raminiara-zookeeper-3.novalocal
+
+                ---- ----
+                Ident [4bd50e51-ec0e-4d8d-9a2b-9af9185aefba]
+                Name  [Raminiara-zookeeper-2]
+                ip192 [192.168.1.16]
+
+                raminiara-zookeeper-2.novalocal
+
+                ---- ----
+                Ident [39cbbdb1-4adb-439d-b9fe-71b8c48ec14b]
+                Name  [Raminiara-zookeeper-1]
+                ip192 [192.168.1.11]
+
+                raminiara-zookeeper-1.novalocal
+
+
+            #
+            # 3/12 machines down
+            #
+
+        # -----------------------------------------------------
+        # Check our client offsets in the ZTF broker.
+        #[root@openstacker]
+
+            date ; \
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${controlip:?} \
+                "
+                docker run --rm phymatopus/kafka-core \
+                    bin/kafka-consumer-groups.sh \
+                        --bootstrap-server "${ztfconnect:?}" \
+                        --describe \
+                        --group "${groupid:?}"
+                 " \
+            | sort | tee lits.txt \
+            ; date
+
+
+            >   Tue Dec  4 04:27:21 UTC 2018
+            >   Tue Dec  4 04:27:30 UTC 2018
+
+
