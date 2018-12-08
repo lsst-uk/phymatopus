@@ -1,0 +1,183 @@
+
+
+Event stream
+
+
+    level1 - difference imaging to find chsanges
+    "event info within 60s of last exposure in a visit"
+
+    10,000 per visit (39sec)
+    20,000 per min
+
+    260/sec
+
+
+
+
+    LDM151 Data Management Application Design
+           aka Science pipleine design document
+
+
+    idea ..
+
+        subset the known source database based on broad areas
+
+        we know today's track
+        we know track for the next hour
+        we know track for the next minuite
+        we know track for the next visit
+
+        known/unknown based on subset for visit
+        generated from subset for today
+        
+        injest into tomorrow's database
+        
+        also compare with today's history
+        
+        live feed from scheduling for the pointing data
+
+        *scheduling may change ...
+
+
+
+    machine learning
+    high interest credit card of technical debt
+
+    full VOEvent stream 400-600G/night
+
+    AlertDB - time orderd store of historical stream
+
+
+    mini-broker - filters inside LSST system
+
+    alert for every diasource
+
+    alertdb - full alerts, big
+    level1 db - just the raw triggers, small
+
+
+    scheduling choices
+    what is the fastest slew rate ?
+    live feed of the planned path .. ?
+
+
+    burstiness of the event stream?
+
+
+
+    fingerrint of the pipeline that geberated the event
+    - something will be in the data release
+    - not totally clear it will be in the event stream
+    - CHASE THIS ONE ?
+
+        cumulative on pipeline steps, including filters, mini-brokers, brokers etc.
+        
+
+
+    detailed provenance will be stored
+    what is in the event is tbd
+
+
+Data released pipleine
+Yearly results
+
+
+    coadd sources
+    
+    
+prototype event stream - possibly next year
+using data from a different source
+
+
+
+--------------------------------------------------------------------------------------
+
+
+    mkdir lsstshared
+
+    docker run \
+        -it \
+        -p 8888:8888 \
+        -v "$(pwd)/lsstshared:/lsstshared" \
+        jamespepcc/lssttutorial:1.0
+
+
+        #
+        # Setup scripts        
+        source /opt/lsst/software/stack/loadLSST.bash
+        setup lsst_distrib
+        setup obs_decam
+
+        #
+        # Download demo code ..
+        git clone https://github.com/lsst-dmsst/demo-lsst-uk-2017
+
+        #
+        # Download data ..
+        cd demo-lsst-uk-2017/ProcessCcd
+        #wget http://lsst-web.ncsa.illinois.edu/~ctslater/decam_visit.tar.gz        
+        ln -s /lsstshared/decam_visit.tar.gz 
+
+        #
+        # Injest the demo data
+        tar -xvzf decam_visit.tar.gz
+
+        mkdir repo
+
+        echo lsst.obs.decam.DecamMapper > repo/_mapper
+
+        ingestImagesDecam.py repo --filetype instcal decam_data/instcal/*.fits.fz
+
+
+        #
+        # Process the data
+        processCcd.py repo --id visit=303527 ccdnum=10 -C my_config.py --rerun my_reduction
+        
+        mkdir ~/.jupyter
+        jupyter notebook password
+
+        cd demo-lsst-uk-2017/Lightcurves
+
+        jupyter notebook --ip 0.0.0.0
+
+ 
+
+
+
+#
+# Get the container ID.
+docker ps
+
+    CONTAINER ID        IMAGE                         COMMAND             CREATED             STATUS              PORTS                    NAMES
+    5f4c22e278a0        jamespepcc/lssttutorial:1.0   "/bin/bash"         49 minutes ago      Up 49 minutes       0.0.0.0:8888->8888/tcp   pedantic_allen
+
+
+
+docker inspect 5f4c22e278a0
+[
+  {
+    "Id": "5f4c22e278a074410d38cf4ff1d44277d6708a93c354383c337daabd12decf36",
+    "Created": "2017-04-26T14:26:43.754447447Z",
+    "Path": "/bin/bash",
+    "Args": [],
+        ....
+
+
+    "NetworkSettings": {
+        ....
+        
+        "Networks": {
+          ....
+            "IPAddress": "172.17.0.2",
+            "IPPrefixLen": 16,
+              ....
+
+        }
+      }
+    }
+  }
+]
+
+
+
+

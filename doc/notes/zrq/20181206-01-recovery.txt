@@ -1,0 +1,1296 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2018, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+    #
+    # Eleanor Cloud Service network connectivity issues ..
+    # 09:00 03 Dec 2018 - Ongoing
+    # http://reports.is.ed.ac.uk/alerts/index.cfm?fuseaction=view_alert&alert_id=8146
+    #
+
+    #
+    # Our control node and two others are unreachable.
+    # We can use one of our healthy Kafka nodes as our control node.
+    #
+
+
+        # -----------------------------------------------------
+        # Check whch nodes are reachable (this changes over time).
+        #[root@openstacker]
+
+            proxyip=172.16.49.217
+
+            for vmident in $(
+                openstack \
+                    server list \
+                    --format json \
+                | jq -r '.[] | .ID'
+                )
+                do
+                    getvminfo "${vmident:?}"
+                    echo "---- ----"
+                    echo "Ident [$vmident]"
+                    echo "Name  [$(getvmname)]"
+                    echo "ip192 [$(geteleanor192)]"
+                    echo "ip172 [$(geteleanor172)]"
+                    echo ""
+                    ssh ${sshopts[@]} \
+                        -o ProxyCommand="ssh ${sshopts[*]} -W %h:%p ${sshuser:?}@${proxyip:?}" \
+                        ${sshuser:?}@$(geteleanor192) \
+                            "
+                            hostname
+                            "
+                    echo ""
+                done
+
+
+                ---- ----
+                Ident [a00facb8-3289-4dd5-bf2f-200ecc87564b]
+                Name  [Raminiara-control-3]
+                ip192 [192.168.1.28]
+                ip172 [172.16.49.239]
+
+                stdio forwarding failed
+                ssh_exchange_identification: Connection closed by remote host
+
+                ---- ----
+                Ident [c32e11f0-9d4f-49b0-bde5-a79306756a68]
+                Name  [Raminiara-mirror-3]
+                ip192 [192.168.1.25]
+                ip172 []
+
+                raminiara-mirror-3.novalocal
+
+                ---- ----
+                Ident [e69f88ab-0da0-4faa-9aa7-ce1f71646dbf]
+                Name  [Raminiara-mirror-2]
+                ip192 [192.168.1.22]
+                ip172 []
+
+                raminiara-mirror-2.novalocal
+
+                ---- ----
+                Ident [6883a92d-82e1-4635-8a36-2430597ade3f]
+                Name  [Raminiara-mirror-1]
+                ip192 [192.168.1.7]
+                ip172 []
+
+                stdio forwarding failed
+                ssh_exchange_identification: Connection closed by remote host
+
+                ---- ----
+                Ident [08aad6fe-3392-45f8-a49d-dc9aae314c7f]
+                Name  [Raminiara-mirror-0]
+                ip192 [192.168.1.9]
+                ip172 []
+
+                stdio forwarding failed
+                ssh_exchange_identification: Connection closed by remote host
+
+                ---- ----
+                Ident [bb409e47-cf2c-4e64-aea6-e893e5d05100]
+                Name  [Raminiara-kafka-4]
+                ip192 [192.168.1.5]
+                ip172 [172.16.49.217]
+
+                raminiara-kafka-4.novalocal
+
+                ---- ----
+                Ident [aa73a427-2e9f-413d-a37b-3eaf35799f00]
+                Name  [Raminiara-kafka-3]
+                ip192 [192.168.1.8]
+                ip172 [172.16.49.214]
+
+                raminiara-kafka-3.novalocal
+
+                ---- ----
+                Ident [6f971e48-f760-43bf-ad98-c38a7b90c321]
+                Name  [Raminiara-kafka-2]
+                ip192 [192.168.1.15]
+                ip172 [172.16.49.12]
+
+                raminiara-kafka-2.novalocal
+
+                ---- ----
+                Ident [0824e436-6213-4893-8a67-40d152e7402c]
+                Name  [Raminiara-kafka-1]
+                ip192 [192.168.1.10]
+                ip172 [172.16.49.208]
+
+                raminiara-kafka-1.novalocal
+
+                ---- ----
+                Ident [8cd2c6af-88b2-4cff-8c8a-81240bf63f70]
+                Name  [Raminiara-zookeeper-3]
+                ip192 [192.168.1.14]
+                ip172 []
+
+                raminiara-zookeeper-3.novalocal
+
+                ---- ----
+                Ident [4bd50e51-ec0e-4d8d-9a2b-9af9185aefba]
+                Name  [Raminiara-zookeeper-2]
+                ip192 [192.168.1.16]
+                ip172 []
+
+                raminiara-zookeeper-2.novalocal
+
+                ---- ----
+                Ident [39cbbdb1-4adb-439d-b9fe-71b8c48ec14b]
+                Name  [Raminiara-zookeeper-1]
+                ip192 [192.168.1.11]
+                ip172 []
+
+                raminiara-zookeeper-1.novalocal
+
+
+        # -----------------------------------------------------
+        # Expected figures from the monitoring website.
+
+                20181127    --
+                20181128    --
+                20181129    499
+                20181130    0
+
+                20181201    0
+                20181202    0
+                20181203    300,463
+                20181204    197,677
+                20181205    169,953
+                20181206    0
+
+
+        # -----------------------------------------------------
+        # Check the offsets in the ZTF broker.
+        #[root@openstacker]
+
+            brokers=${ztfconnect:?}
+
+cat > topics.txt << EOF
+ztf_20181127_programid1
+ztf_20181128_programid1
+ztf_20181129_programid1
+ztf_20181130_programid1
+ztf_20181201_programid1
+ztf_20181202_programid1
+ztf_20181203_programid1
+ztf_20181204_programid1
+ztf_20181205_programid1
+ztf_20181206_programid1
+EOF
+
+            for topicid in $(cat topics.txt)
+            do
+
+                echo "--------------------"
+                echo "Topic [${topicid:?}]"
+
+                ssh \
+                    ${sshopts[*]} \
+                    ${sshuser:?}@${controlip:?} \
+                    "
+                    docker run --rm phymatopus/kafka-core \
+                        bin/kafka-run-class.sh kafka.tools.GetOffsetShell \
+                            --broker-list "${brokers:?}" \
+                            --topic "${topicid:?}" \
+                            --time -1
+
+                    docker run --rm phymatopus/kafka-core \
+                        bin/kafka-run-class.sh kafka.tools.GetOffsetShell \
+                            --broker-list "${brokers:?}" \
+                            --topic "${topicid:?}" \
+                            --time -2
+                    "
+            done
+
+                --------------------
+                Topic [ztf_20181127_programid1]
+                ztf_20181127_programid1:8:3820
+                ztf_20181127_programid1:11:3820
+                ztf_20181127_programid1:2:3820
+                ztf_20181127_programid1:5:3820
+                ztf_20181127_programid1:13:3821
+                ztf_20181127_programid1:4:3821
+                ztf_20181127_programid1:7:3821
+                ztf_20181127_programid1:10:3821
+                ztf_20181127_programid1:1:3821
+                ztf_20181127_programid1:9:3821
+                ztf_20181127_programid1:12:3821
+                ztf_20181127_programid1:3:3821
+                ztf_20181127_programid1:6:3821
+                ztf_20181127_programid1:0:3821
+                ztf_20181127_programid1:8:3820
+                ztf_20181127_programid1:11:3820
+                ztf_20181127_programid1:2:3820
+                ztf_20181127_programid1:5:3820
+                ztf_20181127_programid1:13:3821
+                ztf_20181127_programid1:4:3821
+                ztf_20181127_programid1:7:3821
+                ztf_20181127_programid1:10:3821
+                ztf_20181127_programid1:1:3821
+                ztf_20181127_programid1:9:3821
+                ztf_20181127_programid1:12:3821
+                ztf_20181127_programid1:3:3821
+                ztf_20181127_programid1:6:3821
+                ztf_20181127_programid1:0:3821
+                --------------------
+                Topic [ztf_20181128_programid1]
+                ztf_20181128_programid1:8:13439
+                ztf_20181128_programid1:11:13439
+                ztf_20181128_programid1:2:13439
+                ztf_20181128_programid1:5:13439
+                ztf_20181128_programid1:4:13438
+                ztf_20181128_programid1:13:13439
+                ztf_20181128_programid1:7:13438
+                ztf_20181128_programid1:10:13438
+                ztf_20181128_programid1:1:13438
+                ztf_20181128_programid1:9:13438
+                ztf_20181128_programid1:3:13438
+                ztf_20181128_programid1:12:13438
+                ztf_20181128_programid1:6:13438
+                ztf_20181128_programid1:0:13438
+                ztf_20181128_programid1:8:13439
+                ztf_20181128_programid1:11:13439
+                ztf_20181128_programid1:2:13439
+                ztf_20181128_programid1:5:13439
+                ztf_20181128_programid1:4:13438
+                ztf_20181128_programid1:13:13439
+                ztf_20181128_programid1:7:13438
+                ztf_20181128_programid1:10:13438
+                ztf_20181128_programid1:1:13438
+                ztf_20181128_programid1:9:13438
+                ztf_20181128_programid1:3:13438
+                ztf_20181128_programid1:12:13438
+                ztf_20181128_programid1:6:13438
+                ztf_20181128_programid1:0:13438
+                --------------------
+                Topic [ztf_20181129_programid1]
+                ztf_20181129_programid1:8:36
+                ztf_20181129_programid1:11:36
+                ztf_20181129_programid1:2:36
+                ztf_20181129_programid1:5:36
+                ztf_20181129_programid1:4:35
+                ztf_20181129_programid1:13:35
+                ztf_20181129_programid1:7:35
+                ztf_20181129_programid1:1:35
+                ztf_20181129_programid1:10:35
+                ztf_20181129_programid1:9:36
+                ztf_20181129_programid1:3:36
+                ztf_20181129_programid1:12:36
+                ztf_20181129_programid1:6:36
+                ztf_20181129_programid1:0:36
+                ztf_20181129_programid1:8:0
+                ztf_20181129_programid1:11:0
+                ztf_20181129_programid1:2:0
+                ztf_20181129_programid1:5:0
+                ztf_20181129_programid1:4:0
+                ztf_20181129_programid1:13:0
+                ztf_20181129_programid1:7:0
+                ztf_20181129_programid1:1:0
+                ztf_20181129_programid1:10:0
+                ztf_20181129_programid1:9:0
+                ztf_20181129_programid1:3:0
+                ztf_20181129_programid1:12:0
+                ztf_20181129_programid1:6:0
+                ztf_20181129_programid1:0:0
+                --------------------
+                Topic [ztf_20181130_programid1]
+                ztf_20181130_programid1:8:0
+                ztf_20181130_programid1:11:0
+                ztf_20181130_programid1:2:0
+                ztf_20181130_programid1:5:0
+                ztf_20181130_programid1:13:0
+                ztf_20181130_programid1:4:0
+                ztf_20181130_programid1:7:0
+                ztf_20181130_programid1:10:0
+                ztf_20181130_programid1:1:0
+                ztf_20181130_programid1:9:0
+                ztf_20181130_programid1:12:0
+                ztf_20181130_programid1:3:0
+                ztf_20181130_programid1:6:0
+                ztf_20181130_programid1:0:0
+                ztf_20181130_programid1:8:0
+                ztf_20181130_programid1:11:0
+                ztf_20181130_programid1:2:0
+                ztf_20181130_programid1:5:0
+                ztf_20181130_programid1:13:0
+                ztf_20181130_programid1:4:0
+                ztf_20181130_programid1:7:0
+                ztf_20181130_programid1:10:0
+                ztf_20181130_programid1:1:0
+                ztf_20181130_programid1:9:0
+                ztf_20181130_programid1:12:0
+                ztf_20181130_programid1:3:0
+                ztf_20181130_programid1:6:0
+                ztf_20181130_programid1:0:0
+                --------------------
+                Topic [ztf_20181201_programid1]
+                ztf_20181201_programid1:8:0
+                ztf_20181201_programid1:11:0
+                ztf_20181201_programid1:2:0
+                ztf_20181201_programid1:5:0
+                ztf_20181201_programid1:13:0
+                ztf_20181201_programid1:4:0
+                ztf_20181201_programid1:7:0
+                ztf_20181201_programid1:1:0
+                ztf_20181201_programid1:10:0
+                ztf_20181201_programid1:9:0
+                ztf_20181201_programid1:12:0
+                ztf_20181201_programid1:3:0
+                ztf_20181201_programid1:6:0
+                ztf_20181201_programid1:0:0
+                ztf_20181201_programid1:8:0
+                ztf_20181201_programid1:11:0
+                ztf_20181201_programid1:2:0
+                ztf_20181201_programid1:5:0
+                ztf_20181201_programid1:13:0
+                ztf_20181201_programid1:4:0
+                ztf_20181201_programid1:7:0
+                ztf_20181201_programid1:1:0
+                ztf_20181201_programid1:10:0
+                ztf_20181201_programid1:9:0
+                ztf_20181201_programid1:12:0
+                ztf_20181201_programid1:3:0
+                ztf_20181201_programid1:6:0
+                ztf_20181201_programid1:0:0
+                --------------------
+                Topic [ztf_20181202_programid1]
+                ztf_20181202_programid1:8:0
+                ztf_20181202_programid1:11:0
+                ztf_20181202_programid1:2:0
+                ztf_20181202_programid1:5:0
+                ztf_20181202_programid1:13:0
+                ztf_20181202_programid1:4:0
+                ztf_20181202_programid1:7:0
+                ztf_20181202_programid1:1:0
+                ztf_20181202_programid1:10:0
+                ztf_20181202_programid1:9:0
+                ztf_20181202_programid1:12:0
+                ztf_20181202_programid1:3:0
+                ztf_20181202_programid1:6:0
+                ztf_20181202_programid1:0:0
+                ztf_20181202_programid1:8:0
+                ztf_20181202_programid1:11:0
+                ztf_20181202_programid1:2:0
+                ztf_20181202_programid1:5:0
+                ztf_20181202_programid1:13:0
+                ztf_20181202_programid1:4:0
+                ztf_20181202_programid1:7:0
+                ztf_20181202_programid1:1:0
+                ztf_20181202_programid1:10:0
+                ztf_20181202_programid1:9:0
+                ztf_20181202_programid1:12:0
+                ztf_20181202_programid1:3:0
+                ztf_20181202_programid1:6:0
+                ztf_20181202_programid1:0:0
+                --------------------
+                Topic [ztf_20181203_programid1]
+                ztf_20181203_programid1:8:21462
+                ztf_20181203_programid1:11:21462
+                ztf_20181203_programid1:2:21462
+                ztf_20181203_programid1:5:21462
+                ztf_20181203_programid1:13:21461
+                ztf_20181203_programid1:4:21461
+                ztf_20181203_programid1:7:21461
+                ztf_20181203_programid1:10:21461
+                ztf_20181203_programid1:1:21461
+                ztf_20181203_programid1:9:21462
+                ztf_20181203_programid1:3:21462
+                ztf_20181203_programid1:12:21462
+                ztf_20181203_programid1:6:21462
+                ztf_20181203_programid1:0:21462
+                ztf_20181203_programid1:8:0
+                ztf_20181203_programid1:11:0
+                ztf_20181203_programid1:2:0
+                ztf_20181203_programid1:5:0
+                ztf_20181203_programid1:13:0
+                ztf_20181203_programid1:4:0
+                ztf_20181203_programid1:7:0
+                ztf_20181203_programid1:10:0
+                ztf_20181203_programid1:1:0
+                ztf_20181203_programid1:9:0
+                ztf_20181203_programid1:3:0
+                ztf_20181203_programid1:12:0
+                ztf_20181203_programid1:6:0
+                ztf_20181203_programid1:0:0
+                --------------------
+                Topic [ztf_20181204_programid1]
+                ztf_20181204_programid1:8:14119
+                ztf_20181204_programid1:11:14119
+                ztf_20181204_programid1:2:14119
+                ztf_20181204_programid1:5:14120
+                ztf_20181204_programid1:13:14120
+                ztf_20181204_programid1:4:14120
+                ztf_20181204_programid1:7:14120
+                ztf_20181204_programid1:10:14120
+                ztf_20181204_programid1:1:14120
+                ztf_20181204_programid1:9:14120
+                ztf_20181204_programid1:12:14120
+                ztf_20181204_programid1:3:14120
+                ztf_20181204_programid1:6:14120
+                ztf_20181204_programid1:0:14120
+                ztf_20181204_programid1:8:0
+                ztf_20181204_programid1:11:0
+                ztf_20181204_programid1:2:0
+                ztf_20181204_programid1:5:0
+                ztf_20181204_programid1:13:0
+                ztf_20181204_programid1:4:0
+                ztf_20181204_programid1:7:0
+                ztf_20181204_programid1:10:0
+                ztf_20181204_programid1:1:0
+                ztf_20181204_programid1:9:0
+                ztf_20181204_programid1:12:0
+                ztf_20181204_programid1:3:0
+                ztf_20181204_programid1:6:0
+                ztf_20181204_programid1:0:0
+                --------------------
+                Topic [ztf_20181205_programid1]
+                ztf_20181205_programid1:8:12140
+                ztf_20181205_programid1:11:12140
+                ztf_20181205_programid1:2:12140
+                ztf_20181205_programid1:5:12140
+                ztf_20181205_programid1:13:12140
+                ztf_20181205_programid1:4:12139
+                ztf_20181205_programid1:7:12139
+                ztf_20181205_programid1:10:12139
+                ztf_20181205_programid1:1:12139
+                ztf_20181205_programid1:9:12139
+                ztf_20181205_programid1:12:12139
+                ztf_20181205_programid1:3:12139
+                ztf_20181205_programid1:6:12140
+                ztf_20181205_programid1:0:12140
+                ztf_20181205_programid1:8:0
+                ztf_20181205_programid1:11:0
+                ztf_20181205_programid1:2:0
+                ztf_20181205_programid1:5:0
+                ztf_20181205_programid1:13:0
+                ztf_20181205_programid1:4:0
+                ztf_20181205_programid1:7:0
+                ztf_20181205_programid1:10:0
+                ztf_20181205_programid1:1:0
+                ztf_20181205_programid1:9:0
+                ztf_20181205_programid1:12:0
+                ztf_20181205_programid1:3:0
+                ztf_20181205_programid1:6:0
+                ztf_20181205_programid1:0:0
+                --------------------
+                Topic [ztf_20181206_programid1]
+                ztf_20181206_programid1:8:0
+                ztf_20181206_programid1:11:0
+                ztf_20181206_programid1:2:0
+                ztf_20181206_programid1:5:0
+                ztf_20181206_programid1:13:0
+                ztf_20181206_programid1:4:0
+                ztf_20181206_programid1:7:0
+                ztf_20181206_programid1:1:0
+                ztf_20181206_programid1:10:0
+                ztf_20181206_programid1:9:0
+                ztf_20181206_programid1:3:0
+                ztf_20181206_programid1:12:0
+                ztf_20181206_programid1:6:0
+                ztf_20181206_programid1:0:0
+                ztf_20181206_programid1:8:0
+                ztf_20181206_programid1:11:0
+                ztf_20181206_programid1:2:0
+                ztf_20181206_programid1:5:0
+                ztf_20181206_programid1:13:0
+                ztf_20181206_programid1:4:0
+                ztf_20181206_programid1:7:0
+                ztf_20181206_programid1:1:0
+                ztf_20181206_programid1:10:0
+                ztf_20181206_programid1:9:0
+                ztf_20181206_programid1:3:0
+                ztf_20181206_programid1:12:0
+                ztf_20181206_programid1:6:0
+                ztf_20181206_programid1:0:0
+
+
+        # -----------------------------------------------------
+        # Check the offsets in the ROE broker.
+        #[root@openstacker]
+
+            brokers=${roeconnect:?}
+
+            for topicid in $(cat topics.txt)
+            do
+
+                echo "--------------------"
+                echo "Topic [${topicid:?}]"
+
+                ssh \
+                    ${sshopts[*]} \
+                    ${sshuser:?}@${controlip:?} \
+                    "
+                    docker run --rm phymatopus/kafka-core \
+                        bin/kafka-run-class.sh kafka.tools.GetOffsetShell \
+                            --broker-list "${brokers:?}" \
+                            --topic "${topicid:?}" \
+                            --time -1
+
+                    docker run --rm phymatopus/kafka-core \
+                        bin/kafka-run-class.sh kafka.tools.GetOffsetShell \
+                            --broker-list "${brokers:?}" \
+                            --topic "${topicid:?}" \
+                            --time -2
+                    "
+            done
+
+
+
+                --------------------
+                Topic [ztf_20181127_programid1]
+                [2018-12-06 02:59:51,005] WARN Fetching topic metadata with correlation id 0 for topics [Set(ztf_20181127_programid1)] from broker [BrokerEndPoint(3,172.16.49.208,9092)] failed (kafka.client.ClientUtils$)
+                java.nio.channels.ClosedChannelException
+	                at kafka.network.BlockingChannel.send(BlockingChannel.scala:112)
+	                at kafka.producer.SyncProducer.liftedTree1$1(SyncProducer.scala:80)
+	                at kafka.producer.SyncProducer.kafka$producer$SyncProducer$$doSend(SyncProducer.scala:79)
+	                at kafka.producer.SyncProducer.send(SyncProducer.scala:124)
+	                at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:63)
+	                at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:98)
+	                at kafka.tools.GetOffsetShell$.main(GetOffsetShell.scala:79)
+	                at kafka.tools.GetOffsetShell.main(GetOffsetShell.scala)
+                ztf_20181127_programid1:8:6687
+                ztf_20181127_programid1:11:6687
+                ztf_20181127_programid1:2:6687
+                ztf_20181127_programid1:5:6687
+                ztf_20181127_programid1:14:6686
+                ztf_20181127_programid1:4:6685
+                ztf_20181127_programid1:13:6685
+                ztf_20181127_programid1:7:6685
+                ztf_20181127_programid1:10:6685
+                ztf_20181127_programid1:1:6687
+                ztf_20181127_programid1:9:6687
+                ztf_20181127_programid1:12:6686
+                ztf_20181127_programid1:3:6686
+                ztf_20181127_programid1:6:6686
+                ztf_20181127_programid1:15:6687
+                ztf_20181127_programid1:0:6687
+                [2018-12-06 02:59:57,073] WARN Fetching topic metadata with correlation id 0 for topics [Set(ztf_20181127_programid1)] from broker [BrokerEndPoint(2,172.16.49.12,9092)] failed (kafka.client.ClientUtils$)
+                java.nio.channels.ClosedChannelException
+	                at kafka.network.BlockingChannel.send(BlockingChannel.scala:112)
+	                at kafka.producer.SyncProducer.liftedTree1$1(SyncProducer.scala:80)
+	                at kafka.producer.SyncProducer.kafka$producer$SyncProducer$$doSend(SyncProducer.scala:79)
+	                at kafka.producer.SyncProducer.send(SyncProducer.scala:124)
+	                at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:63)
+	                at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:98)
+	                at kafka.tools.GetOffsetShell$.main(GetOffsetShell.scala:79)
+	                at kafka.tools.GetOffsetShell.main(GetOffsetShell.scala)
+                ztf_20181127_programid1:8:0
+                ztf_20181127_programid1:11:0
+                ztf_20181127_programid1:2:0
+                ztf_20181127_programid1:5:0
+                ztf_20181127_programid1:14:0
+                ztf_20181127_programid1:4:0
+                ztf_20181127_programid1:13:0
+                ztf_20181127_programid1:7:0
+                ztf_20181127_programid1:10:0
+                ztf_20181127_programid1:1:0
+                ztf_20181127_programid1:9:0
+                ztf_20181127_programid1:12:0
+                ztf_20181127_programid1:3:0
+                ztf_20181127_programid1:6:0
+                ztf_20181127_programid1:15:0
+                ztf_20181127_programid1:0:0
+                --------------------
+                Topic [ztf_20181128_programid1]
+                ztf_20181128_programid1:8:11759
+                ztf_20181128_programid1:11:11758
+                ztf_20181128_programid1:2:11758
+                ztf_20181128_programid1:5:11758
+                ztf_20181128_programid1:14:11758
+                ztf_20181128_programid1:13:11758
+                ztf_20181128_programid1:4:11758
+                ztf_20181128_programid1:7:11758
+                ztf_20181128_programid1:1:11758
+                ztf_20181128_programid1:10:11758
+                ztf_20181128_programid1:9:11758
+                ztf_20181128_programid1:3:11759
+                ztf_20181128_programid1:12:11759
+                ztf_20181128_programid1:15:11760
+                ztf_20181128_programid1:6:11760
+                ztf_20181128_programid1:0:11760
+                ztf_20181128_programid1:8:0
+                ztf_20181128_programid1:11:0
+                ztf_20181128_programid1:2:0
+                ztf_20181128_programid1:5:0
+                ztf_20181128_programid1:14:0
+                ztf_20181128_programid1:13:0
+                ztf_20181128_programid1:4:0
+                ztf_20181128_programid1:7:0
+                ztf_20181128_programid1:1:0
+                ztf_20181128_programid1:10:0
+                ztf_20181128_programid1:9:0
+                ztf_20181128_programid1:3:0
+                ztf_20181128_programid1:12:0
+                ztf_20181128_programid1:15:0
+                ztf_20181128_programid1:6:0
+                ztf_20181128_programid1:0:0
+                --------------------
+                Topic [ztf_20181129_programid1]
+                [2018-12-06 03:00:09,467] WARN Fetching topic metadata with correlation id 0 for topics [Set(ztf_20181129_programid1)] from broker [BrokerEndPoint(3,172.16.49.208,9092)] failed (kafka.client.ClientUtils$)
+                java.nio.channels.ClosedChannelException
+	                at kafka.network.BlockingChannel.send(BlockingChannel.scala:112)
+	                at kafka.producer.SyncProducer.liftedTree1$1(SyncProducer.scala:80)
+	                at kafka.producer.SyncProducer.kafka$producer$SyncProducer$$doSend(SyncProducer.scala:79)
+	                at kafka.producer.SyncProducer.send(SyncProducer.scala:124)
+	                at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:63)
+	                at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:98)
+	                at kafka.tools.GetOffsetShell$.main(GetOffsetShell.scala:79)
+	                at kafka.tools.GetOffsetShell.main(GetOffsetShell.scala)
+                [2018-12-06 03:00:09,475] WARN Fetching topic metadata with correlation id 0 for topics [Set(ztf_20181129_programid1)] from broker [BrokerEndPoint(2,172.16.49.12,9092)] failed (kafka.client.ClientUtils$)
+                java.nio.channels.ClosedChannelException
+	                at kafka.network.BlockingChannel.send(BlockingChannel.scala:112)
+	                at kafka.producer.SyncProducer.liftedTree1$1(SyncProducer.scala:80)
+	                at kafka.producer.SyncProducer.kafka$producer$SyncProducer$$doSend(SyncProducer.scala:79)
+	                at kafka.producer.SyncProducer.send(SyncProducer.scala:124)
+	                at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:63)
+	                at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:98)
+	                at kafka.tools.GetOffsetShell$.main(GetOffsetShell.scala:79)
+	                at kafka.tools.GetOffsetShell.main(GetOffsetShell.scala)
+                ztf_20181129_programid1:8:31
+                ztf_20181129_programid1:11:31
+                ztf_20181129_programid1:2:32
+                ztf_20181129_programid1:5:32
+                ztf_20181129_programid1:14:32
+                ztf_20181129_programid1:4:32
+                ztf_20181129_programid1:13:32
+                ztf_20181129_programid1:7:32
+                ztf_20181129_programid1:1:31
+                ztf_20181129_programid1:10:31
+                ztf_20181129_programid1:9:31
+                ztf_20181129_programid1:3:30
+                ztf_20181129_programid1:12:30
+                ztf_20181129_programid1:15:30
+                ztf_20181129_programid1:6:31
+                ztf_20181129_programid1:0:31
+                ztf_20181129_programid1:8:0
+                ztf_20181129_programid1:11:0
+                ztf_20181129_programid1:2:0
+                ztf_20181129_programid1:5:0
+                ztf_20181129_programid1:14:0
+                ztf_20181129_programid1:4:0
+                ztf_20181129_programid1:13:0
+                ztf_20181129_programid1:7:0
+                ztf_20181129_programid1:1:0
+                ztf_20181129_programid1:10:0
+                ztf_20181129_programid1:9:0
+                ztf_20181129_programid1:3:0
+                ztf_20181129_programid1:12:0
+                ztf_20181129_programid1:15:0
+                ztf_20181129_programid1:6:0
+                ztf_20181129_programid1:0:0
+                --------------------
+                Topic [ztf_20181130_programid1]
+                [2018-12-06 03:00:18,111] WARN Fetching topic metadata with correlation id 0 for topics [Set(ztf_20181130_programid1)] from broker [BrokerEndPoint(2,172.16.49.12,9092)] failed (kafka.client.ClientUtils$)
+                java.nio.channels.ClosedChannelException
+	                at kafka.network.BlockingChannel.send(BlockingChannel.scala:112)
+	                at kafka.producer.SyncProducer.liftedTree1$1(SyncProducer.scala:80)
+	                at kafka.producer.SyncProducer.kafka$producer$SyncProducer$$doSend(SyncProducer.scala:79)
+	                at kafka.producer.SyncProducer.send(SyncProducer.scala:124)
+	                at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:63)
+	                at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:98)
+	                at kafka.tools.GetOffsetShell$.main(GetOffsetShell.scala:79)
+	                at kafka.tools.GetOffsetShell.main(GetOffsetShell.scala)
+                [2018-12-06 03:00:18,118] WARN Fetching topic metadata with correlation id 0 for topics [Set(ztf_20181130_programid1)] from broker [BrokerEndPoint(3,172.16.49.208,9092)] failed (kafka.client.ClientUtils$)
+                java.nio.channels.ClosedChannelException
+	                at kafka.network.BlockingChannel.send(BlockingChannel.scala:112)
+	                at kafka.producer.SyncProducer.liftedTree1$1(SyncProducer.scala:80)
+	                at kafka.producer.SyncProducer.kafka$producer$SyncProducer$$doSend(SyncProducer.scala:79)
+	                at kafka.producer.SyncProducer.send(SyncProducer.scala:124)
+	                at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:63)
+	                at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:98)
+	                at kafka.tools.GetOffsetShell$.main(GetOffsetShell.scala:79)
+	                at kafka.tools.GetOffsetShell.main(GetOffsetShell.scala)
+                ztf_20181130_programid1:8:0
+                ztf_20181130_programid1:11:0
+                ztf_20181130_programid1:2:0
+                ztf_20181130_programid1:5:0
+                ztf_20181130_programid1:14:0
+                ztf_20181130_programid1:13:0
+                ztf_20181130_programid1:4:0
+                ztf_20181130_programid1:7:0
+                ztf_20181130_programid1:10:0
+                ztf_20181130_programid1:1:0
+                ztf_20181130_programid1:9:0
+                ztf_20181130_programid1:3:0
+                ztf_20181130_programid1:12:0
+                ztf_20181130_programid1:15:0
+                ztf_20181130_programid1:6:0
+                ztf_20181130_programid1:0:0
+                [2018-12-06 03:00:21,960] WARN Fetching topic metadata with correlation id 0 for topics [Set(ztf_20181130_programid1)] from broker [BrokerEndPoint(2,172.16.49.12,9092)] failed (kafka.client.ClientUtils$)
+                java.nio.channels.ClosedChannelException
+	                at kafka.network.BlockingChannel.send(BlockingChannel.scala:112)
+	                at kafka.producer.SyncProducer.liftedTree1$1(SyncProducer.scala:80)
+	                at kafka.producer.SyncProducer.kafka$producer$SyncProducer$$doSend(SyncProducer.scala:79)
+	                at kafka.producer.SyncProducer.send(SyncProducer.scala:124)
+	                at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:63)
+	                at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:98)
+	                at kafka.tools.GetOffsetShell$.main(GetOffsetShell.scala:79)
+	                at kafka.tools.GetOffsetShell.main(GetOffsetShell.scala)
+                ztf_20181130_programid1:8:0
+                ztf_20181130_programid1:11:0
+                ztf_20181130_programid1:2:0
+                ztf_20181130_programid1:5:0
+                ztf_20181130_programid1:14:0
+                ztf_20181130_programid1:13:0
+                ztf_20181130_programid1:4:0
+                ztf_20181130_programid1:7:0
+                ztf_20181130_programid1:10:0
+                ztf_20181130_programid1:1:0
+                ztf_20181130_programid1:9:0
+                ztf_20181130_programid1:3:0
+                ztf_20181130_programid1:12:0
+                ztf_20181130_programid1:15:0
+                ztf_20181130_programid1:6:0
+                ztf_20181130_programid1:0:0
+                --------------------
+                Topic [ztf_20181201_programid1]
+                [2018-12-06 03:00:26,236] WARN Fetching topic metadata with correlation id 0 for topics [Set(ztf_20181201_programid1)] from broker [BrokerEndPoint(2,172.16.49.12,9092)] failed (kafka.client.ClientUtils$)
+                java.nio.channels.ClosedChannelException
+	                at kafka.network.BlockingChannel.send(BlockingChannel.scala:112)
+	                at kafka.producer.SyncProducer.liftedTree1$1(SyncProducer.scala:80)
+	                at kafka.producer.SyncProducer.kafka$producer$SyncProducer$$doSend(SyncProducer.scala:79)
+	                at kafka.producer.SyncProducer.send(SyncProducer.scala:124)
+	                at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:63)
+	                at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:98)
+	                at kafka.tools.GetOffsetShell$.main(GetOffsetShell.scala:79)
+	                at kafka.tools.GetOffsetShell.main(GetOffsetShell.scala)
+                [2018-12-06 03:00:26,243] WARN Fetching topic metadata with correlation id 0 for topics [Set(ztf_20181201_programid1)] from broker [BrokerEndPoint(3,172.16.49.208,9092)] failed (kafka.client.ClientUtils$)
+                java.nio.channels.ClosedChannelException
+	                at kafka.network.BlockingChannel.send(BlockingChannel.scala:112)
+	                at kafka.producer.SyncProducer.liftedTree1$1(SyncProducer.scala:80)
+	                at kafka.producer.SyncProducer.kafka$producer$SyncProducer$$doSend(SyncProducer.scala:79)
+	                at kafka.producer.SyncProducer.send(SyncProducer.scala:124)
+	                at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:63)
+	                at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:98)
+	                at kafka.tools.GetOffsetShell$.main(GetOffsetShell.scala:79)
+	                at kafka.tools.GetOffsetShell.main(GetOffsetShell.scala)
+                --------------------
+                Topic [ztf_20181202_programid1]
+                [2018-12-06 03:00:38,070] WARN Fetching topic metadata with correlation id 0 for topics [Set(ztf_20181202_programid1)] from broker [BrokerEndPoint(3,172.16.49.208,9092)] failed (kafka.client.ClientUtils$)
+                java.nio.channels.ClosedChannelException
+	                at kafka.network.BlockingChannel.send(BlockingChannel.scala:112)
+	                at kafka.producer.SyncProducer.liftedTree1$1(SyncProducer.scala:80)
+	                at kafka.producer.SyncProducer.kafka$producer$SyncProducer$$doSend(SyncProducer.scala:79)
+	                at kafka.producer.SyncProducer.send(SyncProducer.scala:124)
+	                at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:63)
+	                at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:98)
+	                at kafka.tools.GetOffsetShell$.main(GetOffsetShell.scala:79)
+	                at kafka.tools.GetOffsetShell.main(GetOffsetShell.scala)
+                --------------------
+                Topic [ztf_20181203_programid1]
+                --------------------
+                Topic [ztf_20181204_programid1]
+                --------------------
+                Topic [ztf_20181205_programid1]
+                [2018-12-06 03:00:58,432] WARN Fetching topic metadata with correlation id 0 for topics [Set(ztf_20181205_programid1)] from broker [BrokerEndPoint(3,172.16.49.208,9092)] failed (kafka.client.ClientUtils$)
+                java.nio.channels.ClosedChannelException
+	                at kafka.network.BlockingChannel.send(BlockingChannel.scala:112)
+	                at kafka.producer.SyncProducer.liftedTree1$1(SyncProducer.scala:80)
+	                at kafka.producer.SyncProducer.kafka$producer$SyncProducer$$doSend(SyncProducer.scala:79)
+	                at kafka.producer.SyncProducer.send(SyncProducer.scala:124)
+	                at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:63)
+	                at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:98)
+	                at kafka.tools.GetOffsetShell$.main(GetOffsetShell.scala:79)
+	                at kafka.tools.GetOffsetShell.main(GetOffsetShell.scala)
+                [2018-12-06 03:01:02,279] WARN Fetching topic metadata with correlation id 0 for topics [Set(ztf_20181205_programid1)] from broker [BrokerEndPoint(3,172.16.49.208,9092)] failed (kafka.client.ClientUtils$)
+                java.nio.channels.ClosedChannelException
+	                at kafka.network.BlockingChannel.send(BlockingChannel.scala:112)
+	                at kafka.producer.SyncProducer.liftedTree1$1(SyncProducer.scala:80)
+	                at kafka.producer.SyncProducer.kafka$producer$SyncProducer$$doSend(SyncProducer.scala:79)
+	                at kafka.producer.SyncProducer.send(SyncProducer.scala:124)
+	                at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:63)
+	                at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:98)
+	                at kafka.tools.GetOffsetShell$.main(GetOffsetShell.scala:79)
+	                at kafka.tools.GetOffsetShell.main(GetOffsetShell.scala)
+                [2018-12-06 03:01:02,814] WARN Fetching topic metadata with correlation id 0 for topics [Set(ztf_20181205_programid1)] from broker [BrokerEndPoint(2,172.16.49.12,9092)] failed (kafka.client.ClientUtils$)
+                java.nio.channels.ClosedChannelException
+	                at kafka.network.BlockingChannel.send(BlockingChannel.scala:112)
+	                at kafka.producer.SyncProducer.liftedTree1$1(SyncProducer.scala:80)
+	                at kafka.producer.SyncProducer.kafka$producer$SyncProducer$$doSend(SyncProducer.scala:79)
+	                at kafka.producer.SyncProducer.send(SyncProducer.scala:124)
+	                at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:63)
+	                at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:98)
+	                at kafka.tools.GetOffsetShell$.main(GetOffsetShell.scala:79)
+	                at kafka.tools.GetOffsetShell.main(GetOffsetShell.scala)
+                --------------------
+                Topic [ztf_20181206_programid1]
+
+         # -----------------------------------------------------
+         # Check our client offsets in the ZTF broker.
+         #[root@openstacker]
+
+             date ; \
+             echo "
+                 docker run --rm phymatopus/kafka-core \
+                     bin/kafka-consumer-groups.sh \
+                         --bootstrap-server "${ztfconnect:?}" \
+                         --describe \
+                         --group "${groupid:?}"
+                 " \
+             | ssh \
+                 ${sshopts[*]} \
+                 ${sshuser:?}@${controlip:?} | sort \
+             ; date
+
+
+                Thu Dec  6 03:03:29 UTC 2018
+                Note: This will not show information about old Zookeeper-based consumers.
+                Error: Consumer group 'ztf-mirror.roe.ac.uk' does not exist.
+                Thu Dec  6 03:03:34 UTC 2018
+
+        # -----------------------------------------------------
+        # Data we already have
+
+                20181127    106980  --
+                20181128    188137  --
+                20181129    499     499
+                20181130    0       0
+                20181201    0       0
+                20181202    0       0
+                20181203    --  300,463
+                20181204    --  197,677
+                20181205    --  169,953
+                20181206    --  0
+
+                #
+                # We need to collect data for 20181203, 20181204, 20181205 and 20181206
+                #
+
+                #
+                # If network connections are intermittent, will this result in dropped data ?
+                #
+
+        # -----------------------------------------------------
+        # Update our MirrorMaker containers.
+        #[root@openstacker]
+
+            topiclist="ztf_20181201_programid1"
+
+            for vmident in ${mmidents[@]}
+            do
+                echo ""
+                echo "----"
+                getvminfo "${vmident:?}"
+                vmip192=$(geteleanor192)
+                echo "[${vmident:?}][${vmip92:?}]"
+                echo "[$(getvmname)]"
+                echo "[$(date)]"
+                echo "[${topiclist:?}]"
+                ssh \
+                    ${sshopts[*]} \
+                    -o ProxyCommand="ssh ${sshopts[*]} -W %h:%p ${sshuser:?}@${controlip:?}" \
+                    "${sshuser:?}@${vmip192:?}" \
+                        "
+                        docker-compose \
+                            --file mirror.yml \
+                            down
+
+                        sed -i \"
+                            s/^topiclist=.*/topiclist=${topiclist:?}/
+                            \" mirror.env
+
+                        docker-compose \
+                            --file mirror.yml \
+                            up -d
+                        "
+                done
+            done
+
+
+                ----
+                [c32e11f0-9d4f-49b0-bde5-a79306756a68][192.168.1.25]
+                [ztf_20181201_programid1][Thu Dec  6 03:36:35 UTC 2018]
+                Removing stevedore_tina_1 ... done
+                Removing network stevedore_kafka
+                Creating network "stevedore_kafka" with the default driver
+                Creating stevedore_tina_1 ...
+                Creating stevedore_tina_1 ... done
+
+                ----
+                [e69f88ab-0da0-4faa-9aa7-ce1f71646dbf][192.168.1.22]
+                [ztf_20181201_programid1][Thu Dec  6 03:36:41 UTC 2018]
+                stdio forwarding failed
+                ssh_exchange_identification: Connection closed by remote host
+
+                ----
+                [6883a92d-82e1-4635-8a36-2430597ade3f][192.168.1.7]
+                [ztf_20181201_programid1][Thu Dec  6 03:38:54 UTC 2018]
+                stdio forwarding failed
+                ssh_exchange_identification: Connection closed by remote host
+
+                ----
+                [08aad6fe-3392-45f8-a49d-dc9aae314c7f][192.168.1.9]
+                [ztf_20181201_programid1][Thu Dec  6 03:41:06 UTC 2018]
+                Removing stevedore_tina_1 ... done
+                Removing network stevedore_kafka
+                Creating network "stevedore_kafka" with the default driver
+                Creating stevedore_tina_1 ...
+                Creating stevedore_tina_1 ... done
+
+
+         # -----------------------------------------------------
+         # Check our client offsets in the ZTF broker.
+         #[root@openstacker]
+
+             date ; \
+             echo "
+                 docker run --rm phymatopus/kafka-core \
+                     bin/kafka-consumer-groups.sh \
+                         --bootstrap-server "${ztfconnect:?}" \
+                         --describe \
+                         --group "${groupid:?}"
+                 " \
+             | ssh \
+                 ${sshopts[*]} \
+                 ${sshuser:?}@${controlip:?} | sort \
+             ; date
+
+
+                Thu Dec  6 03:44:23 UTC 2018
+                Note: This will not show information about old Zookeeper-based consumers.
+                Error: Consumer group 'ztf-mirror.roe.ac.uk' does not exist.
+                Thu Dec  6 03:44:28 UTC 2018
+
+                #
+                # Is that because there is no data in the ZTF brokers for this topic ?
+                #
+
+        # -----------------------------------------------------
+        # Update our MirrorMaker containers.
+        #[root@openstacker]
+
+            topiclist="ztf_20181205_programid1"
+
+            for vmident in ${mmidents[@]}
+            do
+                echo ""
+                echo "----"
+                getvminfo "${vmident:?}"
+                vmip192=$(geteleanor192)
+                echo "[$(getvmname)]"
+                echo "[$(date)]"
+                echo "[${vmident:?}][${vmip92:?}]"
+                echo "[${topiclist:?}]"
+                ssh \
+                    ${sshopts[*]} \
+                    -o ProxyCommand="ssh ${sshopts[*]} -W %h:%p ${sshuser:?}@${controlip:?}" \
+                    "${sshuser:?}@${vmip192:?}" \
+                        "
+                        docker-compose \
+                            --file mirror.yml \
+                            down
+
+                        sed -i \"
+                            s/^topiclist=.*/topiclist=${topiclist:?}/
+                            \" mirror.env
+
+                        docker-compose \
+                            --file mirror.yml \
+                            up -d
+                        "
+                done
+            done
+
+                ----
+                [Raminiara-mirror-3]
+                [Thu Dec  6 03:46:22 UTC 2018]
+                [c32e11f0-9d4f-49b0-bde5-a79306756a68][192.168.1.9]
+                [ztf_20181205_programid1]
+                Removing stevedore_tina_1 ... done
+                Removing network stevedore_kafka
+                Creating network "stevedore_kafka" with the default driver
+                Creating stevedore_tina_1 ...
+                Creating stevedore_tina_1 ... done
+
+                ----
+                [Raminiara-mirror-2]
+                [Thu Dec  6 03:46:34 UTC 2018]
+                [e69f88ab-0da0-4faa-9aa7-ce1f71646dbf][192.168.1.9]
+                [ztf_20181205_programid1]
+                stdio forwarding failed
+                ssh_exchange_identification: Connection closed by remote host
+
+                ----
+                [Raminiara-mirror-1]
+                [Thu Dec  6 03:48:48 UTC 2018]
+                [6883a92d-82e1-4635-8a36-2430597ade3f][192.168.1.9]
+                [ztf_20181205_programid1]
+                stdio forwarding failed
+                ssh_exchange_identification: Connection closed by remote host
+
+                ----
+                [Raminiara-mirror-0]
+                [Thu Dec  6 03:50:59 UTC 2018]
+                [08aad6fe-3392-45f8-a49d-dc9aae314c7f][192.168.1.9]
+                [ztf_20181205_programid1]
+                Removing stevedore_tina_1 ... done
+                Removing network stevedore_kafka
+                Creating network "stevedore_kafka" with the default driver
+                Creating stevedore_tina_1 ...
+                Creating stevedore_tina_1 ... done
+
+         # -----------------------------------------------------
+         # Check our client offsets in the ZTF broker.
+         #[root@openstacker]
+
+             date ; \
+             echo "
+                 docker run --rm phymatopus/kafka-core \
+                     bin/kafka-consumer-groups.sh \
+                         --bootstrap-server "${ztfconnect:?}" \
+                         --describe \
+                         --group "${groupid:?}"
+                 " \
+             | ssh \
+                 ${sshopts[*]} \
+                 ${sshuser:?}@${controlip:?} | sort \
+             ; date
+
+                Thu Dec  6 03:54:24 UTC 2018
+                Note: This will not show information about old Zookeeper-based consumers.
+                Error: Consumer group 'ztf-mirror.roe.ac.uk' does not exist.
+                Thu Dec  6 03:54:29 UTC 2018
+
+
+                #
+                # Ok, that's wrong.
+                # We should be processing data for the new topic ...
+                #
+
+
+
+        # -----------------------------------------------------
+        # Check the offsets in the ROE broker.
+        #[root@openstacker]
+
+cat > topics.txt << EOF
+ztf_20181201_programid1
+ztf_20181202_programid1
+ztf_20181203_programid1
+ztf_20181204_programid1
+ztf_20181205_programid1
+ztf_20181206_programid1
+EOF
+
+            brokers=${roeconnect:?}
+
+            for topicid in $(cat topics.txt)
+            do
+
+                echo "--------------------"
+                echo "Topic [${topicid:?}]"
+
+                ssh \
+                    ${sshopts[*]} \
+                    ${sshuser:?}@${controlip:?} \
+                    "
+                    docker run --rm phymatopus/kafka-core \
+                        bin/kafka-run-class.sh kafka.tools.GetOffsetShell \
+                            --broker-list "${brokers:?}" \
+                            --topic "${topicid:?}" \
+                            --time -1
+
+                    docker run --rm phymatopus/kafka-core \
+                        bin/kafka-run-class.sh kafka.tools.GetOffsetShell \
+                            --broker-list "${brokers:?}" \
+                            --topic "${topicid:?}" \
+                            --time -2
+                    "
+            done
+
+
+                --------------------
+                Topic [ztf_20181201_programid1]
+                [2018-12-06 03:57:44,599] WARN Fetching topic metadata with correlation id 0 for topics [Set(ztf_20181201_programid1)] from broker [BrokerEndPoint(2,172.16.49.12,9092)] failed (kafka.client.ClientUtils$)
+                java.nio.channels.ClosedChannelException
+	                at kafka.network.BlockingChannel.send(BlockingChannel.scala:112)
+	                at kafka.producer.SyncProducer.liftedTree1$1(SyncProducer.scala:80)
+	                at kafka.producer.SyncProducer.kafka$producer$SyncProducer$$doSend(SyncProducer.scala:79)
+	                at kafka.producer.SyncProducer.send(SyncProducer.scala:124)
+	                at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:63)
+	                at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:98)
+	                at kafka.tools.GetOffsetShell$.main(GetOffsetShell.scala:79)
+	                at kafka.tools.GetOffsetShell.main(GetOffsetShell.scala)
+                [2018-12-06 03:57:44,611] WARN Fetching topic metadata with correlation id 0 for topics [Set(ztf_20181201_programid1)] from broker [BrokerEndPoint(3,172.16.49.208,9092)] failed (kafka.client.ClientUtils$)
+                java.nio.channels.ClosedChannelException
+	                at kafka.network.BlockingChannel.send(BlockingChannel.scala:112)
+	                at kafka.producer.SyncProducer.liftedTree1$1(SyncProducer.scala:80)
+	                at kafka.producer.SyncProducer.kafka$producer$SyncProducer$$doSend(SyncProducer.scala:79)
+	                at kafka.producer.SyncProducer.send(SyncProducer.scala:124)
+	                at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:63)
+	                at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:98)
+	                at kafka.tools.GetOffsetShell$.main(GetOffsetShell.scala:79)
+	                at kafka.tools.GetOffsetShell.main(GetOffsetShell.scala)
+                --------------------
+                Topic [ztf_20181202_programid1]
+                [2018-12-06 03:57:53,055] WARN Fetching topic metadata with correlation id 0 for topics [Set(ztf_20181202_programid1)] from broker [BrokerEndPoint(2,172.16.49.12,9092)] failed (kafka.client.ClientUtils$)
+                java.nio.channels.ClosedChannelException
+	                at kafka.network.BlockingChannel.send(BlockingChannel.scala:112)
+	                at kafka.producer.SyncProducer.liftedTree1$1(SyncProducer.scala:80)
+	                at kafka.producer.SyncProducer.kafka$producer$SyncProducer$$doSend(SyncProducer.scala:79)
+	                at kafka.producer.SyncProducer.send(SyncProducer.scala:124)
+	                at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:63)
+	                at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:98)
+	                at kafka.tools.GetOffsetShell$.main(GetOffsetShell.scala:79)
+	                at kafka.tools.GetOffsetShell.main(GetOffsetShell.scala)
+                --------------------
+                Topic [ztf_20181203_programid1]
+                [2018-12-06 03:58:02,043] WARN Fetching topic metadata with correlation id 0 for topics [Set(ztf_20181203_programid1)] from broker [BrokerEndPoint(3,172.16.49.208,9092)] failed (kafka.client.ClientUtils$)
+                java.nio.channels.ClosedChannelException
+	                at kafka.network.BlockingChannel.send(BlockingChannel.scala:112)
+	                at kafka.producer.SyncProducer.liftedTree1$1(SyncProducer.scala:80)
+	                at kafka.producer.SyncProducer.kafka$producer$SyncProducer$$doSend(SyncProducer.scala:79)
+	                at kafka.producer.SyncProducer.send(SyncProducer.scala:124)
+	                at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:63)
+	                at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:98)
+	                at kafka.tools.GetOffsetShell$.main(GetOffsetShell.scala:79)
+	                at kafka.tools.GetOffsetShell.main(GetOffsetShell.scala)
+                [2018-12-06 03:58:02,051] WARN Fetching topic metadata with correlation id 0 for topics [Set(ztf_20181203_programid1)] from broker [BrokerEndPoint(2,172.16.49.12,9092)] failed (kafka.client.ClientUtils$)
+                java.nio.channels.ClosedChannelException
+	                at kafka.network.BlockingChannel.send(BlockingChannel.scala:112)
+	                at kafka.producer.SyncProducer.liftedTree1$1(SyncProducer.scala:80)
+	                at kafka.producer.SyncProducer.kafka$producer$SyncProducer$$doSend(SyncProducer.scala:79)
+	                at kafka.producer.SyncProducer.send(SyncProducer.scala:124)
+	                at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:63)
+	                at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:98)
+	                at kafka.tools.GetOffsetShell$.main(GetOffsetShell.scala:79)
+	                at kafka.tools.GetOffsetShell.main(GetOffsetShell.scala)
+                [2018-12-06 03:58:05,984] WARN Fetching topic metadata with correlation id 0 for topics [Set(ztf_20181203_programid1)] from broker [BrokerEndPoint(3,172.16.49.208,9092)] failed (kafka.client.ClientUtils$)
+                java.nio.channels.ClosedChannelException
+	                at kafka.network.BlockingChannel.send(BlockingChannel.scala:112)
+	                at kafka.producer.SyncProducer.liftedTree1$1(SyncProducer.scala:80)
+	                at kafka.producer.SyncProducer.kafka$producer$SyncProducer$$doSend(SyncProducer.scala:79)
+	                at kafka.producer.SyncProducer.send(SyncProducer.scala:124)
+	                at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:63)
+	                at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:98)
+	                at kafka.tools.GetOffsetShell$.main(GetOffsetShell.scala:79)
+	                at kafka.tools.GetOffsetShell.main(GetOffsetShell.scala)
+                [2018-12-06 03:58:05,992] WARN Fetching topic metadata with correlation id 0 for topics [Set(ztf_20181203_programid1)] from broker [BrokerEndPoint(2,172.16.49.12,9092)] failed (kafka.client.ClientUtils$)
+                java.nio.channels.ClosedChannelException
+	                at kafka.network.BlockingChannel.send(BlockingChannel.scala:112)
+	                at kafka.producer.SyncProducer.liftedTree1$1(SyncProducer.scala:80)
+	                at kafka.producer.SyncProducer.kafka$producer$SyncProducer$$doSend(SyncProducer.scala:79)
+	                at kafka.producer.SyncProducer.send(SyncProducer.scala:124)
+	                at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:63)
+	                at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:98)
+	                at kafka.tools.GetOffsetShell$.main(GetOffsetShell.scala:79)
+	                at kafka.tools.GetOffsetShell.main(GetOffsetShell.scala)
+                --------------------
+                Topic [ztf_20181204_programid1]
+                --------------------
+                Topic [ztf_20181205_programid1]
+                --------------------
+                Topic [ztf_20181206_programid1]
+                [2018-12-06 03:58:26,899] WARN Fetching topic metadata with correlation id 0 for topics [Set(ztf_20181206_programid1)] from broker [BrokerEndPoint(2,172.16.49.12,9092)] failed (kafka.client.ClientUtils$)
+                java.nio.channels.ClosedChannelException
+	                at kafka.network.BlockingChannel.send(BlockingChannel.scala:112)
+	                at kafka.producer.SyncProducer.liftedTree1$1(SyncProducer.scala:80)
+	                at kafka.producer.SyncProducer.kafka$producer$SyncProducer$$doSend(SyncProducer.scala:79)
+	                at kafka.producer.SyncProducer.send(SyncProducer.scala:124)
+	                at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:63)
+	                at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:98)
+	                at kafka.tools.GetOffsetShell$.main(GetOffsetShell.scala:79)
+	                at kafka.tools.GetOffsetShell.main(GetOffsetShell.scala)
+                [2018-12-06 03:58:26,909] WARN Fetching topic metadata with correlation id 0 for topics [Set(ztf_20181206_programid1)] from broker [BrokerEndPoint(3,172.16.49.208,9092)] failed (kafka.client.ClientUtils$)
+                java.nio.channels.ClosedChannelException
+	                at kafka.network.BlockingChannel.send(BlockingChannel.scala:112)
+	                at kafka.producer.SyncProducer.liftedTree1$1(SyncProducer.scala:80)
+	                at kafka.producer.SyncProducer.kafka$producer$SyncProducer$$doSend(SyncProducer.scala:79)
+	                at kafka.producer.SyncProducer.send(SyncProducer.scala:124)
+	                at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:63)
+	                at kafka.client.ClientUtils$.fetchTopicMetadata(ClientUtils.scala:98)
+	                at kafka.tools.GetOffsetShell$.main(GetOffsetShell.scala:79)
+	                at kafka.tools.GetOffsetShell.main(GetOffsetShell.scala)
+
+
+            #
+            # Do the MirrorMaker nodes fail if they are configured with replication factor 3, and we only have two operational Kafka nodes ?
+            #
+
+        # -----------------------------------------------------
+        # Check the logs on a MirrorMaker node.
+        #[root@openstacker]
+
+            vmident=${mmidents[0]}
+
+            getvminfo "${vmident:?}"
+            vmip192=$(geteleanor192)
+
+echo "
+[$(getvmname)]
+[$(date)]
+[${vmident:?}][${vmip92:?}]
+"
+
+            ssh \
+                ${sshopts[*]} \
+                -o ProxyCommand="ssh ${sshopts[*]} -W %h:%p ${sshuser:?}@${controlip:?}" \
+                "${sshuser:?}@${vmip192:?}" \
+                    "
+                    docker logs \
+                        --tail 100 \
+                        stevedore_tina_1
+                    "
+
+                [Raminiara-mirror-3]
+                [Thu Dec  6 04:05:06 UTC 2018]
+                [c32e11f0-9d4f-49b0-bde5-a79306756a68][192.168.1.9]
+
+                [2018-12-06 03:46:49,374] WARN Removing server public.alerts.ztf.uw.edu:9092 from bootstrap.servers as DNS resolution failed for public.alerts.ztf.uw.edu (org.apache.kafka.clients.ClientUtils)
+                [2018-12-06 03:46:49,382] ERROR Exception when starting mirror maker. (kafka.tools.MirrorMaker$)
+                org.apache.kafka.common.KafkaException: Failed to construct kafka consumer
+	                at org.apache.kafka.clients.consumer.KafkaConsumer.<init>(KafkaConsumer.java:793)
+	                at org.apache.kafka.clients.consumer.KafkaConsumer.<init>(KafkaConsumer.java:644)
+	                at org.apache.kafka.clients.consumer.KafkaConsumer.<init>(KafkaConsumer.java:624)
+	                at kafka.tools.MirrorMaker$$anonfun$2.apply(MirrorMaker.scala:356)
+	                at kafka.tools.MirrorMaker$$anonfun$2.apply(MirrorMaker.scala:354)
+	                at scala.collection.TraversableLike$$anonfun$map$1.apply(TraversableLike.scala:234)
+	                at scala.collection.TraversableLike$$anonfun$map$1.apply(TraversableLike.scala:234)
+	                at scala.collection.immutable.Range.foreach(Range.scala:160)
+	                at scala.collection.TraversableLike$class.map(TraversableLike.scala:234)
+	                at scala.collection.AbstractTraversable.map(Traversable.scala:104)
+	                at kafka.tools.MirrorMaker$.createNewConsumers(MirrorMaker.scala:354)
+	                at kafka.tools.MirrorMaker$.main(MirrorMaker.scala:276)
+	                at kafka.tools.MirrorMaker.main(MirrorMaker.scala)
+                Caused by: org.apache.kafka.common.config.ConfigException: No resolvable bootstrap urls given in bootstrap.servers
+	                at org.apache.kafka.clients.ClientUtils.parseAndValidateAddresses(ClientUtils.java:66)
+	                at org.apache.kafka.clients.consumer.KafkaConsumer.<init>(KafkaConsumer.java:706)
+	                ... 12 more
+                Exception in thread "main" java.lang.NullPointerException
+	                at kafka.tools.MirrorMaker$.main(MirrorMaker.scala:306)
+	                at kafka.tools.MirrorMaker.main(MirrorMaker.scala)
+
+
+        #
+        # Nope, they fail because they can't resolve the hostname for the ZTF broker.
+        #
+
+        #
+        # So .. lesson #1. A replicated service is reliable as long as the network connecting it together is reliable.
+        #
+
+
+        #
+        # Reboot the VMs and try again ?
+        # .... later.
+        #
+
