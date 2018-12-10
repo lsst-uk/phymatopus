@@ -627,7 +627,7 @@
 # Scan the scsi-bus to find new LUN/disk.
 # https://www.thegeekdiary.com/how-to-resize-expand-a-btrfs-volume-filesystem/
 # https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/5/html/online_storage_reconfiguration_guide/rescan-scsi-bus
-#[root@virtual]
+#[user@virtual]
 #
 #    dnf info sg3_utils
 #
@@ -636,7 +636,7 @@
 
 #---------------------------------------------------------------------
 # Check we can see the new device.
-#[root@virtual]
+#[user@virtual]
 
     lsblk -f
 
@@ -661,7 +661,7 @@
 
 #---------------------------------------------------------------------
 # Check the available space.
-#[root@virtual]
+#[user@virtual]
 
     df -h '/'
 
@@ -670,7 +670,7 @@
 
 #---------------------------------------------------------------------
 # Add the new device to our root '/' volume.
-#[root@virtual]
+#[user@virtual]
 
     sudo btrfs \
         device add \
@@ -679,7 +679,7 @@
 
 #---------------------------------------------------------------------
 # Check the available space.
-#[root@virtual]
+#[user@virtual]
 
     df -h '/'
 
@@ -688,7 +688,7 @@
 
 #---------------------------------------------------------------------
 # Re-balance the btrfs metadata.
-#[root@virtual]
+#[user@virtual]
 
     sudo btrfs \
         balance \
@@ -700,7 +700,7 @@
 
 #---------------------------------------------------------------------
 # Check the available space.
-#[root@virtual]
+#[user@virtual]
 
     df -h '/'
 
@@ -709,7 +709,7 @@
 
 #---------------------------------------------------------------------
 # Create some dummy files to fill up the space.
-#[root@virtual]
+#[user@virtual]
 
     for i in {1..5}
     do
@@ -765,4 +765,326 @@
 
         Filesystem      Size  Used Avail Use% Mounted on
         /dev/vda3        39G   27G   12G  70% /
+
+
+# -----------------------------------------------------
+# Create a minimal test VM.
+#[user@trop03]
+
+    createvm
+
+        INFO : Base pool  [base]
+        INFO : Live pool  [live]
+        INFO : Connection [qemu:///system]
+
+        INFO : Data path  [/var/local/projects/ischnura/github/src/dat]
+
+        INFO : Machines   [/var/local/projects/ischnura/github/src/dat/tropo-machines.txt]
+        INFO : Template   [/var/local/projects/ischnura/github/src/dat/tropo-template.xml]
+
+        [1] Umiawyth
+        [2] Etalema
+        [3] Greand
+        [4] Nydiralle
+        [5] Kedaekoth
+        [6] Onelith
+        [7] Elaleld
+        [8] Afoaviel
+        Select machine name (1) 2
+
+        [1] fedora-28-8G-docker-base-20181016.qcow
+        [2] fedora-28-32G-docker-base-20181016.qcow
+        [3] fedora-28-16G-docker-base-20181016.qcow
+        Select base image (1)
+
+        INFO : Node name [Etalema]
+        INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+        INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+        INFO : Disc name [Etalema.qcow]
+        INFO : Disc size [8GiB]
+
+        INFO : MAC  [52:54:00:02:03:09]
+        INFO : IPv4 [192.168.203.9]
+        INFO : IPv6 []
+
+        Create virtual machine (Y/n)
+
+        Creating new volume [Etalema.qcow]
+        Name:           Etalema.qcow
+        Type:           file
+        Capacity:       8.00 GiB
+        Allocation:     196.00 KiB
+
+        Creating new virtual machine [Etalema]
+        Starting new virtual machine [Etalema]
+
+
+# -----------------------------------------------------
+# Check the VM volumes.
+#[user@trop03]
+
+    vmname=Etalema
+
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        --quiet \
+        --connect ${connection:?} \
+            dumpxml \
+                "${vmname}" \
+    | xmlstarlet \
+        select \
+            --root \
+            --indent \
+            --template \
+                --copy-of '//devices/disk'
+
+
+        <xsl-select>
+          <disk type="file" device="disk">
+              <driver name="qemu" type="qcow2"/>
+              <source file="/var/lib/libvirt/images/live/Etalema.qcow"/>
+              <backingStore type="file" index="1">
+                <format type="qcow2"/>
+                <source file="/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow"/>
+                <backingStore/>
+              </backingStore>
+              <target dev="vda" bus="virtio"/>
+              <alias name="virtio-disk0"/>
+              <address type="pci" domain="0x0000" bus="0x00" slot="0x04" function="0x0"/>
+            </disk>
+          <disk type="file" device="cdrom">
+              <driver name="qemu" type="raw"/>
+              <source file="/var/lib/libvirt/images/init/Etalema.iso"/>
+              <backingStore/>
+              <target dev="vdb" bus="virtio"/>
+              <readonly/>
+              <alias name="virtio-disk1"/>
+              <address type="pci" domain="0x0000" bus="0x00" slot="0x05" function="0x0"/>
+            </disk>
+        </xsl-select>
+
+
+# -----------------------------------------------------
+# Create a new 32G volume in the data1 pool.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+    volpool=data1
+    volname=${vmname:?}-${volpool:?}-01.qcow
+    volsize=32G
+
+    virsh \
+        --connect ${connection:?} \
+        vol-create-as \
+            ${volpool:?} \
+            ${volname:?} \
+            ${volsize} \
+            --allocation 0 \
+            --format qcow2
+
+    >   Vol Etalema-data1-01.qcow created
+
+# -----------------------------------------------------
+# Check the volume info.
+#[user@trop03]
+
+    virsh \
+        --connect ${connection:?} \
+        vol-info \
+            --pool "${volpool:?}" \
+            ${volname:?}
+
+    >   Name:           Etalema-data1-01.qcow
+    >   Type:           file
+    >   Capacity:       32.00 GiB
+    >   Allocation:     196.00 KiB
+
+# -----------------------------------------------------
+# Get the volume path.
+#[user@trop03]
+
+    volpath=$(
+        virsh \
+            --connect "${connection:?}" \
+            vol-path \
+                --pool "${volpool:?}" \
+                "${volname:?}"
+        )
+
+    echo "Path [${volpath:?}]"
+
+    >   Path [/data1/libvirt/images/data1/Etalema-data1-01.qcow]
+
+# -----------------------------------------------------
+# Attach the volume to the VM.
+#[user@trop03]
+
+    voldev=vdc
+
+    virsh \
+        --connect "${connection:?}" \
+        attach-disk \
+            ${vmname:?}   \
+            ${volpath:?}  \
+            ${voldev:?}   \
+            --driver qemu  \
+            --subdriver qcow2
+
+    >   Disk attached successfully
+
+#---------------------------------------------------------------------
+# Login to the VM and add the new volume as a new partition.
+# https://www.thegeekdiary.com/how-to-resize-expand-a-btrfs-volume-filesystem/
+#[user@trop03]
+
+    ssh "${vmname:?}"
+
+#---------------------------------------------------------------------
+# Check we can see the new device.
+#[user@virtual]
+
+    lsblk -f
+
+        NAME   FSTYPE  LABEL  UUID                                 MOUNTPOINT
+        vda
+        ├─vda1 ext4    boot   3de0577b-7b0d-4b93-b164-3e0cfaa9478c /boot
+        ├─vda2 swap    swap   84568855-af15-4b56-8409-7f463213a734 [SWAP]
+        └─vda3 btrfs   system 7b0ea027-9351-4659-8b35-bc6aef4451d2 /
+        vdb    iso9660 cidata 2018-12-09-23-31-12-00
+        vdc
+
+#---------------------------------------------------------------------
+# Check the available space.
+#[user@virtual]
+
+    df -h | sort
+
+        Filesystem      Size  Used Avail Use% Mounted on
+        devtmpfs        2.0G     0  2.0G   0% /dev
+        tmpfs           2.0G     0  2.0G   0% /dev/shm
+        tmpfs           2.0G  524K  2.0G   1% /run
+        tmpfs           2.0G     0  2.0G   0% /sys/fs/cgroup
+        /dev/vda3       6.8G  1.6G  4.7G  25% /
+        /dev/vda1       240M   89M  135M  40% /boot
+        tmpfs           2.0G  4.0K  2.0G   1% /tmp
+        tmpfs           395M     0  395M   0% /run/user/1001
+
+#---------------------------------------------------------------------
+# Check the device info.
+#[user@virtual]
+
+    devpath=/dev/vdc
+    mntpath=/data1-01
+
+    sudo fdisk -l ${devpath:?}
+
+        Disk /dev/vdc: 32 GiB, 34359738368 bytes, 67108864 sectors
+        Units: sectors of 1 * 512 = 512 bytes
+        Sector size (logical/physical): 512 bytes / 512 bytes
+        I/O size (minimum/optimal): 512 bytes / 512 bytes
+
+#---------------------------------------------------------------------
+# Create a filesystem on the new device.
+#[user@virtual]
+
+    sudo \
+        mkfs.btrfs \
+            --force \
+            ${devpath:?}
+
+
+        Label:              (null)
+        UUID:               592c4938-8789-4481-bb33-c9262b056c1f
+        Node size:          16384
+        Sector size:        4096
+        Filesystem size:    32.00GiB
+        Block group profiles:
+          Data:             single            8.00MiB
+          Metadata:         DUP               1.00GiB
+          System:           DUP               8.00MiB
+        SSD detected:       no
+        Incompat features:  extref, skinny-metadata
+        Number of devices:  1
+        Devices:
+           ID        SIZE  PATH
+            1    32.00GiB  /dev/vdc
+
+#---------------------------------------------------------------------
+# Check the new filesystem.
+#[user@virtual]
+
+    sudo \
+        btrfs \
+            filesystem show \
+                ${devpath:?}
+
+        Label: none  uuid: 592c4938-8789-4481-bb33-c9262b056c1f
+	        Total devices 1 FS bytes used 128.00KiB
+	        devid    1 size 32.00GiB used 2.02GiB path /dev/vdc
+
+#---------------------------------------------------------------------
+# Create our mount point.
+#[user@virtual]
+
+    sudo mkdir -p "${mntpath:?}"
+    sudo touch "${mntpath:?}/mount-failed"
+
+#---------------------------------------------------------------------
+# Add the volume to our FileSystemTABle.
+# https://www.howtoforge.com/reducing-disk-io-by-mounting-partitions-with-noatime
+#[user@virtual]
+
+    devuuid=$(
+        lsblk --noheadings --output UUID "${devpath:?}"
+        )
+
+sudo tee -a /etc/fstab << EOTAB
+UUID=${devuuid:?} ${mntpath:?}    btrfs    defaults,noatime    0  0
+EOTAB
+
+#---------------------------------------------------------------------
+# Mount the new volume.
+#[user@virtual]
+
+    sudo \
+        mount "${mntpath:?}"
+
+#---------------------------------------------------------------------
+# Check the new volume.
+#[user@virtual]
+
+    df -h "${mntpath:?}"
+
+        Filesystem      Size  Used Avail Use% Mounted on
+        /dev/vdc         32G   17M   30G   1% /data1-01
+
+    df -h
+
+        Filesystem      Size  Used Avail Use% Mounted on
+        devtmpfs        2.0G     0  2.0G   0% /dev
+        tmpfs           2.0G     0  2.0G   0% /dev/shm
+        tmpfs           2.0G  524K  2.0G   1% /run
+        tmpfs           2.0G     0  2.0G   0% /sys/fs/cgroup
+        /dev/vda3       6.8G  1.6G  4.7G  25% /
+        /dev/vda1       240M   89M  135M  40% /boot
+        tmpfs           2.0G  4.0K  2.0G   1% /tmp
+        tmpfs           395M     0  395M   0% /run/user/1001
+        /dev/vdc         32G   17M   30G   1% /data1-01
+
+
+    lsblk
+
+        NAME   MAJ:MIN RM  SIZE RO TYPE MOUNTPOINT
+        vda    252:0    0    8G  0 disk
+        ├─vda1 252:1    0  256M  0 part /boot
+        ├─vda2 252:2    0    1G  0 part [SWAP]
+        └─vda3 252:3    0  6.8G  0 part /
+        vdb    252:16   0  368K  1 disk
+        vdc    252:32   0   32G  0 disk /data1-01
+
+
+
+
 
