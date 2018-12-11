@@ -1,0 +1,228 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2018, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+    #
+    # Change one line .. and it seems to work (at least, the error message goes away).
+    #
+
+# -----------------------------------------------------
+# Create our compose YAML file.
+#[user@trop03]
+
+cat > /tmp/kafka.yml << 'EOYML'
+
+version: "3.2"
+
+services:
+
+    emily:
+        image:
+            confluentinc/cp-kafka:4.1.1
+        ports:
+            - "9092:9092"
+            - "9093:9093"
+        environment:
+            - KAFKA_LISTENERS=LISTENER_BOB://0.0.0.0:9092,LISTENER_FRED://0.0.0.0:9093
+            - KAFKA_ADVERTISED_LISTENERS=LISTENER_BOB://${KAFKA_LISTENER_IP}:9092,LISTENER_FRED://localhost:9093
+            - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=LISTENER_BOB:PLAINTEXT,LISTENER_FRED:PLAINTEXT
+    -        - KAFKA_INTER_BROKER_LISTENER_NAME=LISTENER_BOB
+    +       - KAFKA_INTER_BROKER_LISTENER_NAME=LISTENER_FRED
+            - KAFKA_LOG_DIRS=${KAFKA_LOG_DIRS}
+            - KAFKA_BROKER_ID=${KAFKA_BROKER_ID}
+            - KAFKA_BROKER_RACK=${KAFKA_BROKER_RACK}
+            - KAFKA_ZOOKEEPER_CONNECT=${KAFKA_ZOOKEEPER_CONNECT}
+            - KAFKA_NUM_PARTITIONS=16
+            - KAFKA_DEFAULT_REPLICATION_FACTOR=3
+            - KAFKA_LOG_RETENTION_MS=-1
+            - KAFKA_LOG_RETENTION_BYTES=-1
+            - KAFKA_AUTO_CREATE_TOPICS_ENABLE=true
+            - KAFKA_MESSAGE_MAX_BYTES=10485760
+        volumes:
+            - type:   "bind"
+              source: "/data1-01"
+              target: "/data1-01"
+            - type:   "bind"
+              source: "/data2-01"
+              target: "/data2-01"
+
+EOYML
+
+# -----------------------------------------------------
+# Deploy our compose YAML file.
+#[user@trop03]
+
+    for vmname in ${!kfnodes[@]}
+        do
+            scp \
+                ${scpopts[*]} \
+                /tmp/kafka.yml \
+                ${sshuser:?}@${vmname:?}:kafka.yml
+        done
+
+# -----------------------------------------------------
+# Create our list of log directories.
+#[user@trop03]
+
+    logdirs=(
+        /data1-01
+        /data2-01
+        )
+    logtemp=${logdirs[*]}
+    loglist=${logtemp// /,}
+
+# -----------------------------------------------------
+# Create our list of zookeeper nodes.
+#[user@trop03]
+
+    zktemp=${zknodes[*]}
+    zklist=${zktemp// /,}
+
+# -----------------------------------------------------
+# Deploy our compose ENV file.
+#[user@trop03]
+
+    for i in ${!kfnames[@]}
+        do
+            vmname=${kfnames[$i]:?}
+            vmipv4=${kfnodes[$vmname]:?}
+
+            echo "vmnum  [${i:?}]"
+            echo "vmname [${vmname:?}]"
+            echo "vmipv4 [${vmipv4:?}]"
+
+            ssh \
+                ${scpopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+cat > kafka.env << EOF
+KAFKA_LOG_DIRS=${loglist:?}
+KAFKA_BROKER_ID=$(($i+1))
+KAFKA_BROKER_RACK=$(($i+1))
+KAFKA_ZOOKEEPER_CONNECT=${zklist:?}
+KAFKA_LISTENER_IP=${vmipv4:?}
+EOF
+ln -sf kafka.env .env
+                "
+        done
+
+    >
+    >   vmnum  [0]
+    >   vmname [Stedigo]
+    >   vmipv4 [192.168.203.17]
+    >   vmnum  [1]
+    >   vmname [Angece]
+    >   vmipv4 [192.168.203.18]
+    >   vmnum  [2]
+    >   vmname [Edwalafia]
+    >   vmipv4 [192.168.203.19]
+    >   vmnum  [3]
+    >   vmname [Onoza]
+    >   vmipv4 [192.168.203.20]
+    >
+
+
+# -----------------------------------------------------
+# Check our compose ENV file.
+#[user@trop03]
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    hostname
+                    cat .env
+                    "
+        done
+
+    >
+    >   ---- ----
+    >   Stedigo
+    >   KAFKA_LOG_DIRS=/data1-01,/data2-01
+    >   KAFKA_BROKER_ID=1
+    >   KAFKA_BROKER_RACK=1
+    >   KAFKA_ZOOKEEPER_CONNECT=192.168.203.21,192.168.203.22,192.168.203.23
+    >   KAFKA_LISTENER_IP=192.168.203.17
+    >   ---- ----
+    >   Angece
+    >   KAFKA_LOG_DIRS=/data1-01,/data2-01
+    >   KAFKA_BROKER_ID=2
+    >   KAFKA_BROKER_RACK=2
+    >   KAFKA_ZOOKEEPER_CONNECT=192.168.203.21,192.168.203.22,192.168.203.23
+    >   KAFKA_LISTENER_IP=192.168.203.18
+    >   ---- ----
+    >   Edwalafia
+    >   KAFKA_LOG_DIRS=/data1-01,/data2-01
+    >   KAFKA_BROKER_ID=3
+    >   KAFKA_BROKER_RACK=3
+    >   KAFKA_ZOOKEEPER_CONNECT=192.168.203.21,192.168.203.22,192.168.203.23
+    >   KAFKA_LISTENER_IP=192.168.203.19
+    >   ---- ----
+    >   Onoza
+    >   KAFKA_LOG_DIRS=/data1-01,/data2-01
+    >   KAFKA_BROKER_ID=4
+    >   KAFKA_BROKER_RACK=4
+    >   KAFKA_ZOOKEEPER_CONNECT=192.168.203.21,192.168.203.22,192.168.203.23
+    >   KAFKA_LISTENER_IP=192.168.203.20
+    >
+
+
+# -----------------------------------------------------
+# Start Kafka on each node.
+#[user@trop03]
+
+    for vmname in ${!kfnodes[@]}
+        do
+            echo "---- ----"
+            ssh \
+                ${scpopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                hostname
+
+                docker-compose \
+                    --file kafka.yml \
+                    down
+
+                sleep 5
+
+                docker-compose \
+                    --file kafka.yml \
+                    up -d
+                "
+        done
+
+# -----------------------------------------------------
+# Login and tail the logs (separate terminals).
+#[user@trop03]
+
+    ssh trop03
+
+        ssh Edwalafia
+        ssh Onoza
+        ssh Angece
+        ssh Stedigo
+
+            docker logs -f stevedore_emily_1
+
