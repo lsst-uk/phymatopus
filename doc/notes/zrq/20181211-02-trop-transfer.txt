@@ -1,0 +1,199 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2018, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+#
+# Example from GitHub
+# https://github.com/wurstmeister/kafka-docker/blob/master/README.md
+#
+#   KAFKA_ADVERTISED_LISTENERS: INSIDE://:9092,OUTSIDE://_{HOSTNAME_COMMAND}:9094
+#   KAFKA_LISTENERS: INSIDE://:9092,OUTSIDE://:9094
+#   KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INSIDE:PLAINTEXT,OUTSIDE:PLAINTEXT
+#   KAFKA_INTER_BROKER_LISTENER_NAME: INSIDE
+#
+
+# -----------------------------------------------------
+# Our compose YAML file.
+#[user@trop03]
+
+    vi /tmp/kafka.yml
+
+        - KAFKA_LISTENERS=LISTENER_BOB://0.0.0.0:9092,LISTENER_FRED://0.0.0.0:9093
+        - KAFKA_ADVERTISED_LISTENERS=LISTENER_BOB://${KAFKA_LISTENER_IP}:9092,LISTENER_FRED://localhost:9093
+        - KAFKA_INTER_BROKER_LISTENER_NAME=LISTENER_BOB
+
+    >   [2018-12-10 06:35:29,374] WARN [Producer clientId=producer-1] Connection to node 3 could not be established. Broker may not be available. (org.apache.kafka.clients.NetworkClient)
+
+# -----------------------------------------------------
+# Update our compose YAML file.
+#[user@trop03]
+
+    vi /tmp/kafka.yml
+
+        - KAFKA_LISTENERS=LISTENER_BOB://0.0.0.0:9092,LISTENER_FRED://0.0.0.0:9093
+        - KAFKA_ADVERTISED_LISTENERS=LISTENER_BOB://${KAFKA_LISTENER_IP}:9092,LISTENER_FRED://localhost:9093
+    ~   - KAFKA_INTER_BROKER_LISTENER_NAME=LISTENER_FRED
+
+    >   [2018-12-11 13:28:56,011] INFO [ReplicaFetcher replicaId=4, leaderId=1, fetcherId=0] Retrying leaderEpoch request for partition ztf_20181204_programid1-11 as the leader reported an error: NOT_LEADER_FOR_PARTITION
+    >   [2018-12-11 13:28:56,021] INFO [ReplicaFetcher replicaId=4, leaderId=3, fetcherId=0] Retrying leaderEpoch request for partition ztf_20181204_programid1-5 as the leader reported an error: NOT_LEADER_FOR_PARTITION
+    >   [2018-12-11 13:28:56,022] INFO [ReplicaFetcher replicaId=4, leaderId=3, fetcherId=0] Retrying leaderEpoch request for partition ztf_20181204_programid1-1 as the leader reported an error: NOT_LEADER_FOR_PARTITION
+
+# -----------------------------------------------------
+# Update our compose YAML file.
+#[user@trop03]
+
+    vi /tmp/kafka.yml
+
+    ~   - KAFKA_LISTENERS=LISTENER_BOB://0.0.0.0:9092,LISTENER_FRED://localhost:9093
+    ~   - KAFKA_ADVERTISED_LISTENERS=LISTENER_BOB://${KAFKA_LISTENER_IP}:9092
+    ~   - KAFKA_INTER_BROKER_LISTENER_NAME=LISTENER_FRED
+
+    >   [2018-12-11 15:38:36,367] ERROR Fatal error during SupportedServerStartable startup. Prepare to shutdown (io.confluent.support.metrics.SupportedKafka)
+            java.lang.IllegalArgumentException: requirement failed: inter.broker.listener.name must be a listener name defined in advertised.listeners.
+            The valid options based on currently configured listeners are LISTENER_BOB
+
+# -----------------------------------------------------
+# Update our compose YAML file.
+#[user@trop03]
+
+    vi /tmp/kafka.yml
+
+        EXTERNAL_IP=192.168.203.19
+        INTERNAL_IP=
+
+    vi /tmp/kafka.yml
+
+    ~   - KAFKA_LISTENERS=LISTENER_BOB://0.0.0.0:9092,LISTENER_FRED://localhost:9093
+    ~   - KAFKA_ADVERTISED_LISTENERS=LISTENER_BOB://${KAFKA_LISTENER_IP}:9092,LISTENER_FRED://localhost:9093
+        - KAFKA_INTER_BROKER_LISTENER_NAME=LISTENER_FRED
+
+
+# -----------------------------------------------------
+# Deploy our compose YAML file.
+#[user@trop03]
+
+    for vmname in ${kfnames[@]}
+        do
+            scp \
+                ${scpopts[*]} \
+                /tmp/kafka.yml \
+                ${sshuser:?}@${vmname:?}:kafka.yml
+        done
+
+# -----------------------------------------------------
+# Remove Kafka on each node.
+#[user@trop03]
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            ssh \
+                ${scpopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                hostname
+
+                docker-compose \
+                    --file kafka.yml \
+                    down
+
+                sudo rm -rf /data1-01/*
+                sudo rm     /data1-01/.lock
+                sudo rm     /data1-01/.kafka_cleanshutdown
+                ls -al /data1-01/
+
+                sudo rm -rf /data2-01/*
+                sudo rm     /data2-01/.lock
+                sudo rm     /data2-01/.kafka_cleanshutdown
+                ls -al /data2-01/
+                "
+        done
+
+# -----------------------------------------------------
+# Remove Zookeeper on each node.
+#[user@trop03]
+
+    for vmname in ${zknames[@]}
+        do
+            echo "---- ----"
+            ssh \
+                ${scpopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                hostname
+
+                docker-compose \
+                    --file zookeeper.yml \
+                    down
+                "
+        done
+
+# -----------------------------------------------------
+# Start Zookeeper on each node.
+#[user@trop03]
+
+    for vmname in ${zknames[@]}
+        do
+            echo "---- ----"
+            ssh \
+                ${scpopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                hostname
+
+                docker-compose \
+                    --file zookeeper.yml \
+                    up -d
+                "
+        done
+
+# -----------------------------------------------------
+# Start Kafka on each node.
+#[user@trop03]
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            ssh \
+                ${scpopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                hostname
+
+                docker-compose \
+                    --file kafka.yml \
+                    up -d
+                "
+        done
+
+# -----------------------------------------------------
+# Login and tail the logs (separate terminals).
+#[user@trop03]
+
+    ssh trop03
+
+        ssh Edwalafia
+        ssh Onoza
+        ssh Angece
+        ssh Stedigo
+
+            docker logs -f stevedore_emily_1
+

@@ -100,20 +100,16 @@
     >   vmname [Byflame]
     >   vmipv4 [192.168.203.23]
 
+    zktemp=${zknodes[*]}
+    zklist=${zktemp// /,}
 
-    for vmname in ${!zknodes[@]}
-        do
-            echo "vmname [${vmname}]"
-            echo "vmipv4 [${zknodes[${vmname}]}]"
-        done
+echo "
+zktemp [${zktemp}]
+zklist [${zklist}]
+"
 
-    >   vmname [Fosauri]
-    >   vmipv4 [192.168.203.21]
-    >   vmname [Marpus]
-    >   vmipv4 [192.168.203.22]
-    >   vmname [Byflame]
-    >   vmipv4 [192.168.203.23]
-
+    >   zktemp [192.168.203.21 192.168.203.22 192.168.203.23]
+    >   zklist [192.168.203.21,192.168.203.22,192.168.203.23]
 
 # -----------------------------------------------------
 # Create our Kafka nodes.
@@ -186,23 +182,6 @@
     >   vmname [Onoza]
     >   vmipv4 [192.168.203.20]
 
-
-    for vmname in ${!kfnodes[@]}
-        do
-            echo "vmname [${vmname}]"
-            echo "vmipv4 [${kfnodes[${vmname}]}]"
-        done
-
-
-    >   vmname [Edwalafia]
-    >   vmipv4 [192.168.203.19]
-    >   vmname [Onoza]
-    >   vmipv4 [192.168.203.20]
-    >   vmname [Angece]
-    >   vmipv4 [192.168.203.18]
-    >   vmname [Stedigo]
-    >   vmipv4 [192.168.203.17]
-
 # -----------------------------------------------------
 # Create our Kafka data volumes.
 #[user@trop03]
@@ -246,8 +225,6 @@
                 done
         done
 
-
-    >
     >   ---- ----
     >   vmname [Stedigo]
     >   ----
@@ -347,7 +324,7 @@
 
 
 # -----------------------------------------------------
-# Attach the volumes to the VMs.
+# Create lists of devices and mount points.
 #[user@trop03]
 
     unset voldevs
@@ -355,6 +332,16 @@
         [data1]=vdc
         [data2]=vdd
         )
+
+    unset volmnts
+    declare -A volmnts=(
+        [data1]=/data1-01
+        [data2]=/data2-01
+        )
+
+# -----------------------------------------------------
+# Attach the volumes to the VMs.
+#[user@trop03]
 
     for vmname in ${kfnames[@]}
         do
@@ -388,7 +375,7 @@
                 done
         done
 
-    >
+
     >   ---- ----
     >   vmname [Stedigo]
     >   volname [Stedigo-data1-01.qcow]
@@ -436,7 +423,6 @@
     >   voldev  [vdd]
     >   volpath [/data2/libvirt/images/data2/Onoza-data2-01.qcow]
     >   Disk attached successfully
-    >
 
 
 #---------------------------------------------------------------------
@@ -447,8 +433,8 @@ cat > /tmp/volume-mount.sh << 'EOSH'
 
 echo "---- ----"
 echo "hostname [$(hostname)]"
-echo "devpath  [${devpath}]"
-echo "mntpath  [${mntpath}]"
+echo "devpath  [${devpath:?}]"
+echo "mntpath  [${mntpath:?}]"
 
 #---------------------------------------------------------------------
 # Create a filesystem on the new device.
@@ -486,6 +472,7 @@ EOTAB
 # Check the new volume.
 
     df -h "${mntpath:?}"
+    ls -l "${mntpath:?}"
 
 EOSH
 
@@ -498,15 +485,17 @@ EOSH
             for volpool in ${volpools[@]}
                 do
                     volname=${vmname:?}-${volpool:?}-01.qcow
-                    voldev=${voldevs[${volpool}]}
+                    devpath=/dev/${voldevs[${volpool}]}
+                    mntpath=${volmnts[${volpool}]}
                     echo "---- ----"
                     echo "vmname  [${vmname}]"
                     echo "volname [${volname}]"
-                    echo "voldev  [${voldev}]"
+                    echo "devpath [${devpath}]"
+                    echo "mntpath [${mntpath}]"
 
                     echo "
-                    export mntpath=/${volpool:?}-01
-                    export devpath=/dev/${voldev}
+                        export devpath=${devpath:?}
+                        export mntpath=${mntpath:?}
                     " \
                     | cat - /tmp/volume-mount.sh \
                     | ssh \
@@ -515,12 +504,11 @@ EOSH
                 done
         done
 
-
-    >
     >   ---- ----
     >   vmname  [Stedigo]
     >   volname [Stedigo-data1-01.qcow]
-    >   voldev  [vdc]
+    >   devpath [/dev/vdc]
+    >   mntpath [/data1-01]
     >   ---- ----
     >   hostname [Stedigo]
     >   devpath  [/dev/vdc]
@@ -529,7 +517,7 @@ EOSH
     >   See http://btrfs.wiki.kernel.org for more information.
     >
     >   Label:              (null)
-    >   UUID:               08d60d71-3fa9-4c56-a724-707ac3afce7a
+    >   UUID:               ed59c1c8-883a-4488-88ea-520a9ea77350
     >   Node size:          16384
     >   Sector size:        4096
     >   Filesystem size:    32.00GiB
@@ -544,13 +532,15 @@ EOSH
     >      ID        SIZE  PATH
     >       1    32.00GiB  /dev/vdc
     >
-    >   UUID=08d60d71-3fa9-4c56-a724-707ac3afce7a /data1-01    btrfs    defaults,noatime    0  0
+    >   UUID=ed59c1c8-883a-4488-88ea-520a9ea77350 /data1-01    btrfs    defaults,noatime    0  0
     >   Filesystem      Size  Used Avail Use% Mounted on
     >   /dev/vdc         32G   17M   30G   1% /data1-01
+    >   total 0
     >   ---- ----
     >   vmname  [Stedigo]
     >   volname [Stedigo-data2-01.qcow]
-    >   voldev  [vdd]
+    >   devpath [/dev/vdd]
+    >   mntpath [/data2-01]
     >   ---- ----
     >   hostname [Stedigo]
     >   devpath  [/dev/vdd]
@@ -559,7 +549,7 @@ EOSH
     >   See http://btrfs.wiki.kernel.org for more information.
     >
     >   Label:              (null)
-    >   UUID:               581fcc4a-c6bb-4786-9ea0-34e248b77008
+    >   UUID:               b2598b9e-e396-4f77-9230-dc5c9d4091c8
     >   Node size:          16384
     >   Sector size:        4096
     >   Filesystem size:    32.00GiB
@@ -571,16 +561,18 @@ EOSH
     >   Incompat features:  extref, skinny-metadata
     >   Number of devices:  1
     >   Devices:
-    >     ID        SIZE  PATH
-    >      1    32.00GiB  /dev/vdd
+    >      ID        SIZE  PATH
+    >       1    32.00GiB  /dev/vdd
     >
-    >   UUID=581fcc4a-c6bb-4786-9ea0-34e248b77008 /data2-01    btrfs    defaults,noatime    0  0
+    >   UUID=b2598b9e-e396-4f77-9230-dc5c9d4091c8 /data2-01    btrfs    defaults,noatime    0  0
     >   Filesystem      Size  Used Avail Use% Mounted on
     >   /dev/vdd         32G   17M   30G   1% /data2-01
+    >   total 0
     >   ---- ----
     >   vmname  [Angece]
     >   volname [Angece-data1-01.qcow]
-    >   voldev  [vdc]
+    >   devpath [/dev/vdc]
+    >   mntpath [/data1-01]
     >   ---- ----
     >   hostname [Angece]
     >   devpath  [/dev/vdc]
@@ -589,7 +581,7 @@ EOSH
     >   See http://btrfs.wiki.kernel.org for more information.
     >
     >   Label:              (null)
-    >   UUID:               33911510-f64d-44a8-af32-268ad8e22855
+    >   UUID:               50feae1c-bef0-4252-8e3a-eea0f9d170e2
     >   Node size:          16384
     >   Sector size:        4096
     >   Filesystem size:    32.00GiB
@@ -604,13 +596,15 @@ EOSH
     >      ID        SIZE  PATH
     >       1    32.00GiB  /dev/vdc
     >
-    >   UUID=33911510-f64d-44a8-af32-268ad8e22855 /data1-01    btrfs    defaults,noatime    0  0
+    >   UUID=50feae1c-bef0-4252-8e3a-eea0f9d170e2 /data1-01    btrfs    defaults,noatime    0  0
     >   Filesystem      Size  Used Avail Use% Mounted on
     >   /dev/vdc         32G   17M   30G   1% /data1-01
+    >   total 0
     >   ---- ----
     >   vmname  [Angece]
     >   volname [Angece-data2-01.qcow]
-    >   voldev  [vdd]
+    >   devpath [/dev/vdd]
+    >   mntpath [/data2-01]
     >   ---- ----
     >   hostname [Angece]
     >   devpath  [/dev/vdd]
@@ -619,7 +613,7 @@ EOSH
     >   See http://btrfs.wiki.kernel.org for more information.
     >
     >   Label:              (null)
-    >   UUID:               9b2a1cc4-19bb-4e3f-89b7-e32f03473e9d
+    >   UUID:               36c83514-e392-4b6f-a13e-6ab4520a8874
     >   Node size:          16384
     >   Sector size:        4096
     >   Filesystem size:    32.00GiB
@@ -634,13 +628,15 @@ EOSH
     >      ID        SIZE  PATH
     >       1    32.00GiB  /dev/vdd
     >
-    >   UUID=9b2a1cc4-19bb-4e3f-89b7-e32f03473e9d /data2-01    btrfs    defaults,noatime    0  0
+    >   UUID=36c83514-e392-4b6f-a13e-6ab4520a8874 /data2-01    btrfs    defaults,noatime    0  0
     >   Filesystem      Size  Used Avail Use% Mounted on
     >   /dev/vdd         32G   17M   30G   1% /data2-01
+    >   total 0
     >   ---- ----
     >   vmname  [Edwalafia]
     >   volname [Edwalafia-data1-01.qcow]
-    >   voldev  [vdc]
+    >   devpath [/dev/vdc]
+    >   mntpath [/data1-01]
     >   ---- ----
     >   hostname [Edwalafia]
     >   devpath  [/dev/vdc]
@@ -649,7 +645,7 @@ EOSH
     >   See http://btrfs.wiki.kernel.org for more information.
     >
     >   Label:              (null)
-    >   UUID:               dc2886d9-ff9b-4e86-a761-c3e2953a22cc
+    >   UUID:               23ab90ff-b63f-4536-8ae2-a963c0f46655
     >   Node size:          16384
     >   Sector size:        4096
     >   Filesystem size:    32.00GiB
@@ -664,13 +660,15 @@ EOSH
     >      ID        SIZE  PATH
     >       1    32.00GiB  /dev/vdc
     >
-    >   UUID=dc2886d9-ff9b-4e86-a761-c3e2953a22cc /data1-01    btrfs    defaults,noatime    0  0
+    >   UUID=23ab90ff-b63f-4536-8ae2-a963c0f46655 /data1-01    btrfs    defaults,noatime    0  0
     >   Filesystem      Size  Used Avail Use% Mounted on
     >   /dev/vdc         32G   17M   30G   1% /data1-01
+    >   total 0
     >   ---- ----
     >   vmname  [Edwalafia]
     >   volname [Edwalafia-data2-01.qcow]
-    >   voldev  [vdd]
+    >   devpath [/dev/vdd]
+    >   mntpath [/data2-01]
     >   ---- ----
     >   hostname [Edwalafia]
     >   devpath  [/dev/vdd]
@@ -679,7 +677,7 @@ EOSH
     >   See http://btrfs.wiki.kernel.org for more information.
     >
     >   Label:              (null)
-    >   UUID:               ef260ba5-ad37-47d0-92da-b4cb596800f8
+    >   UUID:               4bdd314d-4f4f-4870-8d40-086b0ac13e77
     >   Node size:          16384
     >   Sector size:        4096
     >   Filesystem size:    32.00GiB
@@ -694,13 +692,15 @@ EOSH
     >      ID        SIZE  PATH
     >       1    32.00GiB  /dev/vdd
     >
-    >   UUID=ef260ba5-ad37-47d0-92da-b4cb596800f8 /data2-01    btrfs    defaults,noatime    0  0
+    >   UUID=4bdd314d-4f4f-4870-8d40-086b0ac13e77 /data2-01    btrfs    defaults,noatime    0  0
     >   Filesystem      Size  Used Avail Use% Mounted on
     >   /dev/vdd         32G   17M   30G   1% /data2-01
+    >   total 0
     >   ---- ----
     >   vmname  [Onoza]
     >   volname [Onoza-data1-01.qcow]
-    >   voldev  [vdc]
+    >   devpath [/dev/vdc]
+    >   mntpath [/data1-01]
     >   ---- ----
     >   hostname [Onoza]
     >   devpath  [/dev/vdc]
@@ -709,7 +709,7 @@ EOSH
     >   See http://btrfs.wiki.kernel.org for more information.
     >
     >   Label:              (null)
-    >   UUID:               2a002ccc-2114-4053-8377-74e29d0de772
+    >   UUID:               c8101288-567d-4501-b07b-887271bde191
     >   Node size:          16384
     >   Sector size:        4096
     >   Filesystem size:    32.00GiB
@@ -724,13 +724,15 @@ EOSH
     >      ID        SIZE  PATH
     >       1    32.00GiB  /dev/vdc
     >
-    >   UUID=2a002ccc-2114-4053-8377-74e29d0de772 /data1-01    btrfs    defaults,noatime    0  0
+    >   UUID=c8101288-567d-4501-b07b-887271bde191 /data1-01    btrfs    defaults,noatime    0  0
     >   Filesystem      Size  Used Avail Use% Mounted on
     >   /dev/vdc         32G   17M   30G   1% /data1-01
+    >   total 0
     >   ---- ----
     >   vmname  [Onoza]
     >   volname [Onoza-data2-01.qcow]
-    >   voldev  [vdd]
+    >   devpath [/dev/vdd]
+    >   mntpath [/data2-01]
     >   ---- ----
     >   hostname [Onoza]
     >   devpath  [/dev/vdd]
@@ -739,7 +741,7 @@ EOSH
     >   See http://btrfs.wiki.kernel.org for more information.
     >
     >   Label:              (null)
-    >   UUID:               a528536b-83a1-4d4b-b8fb-dbb776de15f6
+    >   UUID:               26fda47f-cf3b-47af-a23e-80c4f911ee9b
     >   Node size:          16384
     >   Sector size:        4096
     >   Filesystem size:    32.00GiB
@@ -754,10 +756,29 @@ EOSH
     >      ID        SIZE  PATH
     >       1    32.00GiB  /dev/vdd
     >
-    >   UUID=a528536b-83a1-4d4b-b8fb-dbb776de15f6 /data2-01    btrfs    defaults,noatime    0  0
+    >   UUID=26fda47f-cf3b-47af-a23e-80c4f911ee9b /data2-01    btrfs    defaults,noatime    0  0
     >   Filesystem      Size  Used Avail Use% Mounted on
     >   /dev/vdd         32G   17M   30G   1% /data2-01
-    >
+    >   total 0
+
+# -----------------------------------------------------
+# Check our mounted volumes.
+#[user@trop03]
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            ssh \
+                ${scpopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                hostname
+
+                ls /data1-01/mount-failed
+                ls /data2-01/mount-failed
+
+                "
+        done
 
 
 # -----------------------------------------------------
@@ -801,8 +822,6 @@ services:
 
 EOYML
 
-
-
 # -----------------------------------------------------
 # Deploy our compose YAML file.
 #[user@trop03]
@@ -816,26 +835,11 @@ EOYML
         done
 
 # -----------------------------------------------------
-# Create our list of log directories.
-#[user@trop03]
-
-    logdirs=(
-        /data1-01
-        /data2-01
-        )
-    logtemp=${logdirs[*]}
-    loglist=${logtemp// /,}
-
-# -----------------------------------------------------
-# Create our list of zookeeper nodes.
-#[user@trop03]
-
-    zktemp=${zknodes[*]}
-    zklist=${zktemp// /,}
-
-# -----------------------------------------------------
 # Deploy our compose ENV file.
 #[user@trop03]
+
+    logtemp=${volmnts[*]}
+    loglist=${logtemp// /,}
 
     for i in ${!kfnames[@]}
         do
@@ -861,8 +865,6 @@ ln -sf kafka.env .env
                 "
         done
 
-
-    >
     >   vmnum  [0]
     >   vmname [Stedigo]
     >   vmipv4 [192.168.203.17]
@@ -875,7 +877,6 @@ ln -sf kafka.env .env
     >   vmnum  [3]
     >   vmname [Onoza]
     >   vmipv4 [192.168.203.20]
-    >
 
 
 # -----------------------------------------------------
@@ -895,7 +896,6 @@ ln -sf kafka.env .env
         done
 
 
-    >
     >   ---- ----
     >   Stedigo
     >   KAFKA_LOG_DIRS=/data1-01,/data2-01
@@ -924,14 +924,13 @@ ln -sf kafka.env .env
     >   KAFKA_BROKER_RACK=4
     >   KAFKA_ZOOKEEPER_CONNECT=192.168.203.21,192.168.203.22,192.168.203.23
     >   KAFKA_LISTENER_IP=192.168.203.20
-    >
 
 
 # -----------------------------------------------------
 # Start Kafka on each node.
 #[user@trop03]
 
-    for vmname in ${!kfnodes[@]}
+    for vmname in ${kfnames[@]}
         do
             echo "---- ----"
             ssh \
