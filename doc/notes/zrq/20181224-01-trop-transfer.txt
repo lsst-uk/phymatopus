@@ -1,0 +1,315 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2018, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+
+# -----------------------------------------------------
+
+    #
+    # System is broken .. :-(
+    #
+
+    #
+    # Mirror maker nodes shut themselves down - no idea why ?
+    #
+
+    #
+    # Kafka nodes shut themselves down - no idea why ?
+    #
+
+
+# -----------------------------------------------------
+# Stop Kafka on each node.
+#[user@trop03]
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            echo "vmname [${vmname:?}]"
+            ssh \
+                ${scpopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                docker-compose \
+                    --file kafka.yml \
+                    down
+                "
+        done
+
+
+--START--
+---- ----
+Stedigo
+Removing stevedore_emily_1 ... done
+Removing network stevedore_default
+---- ----
+Angece
+Stopping stevedore_emily_1 ... done
+Removing stevedore_emily_1 ... done
+Removing network stevedore_default
+---- ----
+Edwalafia
+Removing stevedore_emily_1 ... done
+Removing network stevedore_default
+---- ----
+Onoza
+Removing stevedore_emily_1 ... done
+Removing network stevedore_default
+--STOP--
+
+
+# -----------------------------------------------------
+# Stop MirroMaker on each node.
+#[user@trop03]
+
+    for vmname in ${mmnames[@]}
+        do
+            echo "---- ----"
+            echo "vmname [${vmname:?}]"
+            ssh \
+                ${scpopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                docker-compose \
+                    --file mirror.yml \
+                    down
+                "
+        done
+
+--START--
+---- ----
+vmname [Afoaviel]
+Removing stevedore_tina_1 ... done
+Removing network stevedore_default
+---- ----
+vmname [Rusaldez]
+Removing stevedore_tina_1 ... done
+Removing network stevedore_default
+--STOP--
+
+
+# -----------------------------------------------------
+# Check disc free on each node.
+#[user@trop03]
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            echo "vmname [${vmname:?}]"
+            ssh \
+                ${scpopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                echo \"---- ----\"
+                df -h \"/data1-01\"
+                echo \"---- ----\"
+                df -h \"/data1-02\"
+                echo \"---- ----\"
+                df -h \"/data2-01\"
+                echo \"---- ----\"
+                df -h \"/data2-02\"
+                "
+        done
+
+
+--START--
+---- ----
+vmname [Stedigo]
+---- ----
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vdc         32G   31G  4.5M 100% /data1-01
+---- ----
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vde         64G  3.9G   59G   7% /data1-02
+---- ----
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vdd         32G   31G  3.6M 100% /data2-01
+---- ----
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vdf         64G   17M   62G   1% /data2-02
+---- ----
+vmname [Angece]
+---- ----
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vdc         32G   31G  4.0M 100% /data1-01
+---- ----
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vde         64G  3.9G   59G   7% /data1-02
+---- ----
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vdd         32G   31G  4.4M 100% /data2-01
+---- ----
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vdf         64G   17M   62G   1% /data2-02
+---- ----
+vmname [Edwalafia]
+---- ----
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vdc         32G   31G  6.2M 100% /data1-01
+---- ----
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vde         64G  3.9G   59G   7% /data1-02
+---- ----
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vdd         32G   31G  3.7M 100% /data2-01
+---- ----
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vdf         64G   17M   62G   1% /data2-02
+---- ----
+vmname [Onoza]
+---- ----
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vdc         32G   31G  4.7M 100% /data1-01
+---- ----
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vde         64G  3.9G   59G   7% /data1-02
+---- ----
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vdd         32G   31G  4.9M 100% /data2-01
+---- ----
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vdf         64G   17M   62G   1% /data2-02
+--STOP--
+
+
+# -----------------------------------------------------
+# Start Kafka on each node.
+#[user@trop03]
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            echo "vmname [${vmname:?}]"
+            ssh \
+                ${scpopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                docker-compose \
+                    --file kafka.yml \
+                    up -d
+                "
+        done
+
+--START--
+---- ----
+vmname [Stedigo]
+Creating network "stevedore_default" with the default driver
+Creating stevedore_emily_1 ... done
+---- ----
+vmname [Angece]
+Creating network "stevedore_default" with the default driver
+Creating stevedore_emily_1 ... done
+---- ----
+vmname [Edwalafia]
+Creating network "stevedore_default" with the default driver
+Creating stevedore_emily_1 ... done
+---- ----
+vmname [Onoza]
+Creating network "stevedore_default" with the default driver
+Creating stevedore_emily_1 ... done
+--STOP--
+
+
+# -----------------------------------------------------
+# Wait for Kafka debug logs to satbilize.
+
+    #
+    # Edwalafia shut itself down ..
+    # "current leader's latest offset 0 is less than replica's latest offset"
+    #
+
+#[Stevedore@Edwalafia]
+--START--
+[2018-12-24 02:36:42,462] ERROR [ReplicaFetcher replicaId=3, leaderId=2, fetcherId=0] Exiting because log truncation is not allowed for partition ztf_20181219_programid1-11, current leader's latest offset 0 is less than replica's latest offset 10108 (kafka.server.ReplicaFetcherThread)
+[2018-12-24 02:36:42,463] INFO [ReplicaFetcher replicaId=3, leaderId=2, fetcherId=0] Stopped (kafka.server.ReplicaFetcherThread)
+--STOP--
+
+    #
+    # Edwalafia fails to contact self during shutdown process.
+    # Probably because it is shutting down ..
+    #
+
+#[Stevedore@Edwalafia]
+--START--
+[2018-12-24 02:36:45,275] WARN [Controller id=3, targetBrokerId=3] Connection to node 3 could not be established. Broker may not be available. (org.apache.kafka.clients.NetworkClient)
+[2018-12-24 02:36:45,275] WARN [RequestSendThread controllerId=3] Controller 3's connection to broker Edwalafia:9092 (id: 3 rack: 3) was unsuccessful (kafka.controller.RequestSendThread)
+java.io.IOException: Connection to Edwalafia:9092 (id: 3 rack: 3) failed.
+	at org.apache.kafka.clients.NetworkClientUtils.awaitReady(NetworkClientUtils.java:70)
+	at kafka.controller.RequestSendThread.brokerReady(ControllerChannelManager.scala:271)
+	at kafka.controller.RequestSendThread.doWork(ControllerChannelManager.scala:225)
+	at kafka.utils.ShutdownableThread.run(ShutdownableThread.scala:82)
+--STOP--
+
+
+    #
+    # Stedigo shut itself down ..
+    # "current leader's latest offset 0 is less than replica's latest offset"
+    #
+
+#[Stevedore@Stedigo]
+--START--
+[2018-12-24 02:25:55,888] ERROR [ReplicaFetcher replicaId=1, leaderId=4, fetcherId=0] Exiting because log truncation is not allowed for partition ztf_20181219_programid1-6, current leader's latest offset 0 is less than replica's latest offset 10110 (kafka.server.ReplicaFetcherThread)
+[2018-12-24 02:25:55,889] INFO [ReplicaFetcher replicaId=1, leaderId=4, fetcherId=0] Stopped (kafka.server.ReplicaFetcherThread)
+--STOP--
+
+    #
+    # Stedigo fails to contact self during shutdown process.
+    # Probably because it is shutting down ..
+    #
+
+#[Stevedore@Stedigo]
+--START--
+[2018-12-24 02:25:58,119] WARN [Controller id=1, targetBrokerId=1] Connection to node 1 could not be established. Broker may not be available. (org.apache.kafka.clients.NetworkClient)
+[2018-12-24 02:25:58,119] WARN [RequestSendThread controllerId=1] Controller 1's connection to broker Stedigo:9092 (id: 1 rack: 1) was unsuccessful (kafka.controller.RequestSendThread)
+java.io.IOException: Connection to Stedigo:9092 (id: 1 rack: 1) failed.
+	at org.apache.kafka.clients.NetworkClientUtils.awaitReady(NetworkClientUtils.java:70)
+	at kafka.controller.RequestSendThread.brokerReady(ControllerChannelManager.scala:271)
+	at kafka.controller.RequestSendThread.doWork(ControllerChannelManager.scala:225)
+	at kafka.utils.ShutdownableThread.run(ShutdownableThread.scala:82)
+--STOP--
+
+
+    #
+    # Onoza shut itself down ..
+    # "current leader's latest offset 0 is less than replica's latest offset"
+    #
+
+#[Stevedore@Onoza]
+
+--START--
+[2018-12-24 02:36:42,436] ERROR [ReplicaFetcher replicaId=4, leaderId=2, fetcherId=0] Exiting because log truncation is not allowed for partition ztf_20181219_programid1-11, current leader's latest offset 0 is less than replica's latest offset 10117 (kafka.server.ReplicaFetcherThread)
+[2018-12-24 02:36:42,437] INFO [ReplicaFetcher replicaId=4, leaderId=2, fetcherId=0] Stopped (kafka.server.ReplicaFetcherThread)
+--STOP--
+
+
+    #
+    # Angece seems stable ..
+    #
+
+#[Stevedore@Angece]
+
+--START--
+--STOP--
+
+
+
+
+
