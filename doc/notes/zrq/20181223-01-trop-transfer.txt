@@ -72,14 +72,13 @@
 # Sed script to indent output.
 #[user@laptop]
 
-    sed -n '
+    sed -i '
         /^--START--/,/^--STOP--/ {
             /^--START--/ d
             /^--STOP--/  d
             s/^\(.*\)/    >   \1/
-            p
             }
-        ' 20181223-01-trop-transfer.txt
+        ' doc/notes/zrq/20181223-01-trop-transfer.txt
 
     --START--
     --STOP--
@@ -257,7 +256,6 @@
 # Create a new volume for each Kafka node.
 #[user@trop03]
 
-
     for vmname in ${kfnames[@]}
         do
             echo "---- ----"
@@ -379,7 +377,6 @@
 # -----------------------------------------------------
 # Attach the new volume to each Kafka node.
 #[user@trop03]
-
 
     for vmname in ${kfnames[@]}
         do
@@ -558,6 +555,7 @@ EOSH
                         ${sshuser:?}@${vmname:?}
                 done
         done
+
 
     >   ---- ----
     >   vmname  [Stedigo]
@@ -825,6 +823,7 @@ EOSH
                 "
         done
 
+
     >   ---- ----
     >   vmname [Stedigo]
     >   /dev/vda1       240M  118M  106M  53% /boot
@@ -1069,6 +1068,7 @@ EOSH
         " \
     | tee /tmp/topiclist
 
+
     >   ztf_20181205_programid1
     >   ztf_20181209_programid1
     >   ztf_20181210_programid1
@@ -1109,6 +1109,7 @@ EOSH
         | sort
 
     done
+
 
     >   --------------------
     >   Topic [ztf_20181205_programid1]
@@ -1507,6 +1508,7 @@ EOSH
          " \
     | sort \
     ; date
+
 
     >   Sun 23 Dec 16:24:36 GMT 2018
     >   Note: This will not show information about old Zookeeper-based consumers.
@@ -2159,6 +2161,7 @@ EOSH
 # Kafka services fail - out of disc space.
 #[user@trop03]
 
+
     >   [2018-12-23 16:49:46,181] ERROR Error while appending records to ztf_20181219_programid1-4 in dir /data1-02 (kafka.server.LogDirFailureChannel)
     >   java.io.IOException: No space left on device
     >   	at sun.nio.ch.FileDispatcherImpl.write0(Native Method)
@@ -2262,25 +2265,23 @@ EOSH
         done
 
 
---START--
----- ----
-Stedigo
-Removing stevedore_emily_1 ... done
-Removing network stevedore_default
----- ----
-Angece
-Stopping stevedore_emily_1 ... done
-Removing stevedore_emily_1 ... done
-Removing network stevedore_default
----- ----
-Edwalafia
-Removing stevedore_emily_1 ... done
-Removing network stevedore_default
----- ----
-Onoza
-Removing stevedore_emily_1 ... done
-Removing network stevedore_default
---STOP--
+    >   ---- ----
+    >   Stedigo
+    >   Removing stevedore_emily_1 ... done
+    >   Removing network stevedore_default
+    >   ---- ----
+    >   Angece
+    >   Stopping stevedore_emily_1 ... done
+    >   Removing stevedore_emily_1 ... done
+    >   Removing network stevedore_default
+    >   ---- ----
+    >   Edwalafia
+    >   Removing stevedore_emily_1 ... done
+    >   Removing network stevedore_default
+    >   ---- ----
+    >   Onoza
+    >   Removing stevedore_emily_1 ... done
+    >   Removing network stevedore_default
 
 
 # -----------------------------------------------------
@@ -2315,15 +2316,13 @@ EOF
         done
 
 
---START--
----- ----
-vmname [Stedigo]
----- ----
-vmname [Angece]
----- ----
-vmname [Edwalafia]
----- ----
---STOP--
+    >   ---- ----
+    >   vmname [Stedigo]
+    >   ---- ----
+    >   vmname [Angece]
+    >   ---- ----
+    >   vmname [Edwalafia]
+    >   ---- ----
 
 
 # -----------------------------------------------------
@@ -2343,183 +2342,181 @@ vmname [Edwalafia]
         done
 
 
---START--
----- ----
-vmname [Stedigo]
-
-version: "3.2"
-
-services:
-
-    emily:
-        image:
-            confluentinc/cp-kafka:4.1.1
-        ports:
-            - "9092:9092"
-            - "9093:9093"
-        extra_hosts:
-            - "${LISTENER_HOSTNAME}:127.0.0.2"
-        environment:
-            - KAFKA_LISTENERS=LISTENER_BOB://0.0.0.0:9092
-            - KAFKA_ADVERTISED_LISTENERS=LISTENER_BOB://${LISTENER_HOSTNAME}:9092
-            - KAFKA_INTER_BROKER_LISTENER_NAME=LISTENER_BOB
-            - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=LISTENER_BOB:PLAINTEXT,LISTENER_FRED:PLAINTEXT
-            - KAFKA_LOG_DIRS=${KAFKA_LOG_DIRS}
-            - KAFKA_BROKER_ID=${KAFKA_BROKER_ID}
-            - KAFKA_BROKER_RACK=${KAFKA_BROKER_RACK}
-            - KAFKA_ZOOKEEPER_CONNECT=${KAFKA_ZOOKEEPER_CONNECT}
-            - KAFKA_NUM_PARTITIONS=16
-            - KAFKA_DEFAULT_REPLICATION_FACTOR=3
-            - KAFKA_LOG_RETENTION_MS=-1
-            - KAFKA_LOG_RETENTION_BYTES=-1
-            - KAFKA_AUTO_CREATE_TOPICS_ENABLE=true
-            - KAFKA_MESSAGE_MAX_BYTES=10485760
-        volumes:
-            - type:   bind
-              source: /data1-02
-              target: /data1-02
-            - type:   bind
-              source: /data1-02
-              target: /data1-02
-            - type:   "bind"
-              source: "/data1-01"
-              target: "/data1-01"
-            - type:   "bind"
-              source: "/data2-01"
-              target: "/data2-01"
-
----- ----
-vmname [Angece]
-
-version: "3.2"
-
-services:
-
-    emily:
-        image:
-            confluentinc/cp-kafka:4.1.1
-        ports:
-            - "9092:9092"
-            - "9093:9093"
-        extra_hosts:
-            - "${LISTENER_HOSTNAME}:127.0.0.2"
-        environment:
-            - KAFKA_LISTENERS=LISTENER_BOB://0.0.0.0:9092
-            - KAFKA_ADVERTISED_LISTENERS=LISTENER_BOB://${LISTENER_HOSTNAME}:9092
-            - KAFKA_INTER_BROKER_LISTENER_NAME=LISTENER_BOB
-            - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=LISTENER_BOB:PLAINTEXT,LISTENER_FRED:PLAINTEXT
-            - KAFKA_LOG_DIRS=${KAFKA_LOG_DIRS}
-            - KAFKA_BROKER_ID=${KAFKA_BROKER_ID}
-            - KAFKA_BROKER_RACK=${KAFKA_BROKER_RACK}
-            - KAFKA_ZOOKEEPER_CONNECT=${KAFKA_ZOOKEEPER_CONNECT}
-            - KAFKA_NUM_PARTITIONS=16
-            - KAFKA_DEFAULT_REPLICATION_FACTOR=3
-            - KAFKA_LOG_RETENTION_MS=-1
-            - KAFKA_LOG_RETENTION_BYTES=-1
-            - KAFKA_AUTO_CREATE_TOPICS_ENABLE=true
-            - KAFKA_MESSAGE_MAX_BYTES=10485760
-        volumes:
-            - type:   bind
-              source: /data1-02
-              target: /data1-02
-            - type:   bind
-              source: /data1-02
-              target: /data1-02
-            - type:   "bind"
-              source: "/data1-01"
-              target: "/data1-01"
-            - type:   "bind"
-              source: "/data2-01"
-              target: "/data2-01"
-
----- ----
-vmname [Edwalafia]
-
-version: "3.2"
-
-services:
-
-    emily:
-        image:
-            confluentinc/cp-kafka:4.1.1
-        ports:
-            - "9092:9092"
-            - "9093:9093"
-        extra_hosts:
-            - "${LISTENER_HOSTNAME}:127.0.0.2"
-        environment:
-            - KAFKA_LISTENERS=LISTENER_BOB://0.0.0.0:9092
-            - KAFKA_ADVERTISED_LISTENERS=LISTENER_BOB://${LISTENER_HOSTNAME}:9092
-            - KAFKA_INTER_BROKER_LISTENER_NAME=LISTENER_BOB
-            - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=LISTENER_BOB:PLAINTEXT,LISTENER_FRED:PLAINTEXT
-            - KAFKA_LOG_DIRS=${KAFKA_LOG_DIRS}
-            - KAFKA_BROKER_ID=${KAFKA_BROKER_ID}
-            - KAFKA_BROKER_RACK=${KAFKA_BROKER_RACK}
-            - KAFKA_ZOOKEEPER_CONNECT=${KAFKA_ZOOKEEPER_CONNECT}
-            - KAFKA_NUM_PARTITIONS=16
-            - KAFKA_DEFAULT_REPLICATION_FACTOR=3
-            - KAFKA_LOG_RETENTION_MS=-1
-            - KAFKA_LOG_RETENTION_BYTES=-1
-            - KAFKA_AUTO_CREATE_TOPICS_ENABLE=true
-            - KAFKA_MESSAGE_MAX_BYTES=10485760
-        volumes:
-            - type:   bind
-              source: /data1-02
-              target: /data1-02
-            - type:   bind
-              source: /data1-02
-              target: /data1-02
-            - type:   "bind"
-              source: "/data1-01"
-              target: "/data1-01"
-            - type:   "bind"
-              source: "/data2-01"
-              target: "/data2-01"
-
----- ----
-vmname [Onoza]
-
-version: "3.2"
-
-services:
-
-    emily:
-        image:
-            confluentinc/cp-kafka:4.1.1
-        ports:
-            - "9092:9092"
-            - "9093:9093"
-        extra_hosts:
-            - "${LISTENER_HOSTNAME}:127.0.0.2"
-        environment:
-            - KAFKA_LISTENERS=LISTENER_BOB://0.0.0.0:9092
-            - KAFKA_ADVERTISED_LISTENERS=LISTENER_BOB://${LISTENER_HOSTNAME}:9092
-            - KAFKA_INTER_BROKER_LISTENER_NAME=LISTENER_BOB
-            - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=LISTENER_BOB:PLAINTEXT,LISTENER_FRED:PLAINTEXT
-            - KAFKA_LOG_DIRS=${KAFKA_LOG_DIRS}
-            - KAFKA_BROKER_ID=${KAFKA_BROKER_ID}
-            - KAFKA_BROKER_RACK=${KAFKA_BROKER_RACK}
-            - KAFKA_ZOOKEEPER_CONNECT=${KAFKA_ZOOKEEPER_CONNECT}
-            - KAFKA_NUM_PARTITIONS=16
-            - KAFKA_DEFAULT_REPLICATION_FACTOR=3
-            - KAFKA_LOG_RETENTION_MS=-1
-            - KAFKA_LOG_RETENTION_BYTES=-1
-            - KAFKA_AUTO_CREATE_TOPICS_ENABLE=true
-            - KAFKA_MESSAGE_MAX_BYTES=10485760
-        volumes:
-            - type:   bind
-              source: /data1-02
-              target: /data1-02
-            - type:   bind
-              source: /data1-02
-              target: /data1-02
-            - type:   "bind"
-              source: "/data1-01"
-              target: "/data1-01"
-            - type:   "bind"
-              source: "/data2-01"
-              target: "/data2-01"
---STOP--
+    >   ---- ----
+    >   vmname [Stedigo]
+    >
+    >   version: "3.2"
+    >
+    >   services:
+    >
+    >       emily:
+    >           image:
+    >               confluentinc/cp-kafka:4.1.1
+    >           ports:
+    >               - "9092:9092"
+    >               - "9093:9093"
+    >           extra_hosts:
+    >               - "${LISTENER_HOSTNAME}:127.0.0.2"
+    >           environment:
+    >               - KAFKA_LISTENERS=LISTENER_BOB://0.0.0.0:9092
+    >               - KAFKA_ADVERTISED_LISTENERS=LISTENER_BOB://${LISTENER_HOSTNAME}:9092
+    >               - KAFKA_INTER_BROKER_LISTENER_NAME=LISTENER_BOB
+    >               - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=LISTENER_BOB:PLAINTEXT,LISTENER_FRED:PLAINTEXT
+    >               - KAFKA_LOG_DIRS=${KAFKA_LOG_DIRS}
+    >               - KAFKA_BROKER_ID=${KAFKA_BROKER_ID}
+    >               - KAFKA_BROKER_RACK=${KAFKA_BROKER_RACK}
+    >               - KAFKA_ZOOKEEPER_CONNECT=${KAFKA_ZOOKEEPER_CONNECT}
+    >               - KAFKA_NUM_PARTITIONS=16
+    >               - KAFKA_DEFAULT_REPLICATION_FACTOR=3
+    >               - KAFKA_LOG_RETENTION_MS=-1
+    >               - KAFKA_LOG_RETENTION_BYTES=-1
+    >               - KAFKA_AUTO_CREATE_TOPICS_ENABLE=true
+    >               - KAFKA_MESSAGE_MAX_BYTES=10485760
+    >           volumes:
+    >               - type:   bind
+    >                 source: /data1-02
+    >                 target: /data1-02
+    >               - type:   bind
+    >                 source: /data1-02
+    >                 target: /data1-02
+    >               - type:   "bind"
+    >                 source: "/data1-01"
+    >                 target: "/data1-01"
+    >               - type:   "bind"
+    >                 source: "/data2-01"
+    >                 target: "/data2-01"
+    >
+    >   ---- ----
+    >   vmname [Angece]
+    >
+    >   version: "3.2"
+    >
+    >   services:
+    >
+    >       emily:
+    >           image:
+    >               confluentinc/cp-kafka:4.1.1
+    >           ports:
+    >               - "9092:9092"
+    >               - "9093:9093"
+    >           extra_hosts:
+    >               - "${LISTENER_HOSTNAME}:127.0.0.2"
+    >           environment:
+    >               - KAFKA_LISTENERS=LISTENER_BOB://0.0.0.0:9092
+    >               - KAFKA_ADVERTISED_LISTENERS=LISTENER_BOB://${LISTENER_HOSTNAME}:9092
+    >               - KAFKA_INTER_BROKER_LISTENER_NAME=LISTENER_BOB
+    >               - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=LISTENER_BOB:PLAINTEXT,LISTENER_FRED:PLAINTEXT
+    >               - KAFKA_LOG_DIRS=${KAFKA_LOG_DIRS}
+    >               - KAFKA_BROKER_ID=${KAFKA_BROKER_ID}
+    >               - KAFKA_BROKER_RACK=${KAFKA_BROKER_RACK}
+    >               - KAFKA_ZOOKEEPER_CONNECT=${KAFKA_ZOOKEEPER_CONNECT}
+    >               - KAFKA_NUM_PARTITIONS=16
+    >               - KAFKA_DEFAULT_REPLICATION_FACTOR=3
+    >               - KAFKA_LOG_RETENTION_MS=-1
+    >               - KAFKA_LOG_RETENTION_BYTES=-1
+    >               - KAFKA_AUTO_CREATE_TOPICS_ENABLE=true
+    >               - KAFKA_MESSAGE_MAX_BYTES=10485760
+    >           volumes:
+    >               - type:   bind
+    >                 source: /data1-02
+    >                 target: /data1-02
+    >               - type:   bind
+    >                 source: /data1-02
+    >                 target: /data1-02
+    >               - type:   "bind"
+    >                 source: "/data1-01"
+    >                 target: "/data1-01"
+    >               - type:   "bind"
+    >                 source: "/data2-01"
+    >                 target: "/data2-01"
+    >
+    >   ---- ----
+    >   vmname [Edwalafia]
+    >
+    >   version: "3.2"
+    >
+    >   services:
+    >
+    >       emily:
+    >           image:
+    >               confluentinc/cp-kafka:4.1.1
+    >           ports:
+    >               - "9092:9092"
+    >               - "9093:9093"
+    >           extra_hosts:
+    >               - "${LISTENER_HOSTNAME}:127.0.0.2"
+    >           environment:
+    >               - KAFKA_LISTENERS=LISTENER_BOB://0.0.0.0:9092
+    >               - KAFKA_ADVERTISED_LISTENERS=LISTENER_BOB://${LISTENER_HOSTNAME}:9092
+    >               - KAFKA_INTER_BROKER_LISTENER_NAME=LISTENER_BOB
+    >               - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=LISTENER_BOB:PLAINTEXT,LISTENER_FRED:PLAINTEXT
+    >               - KAFKA_LOG_DIRS=${KAFKA_LOG_DIRS}
+    >               - KAFKA_BROKER_ID=${KAFKA_BROKER_ID}
+    >               - KAFKA_BROKER_RACK=${KAFKA_BROKER_RACK}
+    >               - KAFKA_ZOOKEEPER_CONNECT=${KAFKA_ZOOKEEPER_CONNECT}
+    >               - KAFKA_NUM_PARTITIONS=16
+    >               - KAFKA_DEFAULT_REPLICATION_FACTOR=3
+    >               - KAFKA_LOG_RETENTION_MS=-1
+    >               - KAFKA_LOG_RETENTION_BYTES=-1
+    >               - KAFKA_AUTO_CREATE_TOPICS_ENABLE=true
+    >               - KAFKA_MESSAGE_MAX_BYTES=10485760
+    >           volumes:
+    >               - type:   bind
+    >                 source: /data1-02
+    >                 target: /data1-02
+    >               - type:   bind
+    >                 source: /data1-02
+    >                 target: /data1-02
+    >               - type:   "bind"
+    >                 source: "/data1-01"
+    >                 target: "/data1-01"
+    >               - type:   "bind"
+    >                 source: "/data2-01"
+    >                 target: "/data2-01"
+    >
+    >   ---- ----
+    >   vmname [Onoza]
+    >
+    >   version: "3.2"
+    >
+    >   services:
+    >
+    >       emily:
+    >           image:
+    >               confluentinc/cp-kafka:4.1.1
+    >           ports:
+    >               - "9092:9092"
+    >               - "9093:9093"
+    >           extra_hosts:
+    >               - "${LISTENER_HOSTNAME}:127.0.0.2"
+    >           environment:
+    >               - KAFKA_LISTENERS=LISTENER_BOB://0.0.0.0:9092
+    >               - KAFKA_ADVERTISED_LISTENERS=LISTENER_BOB://${LISTENER_HOSTNAME}:9092
+    >               - KAFKA_INTER_BROKER_LISTENER_NAME=LISTENER_BOB
+    >               - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=LISTENER_BOB:PLAINTEXT,LISTENER_FRED:PLAINTEXT
+    >               - KAFKA_LOG_DIRS=${KAFKA_LOG_DIRS}
+    >               - KAFKA_BROKER_ID=${KAFKA_BROKER_ID}
+    >               - KAFKA_BROKER_RACK=${KAFKA_BROKER_RACK}
+    >               - KAFKA_ZOOKEEPER_CONNECT=${KAFKA_ZOOKEEPER_CONNECT}
+    >               - KAFKA_NUM_PARTITIONS=16
+    >               - KAFKA_DEFAULT_REPLICATION_FACTOR=3
+    >               - KAFKA_LOG_RETENTION_MS=-1
+    >               - KAFKA_LOG_RETENTION_BYTES=-1
+    >               - KAFKA_AUTO_CREATE_TOPICS_ENABLE=true
+    >               - KAFKA_MESSAGE_MAX_BYTES=10485760
+    >           volumes:
+    >               - type:   bind
+    >                 source: /data1-02
+    >                 target: /data1-02
+    >               - type:   bind
+    >                 source: /data1-02
+    >                 target: /data1-02
+    >               - type:   "bind"
+    >                 source: "/data1-01"
+    >                 target: "/data1-01"
+    >               - type:   "bind"
+    >                 source: "/data2-01"
+    >                 target: "/data2-01"
 
 
 # -----------------------------------------------------
@@ -2539,44 +2536,42 @@ services:
         done
 
 
---START--
----- ----
-vmname [Stedigo]
-KAFKA_LOG_DIRS=/data1-01,/data2-01,/data1-02,/data2-02
-KAFKA_BROKER_ID=1
-KAFKA_BROKER_RACK=1
-KAFKA_ZOOKEEPER_CONNECT=192.168.203.21,192.168.203.22,192.168.203.23
-LISTENER_HOSTNAME=Stedigo
-STAT_IP=192.168.203.31
-DHCP_IP=192.168.203.17
----- ----
-vmname [Angece]
-KAFKA_LOG_DIRS=/data1-01,/data2-01,/data1-02,/data2-02
-KAFKA_BROKER_ID=2
-KAFKA_BROKER_RACK=2
-KAFKA_ZOOKEEPER_CONNECT=192.168.203.21,192.168.203.22,192.168.203.23
-LISTENER_HOSTNAME=Angece
-STAT_IP=192.168.203.32
-DHCP_IP=192.168.203.18
----- ----
-vmname [Edwalafia]
-KAFKA_LOG_DIRS=/data1-01,/data2-01,/data1-02,/data2-02
-KAFKA_BROKER_ID=3
-KAFKA_BROKER_RACK=3
-KAFKA_ZOOKEEPER_CONNECT=192.168.203.21,192.168.203.22,192.168.203.23
-LISTENER_HOSTNAME=Edwalafia
-STAT_IP=192.168.203.33
-DHCP_IP=192.168.203.19
----- ----
-vmname [Onoza]
-KAFKA_LOG_DIRS=/data1-01,/data2-01,/data1-02,/data2-02
-KAFKA_BROKER_ID=4
-KAFKA_BROKER_RACK=4
-KAFKA_ZOOKEEPER_CONNECT=192.168.203.21,192.168.203.22,192.168.203.23
-LISTENER_HOSTNAME=Onoza
-STAT_IP=192.168.203.34
-DHCP_IP=192.168.203.20
---STOP--
+    >   ---- ----
+    >   vmname [Stedigo]
+    >   KAFKA_LOG_DIRS=/data1-01,/data2-01,/data1-02,/data2-02
+    >   KAFKA_BROKER_ID=1
+    >   KAFKA_BROKER_RACK=1
+    >   KAFKA_ZOOKEEPER_CONNECT=192.168.203.21,192.168.203.22,192.168.203.23
+    >   LISTENER_HOSTNAME=Stedigo
+    >   STAT_IP=192.168.203.31
+    >   DHCP_IP=192.168.203.17
+    >   ---- ----
+    >   vmname [Angece]
+    >   KAFKA_LOG_DIRS=/data1-01,/data2-01,/data1-02,/data2-02
+    >   KAFKA_BROKER_ID=2
+    >   KAFKA_BROKER_RACK=2
+    >   KAFKA_ZOOKEEPER_CONNECT=192.168.203.21,192.168.203.22,192.168.203.23
+    >   LISTENER_HOSTNAME=Angece
+    >   STAT_IP=192.168.203.32
+    >   DHCP_IP=192.168.203.18
+    >   ---- ----
+    >   vmname [Edwalafia]
+    >   KAFKA_LOG_DIRS=/data1-01,/data2-01,/data1-02,/data2-02
+    >   KAFKA_BROKER_ID=3
+    >   KAFKA_BROKER_RACK=3
+    >   KAFKA_ZOOKEEPER_CONNECT=192.168.203.21,192.168.203.22,192.168.203.23
+    >   LISTENER_HOSTNAME=Edwalafia
+    >   STAT_IP=192.168.203.33
+    >   DHCP_IP=192.168.203.19
+    >   ---- ----
+    >   vmname [Onoza]
+    >   KAFKA_LOG_DIRS=/data1-01,/data2-01,/data1-02,/data2-02
+    >   KAFKA_BROKER_ID=4
+    >   KAFKA_BROKER_RACK=4
+    >   KAFKA_ZOOKEEPER_CONNECT=192.168.203.21,192.168.203.22,192.168.203.23
+    >   LISTENER_HOSTNAME=Onoza
+    >   STAT_IP=192.168.203.34
+    >   DHCP_IP=192.168.203.20
 
 
 # -----------------------------------------------------
@@ -2598,16 +2593,14 @@ DHCP_IP=192.168.203.20
         done
 
 
---START--
----- ----
-vmname [Afoaviel]
-Removing stevedore_tina_1 ... done
-Removing network stevedore_default
----- ----
-vmname [Rusaldez]
-Removing stevedore_tina_1 ... done
-Removing network stevedore_default
---STOP--
+    >   ---- ----
+    >   vmname [Afoaviel]
+    >   Removing stevedore_tina_1 ... done
+    >   Removing network stevedore_default
+    >   ---- ----
+    >   vmname [Rusaldez]
+    >   Removing stevedore_tina_1 ... done
+    >   Removing network stevedore_default
 
 
 # -----------------------------------------------------
@@ -2634,26 +2627,24 @@ Removing network stevedore_default
     ; date
 
 
---START--
-Sun 23 Dec 17:53:04 GMT 2018
-Consumer group 'ztf-mirror.roe.ac.uk' has no active members.
-TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID     HOST            CLIENT-ID
-ztf_20181219_programid1 0          5096            20858           15762           -               -               -
-ztf_20181219_programid1 10         5069            20859           15790           -               -               -
-ztf_20181219_programid1 11         5030            20858           15828           -               -               -
-ztf_20181219_programid1 12         5083            20858           15775           -               -               -
-ztf_20181219_programid1 13         5043            20859           15816           -               -               -
-ztf_20181219_programid1 1          5047            20859           15812           -               -               -
-ztf_20181219_programid1 2          5064            20858           15794           -               -               -
-ztf_20181219_programid1 3          5027            20859           15832           -               -               -
-ztf_20181219_programid1 4          5092            20859           15767           -               -               -
-ztf_20181219_programid1 5          5039            20858           15819           -               -               -
-ztf_20181219_programid1 6          9781            20858           11077           -               -               -
-ztf_20181219_programid1 7          9874            20859           10985           -               -               -
-ztf_20181219_programid1 8          5089            20858           15769           -               -               -
-ztf_20181219_programid1 9          5039            20859           15820           -               -               -
-Sun 23 Dec 17:53:12 GMT 2018
---STOP--
+    >   Sun 23 Dec 17:53:04 GMT 2018
+    >   Consumer group 'ztf-mirror.roe.ac.uk' has no active members.
+    >   TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID     HOST            CLIENT-ID
+    >   ztf_20181219_programid1 0          5096            20858           15762           -               -               -
+    >   ztf_20181219_programid1 10         5069            20859           15790           -               -               -
+    >   ztf_20181219_programid1 11         5030            20858           15828           -               -               -
+    >   ztf_20181219_programid1 12         5083            20858           15775           -               -               -
+    >   ztf_20181219_programid1 13         5043            20859           15816           -               -               -
+    >   ztf_20181219_programid1 1          5047            20859           15812           -               -               -
+    >   ztf_20181219_programid1 2          5064            20858           15794           -               -               -
+    >   ztf_20181219_programid1 3          5027            20859           15832           -               -               -
+    >   ztf_20181219_programid1 4          5092            20859           15767           -               -               -
+    >   ztf_20181219_programid1 5          5039            20858           15819           -               -               -
+    >   ztf_20181219_programid1 6          9781            20858           11077           -               -               -
+    >   ztf_20181219_programid1 7          9874            20859           10985           -               -               -
+    >   ztf_20181219_programid1 8          5089            20858           15769           -               -               -
+    >   ztf_20181219_programid1 9          5039            20859           15820           -               -               -
+    >   Sun 23 Dec 17:53:12 GMT 2018
 
 
 # -----------------------------------------------------
@@ -2684,25 +2675,23 @@ Sun 23 Dec 17:53:12 GMT 2018
     ; date
 
 
---START--
-Sun 23 Dec 17:59:06 GMT 2018
-TOPIC                          PARTITION  NEW-OFFSET
-ztf_20181219_programid1        0          0
-ztf_20181219_programid1        1          0
-ztf_20181219_programid1        10         0
-ztf_20181219_programid1        11         0
-ztf_20181219_programid1        12         0
-ztf_20181219_programid1        13         0
-ztf_20181219_programid1        2          0
-ztf_20181219_programid1        3          0
-ztf_20181219_programid1        4          0
-ztf_20181219_programid1        5          0
-ztf_20181219_programid1        6          0
-ztf_20181219_programid1        7          0
-ztf_20181219_programid1        8          0
-ztf_20181219_programid1        9          0
-Sun 23 Dec 17:59:14 GMT 2018
---STOP--
+    >   Sun 23 Dec 17:59:06 GMT 2018
+    >   TOPIC                          PARTITION  NEW-OFFSET
+    >   ztf_20181219_programid1        0          0
+    >   ztf_20181219_programid1        1          0
+    >   ztf_20181219_programid1        10         0
+    >   ztf_20181219_programid1        11         0
+    >   ztf_20181219_programid1        12         0
+    >   ztf_20181219_programid1        13         0
+    >   ztf_20181219_programid1        2          0
+    >   ztf_20181219_programid1        3          0
+    >   ztf_20181219_programid1        4          0
+    >   ztf_20181219_programid1        5          0
+    >   ztf_20181219_programid1        6          0
+    >   ztf_20181219_programid1        7          0
+    >   ztf_20181219_programid1        8          0
+    >   ztf_20181219_programid1        9          0
+    >   Sun 23 Dec 17:59:14 GMT 2018
 
 
 # -----------------------------------------------------
@@ -2729,25 +2718,23 @@ Sun 23 Dec 17:59:14 GMT 2018
     ; date
 
 
---START--
-Sun 23 Dec 18:00:16 GMT 2018
-TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID     HOST            CLIENT-ID
-ztf_20181219_programid1 0          0               20858           20858           -               -               -
-ztf_20181219_programid1 10         0               20859           20859           -               -               -
-ztf_20181219_programid1 1          0               20859           20859           -               -               -
-ztf_20181219_programid1 11         0               20858           20858           -               -               -
-ztf_20181219_programid1 12         0               20858           20858           -               -               -
-ztf_20181219_programid1 13         0               20859           20859           -               -               -
-ztf_20181219_programid1 2          0               20858           20858           -               -               -
-ztf_20181219_programid1 3          0               20859           20859           -               -               -
-ztf_20181219_programid1 4          0               20859           20859           -               -               -
-ztf_20181219_programid1 5          0               20858           20858           -               -               -
-ztf_20181219_programid1 6          0               20858           20858           -               -               -
-ztf_20181219_programid1 7          0               20859           20859           -               -               -
-ztf_20181219_programid1 8          0               20858           20858           -               -               -
-ztf_20181219_programid1 9          0               20859           20859           -               -               -
-Sun 23 Dec 18:00:25 GMT 2018
---STOP--
+    >   Sun 23 Dec 18:00:16 GMT 2018
+    >   TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID     HOST            CLIENT-ID
+    >   ztf_20181219_programid1 0          0               20858           20858           -               -               -
+    >   ztf_20181219_programid1 10         0               20859           20859           -               -               -
+    >   ztf_20181219_programid1 1          0               20859           20859           -               -               -
+    >   ztf_20181219_programid1 11         0               20858           20858           -               -               -
+    >   ztf_20181219_programid1 12         0               20858           20858           -               -               -
+    >   ztf_20181219_programid1 13         0               20859           20859           -               -               -
+    >   ztf_20181219_programid1 2          0               20858           20858           -               -               -
+    >   ztf_20181219_programid1 3          0               20859           20859           -               -               -
+    >   ztf_20181219_programid1 4          0               20859           20859           -               -               -
+    >   ztf_20181219_programid1 5          0               20858           20858           -               -               -
+    >   ztf_20181219_programid1 6          0               20858           20858           -               -               -
+    >   ztf_20181219_programid1 7          0               20859           20859           -               -               -
+    >   ztf_20181219_programid1 8          0               20858           20858           -               -               -
+    >   ztf_20181219_programid1 9          0               20859           20859           -               -               -
+    >   Sun 23 Dec 18:00:25 GMT 2018
 
 
 # -----------------------------------------------------
@@ -2769,24 +2756,22 @@ Sun 23 Dec 18:00:25 GMT 2018
         done
 
 
---START--
----- ----
-Stedigo
-Creating network "stevedore_default" with the default driver
-Creating stevedore_emily_1 ... done
----- ----
-Angece
-Creating network "stevedore_default" with the default driver
-Creating stevedore_emily_1 ... done
----- ----
-Edwalafia
-Creating network "stevedore_default" with the default driver
-Creating stevedore_emily_1 ... done
----- ----
-Onoza
-Creating network "stevedore_default" with the default driver
-Creating stevedore_emily_1 ... done
---STOP--
+    >   ---- ----
+    >   Stedigo
+    >   Creating network "stevedore_default" with the default driver
+    >   Creating stevedore_emily_1 ... done
+    >   ---- ----
+    >   Angece
+    >   Creating network "stevedore_default" with the default driver
+    >   Creating stevedore_emily_1 ... done
+    >   ---- ----
+    >   Edwalafia
+    >   Creating network "stevedore_default" with the default driver
+    >   Creating stevedore_emily_1 ... done
+    >   ---- ----
+    >   Onoza
+    >   Creating network "stevedore_default" with the default driver
+    >   Creating stevedore_emily_1 ... done
 
 
 # -----------------------------------------------------
@@ -2817,20 +2802,18 @@ Creating stevedore_emily_1 ... done
         done
 
 
---START--
----- ----
-vmname [Afoaviel]
-Removing network stevedore_default
-Network stevedore_default not found.
-Creating network "stevedore_default" with the default driver
-Creating stevedore_tina_1 ... done
----- ----
-vmname [Rusaldez]
-Removing network stevedore_default
-Network stevedore_default not found.
-Creating network "stevedore_default" with the default driver
-Creating stevedore_tina_1 ... done
---STOP--
+    >   ---- ----
+    >   vmname [Afoaviel]
+    >   Removing network stevedore_default
+    >   Network stevedore_default not found.
+    >   Creating network "stevedore_default" with the default driver
+    >   Creating stevedore_tina_1 ... done
+    >   ---- ----
+    >   vmname [Rusaldez]
+    >   Removing network stevedore_default
+    >   Network stevedore_default not found.
+    >   Creating network "stevedore_default" with the default driver
+    >   Creating stevedore_tina_1 ... done
 
 
 # -----------------------------------------------------
@@ -2857,27 +2840,25 @@ Creating stevedore_tina_1 ... done
     ; date
 
 
---START--
-Sun 23 Dec 18:04:38 GMT 2018
-Note: This will not show information about old Zookeeper-based consumers.
-
-TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                 HOST            CLIENT-ID
-ztf_20181219_programid1 0          0               20858           20858           ztf-mirror.roe.ac.uk-0-36539a6f-486a-4421-8012-8d92e240df9f /129.215.175.98 ztf-mirror.roe.ac.uk-0
-ztf_20181219_programid1 10         0               20859           20859           ztf-mirror.roe.ac.uk-1-c167ec83-0eb2-41ed-9ecf-1216cdbff769 /129.215.175.98 ztf-mirror.roe.ac.uk-1
-ztf_20181219_programid1 1          0               20859           20859           ztf-mirror.roe.ac.uk-0-d16c3c6b-493c-4f6d-9d38-25f6d29df9aa /129.215.175.98 ztf-mirror.roe.ac.uk-0
-ztf_20181219_programid1 11         0               20858           20858           ztf-mirror.roe.ac.uk-1-cfd01f47-4868-40e9-b188-6ef45c997982 /129.215.175.98 ztf-mirror.roe.ac.uk-1
-ztf_20181219_programid1 12         0               20858           20858           ztf-mirror.roe.ac.uk-2-b92f20df-c7d9-4b91-be69-4a70a85e8471 /129.215.175.98 ztf-mirror.roe.ac.uk-2
-ztf_20181219_programid1 13         0               20859           20859           ztf-mirror.roe.ac.uk-2-dbb34f92-d503-44f7-962e-7287fb92785a /129.215.175.98 ztf-mirror.roe.ac.uk-2
-ztf_20181219_programid1 2          0               20858           20858           ztf-mirror.roe.ac.uk-1-c167ec83-0eb2-41ed-9ecf-1216cdbff769 /129.215.175.98 ztf-mirror.roe.ac.uk-1
-ztf_20181219_programid1 3          0               20859           20859           ztf-mirror.roe.ac.uk-1-cfd01f47-4868-40e9-b188-6ef45c997982 /129.215.175.98 ztf-mirror.roe.ac.uk-1
-ztf_20181219_programid1 4          0               20859           20859           ztf-mirror.roe.ac.uk-2-b92f20df-c7d9-4b91-be69-4a70a85e8471 /129.215.175.98 ztf-mirror.roe.ac.uk-2
-ztf_20181219_programid1 5          0               20858           20858           ztf-mirror.roe.ac.uk-2-dbb34f92-d503-44f7-962e-7287fb92785a /129.215.175.98 ztf-mirror.roe.ac.uk-2
-ztf_20181219_programid1 6          0               20858           20858           ztf-mirror.roe.ac.uk-3-95738f3d-3064-4d72-9892-52323a36f9e4 /129.215.175.98 ztf-mirror.roe.ac.uk-3
-ztf_20181219_programid1 7          0               20859           20859           ztf-mirror.roe.ac.uk-3-f3b71c51-f24a-4816-bbc7-de09d7e51d42 /129.215.175.98 ztf-mirror.roe.ac.uk-3
-ztf_20181219_programid1 8          0               20858           20858           ztf-mirror.roe.ac.uk-0-36539a6f-486a-4421-8012-8d92e240df9f /129.215.175.98 ztf-mirror.roe.ac.uk-0
-ztf_20181219_programid1 9          0               20859           20859           ztf-mirror.roe.ac.uk-0-d16c3c6b-493c-4f6d-9d38-25f6d29df9aa /129.215.175.98 ztf-mirror.roe.ac.uk-0
-Sun 23 Dec 18:04:45 GMT 2018
---STOP--
+    >   Sun 23 Dec 18:04:38 GMT 2018
+    >   Note: This will not show information about old Zookeeper-based consumers.
+    >
+    >   TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                 HOST            CLIENT-ID
+    >   ztf_20181219_programid1 0          0               20858           20858           ztf-mirror.roe.ac.uk-0-36539a6f-486a-4421-8012-8d92e240df9f /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181219_programid1 10         0               20859           20859           ztf-mirror.roe.ac.uk-1-c167ec83-0eb2-41ed-9ecf-1216cdbff769 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181219_programid1 1          0               20859           20859           ztf-mirror.roe.ac.uk-0-d16c3c6b-493c-4f6d-9d38-25f6d29df9aa /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181219_programid1 11         0               20858           20858           ztf-mirror.roe.ac.uk-1-cfd01f47-4868-40e9-b188-6ef45c997982 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181219_programid1 12         0               20858           20858           ztf-mirror.roe.ac.uk-2-b92f20df-c7d9-4b91-be69-4a70a85e8471 /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181219_programid1 13         0               20859           20859           ztf-mirror.roe.ac.uk-2-dbb34f92-d503-44f7-962e-7287fb92785a /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181219_programid1 2          0               20858           20858           ztf-mirror.roe.ac.uk-1-c167ec83-0eb2-41ed-9ecf-1216cdbff769 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181219_programid1 3          0               20859           20859           ztf-mirror.roe.ac.uk-1-cfd01f47-4868-40e9-b188-6ef45c997982 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181219_programid1 4          0               20859           20859           ztf-mirror.roe.ac.uk-2-b92f20df-c7d9-4b91-be69-4a70a85e8471 /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181219_programid1 5          0               20858           20858           ztf-mirror.roe.ac.uk-2-dbb34f92-d503-44f7-962e-7287fb92785a /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181219_programid1 6          0               20858           20858           ztf-mirror.roe.ac.uk-3-95738f3d-3064-4d72-9892-52323a36f9e4 /129.215.175.98 ztf-mirror.roe.ac.uk-3
+    >   ztf_20181219_programid1 7          0               20859           20859           ztf-mirror.roe.ac.uk-3-f3b71c51-f24a-4816-bbc7-de09d7e51d42 /129.215.175.98 ztf-mirror.roe.ac.uk-3
+    >   ztf_20181219_programid1 8          0               20858           20858           ztf-mirror.roe.ac.uk-0-36539a6f-486a-4421-8012-8d92e240df9f /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181219_programid1 9          0               20859           20859           ztf-mirror.roe.ac.uk-0-d16c3c6b-493c-4f6d-9d38-25f6d29df9aa /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   Sun 23 Dec 18:04:45 GMT 2018
 
 
 # -----------------------------------------------------
@@ -2887,100 +2868,84 @@ Sun 23 Dec 18:04:45 GMT 2018
 #[user@trop03]
 
 
---START--
-[2018-12-23 18:13:23,784] INFO [ProducerStateManager partition=ztf_20181212_programid1-2] Writing producer snapshot at offset 9897 (kafka.log.ProducerStateManager)
-[2018-12-23 18:13:23,784] INFO [Log partition=ztf_20181212_programid1-2, dir=/data1-01] Loading producer state from offset 9897 with message format version 2 (kafka.log.Log)
-[2018-12-23 18:13:23,785] INFO [ProducerStateManager partition=ztf_20181212_programid1-2] Loading producer state from snapshot file '/data1-01/ztf_20181212_programid1-2/00000000000000009897.snapshot' (kafka.log.ProducerStateManager)
-[2018-12-23 18:13:23,785] INFO [Log partition=ztf_20181212_programid1-2, dir=/data1-01] Completed load of log with 1 segments, log start offset 0 and log end offset 9897 in 41622 ms (kafka.log.Log)
-[2018-12-23 18:13:23,852] WARN [Log partition=ztf_20181212_programid1-9, dir=/data1-01] Found a corrupted index file corresponding to log file /data1-01/ztf_20181212_programid1-9/00000000000000000000.log due to Corrupt index found, index file (/data1-01/ztf_20181212_programid1-9/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
-[2018-12-23 18:13:36,001] INFO [ProducerStateManager partition=ztf_20181212_programid1-5] Writing producer snapshot at offset 9897 (kafka.log.ProducerStateManager)
-[2018-12-23 18:13:36,002] INFO [Log partition=ztf_20181212_programid1-5, dir=/data2-01] Recovering unflushed segment 0 (kafka.log.Log)
-[2018-12-23 18:13:37,363] INFO [ProducerStateManager partition=ztf_20181212_programid1-5] Writing producer snapshot at offset 9897 (kafka.log.ProducerStateManager)
-[2018-12-23 18:13:37,364] INFO [Log partition=ztf_20181212_programid1-5, dir=/data2-01] Loading producer state from offset 9897 with message format version 2 (kafka.log.Log)
-[2018-12-23 18:13:37,364] INFO [ProducerStateManager partition=ztf_20181212_programid1-5] Loading producer state from snapshot file '/data2-01/ztf_20181212_programid1-5/00000000000000009897.snapshot' (kafka.log.ProducerStateManager)
-[2018-12-23 18:13:37,365] INFO [Log partition=ztf_20181212_programid1-5, dir=/data2-01] Completed load of log with 1 segments, log start offset 0 and log end offset 9897 in 43014 ms (kafka.log.Log)
-[2018-12-23 18:13:37,369] WARN [Log partition=ztf_20181212_programid1-15, dir=/data2-01] Found a corrupted index file corresponding to log file /data2-01/ztf_20181212_programid1-15/00000000000000000000.log due to Corrupt index found, index file (/data2-01/ztf_20181212_programid1-15/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and
---STOP--
+    >   [2018-12-23 18:13:23,784] INFO [ProducerStateManager partition=ztf_20181212_programid1-2] Writing producer snapshot at offset 9897 (kafka.log.ProducerStateManager)
+    >   [2018-12-23 18:13:23,784] INFO [Log partition=ztf_20181212_programid1-2, dir=/data1-01] Loading producer state from offset 9897 with message format version 2 (kafka.log.Log)
+    >   [2018-12-23 18:13:23,785] INFO [ProducerStateManager partition=ztf_20181212_programid1-2] Loading producer state from snapshot file '/data1-01/ztf_20181212_programid1-2/00000000000000009897.snapshot' (kafka.log.ProducerStateManager)
+    >   [2018-12-23 18:13:23,785] INFO [Log partition=ztf_20181212_programid1-2, dir=/data1-01] Completed load of log with 1 segments, log start offset 0 and log end offset 9897 in 41622 ms (kafka.log.Log)
+    >   [2018-12-23 18:13:23,852] WARN [Log partition=ztf_20181212_programid1-9, dir=/data1-01] Found a corrupted index file corresponding to log file /data1-01/ztf_20181212_programid1-9/00000000000000000000.log due to Corrupt index found, index file (/data1-01/ztf_20181212_programid1-9/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
+    >   [2018-12-23 18:13:36,001] INFO [ProducerStateManager partition=ztf_20181212_programid1-5] Writing producer snapshot at offset 9897 (kafka.log.ProducerStateManager)
+    >   [2018-12-23 18:13:36,002] INFO [Log partition=ztf_20181212_programid1-5, dir=/data2-01] Recovering unflushed segment 0 (kafka.log.Log)
+    >   [2018-12-23 18:13:37,363] INFO [ProducerStateManager partition=ztf_20181212_programid1-5] Writing producer snapshot at offset 9897 (kafka.log.ProducerStateManager)
+    >   [2018-12-23 18:13:37,364] INFO [Log partition=ztf_20181212_programid1-5, dir=/data2-01] Loading producer state from offset 9897 with message format version 2 (kafka.log.Log)
+    >   [2018-12-23 18:13:37,364] INFO [ProducerStateManager partition=ztf_20181212_programid1-5] Loading producer state from snapshot file '/data2-01/ztf_20181212_programid1-5/00000000000000009897.snapshot' (kafka.log.ProducerStateManager)
+    >   [2018-12-23 18:13:37,365] INFO [Log partition=ztf_20181212_programid1-5, dir=/data2-01] Completed load of log with 1 segments, log start offset 0 and log end offset 9897 in 43014 ms (kafka.log.Log)
+    >   [2018-12-23 18:13:37,369] WARN [Log partition=ztf_20181212_programid1-15, dir=/data2-01] Found a corrupted index file corresponding to log file /data2-01/ztf_20181212_programid1-15/00000000000000000000.log due to Corrupt index found, index file (/data2-01/ztf_20181212_programid1-15/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and
 
 
---START--
-[2018-12-23 18:14:25,989] INFO [ProducerStateManager partition=ztf_20181212_programid1-3] Loading producer state from snapshot file '/data2-01/ztf_20181212_programid1-3/00000000000000009896.snapshot' (kafka.log.ProducerStateManager)
-[2018-12-23 18:14:25,989] INFO [Log partition=ztf_20181212_programid1-3, dir=/data2-01] Completed load of log with 1 segments, log start offset 0 and log end offset 9896 in 40861 ms (kafka.log.Log)
-[2018-12-23 18:14:25,994] WARN [Log partition=ztf_20181212_programid1-7, dir=/data2-01] Found a corrupted index file corresponding to log file /data2-01/ztf_20181212_programid1-7/00000000000000000000.log due to Corrupt index found, index file (/data2-01/ztf_20181212_programid1-7/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
-[2018-12-23 18:14:39,107] INFO [ProducerStateManager partition=ztf_20181212_programid1-10] Writing producer snapshot at offset 9896 (kafka.log.ProducerStateManager)
-[2018-12-23 18:14:39,108] INFO [Log partition=ztf_20181212_programid1-10, dir=/data1-01] Recovering unflushed segment 0 (kafka.log.Log)
-[2018-12-23 18:14:40,885] INFO [ProducerStateManager partition=ztf_20181212_programid1-10] Writing producer snapshot at offset 9896 (kafka.log.ProducerStateManager)
-[2018-12-23 18:14:40,886] INFO [Log partition=ztf_20181212_programid1-10, dir=/data1-01] Loading producer state from offset 9896 with message format version 2 (kafka.log.Log)
-[2018-12-23 18:14:40,886] INFO [ProducerStateManager partition=ztf_20181212_programid1-10] Loading producer state from snapshot file '/data1-01/ztf_20181212_programid1-10/00000000000000009896.snapshot' (kafka.log.ProducerStateManager)
-[2018-12-23 18:14:40,887] INFO [Log partition=ztf_20181212_programid1-10, dir=/data1-01] Completed load of log with 1 segments, log start offset 0 and log end offset 9896 in 40308 ms (kafka.log.Log)
-[2018-12-23 18:14:40,898] WARN [Log partition=ztf_20181213_programid1-9, dir=/data1-01] Found a corrupted index file corresponding to log file /data1-01/ztf_20181213_programid1-9/00000000000000000000.log due to Corrupt index found, index file (/data1-01/ztf_20181213_programid1-9/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
---STOP--
+    >   [2018-12-23 18:14:25,989] INFO [ProducerStateManager partition=ztf_20181212_programid1-3] Loading producer state from snapshot file '/data2-01/ztf_20181212_programid1-3/00000000000000009896.snapshot' (kafka.log.ProducerStateManager)
+    >   [2018-12-23 18:14:25,989] INFO [Log partition=ztf_20181212_programid1-3, dir=/data2-01] Completed load of log with 1 segments, log start offset 0 and log end offset 9896 in 40861 ms (kafka.log.Log)
+    >   [2018-12-23 18:14:25,994] WARN [Log partition=ztf_20181212_programid1-7, dir=/data2-01] Found a corrupted index file corresponding to log file /data2-01/ztf_20181212_programid1-7/00000000000000000000.log due to Corrupt index found, index file (/data2-01/ztf_20181212_programid1-7/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
+    >   [2018-12-23 18:14:39,107] INFO [ProducerStateManager partition=ztf_20181212_programid1-10] Writing producer snapshot at offset 9896 (kafka.log.ProducerStateManager)
+    >   [2018-12-23 18:14:39,108] INFO [Log partition=ztf_20181212_programid1-10, dir=/data1-01] Recovering unflushed segment 0 (kafka.log.Log)
+    >   [2018-12-23 18:14:40,885] INFO [ProducerStateManager partition=ztf_20181212_programid1-10] Writing producer snapshot at offset 9896 (kafka.log.ProducerStateManager)
+    >   [2018-12-23 18:14:40,886] INFO [Log partition=ztf_20181212_programid1-10, dir=/data1-01] Loading producer state from offset 9896 with message format version 2 (kafka.log.Log)
+    >   [2018-12-23 18:14:40,886] INFO [ProducerStateManager partition=ztf_20181212_programid1-10] Loading producer state from snapshot file '/data1-01/ztf_20181212_programid1-10/00000000000000009896.snapshot' (kafka.log.ProducerStateManager)
+    >   [2018-12-23 18:14:40,887] INFO [Log partition=ztf_20181212_programid1-10, dir=/data1-01] Completed load of log with 1 segments, log start offset 0 and log end offset 9896 in 40308 ms (kafka.log.Log)
+    >   [2018-12-23 18:14:40,898] WARN [Log partition=ztf_20181213_programid1-9, dir=/data1-01] Found a corrupted index file corresponding to log file /data1-01/ztf_20181213_programid1-9/00000000000000000000.log due to Corrupt index found, index file (/data1-01/ztf_20181213_programid1-9/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
 
 
---START--
-[2018-12-23 18:14:27,854] INFO [Log partition=ztf_20181212_programid1-13, dir=/data2-01] Loading producer state from offset 9897 with message format version 2 (kafka.log.Log)
-[2018-12-23 18:14:27,855] INFO [ProducerStateManager partition=ztf_20181212_programid1-13] Loading producer state from snapshot file '/data2-01/ztf_20181212_programid1-13/00000000000000009897.snapshot' (kafka.log.ProducerStateManager)
-[2018-12-23 18:14:27,855] INFO [Log partition=ztf_20181212_programid1-13, dir=/data2-01] Completed load of log with 1 segments, log start offset 0 and log end offset 9897 in 42567 ms (kafka.log.Log)
-[2018-12-23 18:14:27,861] WARN [Log partition=ztf_20181212_programid1-4, dir=/data2-01] Found a corrupted index file corresponding to log file /data2-01/ztf_20181212_programid1-4/00000000000000000000.log due to Corrupt index found, index file (/data2-01/ztf_20181212_programid1-4/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
-[2018-12-23 18:14:42,066] INFO [ProducerStateManager partition=ztf_20181212_programid1-1] Writing producer snapshot at offset 9896 (kafka.log.ProducerStateManager)
-[2018-12-23 18:14:42,068] INFO [Log partition=ztf_20181212_programid1-1, dir=/data1-01] Recovering unflushed segment 0 (kafka.log.Log)
-[2018-12-23 18:14:43,665] INFO [ProducerStateManager partition=ztf_20181212_programid1-1] Writing producer snapshot at offset 9896 (kafka.log.ProducerStateManager)
-[2018-12-23 18:14:43,667] INFO [Log partition=ztf_20181212_programid1-1, dir=/data1-01] Loading producer state from offset 9896 with message format version 2 (kafka.log.Log)
-[2018-12-23 18:14:43,668] INFO [ProducerStateManager partition=ztf_20181212_programid1-1] Loading producer state from snapshot file '/data1-01/ztf_20181212_programid1-1/00000000000000009896.snapshot' (kafka.log.ProducerStateManager)
-[2018-12-23 18:14:43,673] INFO [Log partition=ztf_20181212_programid1-1, dir=/data1-01] Completed load of log with 1 segments, log start offset 0 and log end offset 9896 in 43052 ms (kafka.log.Log)
-[2018-12-23 18:14:43,683] WARN [Log partition=ztf_20181213_programid1-7, dir=/data1-01] Found a corrupted index file corresponding to log file /data1-01/ztf_20181213_programid1-7/00000000000000000000.log due to Corrupt index found, index file (/data1-01/ztf_20181213_programid1-7/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
---STOP--
+    >   [2018-12-23 18:14:27,854] INFO [Log partition=ztf_20181212_programid1-13, dir=/data2-01] Loading producer state from offset 9897 with message format version 2 (kafka.log.Log)
+    >   [2018-12-23 18:14:27,855] INFO [ProducerStateManager partition=ztf_20181212_programid1-13] Loading producer state from snapshot file '/data2-01/ztf_20181212_programid1-13/00000000000000009897.snapshot' (kafka.log.ProducerStateManager)
+    >   [2018-12-23 18:14:27,855] INFO [Log partition=ztf_20181212_programid1-13, dir=/data2-01] Completed load of log with 1 segments, log start offset 0 and log end offset 9897 in 42567 ms (kafka.log.Log)
+    >   [2018-12-23 18:14:27,861] WARN [Log partition=ztf_20181212_programid1-4, dir=/data2-01] Found a corrupted index file corresponding to log file /data2-01/ztf_20181212_programid1-4/00000000000000000000.log due to Corrupt index found, index file (/data2-01/ztf_20181212_programid1-4/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
+    >   [2018-12-23 18:14:42,066] INFO [ProducerStateManager partition=ztf_20181212_programid1-1] Writing producer snapshot at offset 9896 (kafka.log.ProducerStateManager)
+    >   [2018-12-23 18:14:42,068] INFO [Log partition=ztf_20181212_programid1-1, dir=/data1-01] Recovering unflushed segment 0 (kafka.log.Log)
+    >   [2018-12-23 18:14:43,665] INFO [ProducerStateManager partition=ztf_20181212_programid1-1] Writing producer snapshot at offset 9896 (kafka.log.ProducerStateManager)
+    >   [2018-12-23 18:14:43,667] INFO [Log partition=ztf_20181212_programid1-1, dir=/data1-01] Loading producer state from offset 9896 with message format version 2 (kafka.log.Log)
+    >   [2018-12-23 18:14:43,668] INFO [ProducerStateManager partition=ztf_20181212_programid1-1] Loading producer state from snapshot file '/data1-01/ztf_20181212_programid1-1/00000000000000009896.snapshot' (kafka.log.ProducerStateManager)
+    >   [2018-12-23 18:14:43,673] INFO [Log partition=ztf_20181212_programid1-1, dir=/data1-01] Completed load of log with 1 segments, log start offset 0 and log end offset 9896 in 43052 ms (kafka.log.Log)
+    >   [2018-12-23 18:14:43,683] WARN [Log partition=ztf_20181213_programid1-7, dir=/data1-01] Found a corrupted index file corresponding to log file /data1-01/ztf_20181213_programid1-7/00000000000000000000.log due to Corrupt index found, index file (/data1-01/ztf_20181213_programid1-7/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
 
 
---START--
-[2018-12-23 18:14:43,315] INFO [Log partition=ztf_20181212_programid1-1, dir=/data1-01] Loading producer state from offset 9896 with message format version 2 (kafka.log.Log)
-[2018-12-23 18:14:43,316] INFO [ProducerStateManager partition=ztf_20181212_programid1-1] Loading producer state from snapshot file '/data1-01/ztf_20181212_programid1-1/00000000000000009896.snapshot' (kafka.log.ProducerStateManager)
-[2018-12-23 18:14:43,317] INFO [Log partition=ztf_20181212_programid1-1, dir=/data1-01] Completed load of log with 1 segments, log start offset 0 and log end offset 9896 in 41473 ms (kafka.log.Log)
-[2018-12-23 18:14:43,327] WARN [Log partition=ztf_20181213_programid1-10, dir=/data1-01] Found a corrupted index file corresponding to log file /data1-01/ztf_20181213_programid1-10/00000000000000000000.log due to Corrupt index found, index file (/data1-01/ztf_20181213_programid1-10/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
-[2018-12-23 18:14:55,330] INFO [ProducerStateManager partition=ztf_20181212_programid1-4] Writing producer snapshot at offset 9897 (kafka.log.ProducerStateManager)
-[2018-12-23 18:14:55,331] INFO [Log partition=ztf_20181212_programid1-4, dir=/data2-01] Recovering unflushed segment 0 (kafka.log.Log)
-[2018-12-23 18:14:57,162] INFO [ProducerStateManager partition=ztf_20181212_programid1-4] Writing producer snapshot at offset 9897 (kafka.log.ProducerStateManager)
-[2018-12-23 18:14:57,163] INFO [Log partition=ztf_20181212_programid1-4, dir=/data2-01] Loading producer state from offset 9897 with message format version 2 (kafka.log.Log)
-[2018-12-23 18:14:57,164] INFO [ProducerStateManager partition=ztf_20181212_programid1-4] Loading producer state from snapshot file '/data2-01/ztf_20181212_programid1-4/00000000000000009897.snapshot' (kafka.log.ProducerStateManager)
-[2018-12-23 18:14:57,165] INFO [Log partition=ztf_20181212_programid1-4, dir=/data2-01] Completed load of log with 1 segments, log start offset 0 and log end offset 9897 in 41880 ms (kafka.log.Log)
-[2018-12-23 18:14:57,171] WARN [Log partition=ztf_20181213_programid1-6, dir=/data2-01] Found a corrupted index file corresponding to log file /data2-01/ztf_20181213_programid1-6/00000000000000000000.log due to Corrupt index found, index file (/data2-01/ztf_20181213_programid1-6/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
---STOP--
+    >   [2018-12-23 18:14:43,315] INFO [Log partition=ztf_20181212_programid1-1, dir=/data1-01] Loading producer state from offset 9896 with message format version 2 (kafka.log.Log)
+    >   [2018-12-23 18:14:43,316] INFO [ProducerStateManager partition=ztf_20181212_programid1-1] Loading producer state from snapshot file '/data1-01/ztf_20181212_programid1-1/00000000000000009896.snapshot' (kafka.log.ProducerStateManager)
+    >   [2018-12-23 18:14:43,317] INFO [Log partition=ztf_20181212_programid1-1, dir=/data1-01] Completed load of log with 1 segments, log start offset 0 and log end offset 9896 in 41473 ms (kafka.log.Log)
+    >   [2018-12-23 18:14:43,327] WARN [Log partition=ztf_20181213_programid1-10, dir=/data1-01] Found a corrupted index file corresponding to log file /data1-01/ztf_20181213_programid1-10/00000000000000000000.log due to Corrupt index found, index file (/data1-01/ztf_20181213_programid1-10/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
+    >   [2018-12-23 18:14:55,330] INFO [ProducerStateManager partition=ztf_20181212_programid1-4] Writing producer snapshot at offset 9897 (kafka.log.ProducerStateManager)
+    >   [2018-12-23 18:14:55,331] INFO [Log partition=ztf_20181212_programid1-4, dir=/data2-01] Recovering unflushed segment 0 (kafka.log.Log)
+    >   [2018-12-23 18:14:57,162] INFO [ProducerStateManager partition=ztf_20181212_programid1-4] Writing producer snapshot at offset 9897 (kafka.log.ProducerStateManager)
+    >   [2018-12-23 18:14:57,163] INFO [Log partition=ztf_20181212_programid1-4, dir=/data2-01] Loading producer state from offset 9897 with message format version 2 (kafka.log.Log)
+    >   [2018-12-23 18:14:57,164] INFO [ProducerStateManager partition=ztf_20181212_programid1-4] Loading producer state from snapshot file '/data2-01/ztf_20181212_programid1-4/00000000000000009897.snapshot' (kafka.log.ProducerStateManager)
+    >   [2018-12-23 18:14:57,165] INFO [Log partition=ztf_20181212_programid1-4, dir=/data2-01] Completed load of log with 1 segments, log start offset 0 and log end offset 9897 in 41880 ms (kafka.log.Log)
+    >   [2018-12-23 18:14:57,171] WARN [Log partition=ztf_20181213_programid1-6, dir=/data2-01] Found a corrupted index file corresponding to log file /data2-01/ztf_20181213_programid1-6/00000000000000000000.log due to Corrupt index found, index file (/data2-01/ztf_20181213_programid1-6/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
 
 
 # -----------------------------------------------------
 # Kafka debug logs stabilize ...
 #[user@trop03]
 
---START--
-[2018-12-23 18:49:45,280] DEBUG [Controller id=3] Topics not in preferred replica for broker 2 Map() (kafka.controller.KafkaController)
-[2018-12-23 18:49:45,280] TRACE [Controller id=3] Leader imbalance ratio for broker 2 is 0.0 (kafka.controller.KafkaController)
-[2018-12-23 18:49:45,280] DEBUG [Controller id=3] Topics not in preferred replica for broker 4 Map() (kafka.controller.KafkaController)
-[2018-12-23 18:49:45,280] TRACE [Controller id=3] Leader imbalance ratio for broker 4 is 0.0 (kafka.controller.KafkaController)
-[2018-12-23 18:49:45,280] DEBUG [Controller id=3] Topics not in preferred replica for broker 1 Map() (kafka.controller.KafkaController)
-[2018-12-23 18:49:45,280] TRACE [Controller id=3] Leader imbalance ratio for broker 1 is 0.0 (kafka.controller.KafkaController)
-[2018-12-23 18:49:45,280] DEBUG [Controller id=3] Topics not in preferred replica for broker 3 Map() (kafka.controller.KafkaController)
-[2018-12-23 18:49:45,281] TRACE [Controller id=3] Leader imbalance ratio for broker 3 is 0.0 (kafka.controller.KafkaController)
---STOP--
+    >   [2018-12-23 18:49:45,280] DEBUG [Controller id=3] Topics not in preferred replica for broker 2 Map() (kafka.controller.KafkaController)
+    >   [2018-12-23 18:49:45,280] TRACE [Controller id=3] Leader imbalance ratio for broker 2 is 0.0 (kafka.controller.KafkaController)
+    >   [2018-12-23 18:49:45,280] DEBUG [Controller id=3] Topics not in preferred replica for broker 4 Map() (kafka.controller.KafkaController)
+    >   [2018-12-23 18:49:45,280] TRACE [Controller id=3] Leader imbalance ratio for broker 4 is 0.0 (kafka.controller.KafkaController)
+    >   [2018-12-23 18:49:45,280] DEBUG [Controller id=3] Topics not in preferred replica for broker 1 Map() (kafka.controller.KafkaController)
+    >   [2018-12-23 18:49:45,280] TRACE [Controller id=3] Leader imbalance ratio for broker 1 is 0.0 (kafka.controller.KafkaController)
+    >   [2018-12-23 18:49:45,280] DEBUG [Controller id=3] Topics not in preferred replica for broker 3 Map() (kafka.controller.KafkaController)
+    >   [2018-12-23 18:49:45,281] TRACE [Controller id=3] Leader imbalance ratio for broker 3 is 0.0 (kafka.controller.KafkaController)
 
---START--
-[2018-12-23 18:44:45,565] INFO [Log partition=ztf_20181215_programid1-11, dir=/data2-01] Truncating to 640 has no effect as the largest offset in the log is 639 (kafka.log.Log)
-[2018-12-23 18:44:45,565] WARN [ReplicaFetcher replicaId=4, leaderId=3, fetcherId=0] Based on follower's leader epoch, leader replied with an unknown offset in ztf_20181219_programid1-14. The initial fetch offset 0 will be used for truncation. (kafka.server.ReplicaFetcherThread)
-[2018-12-23 18:44:45,565] INFO [Log partition=ztf_20181219_programid1-14, dir=/data2-02] Truncating to 0 has no effect as the largest offset in the log is -1 (kafka.log.Log)
---STOP--
+    >   [2018-12-23 18:44:45,565] INFO [Log partition=ztf_20181215_programid1-11, dir=/data2-01] Truncating to 640 has no effect as the largest offset in the log is 639 (kafka.log.Log)
+    >   [2018-12-23 18:44:45,565] WARN [ReplicaFetcher replicaId=4, leaderId=3, fetcherId=0] Based on follower's leader epoch, leader replied with an unknown offset in ztf_20181219_programid1-14. The initial fetch offset 0 will be used for truncation. (kafka.server.ReplicaFetcherThread)
+    >   [2018-12-23 18:44:45,565] INFO [Log partition=ztf_20181219_programid1-14, dir=/data2-02] Truncating to 0 has no effect as the largest offset in the log is -1 (kafka.log.Log)
 
---START--
-[2018-12-23 18:44:45,520] INFO [Log partition=ztf_20181216_programid1-7, dir=/data1-01] Truncating to 8650 has no effect as the largest offset in the log is 8649 (kafka.log.Log)
-[2018-12-23 18:44:45,520] INFO [ReplicaFetcher replicaId=2, leaderId=3, fetcherId=0] Based on follower's leader epoch, leader replied with an offset 6744 >= the follower's log end offset 6744 in ztf_20181210_programid1-10. No truncation needed. (kafka.server.ReplicaFetcherThread)
-[2018-12-23 18:44:45,520] INFO [Log partition=ztf_20181210_programid1-10, dir=/data1-01] Truncating to 6744 has no effect as the largest offset in the log is 6743 (kafka.log.Log)
-[2018-12-23 18:52:24,569] INFO [GroupMetadataManager brokerId=2] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
---STOP--
+    >   [2018-12-23 18:44:45,520] INFO [Log partition=ztf_20181216_programid1-7, dir=/data1-01] Truncating to 8650 has no effect as the largest offset in the log is 8649 (kafka.log.Log)
+    >   [2018-12-23 18:44:45,520] INFO [ReplicaFetcher replicaId=2, leaderId=3, fetcherId=0] Based on follower's leader epoch, leader replied with an offset 6744 >= the follower's log end offset 6744 in ztf_20181210_programid1-10. No truncation needed. (kafka.server.ReplicaFetcherThread)
+    >   [2018-12-23 18:44:45,520] INFO [Log partition=ztf_20181210_programid1-10, dir=/data1-01] Truncating to 6744 has no effect as the largest offset in the log is 6743 (kafka.log.Log)
+    >   [2018-12-23 18:52:24,569] INFO [GroupMetadataManager brokerId=2] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
 
---START--
-[2018-12-23 18:44:45,644] INFO [Log partition=ztf_20181215_programid1-7, dir=/data1-01] Truncating to 642 has no effect as the largest offset in the log is 641 (kafka.log.Log)
-[2018-12-23 18:44:45,644] INFO [ReplicaFetcher replicaId=1, leaderId=3, fetcherId=0] Based on follower's leader epoch, leader replied with an offset 4205 >= the follower's log end offset 4205 in ztf_20181209_programid1-9. No truncation needed. (kafka.server.ReplicaFetcherThread)
-[2018-12-23 18:44:45,644] INFO [Log partition=ztf_20181209_programid1-9, dir=/data2-01] Truncating to 4205 has no effect as the largest offset in the log is 4204 (kafka.log.Log)
-[2018-12-23 18:49:42,122] INFO [GroupMetadataManager brokerId=1] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
---STOP--
+    >   [2018-12-23 18:44:45,644] INFO [Log partition=ztf_20181215_programid1-7, dir=/data1-01] Truncating to 642 has no effect as the largest offset in the log is 641 (kafka.log.Log)
+    >   [2018-12-23 18:44:45,644] INFO [ReplicaFetcher replicaId=1, leaderId=3, fetcherId=0] Based on follower's leader epoch, leader replied with an offset 4205 >= the follower's log end offset 4205 in ztf_20181209_programid1-9. No truncation needed. (kafka.server.ReplicaFetcherThread)
+    >   [2018-12-23 18:44:45,644] INFO [Log partition=ztf_20181209_programid1-9, dir=/data2-01] Truncating to 4205 has no effect as the largest offset in the log is 4204 (kafka.log.Log)
+    >   [2018-12-23 18:49:42,122] INFO [GroupMetadataManager brokerId=1] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
 
 
 # -----------------------------------------------------
@@ -3009,508 +2974,505 @@ Sun 23 Dec 18:04:45 GMT 2018
         done
 
 
---START--
----- ---- ---- ----
-[Stedigo][Sun 23 Dec 18:55:14 GMT 2018]
----- ----
-0	/data1-01/__confluent.support.metrics-0
-715M	/data1-01/ztf_20181205_programid1-6
-716M	/data1-01/ztf_20181205_programid1-14
-715M	/data1-01/ztf_20181205_programid1-12
-716M	/data1-01/ztf_20181205_programid1-0
-715M	/data1-01/ztf_20181205_programid1-4
-716M	/data1-01/ztf_20181205_programid1-1
-269M	/data1-01/ztf_20181209_programid1-7
-269M	/data1-01/ztf_20181209_programid1-15
-269M	/data1-01/ztf_20181209_programid1-14
-269M	/data1-01/ztf_20181209_programid1-5
-269M	/data1-01/ztf_20181209_programid1-12
-269M	/data1-01/ztf_20181209_programid1-6
-437M	/data1-01/ztf_20181210_programid1-0
-437M	/data1-01/ztf_20181210_programid1-8
-437M	/data1-01/ztf_20181210_programid1-9
-437M	/data1-01/ztf_20181210_programid1-3
-436M	/data1-01/ztf_20181210_programid1-5
-437M	/data1-01/ztf_20181210_programid1-2
-646M	/data1-01/ztf_20181212_programid1-2
-646M	/data1-01/ztf_20181212_programid1-10
-647M	/data1-01/ztf_20181212_programid1-12
-646M	/data1-01/ztf_20181212_programid1-9
-646M	/data1-01/ztf_20181212_programid1-7
-646M	/data1-01/ztf_20181212_programid1-1
-497M	/data1-01/ztf_20181213_programid1-10
-497M	/data1-01/ztf_20181213_programid1-2
-497M	/data1-01/ztf_20181213_programid1-9
-496M	/data1-01/ztf_20181213_programid1-4
-496M	/data1-01/ztf_20181213_programid1-1
-496M	/data1-01/ztf_20181213_programid1-11
-957M	/data1-01/ztf_20181214_programid1-8
-957M	/data1-01/ztf_20181214_programid1-0
-957M	/data1-01/ztf_20181214_programid1-5
-958M	/data1-01/ztf_20181214_programid1-2
-957M	/data1-01/ztf_20181214_programid1-9
-957M	/data1-01/ztf_20181214_programid1-3
-42M	/data1-01/ztf_20181215_programid1-9
-42M	/data1-01/ztf_20181215_programid1-1
-42M	/data1-01/ztf_20181215_programid1-15
-42M	/data1-01/ztf_20181215_programid1-6
-42M	/data1-01/ztf_20181215_programid1-0
-42M	/data1-01/ztf_20181215_programid1-7
-561M	/data1-01/ztf_20181216_programid1-1
-560M	/data1-01/ztf_20181216_programid1-9
-560M	/data1-01/ztf_20181216_programid1-3
-561M	/data1-01/ztf_20181216_programid1-7
-560M	/data1-01/ztf_20181216_programid1-15
-560M	/data1-01/ztf_20181216_programid1-0
-992M	/data1-01/ztf_20181217_programid1-2
-991M	/data1-01/ztf_20181217_programid1-10
-992M	/data1-01/ztf_20181217_programid1-12
-991M	/data1-01/ztf_20181217_programid1-0
-991M	/data1-01/ztf_20181217_programid1-13
-993M	/data1-01/ztf_20181217_programid1-7
-30G	/data1-01
----- ----
-0	/data1-02/ztf_20181219_programid1-10
-0	/data1-02/ztf_20181219_programid1-4
-72K	/data1-02/ztf_20181219_programid1-8
-0	/data1-02/ztf_20181219_programid1-12
-144K	/data1-02/ztf_20181219_programid1-6
-0	/data1-02/ztf_20181219_programid1-0
-248K	/data1-02
----- ----
-716M	/data2-01/ztf_20181205_programid1-2
-716M	/data2-01/ztf_20181205_programid1-10
-715M	/data2-01/ztf_20181205_programid1-11
-716M	/data2-01/ztf_20181205_programid1-9
-716M	/data2-01/ztf_20181205_programid1-7
-715M	/data2-01/ztf_20181205_programid1-13
-269M	/data2-01/ztf_20181209_programid1-3
-269M	/data2-01/ztf_20181209_programid1-11
-269M	/data2-01/ztf_20181209_programid1-0
-269M	/data2-01/ztf_20181209_programid1-8
-269M	/data2-01/ztf_20181209_programid1-2
-269M	/data2-01/ztf_20181209_programid1-9
-436M	/data2-01/ztf_20181210_programid1-12
-436M	/data2-01/ztf_20181210_programid1-4
-437M	/data2-01/ztf_20181210_programid1-15
-437M	/data2-01/ztf_20181210_programid1-6
-436M	/data2-01/ztf_20181210_programid1-14
-437M	/data2-01/ztf_20181210_programid1-11
-647M	/data2-01/ztf_20181212_programid1-14
-647M	/data2-01/ztf_20181212_programid1-6
-646M	/data2-01/ztf_20181212_programid1-11
-646M	/data2-01/ztf_20181212_programid1-0
-646M	/data2-01/ztf_20181212_programid1-13
-646M	/data2-01/ztf_20181212_programid1-4
-496M	/data2-01/ztf_20181213_programid1-6
-496M	/data2-01/ztf_20181213_programid1-14
-496M	/data2-01/ztf_20181213_programid1-12
-497M	/data2-01/ztf_20181213_programid1-0
-496M	/data2-01/ztf_20181213_programid1-13
-496M	/data2-01/ztf_20181213_programid1-7
-957M	/data2-01/ztf_20181214_programid1-4
-957M	/data2-01/ztf_20181214_programid1-12
-957M	/data2-01/ztf_20181214_programid1-11
-957M	/data2-01/ztf_20181214_programid1-14
-958M	/data2-01/ztf_20181214_programid1-15
-958M	/data2-01/ztf_20181214_programid1-6
-42M	/data2-01/ztf_20181215_programid1-5
-42M	/data2-01/ztf_20181215_programid1-13
-42M	/data2-01/ztf_20181215_programid1-8
-42M	/data2-01/ztf_20181215_programid1-12
-42M	/data2-01/ztf_20181215_programid1-3
-42M	/data2-01/ztf_20181215_programid1-10
-560M	/data2-01/ztf_20181216_programid1-13
-560M	/data2-01/ztf_20181216_programid1-5
-560M	/data2-01/ztf_20181216_programid1-6
-560M	/data2-01/ztf_20181216_programid1-10
-560M	/data2-01/ztf_20181216_programid1-8
-560M	/data2-01/ztf_20181216_programid1-12
-992M	/data2-01/ztf_20181217_programid1-14
-992M	/data2-01/ztf_20181217_programid1-6
-993M	/data2-01/ztf_20181217_programid1-11
-992M	/data2-01/ztf_20181217_programid1-9
-992M	/data2-01/ztf_20181217_programid1-4
-992M	/data2-01/ztf_20181217_programid1-1
-30G	/data2-01
----- ----
-16K	/data2-02
----- ---- ---- ----
-[Angece][Sun 23 Dec 18:55:14 GMT 2018]
----- ----
-0	/data1-01/__confluent.support.metrics-0
-715M	/data1-01/ztf_20181205_programid1-15
-716M	/data1-01/ztf_20181205_programid1-7
-715M	/data1-01/ztf_20181205_programid1-5
-716M	/data1-01/ztf_20181205_programid1-10
-715M	/data1-01/ztf_20181205_programid1-13
-716M	/data1-01/ztf_20181205_programid1-14
-269M	/data1-01/ztf_20181209_programid1-4
-269M	/data1-01/ztf_20181209_programid1-12
-269M	/data1-01/ztf_20181209_programid1-13
-269M	/data1-01/ztf_20181209_programid1-7
-269M	/data1-01/ztf_20181209_programid1-15
-269M	/data1-01/ztf_20181209_programid1-6
-437M	/data1-01/ztf_20181210_programid1-13
-436M	/data1-01/ztf_20181210_programid1-5
-436M	/data1-01/ztf_20181210_programid1-12
-437M	/data1-01/ztf_20181210_programid1-3
-437M	/data1-01/ztf_20181210_programid1-10
-437M	/data1-01/ztf_20181210_programid1-8
-646M	/data1-01/ztf_20181212_programid1-15
-646M	/data1-01/ztf_20181212_programid1-7
-646M	/data1-01/ztf_20181212_programid1-8
-646M	/data1-01/ztf_20181212_programid1-2
-646M	/data1-01/ztf_20181212_programid1-10
-646M	/data1-01/ztf_20181212_programid1-1
-496M	/data1-01/ztf_20181213_programid1-7
-496M	/data1-01/ztf_20181213_programid1-15
-496M	/data1-01/ztf_20181213_programid1-13
-497M	/data1-01/ztf_20181213_programid1-10
-496M	/data1-01/ztf_20181213_programid1-8
-497M	/data1-01/ztf_20181213_programid1-2
-957M	/data1-01/ztf_20181214_programid1-5
-957M	/data1-01/ztf_20181214_programid1-13
-957M	/data1-01/ztf_20181214_programid1-7
-958M	/data1-01/ztf_20181214_programid1-15
-958M	/data1-01/ztf_20181214_programid1-6
-957M	/data1-01/ztf_20181214_programid1-0
-42M	/data1-01/ztf_20181215_programid1-6
-42M	/data1-01/ztf_20181215_programid1-14
-42M	/data1-01/ztf_20181215_programid1-9
-42M	/data1-01/ztf_20181215_programid1-13
-42M	/data1-01/ztf_20181215_programid1-4
-42M	/data1-01/ztf_20181215_programid1-11
-560M	/data1-01/ztf_20181216_programid1-10
-560M	/data1-01/ztf_20181216_programid1-2
-561M	/data1-01/ztf_20181216_programid1-7
-561M	/data1-01/ztf_20181216_programid1-1
-560M	/data1-01/ztf_20181216_programid1-12
-560M	/data1-01/ztf_20181216_programid1-9
-993M	/data1-01/ztf_20181217_programid1-15
-993M	/data1-01/ztf_20181217_programid1-7
-991M	/data1-01/ztf_20181217_programid1-8
-992M	/data1-01/ztf_20181217_programid1-2
-991M	/data1-01/ztf_20181217_programid1-13
-992M	/data1-01/ztf_20181217_programid1-1
-30G	/data1-01
----- ----
-0	/data1-02/ztf_20181219_programid1-10
-0	/data1-02/ztf_20181219_programid1-4
-0	/data1-02/ztf_20181219_programid1-14
-0	/data1-02/ztf_20181219_programid1-5
-0	/data1-02/ztf_20181219_programid1-12
-0	/data1-02/ztf_20181219_programid1-0
-32K	/data1-02
----- ----
-715M	/data2-01/ztf_20181205_programid1-11
-715M	/data2-01/ztf_20181205_programid1-3
-716M	/data2-01/ztf_20181205_programid1-8
-716M	/data2-01/ztf_20181205_programid1-2
-715M	/data2-01/ztf_20181205_programid1-4
-716M	/data2-01/ztf_20181205_programid1-1
-269M	/data2-01/ztf_20181209_programid1-0
-269M	/data2-01/ztf_20181209_programid1-8
-269M	/data2-01/ztf_20181209_programid1-3
-269M	/data2-01/ztf_20181209_programid1-10
-269M	/data2-01/ztf_20181209_programid1-1
-269M	/data2-01/ztf_20181209_programid1-9
-437M	/data2-01/ztf_20181210_programid1-9
-437M	/data2-01/ztf_20181210_programid1-1
-437M	/data2-01/ztf_20181210_programid1-15
-437M	/data2-01/ztf_20181210_programid1-6
-437M	/data2-01/ztf_20181210_programid1-0
-437M	/data2-01/ztf_20181210_programid1-7
-646M	/data2-01/ztf_20181212_programid1-11
-646M	/data2-01/ztf_20181212_programid1-3
-647M	/data2-01/ztf_20181212_programid1-14
-646M	/data2-01/ztf_20181212_programid1-5
-646M	/data2-01/ztf_20181212_programid1-13
-646M	/data2-01/ztf_20181212_programid1-4
-496M	/data2-01/ztf_20181213_programid1-3
-496M	/data2-01/ztf_20181213_programid1-11
-496M	/data2-01/ztf_20181213_programid1-4
-496M	/data2-01/ztf_20181213_programid1-1
-496M	/data2-01/ztf_20181213_programid1-14
-496M	/data2-01/ztf_20181213_programid1-5
-958M	/data2-01/ztf_20181214_programid1-1
-957M	/data2-01/ztf_20181214_programid1-9
-958M	/data2-01/ztf_20181214_programid1-10
-957M	/data2-01/ztf_20181214_programid1-8
-957M	/data2-01/ztf_20181214_programid1-12
-957M	/data2-01/ztf_20181214_programid1-3
-42M	/data2-01/ztf_20181215_programid1-2
-42M	/data2-01/ztf_20181215_programid1-10
-42M	/data2-01/ztf_20181215_programid1-12
-42M	/data2-01/ztf_20181215_programid1-0
-42M	/data2-01/ztf_20181215_programid1-7
-42M	/data2-01/ztf_20181215_programid1-1
-560M	/data2-01/ztf_20181216_programid1-6
-560M	/data2-01/ztf_20181216_programid1-14
-560M	/data2-01/ztf_20181216_programid1-13
-560M	/data2-01/ztf_20181216_programid1-4
-560M	/data2-01/ztf_20181216_programid1-11
-560M	/data2-01/ztf_20181216_programid1-0
-993M	/data2-01/ztf_20181217_programid1-11
-993M	/data2-01/ztf_20181217_programid1-3
-992M	/data2-01/ztf_20181217_programid1-14
-992M	/data2-01/ztf_20181217_programid1-5
-992M	/data2-01/ztf_20181217_programid1-4
-991M	/data2-01/ztf_20181217_programid1-10
-30G	/data2-01
----- ----
-16K	/data2-02
----- ---- ---- ----
-[Edwalafia][Sun 23 Dec 18:55:15 GMT 2018]
----- ----
-0	/data1-01/__confluent.support.metrics-0
-715M	/data1-01/ztf_20181205_programid1-12
-715M	/data1-01/ztf_20181205_programid1-4
-715M	/data1-01/ztf_20181205_programid1-5
-715M	/data1-01/ztf_20181205_programid1-15
-715M	/data1-01/ztf_20181205_programid1-6
-716M	/data1-01/ztf_20181205_programid1-14
-269M	/data1-01/ztf_20181209_programid1-1
-269M	/data1-01/ztf_20181209_programid1-9
-269M	/data1-01/ztf_20181209_programid1-10
-269M	/data1-01/ztf_20181209_programid1-4
-269M	/data1-01/ztf_20181209_programid1-11
-269M	/data1-01/ztf_20181209_programid1-12
-437M	/data1-01/ztf_20181210_programid1-10
-437M	/data1-01/ztf_20181210_programid1-2
-437M	/data1-01/ztf_20181210_programid1-9
-437M	/data1-01/ztf_20181210_programid1-13
-436M	/data1-01/ztf_20181210_programid1-4
-437M	/data1-01/ztf_20181210_programid1-11
-647M	/data1-01/ztf_20181212_programid1-12
-646M	/data1-01/ztf_20181212_programid1-4
-646M	/data1-01/ztf_20181212_programid1-11
-646M	/data1-01/ztf_20181212_programid1-2
-646M	/data1-01/ztf_20181212_programid1-9
-646M	/data1-01/ztf_20181212_programid1-3
-497M	/data1-01/ztf_20181213_programid1-0
-496M	/data1-01/ztf_20181213_programid1-8
-496M	/data1-01/ztf_20181213_programid1-6
-496M	/data1-01/ztf_20181213_programid1-14
-496M	/data1-01/ztf_20181213_programid1-5
-496M	/data1-01/ztf_20181213_programid1-15
-957M	/data1-01/ztf_20181214_programid1-14
-958M	/data1-01/ztf_20181214_programid1-6
-957M	/data1-01/ztf_20181214_programid1-4
-957M	/data1-01/ztf_20181214_programid1-11
-957M	/data1-01/ztf_20181214_programid1-9
-957M	/data1-01/ztf_20181214_programid1-13
-42M	/data1-01/ztf_20181215_programid1-3
-42M	/data1-01/ztf_20181215_programid1-11
-42M	/data1-01/ztf_20181215_programid1-5
-42M	/data1-01/ztf_20181215_programid1-13
-42M	/data1-01/ztf_20181215_programid1-4
-42M	/data1-01/ztf_20181215_programid1-14
-561M	/data1-01/ztf_20181216_programid1-7
-560M	/data1-01/ztf_20181216_programid1-15
-560M	/data1-01/ztf_20181216_programid1-10
-561M	/data1-01/ztf_20181216_programid1-1
-560M	/data1-01/ztf_20181216_programid1-8
-560M	/data1-01/ztf_20181216_programid1-2
-992M	/data1-01/ztf_20181217_programid1-12
-992M	/data1-01/ztf_20181217_programid1-4
-993M	/data1-01/ztf_20181217_programid1-11
-992M	/data1-01/ztf_20181217_programid1-2
-992M	/data1-01/ztf_20181217_programid1-9
-993M	/data1-01/ztf_20181217_programid1-3
-30G	/data1-01
----- ----
-0	/data1-02/ztf_20181219_programid1-10
-0	/data1-02/ztf_20181219_programid1-1
-0	/data1-02/ztf_20181219_programid1-11
-0	/data1-02/ztf_20181219_programid1-5
-0	/data1-02/ztf_20181219_programid1-2
-0	/data1-02/ztf_20181219_programid1-3
-32K	/data1-02
----- ----
-716M	/data2-01/ztf_20181205_programid1-8
-716M	/data2-01/ztf_20181205_programid1-0
-715M	/data2-01/ztf_20181205_programid1-11
-716M	/data2-01/ztf_20181205_programid1-2
-716M	/data2-01/ztf_20181205_programid1-9
-715M	/data2-01/ztf_20181205_programid1-3
-269M	/data2-01/ztf_20181209_programid1-13
-269M	/data2-01/ztf_20181209_programid1-5
-269M	/data2-01/ztf_20181209_programid1-0
-269M	/data2-01/ztf_20181209_programid1-7
-269M	/data2-01/ztf_20181209_programid1-14
-269M	/data2-01/ztf_20181209_programid1-2
-437M	/data2-01/ztf_20181210_programid1-6
-436M	/data2-01/ztf_20181210_programid1-14
-436M	/data2-01/ztf_20181210_programid1-12
-437M	/data2-01/ztf_20181210_programid1-0
-437M	/data2-01/ztf_20181210_programid1-7
-437M	/data2-01/ztf_20181210_programid1-1
-646M	/data2-01/ztf_20181212_programid1-8
-646M	/data2-01/ztf_20181212_programid1-0
-647M	/data2-01/ztf_20181212_programid1-14
-646M	/data2-01/ztf_20181212_programid1-5
-646M	/data2-01/ztf_20181212_programid1-15
-647M	/data2-01/ztf_20181212_programid1-6
-496M	/data2-01/ztf_20181213_programid1-12
-496M	/data2-01/ztf_20181213_programid1-4
-497M	/data2-01/ztf_20181213_programid1-9
-496M	/data2-01/ztf_20181213_programid1-3
-496M	/data2-01/ztf_20181213_programid1-11
-497M	/data2-01/ztf_20181213_programid1-2
-958M	/data2-01/ztf_20181214_programid1-10
-958M	/data2-01/ztf_20181214_programid1-2
-957M	/data2-01/ztf_20181214_programid1-7
-958M	/data2-01/ztf_20181214_programid1-1
-957M	/data2-01/ztf_20181214_programid1-12
-957M	/data2-01/ztf_20181214_programid1-0
-42M	/data2-01/ztf_20181215_programid1-15
-42M	/data2-01/ztf_20181215_programid1-7
-42M	/data2-01/ztf_20181215_programid1-8
-42M	/data2-01/ztf_20181215_programid1-2
-42M	/data2-01/ztf_20181215_programid1-10
-42M	/data2-01/ztf_20181215_programid1-1
-560M	/data2-01/ztf_20181216_programid1-3
-560M	/data2-01/ztf_20181216_programid1-11
-560M	/data2-01/ztf_20181216_programid1-13
-560M	/data2-01/ztf_20181216_programid1-4
-560M	/data2-01/ztf_20181216_programid1-14
-560M	/data2-01/ztf_20181216_programid1-5
-991M	/data2-01/ztf_20181217_programid1-8
-991M	/data2-01/ztf_20181217_programid1-0
-992M	/data2-01/ztf_20181217_programid1-14
-992M	/data2-01/ztf_20181217_programid1-5
-993M	/data2-01/ztf_20181217_programid1-15
-992M	/data2-01/ztf_20181217_programid1-6
-30G	/data2-01
----- ----
-16K	/data2-02
----- ---- ---- ----
-[Onoza][Sun 23 Dec 18:55:15 GMT 2018]
----- ----
-715M	/data1-01/ztf_20181205_programid1-5
-715M	/data1-01/ztf_20181205_programid1-13
-716M	/data1-01/ztf_20181205_programid1-8
-715M	/data1-01/ztf_20181205_programid1-12
-715M	/data1-01/ztf_20181205_programid1-3
-716M	/data1-01/ztf_20181205_programid1-10
-269M	/data1-01/ztf_20181209_programid1-10
-269M	/data1-01/ztf_20181209_programid1-2
-269M	/data1-01/ztf_20181209_programid1-3
-269M	/data1-01/ztf_20181209_programid1-4
-269M	/data1-01/ztf_20181209_programid1-11
-269M	/data1-01/ztf_20181209_programid1-5
-437M	/data1-01/ztf_20181210_programid1-15
-437M	/data1-01/ztf_20181210_programid1-7
-437M	/data1-01/ztf_20181210_programid1-13
-436M	/data1-01/ztf_20181210_programid1-4
-437M	/data1-01/ztf_20181210_programid1-8
-436M	/data1-01/ztf_20181210_programid1-5
-646M	/data1-01/ztf_20181212_programid1-5
-646M	/data1-01/ztf_20181212_programid1-13
-646M	/data1-01/ztf_20181212_programid1-8
-647M	/data1-01/ztf_20181212_programid1-12
-647M	/data1-01/ztf_20181212_programid1-6
-646M	/data1-01/ztf_20181212_programid1-10
-497M	/data1-01/ztf_20181213_programid1-9
-496M	/data1-01/ztf_20181213_programid1-1
-496M	/data1-01/ztf_20181213_programid1-12
-496M	/data1-01/ztf_20181213_programid1-3
-497M	/data1-01/ztf_20181213_programid1-10
-496M	/data1-01/ztf_20181213_programid1-8
-957M	/data1-01/ztf_20181214_programid1-7
-958M	/data1-01/ztf_20181214_programid1-15
-958M	/data1-01/ztf_20181214_programid1-10
-958M	/data1-01/ztf_20181214_programid1-1
-957M	/data1-01/ztf_20181214_programid1-5
-958M	/data1-01/ztf_20181214_programid1-2
-42M	/data1-01/ztf_20181215_programid1-8
-42M	/data1-01/ztf_20181215_programid1-0
-42M	/data1-01/ztf_20181215_programid1-15
-42M	/data1-01/ztf_20181215_programid1-2
-42M	/data1-01/ztf_20181215_programid1-6
-42M	/data1-01/ztf_20181215_programid1-14
-560M	/data1-01/ztf_20181216_programid1-4
-560M	/data1-01/ztf_20181216_programid1-12
-560M	/data1-01/ztf_20181216_programid1-6
-560M	/data1-01/ztf_20181216_programid1-14
-560M	/data1-01/ztf_20181216_programid1-5
-560M	/data1-01/ztf_20181216_programid1-15
-992M	/data1-01/ztf_20181217_programid1-5
-991M	/data1-01/ztf_20181217_programid1-13
-991M	/data1-01/ztf_20181217_programid1-8
-992M	/data1-01/ztf_20181217_programid1-12
-993M	/data1-01/ztf_20181217_programid1-3
-991M	/data1-01/ztf_20181217_programid1-10
-30G	/data1-01
----- ----
-0	/data1-02/ztf_20181219_programid1-7
-0	/data1-02/ztf_20181219_programid1-11
-0	/data1-02/ztf_20181219_programid1-5
-0	/data1-02/ztf_20181219_programid1-2
-0	/data1-02/ztf_20181219_programid1-9
-0	/data1-02/ztf_20181219_programid1-3
-32K	/data1-02
----- ----
-716M	/data2-01/ztf_20181205_programid1-9
-716M	/data2-01/ztf_20181205_programid1-1
-715M	/data2-01/ztf_20181205_programid1-15
-715M	/data2-01/ztf_20181205_programid1-6
-716M	/data2-01/ztf_20181205_programid1-0
-716M	/data2-01/ztf_20181205_programid1-7
-269M	/data2-01/ztf_20181209_programid1-14
-269M	/data2-01/ztf_20181209_programid1-6
-269M	/data2-01/ztf_20181209_programid1-13
-269M	/data2-01/ztf_20181209_programid1-1
-269M	/data2-01/ztf_20181209_programid1-8
-269M	/data2-01/ztf_20181209_programid1-15
-437M	/data2-01/ztf_20181210_programid1-3
-437M	/data2-01/ztf_20181210_programid1-11
-437M	/data2-01/ztf_20181210_programid1-10
-437M	/data2-01/ztf_20181210_programid1-1
-436M	/data2-01/ztf_20181210_programid1-14
-437M	/data2-01/ztf_20181210_programid1-2
-646M	/data2-01/ztf_20181212_programid1-9
-646M	/data2-01/ztf_20181212_programid1-1
-646M	/data2-01/ztf_20181212_programid1-15
-646M	/data2-01/ztf_20181212_programid1-0
-646M	/data2-01/ztf_20181212_programid1-3
-646M	/data2-01/ztf_20181212_programid1-7
-496M	/data2-01/ztf_20181213_programid1-13
-496M	/data2-01/ztf_20181213_programid1-5
-496M	/data2-01/ztf_20181213_programid1-6
-497M	/data2-01/ztf_20181213_programid1-0
-496M	/data2-01/ztf_20181213_programid1-7
-496M	/data2-01/ztf_20181213_programid1-15
-957M	/data2-01/ztf_20181214_programid1-11
-957M	/data2-01/ztf_20181214_programid1-3
-957M	/data2-01/ztf_20181214_programid1-4
-957M	/data2-01/ztf_20181214_programid1-8
-957M	/data2-01/ztf_20181214_programid1-14
-957M	/data2-01/ztf_20181214_programid1-13
-42M	/data2-01/ztf_20181215_programid1-12
-42M	/data2-01/ztf_20181215_programid1-4
-42M	/data2-01/ztf_20181215_programid1-5
-42M	/data2-01/ztf_20181215_programid1-9
-42M	/data2-01/ztf_20181215_programid1-3
-42M	/data2-01/ztf_20181215_programid1-11
-560M	/data2-01/ztf_20181216_programid1-8
-560M	/data2-01/ztf_20181216_programid1-0
-560M	/data2-01/ztf_20181216_programid1-3
-560M	/data2-01/ztf_20181216_programid1-11
-560M	/data2-01/ztf_20181216_programid1-2
-560M	/data2-01/ztf_20181216_programid1-9
-992M	/data2-01/ztf_20181217_programid1-9
-992M	/data2-01/ztf_20181217_programid1-1
-993M	/data2-01/ztf_20181217_programid1-15
-992M	/data2-01/ztf_20181217_programid1-6
-991M	/data2-01/ztf_20181217_programid1-0
-993M	/data2-01/ztf_20181217_programid1-7
-30G	/data2-01
----- ----
-16K	/data2-02
---STOP--
-
+    >   ---- ---- ---- ----
+    >   [Stedigo][Sun 23 Dec 18:55:14 GMT 2018]
+    >   ---- ----
+    >   0	/data1-01/__confluent.support.metrics-0
+    >   715M	/data1-01/ztf_20181205_programid1-6
+    >   716M	/data1-01/ztf_20181205_programid1-14
+    >   715M	/data1-01/ztf_20181205_programid1-12
+    >   716M	/data1-01/ztf_20181205_programid1-0
+    >   715M	/data1-01/ztf_20181205_programid1-4
+    >   716M	/data1-01/ztf_20181205_programid1-1
+    >   269M	/data1-01/ztf_20181209_programid1-7
+    >   269M	/data1-01/ztf_20181209_programid1-15
+    >   269M	/data1-01/ztf_20181209_programid1-14
+    >   269M	/data1-01/ztf_20181209_programid1-5
+    >   269M	/data1-01/ztf_20181209_programid1-12
+    >   269M	/data1-01/ztf_20181209_programid1-6
+    >   437M	/data1-01/ztf_20181210_programid1-0
+    >   437M	/data1-01/ztf_20181210_programid1-8
+    >   437M	/data1-01/ztf_20181210_programid1-9
+    >   437M	/data1-01/ztf_20181210_programid1-3
+    >   436M	/data1-01/ztf_20181210_programid1-5
+    >   437M	/data1-01/ztf_20181210_programid1-2
+    >   646M	/data1-01/ztf_20181212_programid1-2
+    >   646M	/data1-01/ztf_20181212_programid1-10
+    >   647M	/data1-01/ztf_20181212_programid1-12
+    >   646M	/data1-01/ztf_20181212_programid1-9
+    >   646M	/data1-01/ztf_20181212_programid1-7
+    >   646M	/data1-01/ztf_20181212_programid1-1
+    >   497M	/data1-01/ztf_20181213_programid1-10
+    >   497M	/data1-01/ztf_20181213_programid1-2
+    >   497M	/data1-01/ztf_20181213_programid1-9
+    >   496M	/data1-01/ztf_20181213_programid1-4
+    >   496M	/data1-01/ztf_20181213_programid1-1
+    >   496M	/data1-01/ztf_20181213_programid1-11
+    >   957M	/data1-01/ztf_20181214_programid1-8
+    >   957M	/data1-01/ztf_20181214_programid1-0
+    >   957M	/data1-01/ztf_20181214_programid1-5
+    >   958M	/data1-01/ztf_20181214_programid1-2
+    >   957M	/data1-01/ztf_20181214_programid1-9
+    >   957M	/data1-01/ztf_20181214_programid1-3
+    >   42M	/data1-01/ztf_20181215_programid1-9
+    >   42M	/data1-01/ztf_20181215_programid1-1
+    >   42M	/data1-01/ztf_20181215_programid1-15
+    >   42M	/data1-01/ztf_20181215_programid1-6
+    >   42M	/data1-01/ztf_20181215_programid1-0
+    >   42M	/data1-01/ztf_20181215_programid1-7
+    >   561M	/data1-01/ztf_20181216_programid1-1
+    >   560M	/data1-01/ztf_20181216_programid1-9
+    >   560M	/data1-01/ztf_20181216_programid1-3
+    >   561M	/data1-01/ztf_20181216_programid1-7
+    >   560M	/data1-01/ztf_20181216_programid1-15
+    >   560M	/data1-01/ztf_20181216_programid1-0
+    >   992M	/data1-01/ztf_20181217_programid1-2
+    >   991M	/data1-01/ztf_20181217_programid1-10
+    >   992M	/data1-01/ztf_20181217_programid1-12
+    >   991M	/data1-01/ztf_20181217_programid1-0
+    >   991M	/data1-01/ztf_20181217_programid1-13
+    >   993M	/data1-01/ztf_20181217_programid1-7
+    >   30G	/data1-01
+    >   ---- ----
+    >   0	/data1-02/ztf_20181219_programid1-10
+    >   0	/data1-02/ztf_20181219_programid1-4
+    >   72K	/data1-02/ztf_20181219_programid1-8
+    >   0	/data1-02/ztf_20181219_programid1-12
+    >   144K	/data1-02/ztf_20181219_programid1-6
+    >   0	/data1-02/ztf_20181219_programid1-0
+    >   248K	/data1-02
+    >   ---- ----
+    >   716M	/data2-01/ztf_20181205_programid1-2
+    >   716M	/data2-01/ztf_20181205_programid1-10
+    >   715M	/data2-01/ztf_20181205_programid1-11
+    >   716M	/data2-01/ztf_20181205_programid1-9
+    >   716M	/data2-01/ztf_20181205_programid1-7
+    >   715M	/data2-01/ztf_20181205_programid1-13
+    >   269M	/data2-01/ztf_20181209_programid1-3
+    >   269M	/data2-01/ztf_20181209_programid1-11
+    >   269M	/data2-01/ztf_20181209_programid1-0
+    >   269M	/data2-01/ztf_20181209_programid1-8
+    >   269M	/data2-01/ztf_20181209_programid1-2
+    >   269M	/data2-01/ztf_20181209_programid1-9
+    >   436M	/data2-01/ztf_20181210_programid1-12
+    >   436M	/data2-01/ztf_20181210_programid1-4
+    >   437M	/data2-01/ztf_20181210_programid1-15
+    >   437M	/data2-01/ztf_20181210_programid1-6
+    >   436M	/data2-01/ztf_20181210_programid1-14
+    >   437M	/data2-01/ztf_20181210_programid1-11
+    >   647M	/data2-01/ztf_20181212_programid1-14
+    >   647M	/data2-01/ztf_20181212_programid1-6
+    >   646M	/data2-01/ztf_20181212_programid1-11
+    >   646M	/data2-01/ztf_20181212_programid1-0
+    >   646M	/data2-01/ztf_20181212_programid1-13
+    >   646M	/data2-01/ztf_20181212_programid1-4
+    >   496M	/data2-01/ztf_20181213_programid1-6
+    >   496M	/data2-01/ztf_20181213_programid1-14
+    >   496M	/data2-01/ztf_20181213_programid1-12
+    >   497M	/data2-01/ztf_20181213_programid1-0
+    >   496M	/data2-01/ztf_20181213_programid1-13
+    >   496M	/data2-01/ztf_20181213_programid1-7
+    >   957M	/data2-01/ztf_20181214_programid1-4
+    >   957M	/data2-01/ztf_20181214_programid1-12
+    >   957M	/data2-01/ztf_20181214_programid1-11
+    >   957M	/data2-01/ztf_20181214_programid1-14
+    >   958M	/data2-01/ztf_20181214_programid1-15
+    >   958M	/data2-01/ztf_20181214_programid1-6
+    >   42M	/data2-01/ztf_20181215_programid1-5
+    >   42M	/data2-01/ztf_20181215_programid1-13
+    >   42M	/data2-01/ztf_20181215_programid1-8
+    >   42M	/data2-01/ztf_20181215_programid1-12
+    >   42M	/data2-01/ztf_20181215_programid1-3
+    >   42M	/data2-01/ztf_20181215_programid1-10
+    >   560M	/data2-01/ztf_20181216_programid1-13
+    >   560M	/data2-01/ztf_20181216_programid1-5
+    >   560M	/data2-01/ztf_20181216_programid1-6
+    >   560M	/data2-01/ztf_20181216_programid1-10
+    >   560M	/data2-01/ztf_20181216_programid1-8
+    >   560M	/data2-01/ztf_20181216_programid1-12
+    >   992M	/data2-01/ztf_20181217_programid1-14
+    >   992M	/data2-01/ztf_20181217_programid1-6
+    >   993M	/data2-01/ztf_20181217_programid1-11
+    >   992M	/data2-01/ztf_20181217_programid1-9
+    >   992M	/data2-01/ztf_20181217_programid1-4
+    >   992M	/data2-01/ztf_20181217_programid1-1
+    >   30G	/data2-01
+    >   ---- ----
+    >   16K	/data2-02
+    >   ---- ---- ---- ----
+    >   [Angece][Sun 23 Dec 18:55:14 GMT 2018]
+    >   ---- ----
+    >   0	/data1-01/__confluent.support.metrics-0
+    >   715M	/data1-01/ztf_20181205_programid1-15
+    >   716M	/data1-01/ztf_20181205_programid1-7
+    >   715M	/data1-01/ztf_20181205_programid1-5
+    >   716M	/data1-01/ztf_20181205_programid1-10
+    >   715M	/data1-01/ztf_20181205_programid1-13
+    >   716M	/data1-01/ztf_20181205_programid1-14
+    >   269M	/data1-01/ztf_20181209_programid1-4
+    >   269M	/data1-01/ztf_20181209_programid1-12
+    >   269M	/data1-01/ztf_20181209_programid1-13
+    >   269M	/data1-01/ztf_20181209_programid1-7
+    >   269M	/data1-01/ztf_20181209_programid1-15
+    >   269M	/data1-01/ztf_20181209_programid1-6
+    >   437M	/data1-01/ztf_20181210_programid1-13
+    >   436M	/data1-01/ztf_20181210_programid1-5
+    >   436M	/data1-01/ztf_20181210_programid1-12
+    >   437M	/data1-01/ztf_20181210_programid1-3
+    >   437M	/data1-01/ztf_20181210_programid1-10
+    >   437M	/data1-01/ztf_20181210_programid1-8
+    >   646M	/data1-01/ztf_20181212_programid1-15
+    >   646M	/data1-01/ztf_20181212_programid1-7
+    >   646M	/data1-01/ztf_20181212_programid1-8
+    >   646M	/data1-01/ztf_20181212_programid1-2
+    >   646M	/data1-01/ztf_20181212_programid1-10
+    >   646M	/data1-01/ztf_20181212_programid1-1
+    >   496M	/data1-01/ztf_20181213_programid1-7
+    >   496M	/data1-01/ztf_20181213_programid1-15
+    >   496M	/data1-01/ztf_20181213_programid1-13
+    >   497M	/data1-01/ztf_20181213_programid1-10
+    >   496M	/data1-01/ztf_20181213_programid1-8
+    >   497M	/data1-01/ztf_20181213_programid1-2
+    >   957M	/data1-01/ztf_20181214_programid1-5
+    >   957M	/data1-01/ztf_20181214_programid1-13
+    >   957M	/data1-01/ztf_20181214_programid1-7
+    >   958M	/data1-01/ztf_20181214_programid1-15
+    >   958M	/data1-01/ztf_20181214_programid1-6
+    >   957M	/data1-01/ztf_20181214_programid1-0
+    >   42M	/data1-01/ztf_20181215_programid1-6
+    >   42M	/data1-01/ztf_20181215_programid1-14
+    >   42M	/data1-01/ztf_20181215_programid1-9
+    >   42M	/data1-01/ztf_20181215_programid1-13
+    >   42M	/data1-01/ztf_20181215_programid1-4
+    >   42M	/data1-01/ztf_20181215_programid1-11
+    >   560M	/data1-01/ztf_20181216_programid1-10
+    >   560M	/data1-01/ztf_20181216_programid1-2
+    >   561M	/data1-01/ztf_20181216_programid1-7
+    >   561M	/data1-01/ztf_20181216_programid1-1
+    >   560M	/data1-01/ztf_20181216_programid1-12
+    >   560M	/data1-01/ztf_20181216_programid1-9
+    >   993M	/data1-01/ztf_20181217_programid1-15
+    >   993M	/data1-01/ztf_20181217_programid1-7
+    >   991M	/data1-01/ztf_20181217_programid1-8
+    >   992M	/data1-01/ztf_20181217_programid1-2
+    >   991M	/data1-01/ztf_20181217_programid1-13
+    >   992M	/data1-01/ztf_20181217_programid1-1
+    >   30G	/data1-01
+    >   ---- ----
+    >   0	/data1-02/ztf_20181219_programid1-10
+    >   0	/data1-02/ztf_20181219_programid1-4
+    >   0	/data1-02/ztf_20181219_programid1-14
+    >   0	/data1-02/ztf_20181219_programid1-5
+    >   0	/data1-02/ztf_20181219_programid1-12
+    >   0	/data1-02/ztf_20181219_programid1-0
+    >   32K	/data1-02
+    >   ---- ----
+    >   715M	/data2-01/ztf_20181205_programid1-11
+    >   715M	/data2-01/ztf_20181205_programid1-3
+    >   716M	/data2-01/ztf_20181205_programid1-8
+    >   716M	/data2-01/ztf_20181205_programid1-2
+    >   715M	/data2-01/ztf_20181205_programid1-4
+    >   716M	/data2-01/ztf_20181205_programid1-1
+    >   269M	/data2-01/ztf_20181209_programid1-0
+    >   269M	/data2-01/ztf_20181209_programid1-8
+    >   269M	/data2-01/ztf_20181209_programid1-3
+    >   269M	/data2-01/ztf_20181209_programid1-10
+    >   269M	/data2-01/ztf_20181209_programid1-1
+    >   269M	/data2-01/ztf_20181209_programid1-9
+    >   437M	/data2-01/ztf_20181210_programid1-9
+    >   437M	/data2-01/ztf_20181210_programid1-1
+    >   437M	/data2-01/ztf_20181210_programid1-15
+    >   437M	/data2-01/ztf_20181210_programid1-6
+    >   437M	/data2-01/ztf_20181210_programid1-0
+    >   437M	/data2-01/ztf_20181210_programid1-7
+    >   646M	/data2-01/ztf_20181212_programid1-11
+    >   646M	/data2-01/ztf_20181212_programid1-3
+    >   647M	/data2-01/ztf_20181212_programid1-14
+    >   646M	/data2-01/ztf_20181212_programid1-5
+    >   646M	/data2-01/ztf_20181212_programid1-13
+    >   646M	/data2-01/ztf_20181212_programid1-4
+    >   496M	/data2-01/ztf_20181213_programid1-3
+    >   496M	/data2-01/ztf_20181213_programid1-11
+    >   496M	/data2-01/ztf_20181213_programid1-4
+    >   496M	/data2-01/ztf_20181213_programid1-1
+    >   496M	/data2-01/ztf_20181213_programid1-14
+    >   496M	/data2-01/ztf_20181213_programid1-5
+    >   958M	/data2-01/ztf_20181214_programid1-1
+    >   957M	/data2-01/ztf_20181214_programid1-9
+    >   958M	/data2-01/ztf_20181214_programid1-10
+    >   957M	/data2-01/ztf_20181214_programid1-8
+    >   957M	/data2-01/ztf_20181214_programid1-12
+    >   957M	/data2-01/ztf_20181214_programid1-3
+    >   42M	/data2-01/ztf_20181215_programid1-2
+    >   42M	/data2-01/ztf_20181215_programid1-10
+    >   42M	/data2-01/ztf_20181215_programid1-12
+    >   42M	/data2-01/ztf_20181215_programid1-0
+    >   42M	/data2-01/ztf_20181215_programid1-7
+    >   42M	/data2-01/ztf_20181215_programid1-1
+    >   560M	/data2-01/ztf_20181216_programid1-6
+    >   560M	/data2-01/ztf_20181216_programid1-14
+    >   560M	/data2-01/ztf_20181216_programid1-13
+    >   560M	/data2-01/ztf_20181216_programid1-4
+    >   560M	/data2-01/ztf_20181216_programid1-11
+    >   560M	/data2-01/ztf_20181216_programid1-0
+    >   993M	/data2-01/ztf_20181217_programid1-11
+    >   993M	/data2-01/ztf_20181217_programid1-3
+    >   992M	/data2-01/ztf_20181217_programid1-14
+    >   992M	/data2-01/ztf_20181217_programid1-5
+    >   992M	/data2-01/ztf_20181217_programid1-4
+    >   991M	/data2-01/ztf_20181217_programid1-10
+    >   30G	/data2-01
+    >   ---- ----
+    >   16K	/data2-02
+    >   ---- ---- ---- ----
+    >   [Edwalafia][Sun 23 Dec 18:55:15 GMT 2018]
+    >   ---- ----
+    >   0	/data1-01/__confluent.support.metrics-0
+    >   715M	/data1-01/ztf_20181205_programid1-12
+    >   715M	/data1-01/ztf_20181205_programid1-4
+    >   715M	/data1-01/ztf_20181205_programid1-5
+    >   715M	/data1-01/ztf_20181205_programid1-15
+    >   715M	/data1-01/ztf_20181205_programid1-6
+    >   716M	/data1-01/ztf_20181205_programid1-14
+    >   269M	/data1-01/ztf_20181209_programid1-1
+    >   269M	/data1-01/ztf_20181209_programid1-9
+    >   269M	/data1-01/ztf_20181209_programid1-10
+    >   269M	/data1-01/ztf_20181209_programid1-4
+    >   269M	/data1-01/ztf_20181209_programid1-11
+    >   269M	/data1-01/ztf_20181209_programid1-12
+    >   437M	/data1-01/ztf_20181210_programid1-10
+    >   437M	/data1-01/ztf_20181210_programid1-2
+    >   437M	/data1-01/ztf_20181210_programid1-9
+    >   437M	/data1-01/ztf_20181210_programid1-13
+    >   436M	/data1-01/ztf_20181210_programid1-4
+    >   437M	/data1-01/ztf_20181210_programid1-11
+    >   647M	/data1-01/ztf_20181212_programid1-12
+    >   646M	/data1-01/ztf_20181212_programid1-4
+    >   646M	/data1-01/ztf_20181212_programid1-11
+    >   646M	/data1-01/ztf_20181212_programid1-2
+    >   646M	/data1-01/ztf_20181212_programid1-9
+    >   646M	/data1-01/ztf_20181212_programid1-3
+    >   497M	/data1-01/ztf_20181213_programid1-0
+    >   496M	/data1-01/ztf_20181213_programid1-8
+    >   496M	/data1-01/ztf_20181213_programid1-6
+    >   496M	/data1-01/ztf_20181213_programid1-14
+    >   496M	/data1-01/ztf_20181213_programid1-5
+    >   496M	/data1-01/ztf_20181213_programid1-15
+    >   957M	/data1-01/ztf_20181214_programid1-14
+    >   958M	/data1-01/ztf_20181214_programid1-6
+    >   957M	/data1-01/ztf_20181214_programid1-4
+    >   957M	/data1-01/ztf_20181214_programid1-11
+    >   957M	/data1-01/ztf_20181214_programid1-9
+    >   957M	/data1-01/ztf_20181214_programid1-13
+    >   42M	/data1-01/ztf_20181215_programid1-3
+    >   42M	/data1-01/ztf_20181215_programid1-11
+    >   42M	/data1-01/ztf_20181215_programid1-5
+    >   42M	/data1-01/ztf_20181215_programid1-13
+    >   42M	/data1-01/ztf_20181215_programid1-4
+    >   42M	/data1-01/ztf_20181215_programid1-14
+    >   561M	/data1-01/ztf_20181216_programid1-7
+    >   560M	/data1-01/ztf_20181216_programid1-15
+    >   560M	/data1-01/ztf_20181216_programid1-10
+    >   561M	/data1-01/ztf_20181216_programid1-1
+    >   560M	/data1-01/ztf_20181216_programid1-8
+    >   560M	/data1-01/ztf_20181216_programid1-2
+    >   992M	/data1-01/ztf_20181217_programid1-12
+    >   992M	/data1-01/ztf_20181217_programid1-4
+    >   993M	/data1-01/ztf_20181217_programid1-11
+    >   992M	/data1-01/ztf_20181217_programid1-2
+    >   992M	/data1-01/ztf_20181217_programid1-9
+    >   993M	/data1-01/ztf_20181217_programid1-3
+    >   30G	/data1-01
+    >   ---- ----
+    >   0	/data1-02/ztf_20181219_programid1-10
+    >   0	/data1-02/ztf_20181219_programid1-1
+    >   0	/data1-02/ztf_20181219_programid1-11
+    >   0	/data1-02/ztf_20181219_programid1-5
+    >   0	/data1-02/ztf_20181219_programid1-2
+    >   0	/data1-02/ztf_20181219_programid1-3
+    >   32K	/data1-02
+    >   ---- ----
+    >   716M	/data2-01/ztf_20181205_programid1-8
+    >   716M	/data2-01/ztf_20181205_programid1-0
+    >   715M	/data2-01/ztf_20181205_programid1-11
+    >   716M	/data2-01/ztf_20181205_programid1-2
+    >   716M	/data2-01/ztf_20181205_programid1-9
+    >   715M	/data2-01/ztf_20181205_programid1-3
+    >   269M	/data2-01/ztf_20181209_programid1-13
+    >   269M	/data2-01/ztf_20181209_programid1-5
+    >   269M	/data2-01/ztf_20181209_programid1-0
+    >   269M	/data2-01/ztf_20181209_programid1-7
+    >   269M	/data2-01/ztf_20181209_programid1-14
+    >   269M	/data2-01/ztf_20181209_programid1-2
+    >   437M	/data2-01/ztf_20181210_programid1-6
+    >   436M	/data2-01/ztf_20181210_programid1-14
+    >   436M	/data2-01/ztf_20181210_programid1-12
+    >   437M	/data2-01/ztf_20181210_programid1-0
+    >   437M	/data2-01/ztf_20181210_programid1-7
+    >   437M	/data2-01/ztf_20181210_programid1-1
+    >   646M	/data2-01/ztf_20181212_programid1-8
+    >   646M	/data2-01/ztf_20181212_programid1-0
+    >   647M	/data2-01/ztf_20181212_programid1-14
+    >   646M	/data2-01/ztf_20181212_programid1-5
+    >   646M	/data2-01/ztf_20181212_programid1-15
+    >   647M	/data2-01/ztf_20181212_programid1-6
+    >   496M	/data2-01/ztf_20181213_programid1-12
+    >   496M	/data2-01/ztf_20181213_programid1-4
+    >   497M	/data2-01/ztf_20181213_programid1-9
+    >   496M	/data2-01/ztf_20181213_programid1-3
+    >   496M	/data2-01/ztf_20181213_programid1-11
+    >   497M	/data2-01/ztf_20181213_programid1-2
+    >   958M	/data2-01/ztf_20181214_programid1-10
+    >   958M	/data2-01/ztf_20181214_programid1-2
+    >   957M	/data2-01/ztf_20181214_programid1-7
+    >   958M	/data2-01/ztf_20181214_programid1-1
+    >   957M	/data2-01/ztf_20181214_programid1-12
+    >   957M	/data2-01/ztf_20181214_programid1-0
+    >   42M	/data2-01/ztf_20181215_programid1-15
+    >   42M	/data2-01/ztf_20181215_programid1-7
+    >   42M	/data2-01/ztf_20181215_programid1-8
+    >   42M	/data2-01/ztf_20181215_programid1-2
+    >   42M	/data2-01/ztf_20181215_programid1-10
+    >   42M	/data2-01/ztf_20181215_programid1-1
+    >   560M	/data2-01/ztf_20181216_programid1-3
+    >   560M	/data2-01/ztf_20181216_programid1-11
+    >   560M	/data2-01/ztf_20181216_programid1-13
+    >   560M	/data2-01/ztf_20181216_programid1-4
+    >   560M	/data2-01/ztf_20181216_programid1-14
+    >   560M	/data2-01/ztf_20181216_programid1-5
+    >   991M	/data2-01/ztf_20181217_programid1-8
+    >   991M	/data2-01/ztf_20181217_programid1-0
+    >   992M	/data2-01/ztf_20181217_programid1-14
+    >   992M	/data2-01/ztf_20181217_programid1-5
+    >   993M	/data2-01/ztf_20181217_programid1-15
+    >   992M	/data2-01/ztf_20181217_programid1-6
+    >   30G	/data2-01
+    >   ---- ----
+    >   16K	/data2-02
+    >   ---- ---- ---- ----
+    >   [Onoza][Sun 23 Dec 18:55:15 GMT 2018]
+    >   ---- ----
+    >   715M	/data1-01/ztf_20181205_programid1-5
+    >   715M	/data1-01/ztf_20181205_programid1-13
+    >   716M	/data1-01/ztf_20181205_programid1-8
+    >   715M	/data1-01/ztf_20181205_programid1-12
+    >   715M	/data1-01/ztf_20181205_programid1-3
+    >   716M	/data1-01/ztf_20181205_programid1-10
+    >   269M	/data1-01/ztf_20181209_programid1-10
+    >   269M	/data1-01/ztf_20181209_programid1-2
+    >   269M	/data1-01/ztf_20181209_programid1-3
+    >   269M	/data1-01/ztf_20181209_programid1-4
+    >   269M	/data1-01/ztf_20181209_programid1-11
+    >   269M	/data1-01/ztf_20181209_programid1-5
+    >   437M	/data1-01/ztf_20181210_programid1-15
+    >   437M	/data1-01/ztf_20181210_programid1-7
+    >   437M	/data1-01/ztf_20181210_programid1-13
+    >   436M	/data1-01/ztf_20181210_programid1-4
+    >   437M	/data1-01/ztf_20181210_programid1-8
+    >   436M	/data1-01/ztf_20181210_programid1-5
+    >   646M	/data1-01/ztf_20181212_programid1-5
+    >   646M	/data1-01/ztf_20181212_programid1-13
+    >   646M	/data1-01/ztf_20181212_programid1-8
+    >   647M	/data1-01/ztf_20181212_programid1-12
+    >   647M	/data1-01/ztf_20181212_programid1-6
+    >   646M	/data1-01/ztf_20181212_programid1-10
+    >   497M	/data1-01/ztf_20181213_programid1-9
+    >   496M	/data1-01/ztf_20181213_programid1-1
+    >   496M	/data1-01/ztf_20181213_programid1-12
+    >   496M	/data1-01/ztf_20181213_programid1-3
+    >   497M	/data1-01/ztf_20181213_programid1-10
+    >   496M	/data1-01/ztf_20181213_programid1-8
+    >   957M	/data1-01/ztf_20181214_programid1-7
+    >   958M	/data1-01/ztf_20181214_programid1-15
+    >   958M	/data1-01/ztf_20181214_programid1-10
+    >   958M	/data1-01/ztf_20181214_programid1-1
+    >   957M	/data1-01/ztf_20181214_programid1-5
+    >   958M	/data1-01/ztf_20181214_programid1-2
+    >   42M	/data1-01/ztf_20181215_programid1-8
+    >   42M	/data1-01/ztf_20181215_programid1-0
+    >   42M	/data1-01/ztf_20181215_programid1-15
+    >   42M	/data1-01/ztf_20181215_programid1-2
+    >   42M	/data1-01/ztf_20181215_programid1-6
+    >   42M	/data1-01/ztf_20181215_programid1-14
+    >   560M	/data1-01/ztf_20181216_programid1-4
+    >   560M	/data1-01/ztf_20181216_programid1-12
+    >   560M	/data1-01/ztf_20181216_programid1-6
+    >   560M	/data1-01/ztf_20181216_programid1-14
+    >   560M	/data1-01/ztf_20181216_programid1-5
+    >   560M	/data1-01/ztf_20181216_programid1-15
+    >   992M	/data1-01/ztf_20181217_programid1-5
+    >   991M	/data1-01/ztf_20181217_programid1-13
+    >   991M	/data1-01/ztf_20181217_programid1-8
+    >   992M	/data1-01/ztf_20181217_programid1-12
+    >   993M	/data1-01/ztf_20181217_programid1-3
+    >   991M	/data1-01/ztf_20181217_programid1-10
+    >   30G	/data1-01
+    >   ---- ----
+    >   0	/data1-02/ztf_20181219_programid1-7
+    >   0	/data1-02/ztf_20181219_programid1-11
+    >   0	/data1-02/ztf_20181219_programid1-5
+    >   0	/data1-02/ztf_20181219_programid1-2
+    >   0	/data1-02/ztf_20181219_programid1-9
+    >   0	/data1-02/ztf_20181219_programid1-3
+    >   32K	/data1-02
+    >   ---- ----
+    >   716M	/data2-01/ztf_20181205_programid1-9
+    >   716M	/data2-01/ztf_20181205_programid1-1
+    >   715M	/data2-01/ztf_20181205_programid1-15
+    >   715M	/data2-01/ztf_20181205_programid1-6
+    >   716M	/data2-01/ztf_20181205_programid1-0
+    >   716M	/data2-01/ztf_20181205_programid1-7
+    >   269M	/data2-01/ztf_20181209_programid1-14
+    >   269M	/data2-01/ztf_20181209_programid1-6
+    >   269M	/data2-01/ztf_20181209_programid1-13
+    >   269M	/data2-01/ztf_20181209_programid1-1
+    >   269M	/data2-01/ztf_20181209_programid1-8
+    >   269M	/data2-01/ztf_20181209_programid1-15
+    >   437M	/data2-01/ztf_20181210_programid1-3
+    >   437M	/data2-01/ztf_20181210_programid1-11
+    >   437M	/data2-01/ztf_20181210_programid1-10
+    >   437M	/data2-01/ztf_20181210_programid1-1
+    >   436M	/data2-01/ztf_20181210_programid1-14
+    >   437M	/data2-01/ztf_20181210_programid1-2
+    >   646M	/data2-01/ztf_20181212_programid1-9
+    >   646M	/data2-01/ztf_20181212_programid1-1
+    >   646M	/data2-01/ztf_20181212_programid1-15
+    >   646M	/data2-01/ztf_20181212_programid1-0
+    >   646M	/data2-01/ztf_20181212_programid1-3
+    >   646M	/data2-01/ztf_20181212_programid1-7
+    >   496M	/data2-01/ztf_20181213_programid1-13
+    >   496M	/data2-01/ztf_20181213_programid1-5
+    >   496M	/data2-01/ztf_20181213_programid1-6
+    >   497M	/data2-01/ztf_20181213_programid1-0
+    >   496M	/data2-01/ztf_20181213_programid1-7
+    >   496M	/data2-01/ztf_20181213_programid1-15
+    >   957M	/data2-01/ztf_20181214_programid1-11
+    >   957M	/data2-01/ztf_20181214_programid1-3
+    >   957M	/data2-01/ztf_20181214_programid1-4
+    >   957M	/data2-01/ztf_20181214_programid1-8
+    >   957M	/data2-01/ztf_20181214_programid1-14
+    >   957M	/data2-01/ztf_20181214_programid1-13
+    >   42M	/data2-01/ztf_20181215_programid1-12
+    >   42M	/data2-01/ztf_20181215_programid1-4
+    >   42M	/data2-01/ztf_20181215_programid1-5
+    >   42M	/data2-01/ztf_20181215_programid1-9
+    >   42M	/data2-01/ztf_20181215_programid1-3
+    >   42M	/data2-01/ztf_20181215_programid1-11
+    >   560M	/data2-01/ztf_20181216_programid1-8
+    >   560M	/data2-01/ztf_20181216_programid1-0
+    >   560M	/data2-01/ztf_20181216_programid1-3
+    >   560M	/data2-01/ztf_20181216_programid1-11
+    >   560M	/data2-01/ztf_20181216_programid1-2
+    >   560M	/data2-01/ztf_20181216_programid1-9
+    >   992M	/data2-01/ztf_20181217_programid1-9
+    >   992M	/data2-01/ztf_20181217_programid1-1
+    >   993M	/data2-01/ztf_20181217_programid1-15
+    >   992M	/data2-01/ztf_20181217_programid1-6
+    >   991M	/data2-01/ztf_20181217_programid1-0
+    >   993M	/data2-01/ztf_20181217_programid1-7
+    >   30G	/data2-01
+    >   ---- ----
+    >   16K	/data2-02
 
 
 # -----------------------------------------------------
@@ -3541,20 +3503,18 @@ Sun 23 Dec 18:04:45 GMT 2018
         done
 
 
---START--
----- ----
-vmname [Afoaviel]
-Removing stevedore_tina_1 ... done
-Removing network stevedore_default
-Creating network "stevedore_default" with the default driver
-Creating stevedore_tina_1 ... done
----- ----
-vmname [Rusaldez]
-Removing stevedore_tina_1 ... done
-Removing network stevedore_default
-Creating network "stevedore_default" with the default driver
-Creating stevedore_tina_1 ... done
---STOP--
+    >   ---- ----
+    >   vmname [Afoaviel]
+    >   Removing stevedore_tina_1 ... done
+    >   Removing network stevedore_default
+    >   Creating network "stevedore_default" with the default driver
+    >   Creating stevedore_tina_1 ... done
+    >   ---- ----
+    >   vmname [Rusaldez]
+    >   Removing stevedore_tina_1 ... done
+    >   Removing network stevedore_default
+    >   Creating network "stevedore_default" with the default driver
+    >   Creating stevedore_tina_1 ... done
 
 
 # -----------------------------------------------------
@@ -3581,130 +3541,118 @@ Creating stevedore_tina_1 ... done
     ; date
 
 
---START--
-Sun 23 Dec 18:58:29 GMT 2018
-TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                 HOST            CLIENT-ID
-ztf_20181219_programid1 0          243             20858           20615           ztf-mirror.roe.ac.uk-0-28c360df-3013-470a-8bc3-f0c7e0110c69 /129.215.175.98 ztf-mirror.roe.ac.uk-0
-ztf_20181219_programid1 10         199             20859           20660           ztf-mirror.roe.ac.uk-1-2c096f42-2ab9-431a-ae88-1357b8873c35 /129.215.175.98 ztf-mirror.roe.ac.uk-1
-ztf_20181219_programid1 11         242             20858           20616           ztf-mirror.roe.ac.uk-1-b56e5897-5ca5-497f-9a8a-c9b7b7480b23 /129.215.175.98 ztf-mirror.roe.ac.uk-1
-ztf_20181219_programid1 1          198             20859           20661           ztf-mirror.roe.ac.uk-0-ce193fc9-da42-4670-960a-ccaa127ace9c /129.215.175.98 ztf-mirror.roe.ac.uk-0
-ztf_20181219_programid1 12         198             20858           20660           ztf-mirror.roe.ac.uk-2-0cb6e6b8-d534-4a14-9a55-9af2d321bb50 /129.215.175.98 ztf-mirror.roe.ac.uk-2
-ztf_20181219_programid1 13         242             20859           20617           ztf-mirror.roe.ac.uk-2-3fecac00-538a-418e-b6e4-73beef1580dd /129.215.175.98 ztf-mirror.roe.ac.uk-2
-ztf_20181219_programid1 2          199             20858           20659           ztf-mirror.roe.ac.uk-1-2c096f42-2ab9-431a-ae88-1357b8873c35 /129.215.175.98 ztf-mirror.roe.ac.uk-1
-ztf_20181219_programid1 3          243             20859           20616           ztf-mirror.roe.ac.uk-1-b56e5897-5ca5-497f-9a8a-c9b7b7480b23 /129.215.175.98 ztf-mirror.roe.ac.uk-1
-ztf_20181219_programid1 4          201             20859           20658           ztf-mirror.roe.ac.uk-2-0cb6e6b8-d534-4a14-9a55-9af2d321bb50 /129.215.175.98 ztf-mirror.roe.ac.uk-2
-ztf_20181219_programid1 5          244             20858           20614           ztf-mirror.roe.ac.uk-2-3fecac00-538a-418e-b6e4-73beef1580dd /129.215.175.98 ztf-mirror.roe.ac.uk-2
-ztf_20181219_programid1 6          477             20858           20381           ztf-mirror.roe.ac.uk-3-60cba15d-0bad-41bc-8c6e-fb0849800aee /129.215.175.98 ztf-mirror.roe.ac.uk-3
-ztf_20181219_programid1 7          412             20859           20447           ztf-mirror.roe.ac.uk-3-e2c87d6f-e332-4b42-a888-c2fa39f8d2bb /129.215.175.98 ztf-mirror.roe.ac.uk-3
-ztf_20181219_programid1 8          245             20858           20613           ztf-mirror.roe.ac.uk-0-28c360df-3013-470a-8bc3-f0c7e0110c69 /129.215.175.98 ztf-mirror.roe.ac.uk-0
-ztf_20181219_programid1 9          201             20859           20658           ztf-mirror.roe.ac.uk-0-ce193fc9-da42-4670-960a-ccaa127ace9c /129.215.175.98 ztf-mirror.roe.ac.uk-0
-Sun 23 Dec 18:58:37 GMT 2018
---STOP--
+    >   Sun 23 Dec 18:58:29 GMT 2018
+    >   TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                 HOST            CLIENT-ID
+    >   ztf_20181219_programid1 0          243             20858           20615           ztf-mirror.roe.ac.uk-0-28c360df-3013-470a-8bc3-f0c7e0110c69 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181219_programid1 10         199             20859           20660           ztf-mirror.roe.ac.uk-1-2c096f42-2ab9-431a-ae88-1357b8873c35 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181219_programid1 11         242             20858           20616           ztf-mirror.roe.ac.uk-1-b56e5897-5ca5-497f-9a8a-c9b7b7480b23 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181219_programid1 1          198             20859           20661           ztf-mirror.roe.ac.uk-0-ce193fc9-da42-4670-960a-ccaa127ace9c /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181219_programid1 12         198             20858           20660           ztf-mirror.roe.ac.uk-2-0cb6e6b8-d534-4a14-9a55-9af2d321bb50 /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181219_programid1 13         242             20859           20617           ztf-mirror.roe.ac.uk-2-3fecac00-538a-418e-b6e4-73beef1580dd /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181219_programid1 2          199             20858           20659           ztf-mirror.roe.ac.uk-1-2c096f42-2ab9-431a-ae88-1357b8873c35 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181219_programid1 3          243             20859           20616           ztf-mirror.roe.ac.uk-1-b56e5897-5ca5-497f-9a8a-c9b7b7480b23 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181219_programid1 4          201             20859           20658           ztf-mirror.roe.ac.uk-2-0cb6e6b8-d534-4a14-9a55-9af2d321bb50 /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181219_programid1 5          244             20858           20614           ztf-mirror.roe.ac.uk-2-3fecac00-538a-418e-b6e4-73beef1580dd /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181219_programid1 6          477             20858           20381           ztf-mirror.roe.ac.uk-3-60cba15d-0bad-41bc-8c6e-fb0849800aee /129.215.175.98 ztf-mirror.roe.ac.uk-3
+    >   ztf_20181219_programid1 7          412             20859           20447           ztf-mirror.roe.ac.uk-3-e2c87d6f-e332-4b42-a888-c2fa39f8d2bb /129.215.175.98 ztf-mirror.roe.ac.uk-3
+    >   ztf_20181219_programid1 8          245             20858           20613           ztf-mirror.roe.ac.uk-0-28c360df-3013-470a-8bc3-f0c7e0110c69 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181219_programid1 9          201             20859           20658           ztf-mirror.roe.ac.uk-0-ce193fc9-da42-4670-960a-ccaa127ace9c /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   Sun 23 Dec 18:58:37 GMT 2018
 
 
---START--
-Sun 23 Dec 19:00:44 GMT 2018
-TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                 HOST            CLIENT-ID
-ztf_20181219_programid1 0          774             20858           20084           ztf-mirror.roe.ac.uk-0-28c360df-3013-470a-8bc3-f0c7e0110c69 /129.215.175.98 ztf-mirror.roe.ac.uk-0
-ztf_20181219_programid1 10         711             20859           20148           ztf-mirror.roe.ac.uk-1-2c096f42-2ab9-431a-ae88-1357b8873c35 /129.215.175.98 ztf-mirror.roe.ac.uk-1
-ztf_20181219_programid1 11         773             20858           20085           ztf-mirror.roe.ac.uk-1-b56e5897-5ca5-497f-9a8a-c9b7b7480b23 /129.215.175.98 ztf-mirror.roe.ac.uk-1
-ztf_20181219_programid1 12         728             20858           20130           ztf-mirror.roe.ac.uk-2-0cb6e6b8-d534-4a14-9a55-9af2d321bb50 /129.215.175.98 ztf-mirror.roe.ac.uk-2
-ztf_20181219_programid1 13         750             20859           20109           ztf-mirror.roe.ac.uk-2-3fecac00-538a-418e-b6e4-73beef1580dd /129.215.175.98 ztf-mirror.roe.ac.uk-2
-ztf_20181219_programid1 1          709             20859           20150           ztf-mirror.roe.ac.uk-0-ce193fc9-da42-4670-960a-ccaa127ace9c /129.215.175.98 ztf-mirror.roe.ac.uk-0
-ztf_20181219_programid1 2          711             20858           20147           ztf-mirror.roe.ac.uk-1-2c096f42-2ab9-431a-ae88-1357b8873c35 /129.215.175.98 ztf-mirror.roe.ac.uk-1
-ztf_20181219_programid1 3          773             20859           20086           ztf-mirror.roe.ac.uk-1-b56e5897-5ca5-497f-9a8a-c9b7b7480b23 /129.215.175.98 ztf-mirror.roe.ac.uk-1
-ztf_20181219_programid1 4          734             20859           20125           ztf-mirror.roe.ac.uk-2-0cb6e6b8-d534-4a14-9a55-9af2d321bb50 /129.215.175.98 ztf-mirror.roe.ac.uk-2
-ztf_20181219_programid1 5          754             20858           20104           ztf-mirror.roe.ac.uk-2-3fecac00-538a-418e-b6e4-73beef1580dd /129.215.175.98 ztf-mirror.roe.ac.uk-2
-ztf_20181219_programid1 6          1510            20858           19348           ztf-mirror.roe.ac.uk-3-60cba15d-0bad-41bc-8c6e-fb0849800aee /129.215.175.98 ztf-mirror.roe.ac.uk-3
-ztf_20181219_programid1 7          1440            20859           19419           ztf-mirror.roe.ac.uk-3-e2c87d6f-e332-4b42-a888-c2fa39f8d2bb /129.215.175.98 ztf-mirror.roe.ac.uk-3
-ztf_20181219_programid1 8          776             20858           20082           ztf-mirror.roe.ac.uk-0-28c360df-3013-470a-8bc3-f0c7e0110c69 /129.215.175.98 ztf-mirror.roe.ac.uk-0
-ztf_20181219_programid1 9          709             20859           20150           ztf-mirror.roe.ac.uk-0-ce193fc9-da42-4670-960a-ccaa127ace9c /129.215.175.98 ztf-mirror.roe.ac.uk-0
-Sun 23 Dec 19:00:52 GMT 2018
---STOP--
+    >   Sun 23 Dec 19:00:44 GMT 2018
+    >   TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                 HOST            CLIENT-ID
+    >   ztf_20181219_programid1 0          774             20858           20084           ztf-mirror.roe.ac.uk-0-28c360df-3013-470a-8bc3-f0c7e0110c69 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181219_programid1 10         711             20859           20148           ztf-mirror.roe.ac.uk-1-2c096f42-2ab9-431a-ae88-1357b8873c35 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181219_programid1 11         773             20858           20085           ztf-mirror.roe.ac.uk-1-b56e5897-5ca5-497f-9a8a-c9b7b7480b23 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181219_programid1 12         728             20858           20130           ztf-mirror.roe.ac.uk-2-0cb6e6b8-d534-4a14-9a55-9af2d321bb50 /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181219_programid1 13         750             20859           20109           ztf-mirror.roe.ac.uk-2-3fecac00-538a-418e-b6e4-73beef1580dd /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181219_programid1 1          709             20859           20150           ztf-mirror.roe.ac.uk-0-ce193fc9-da42-4670-960a-ccaa127ace9c /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181219_programid1 2          711             20858           20147           ztf-mirror.roe.ac.uk-1-2c096f42-2ab9-431a-ae88-1357b8873c35 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181219_programid1 3          773             20859           20086           ztf-mirror.roe.ac.uk-1-b56e5897-5ca5-497f-9a8a-c9b7b7480b23 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181219_programid1 4          734             20859           20125           ztf-mirror.roe.ac.uk-2-0cb6e6b8-d534-4a14-9a55-9af2d321bb50 /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181219_programid1 5          754             20858           20104           ztf-mirror.roe.ac.uk-2-3fecac00-538a-418e-b6e4-73beef1580dd /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181219_programid1 6          1510            20858           19348           ztf-mirror.roe.ac.uk-3-60cba15d-0bad-41bc-8c6e-fb0849800aee /129.215.175.98 ztf-mirror.roe.ac.uk-3
+    >   ztf_20181219_programid1 7          1440            20859           19419           ztf-mirror.roe.ac.uk-3-e2c87d6f-e332-4b42-a888-c2fa39f8d2bb /129.215.175.98 ztf-mirror.roe.ac.uk-3
+    >   ztf_20181219_programid1 8          776             20858           20082           ztf-mirror.roe.ac.uk-0-28c360df-3013-470a-8bc3-f0c7e0110c69 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181219_programid1 9          709             20859           20150           ztf-mirror.roe.ac.uk-0-ce193fc9-da42-4670-960a-ccaa127ace9c /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   Sun 23 Dec 19:00:52 GMT 2018
 
 
---START--
-Sun 23 Dec 19:06:54 GMT 2018
-TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                 HOST            CLIENT-ID
-ztf_20181219_programid1 0          2381            20858           18477           ztf-mirror.roe.ac.uk-0-28c360df-3013-470a-8bc3-f0c7e0110c69 /129.215.175.98 ztf-mirror.roe.ac.uk-0
-ztf_20181219_programid1 10         2331            20859           18528           ztf-mirror.roe.ac.uk-1-2c096f42-2ab9-431a-ae88-1357b8873c35 /129.215.175.98 ztf-mirror.roe.ac.uk-1
-ztf_20181219_programid1 11         2373            20858           18485           ztf-mirror.roe.ac.uk-1-b56e5897-5ca5-497f-9a8a-c9b7b7480b23 /129.215.175.98 ztf-mirror.roe.ac.uk-1
-ztf_20181219_programid1 12         2323            20858           18535           ztf-mirror.roe.ac.uk-2-0cb6e6b8-d534-4a14-9a55-9af2d321bb50 /129.215.175.98 ztf-mirror.roe.ac.uk-2
-ztf_20181219_programid1 1          2327            20859           18532           ztf-mirror.roe.ac.uk-0-ce193fc9-da42-4670-960a-ccaa127ace9c /129.215.175.98 ztf-mirror.roe.ac.uk-0
-ztf_20181219_programid1 13         2369            20859           18490           ztf-mirror.roe.ac.uk-2-3fecac00-538a-418e-b6e4-73beef1580dd /129.215.175.98 ztf-mirror.roe.ac.uk-2
-ztf_20181219_programid1 2          2329            20858           18529           ztf-mirror.roe.ac.uk-1-2c096f42-2ab9-431a-ae88-1357b8873c35 /129.215.175.98 ztf-mirror.roe.ac.uk-1
-ztf_20181219_programid1 3          2373            20859           18486           ztf-mirror.roe.ac.uk-1-b56e5897-5ca5-497f-9a8a-c9b7b7480b23 /129.215.175.98 ztf-mirror.roe.ac.uk-1
-ztf_20181219_programid1 4          2331            20859           18528           ztf-mirror.roe.ac.uk-2-0cb6e6b8-d534-4a14-9a55-9af2d321bb50 /129.215.175.98 ztf-mirror.roe.ac.uk-2
-ztf_20181219_programid1 5          2366            20858           18492           ztf-mirror.roe.ac.uk-2-3fecac00-538a-418e-b6e4-73beef1580dd /129.215.175.98 ztf-mirror.roe.ac.uk-2
-ztf_20181219_programid1 6          4646            20858           16212           ztf-mirror.roe.ac.uk-3-60cba15d-0bad-41bc-8c6e-fb0849800aee /129.215.175.98 ztf-mirror.roe.ac.uk-3
-ztf_20181219_programid1 7          4580            20859           16279           ztf-mirror.roe.ac.uk-3-e2c87d6f-e332-4b42-a888-c2fa39f8d2bb /129.215.175.98 ztf-mirror.roe.ac.uk-3
-ztf_20181219_programid1 8          2375            20858           18483           ztf-mirror.roe.ac.uk-0-28c360df-3013-470a-8bc3-f0c7e0110c69 /129.215.175.98 ztf-mirror.roe.ac.uk-0
-ztf_20181219_programid1 9          2324            20859           18535           ztf-mirror.roe.ac.uk-0-ce193fc9-da42-4670-960a-ccaa127ace9c /129.215.175.98 ztf-mirror.roe.ac.uk-0
-Sun 23 Dec 19:07:02 GMT 2018
---STOP--
+    >   Sun 23 Dec 19:06:54 GMT 2018
+    >   TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                 HOST            CLIENT-ID
+    >   ztf_20181219_programid1 0          2381            20858           18477           ztf-mirror.roe.ac.uk-0-28c360df-3013-470a-8bc3-f0c7e0110c69 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181219_programid1 10         2331            20859           18528           ztf-mirror.roe.ac.uk-1-2c096f42-2ab9-431a-ae88-1357b8873c35 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181219_programid1 11         2373            20858           18485           ztf-mirror.roe.ac.uk-1-b56e5897-5ca5-497f-9a8a-c9b7b7480b23 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181219_programid1 12         2323            20858           18535           ztf-mirror.roe.ac.uk-2-0cb6e6b8-d534-4a14-9a55-9af2d321bb50 /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181219_programid1 1          2327            20859           18532           ztf-mirror.roe.ac.uk-0-ce193fc9-da42-4670-960a-ccaa127ace9c /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181219_programid1 13         2369            20859           18490           ztf-mirror.roe.ac.uk-2-3fecac00-538a-418e-b6e4-73beef1580dd /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181219_programid1 2          2329            20858           18529           ztf-mirror.roe.ac.uk-1-2c096f42-2ab9-431a-ae88-1357b8873c35 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181219_programid1 3          2373            20859           18486           ztf-mirror.roe.ac.uk-1-b56e5897-5ca5-497f-9a8a-c9b7b7480b23 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181219_programid1 4          2331            20859           18528           ztf-mirror.roe.ac.uk-2-0cb6e6b8-d534-4a14-9a55-9af2d321bb50 /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181219_programid1 5          2366            20858           18492           ztf-mirror.roe.ac.uk-2-3fecac00-538a-418e-b6e4-73beef1580dd /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181219_programid1 6          4646            20858           16212           ztf-mirror.roe.ac.uk-3-60cba15d-0bad-41bc-8c6e-fb0849800aee /129.215.175.98 ztf-mirror.roe.ac.uk-3
+    >   ztf_20181219_programid1 7          4580            20859           16279           ztf-mirror.roe.ac.uk-3-e2c87d6f-e332-4b42-a888-c2fa39f8d2bb /129.215.175.98 ztf-mirror.roe.ac.uk-3
+    >   ztf_20181219_programid1 8          2375            20858           18483           ztf-mirror.roe.ac.uk-0-28c360df-3013-470a-8bc3-f0c7e0110c69 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181219_programid1 9          2324            20859           18535           ztf-mirror.roe.ac.uk-0-ce193fc9-da42-4670-960a-ccaa127ace9c /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   Sun 23 Dec 19:07:02 GMT 2018
 
 
---START--
-Sun 23 Dec 19:09:45 GMT 2018
-TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                 HOST            CLIENT-ID
-ztf_20181219_programid1 0          3197            20858           17661           ztf-mirror.roe.ac.uk-0-28c360df-3013-470a-8bc3-f0c7e0110c69 /129.215.175.98 ztf-mirror.roe.ac.uk-0
-ztf_20181219_programid1 10         3150            20859           17709           ztf-mirror.roe.ac.uk-1-2c096f42-2ab9-431a-ae88-1357b8873c35 /129.215.175.98 ztf-mirror.roe.ac.uk-1
-ztf_20181219_programid1 11         3193            20858           17665           ztf-mirror.roe.ac.uk-1-b56e5897-5ca5-497f-9a8a-c9b7b7480b23 /129.215.175.98 ztf-mirror.roe.ac.uk-1
-ztf_20181219_programid1 12         3164            20858           17694           ztf-mirror.roe.ac.uk-2-0cb6e6b8-d534-4a14-9a55-9af2d321bb50 /129.215.175.98 ztf-mirror.roe.ac.uk-2
-ztf_20181219_programid1 1          3149            20859           17710           ztf-mirror.roe.ac.uk-0-ce193fc9-da42-4670-960a-ccaa127ace9c /129.215.175.98 ztf-mirror.roe.ac.uk-0
-ztf_20181219_programid1 13         3186            20859           17673           ztf-mirror.roe.ac.uk-2-3fecac00-538a-418e-b6e4-73beef1580dd /129.215.175.98 ztf-mirror.roe.ac.uk-2
-ztf_20181219_programid1 2          3147            20858           17711           ztf-mirror.roe.ac.uk-1-2c096f42-2ab9-431a-ae88-1357b8873c35 /129.215.175.98 ztf-mirror.roe.ac.uk-1
-ztf_20181219_programid1 3          3193            20859           17666           ztf-mirror.roe.ac.uk-1-b56e5897-5ca5-497f-9a8a-c9b7b7480b23 /129.215.175.98 ztf-mirror.roe.ac.uk-1
-ztf_20181219_programid1 4          3169            20859           17690           ztf-mirror.roe.ac.uk-2-0cb6e6b8-d534-4a14-9a55-9af2d321bb50 /129.215.175.98 ztf-mirror.roe.ac.uk-2
-ztf_20181219_programid1 5          3184            20858           17674           ztf-mirror.roe.ac.uk-2-3fecac00-538a-418e-b6e4-73beef1580dd /129.215.175.98 ztf-mirror.roe.ac.uk-2
-ztf_20181219_programid1 6          6197            20858           14661           ztf-mirror.roe.ac.uk-3-60cba15d-0bad-41bc-8c6e-fb0849800aee /129.215.175.98 ztf-mirror.roe.ac.uk-3
-ztf_20181219_programid1 7          6132            20859           14727           ztf-mirror.roe.ac.uk-3-e2c87d6f-e332-4b42-a888-c2fa39f8d2bb /129.215.175.98 ztf-mirror.roe.ac.uk-3
-ztf_20181219_programid1 8          3191            20858           17667           ztf-mirror.roe.ac.uk-0-28c360df-3013-470a-8bc3-f0c7e0110c69 /129.215.175.98 ztf-mirror.roe.ac.uk-0
-ztf_20181219_programid1 9          3142            20859           17717           ztf-mirror.roe.ac.uk-0-ce193fc9-da42-4670-960a-ccaa127ace9c /129.215.175.98 ztf-mirror.roe.ac.uk-0
-Sun 23 Dec 19:09:54 GMT 2018
---STOP--
+    >   Sun 23 Dec 19:09:45 GMT 2018
+    >   TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                 HOST            CLIENT-ID
+    >   ztf_20181219_programid1 0          3197            20858           17661           ztf-mirror.roe.ac.uk-0-28c360df-3013-470a-8bc3-f0c7e0110c69 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181219_programid1 10         3150            20859           17709           ztf-mirror.roe.ac.uk-1-2c096f42-2ab9-431a-ae88-1357b8873c35 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181219_programid1 11         3193            20858           17665           ztf-mirror.roe.ac.uk-1-b56e5897-5ca5-497f-9a8a-c9b7b7480b23 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181219_programid1 12         3164            20858           17694           ztf-mirror.roe.ac.uk-2-0cb6e6b8-d534-4a14-9a55-9af2d321bb50 /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181219_programid1 1          3149            20859           17710           ztf-mirror.roe.ac.uk-0-ce193fc9-da42-4670-960a-ccaa127ace9c /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181219_programid1 13         3186            20859           17673           ztf-mirror.roe.ac.uk-2-3fecac00-538a-418e-b6e4-73beef1580dd /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181219_programid1 2          3147            20858           17711           ztf-mirror.roe.ac.uk-1-2c096f42-2ab9-431a-ae88-1357b8873c35 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181219_programid1 3          3193            20859           17666           ztf-mirror.roe.ac.uk-1-b56e5897-5ca5-497f-9a8a-c9b7b7480b23 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181219_programid1 4          3169            20859           17690           ztf-mirror.roe.ac.uk-2-0cb6e6b8-d534-4a14-9a55-9af2d321bb50 /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181219_programid1 5          3184            20858           17674           ztf-mirror.roe.ac.uk-2-3fecac00-538a-418e-b6e4-73beef1580dd /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181219_programid1 6          6197            20858           14661           ztf-mirror.roe.ac.uk-3-60cba15d-0bad-41bc-8c6e-fb0849800aee /129.215.175.98 ztf-mirror.roe.ac.uk-3
+    >   ztf_20181219_programid1 7          6132            20859           14727           ztf-mirror.roe.ac.uk-3-e2c87d6f-e332-4b42-a888-c2fa39f8d2bb /129.215.175.98 ztf-mirror.roe.ac.uk-3
+    >   ztf_20181219_programid1 8          3191            20858           17667           ztf-mirror.roe.ac.uk-0-28c360df-3013-470a-8bc3-f0c7e0110c69 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181219_programid1 9          3142            20859           17717           ztf-mirror.roe.ac.uk-0-ce193fc9-da42-4670-960a-ccaa127ace9c /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   Sun 23 Dec 19:09:54 GMT 2018
 
 
---START--
-Sun 23 Dec 19:14:42 GMT 2018
-TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                 HOST            CLIENT-ID
-ztf_20181219_programid1 0          4545            20858           16313           ztf-mirror.roe.ac.uk-0-28c360df-3013-470a-8bc3-f0c7e0110c69 /129.215.175.98 ztf-mirror.roe.ac.uk-0
-ztf_20181219_programid1 10         4500            20859           16359           ztf-mirror.roe.ac.uk-1-2c096f42-2ab9-431a-ae88-1357b8873c35 /129.215.175.98 ztf-mirror.roe.ac.uk-1
-ztf_20181219_programid1 11         4547            20858           16311           ztf-mirror.roe.ac.uk-1-b56e5897-5ca5-497f-9a8a-c9b7b7480b23 /129.215.175.98 ztf-mirror.roe.ac.uk-1
-ztf_20181219_programid1 12         4511            20858           16347           ztf-mirror.roe.ac.uk-2-0cb6e6b8-d534-4a14-9a55-9af2d321bb50 /129.215.175.98 ztf-mirror.roe.ac.uk-2
-ztf_20181219_programid1 13         4539            20859           16320           ztf-mirror.roe.ac.uk-2-3fecac00-538a-418e-b6e4-73beef1580dd /129.215.175.98 ztf-mirror.roe.ac.uk-2
-ztf_20181219_programid1 1          4499            20859           16360           ztf-mirror.roe.ac.uk-0-ce193fc9-da42-4670-960a-ccaa127ace9c /129.215.175.98 ztf-mirror.roe.ac.uk-0
-ztf_20181219_programid1 2          4494            20858           16364           ztf-mirror.roe.ac.uk-1-2c096f42-2ab9-431a-ae88-1357b8873c35 /129.215.175.98 ztf-mirror.roe.ac.uk-1
-ztf_20181219_programid1 3          4544            20859           16315           ztf-mirror.roe.ac.uk-1-b56e5897-5ca5-497f-9a8a-c9b7b7480b23 /129.215.175.98 ztf-mirror.roe.ac.uk-1
-ztf_20181219_programid1 4          4521            20859           16338           ztf-mirror.roe.ac.uk-2-0cb6e6b8-d534-4a14-9a55-9af2d321bb50 /129.215.175.98 ztf-mirror.roe.ac.uk-2
-ztf_20181219_programid1 5          4532            20858           16326           ztf-mirror.roe.ac.uk-2-3fecac00-538a-418e-b6e4-73beef1580dd /129.215.175.98 ztf-mirror.roe.ac.uk-2
-ztf_20181219_programid1 6          8817            20858           12041           ztf-mirror.roe.ac.uk-3-60cba15d-0bad-41bc-8c6e-fb0849800aee /129.215.175.98 ztf-mirror.roe.ac.uk-3
-ztf_20181219_programid1 7          8754            20859           12105           ztf-mirror.roe.ac.uk-3-e2c87d6f-e332-4b42-a888-c2fa39f8d2bb /129.215.175.98 ztf-mirror.roe.ac.uk-3
-ztf_20181219_programid1 8          4540            20858           16318           ztf-mirror.roe.ac.uk-0-28c360df-3013-470a-8bc3-f0c7e0110c69 /129.215.175.98 ztf-mirror.roe.ac.uk-0
-ztf_20181219_programid1 9          4492            20859           16367           ztf-mirror.roe.ac.uk-0-ce193fc9-da42-4670-960a-ccaa127ace9c /129.215.175.98 ztf-mirror.roe.ac.uk-0
-Sun 23 Dec 19:14:49 GMT 2018
---STOP--
+    >   Sun 23 Dec 19:14:42 GMT 2018
+    >   TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                 HOST            CLIENT-ID
+    >   ztf_20181219_programid1 0          4545            20858           16313           ztf-mirror.roe.ac.uk-0-28c360df-3013-470a-8bc3-f0c7e0110c69 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181219_programid1 10         4500            20859           16359           ztf-mirror.roe.ac.uk-1-2c096f42-2ab9-431a-ae88-1357b8873c35 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181219_programid1 11         4547            20858           16311           ztf-mirror.roe.ac.uk-1-b56e5897-5ca5-497f-9a8a-c9b7b7480b23 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181219_programid1 12         4511            20858           16347           ztf-mirror.roe.ac.uk-2-0cb6e6b8-d534-4a14-9a55-9af2d321bb50 /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181219_programid1 13         4539            20859           16320           ztf-mirror.roe.ac.uk-2-3fecac00-538a-418e-b6e4-73beef1580dd /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181219_programid1 1          4499            20859           16360           ztf-mirror.roe.ac.uk-0-ce193fc9-da42-4670-960a-ccaa127ace9c /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181219_programid1 2          4494            20858           16364           ztf-mirror.roe.ac.uk-1-2c096f42-2ab9-431a-ae88-1357b8873c35 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181219_programid1 3          4544            20859           16315           ztf-mirror.roe.ac.uk-1-b56e5897-5ca5-497f-9a8a-c9b7b7480b23 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181219_programid1 4          4521            20859           16338           ztf-mirror.roe.ac.uk-2-0cb6e6b8-d534-4a14-9a55-9af2d321bb50 /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181219_programid1 5          4532            20858           16326           ztf-mirror.roe.ac.uk-2-3fecac00-538a-418e-b6e4-73beef1580dd /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181219_programid1 6          8817            20858           12041           ztf-mirror.roe.ac.uk-3-60cba15d-0bad-41bc-8c6e-fb0849800aee /129.215.175.98 ztf-mirror.roe.ac.uk-3
+    >   ztf_20181219_programid1 7          8754            20859           12105           ztf-mirror.roe.ac.uk-3-e2c87d6f-e332-4b42-a888-c2fa39f8d2bb /129.215.175.98 ztf-mirror.roe.ac.uk-3
+    >   ztf_20181219_programid1 8          4540            20858           16318           ztf-mirror.roe.ac.uk-0-28c360df-3013-470a-8bc3-f0c7e0110c69 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181219_programid1 9          4492            20859           16367           ztf-mirror.roe.ac.uk-0-ce193fc9-da42-4670-960a-ccaa127ace9c /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   Sun 23 Dec 19:14:49 GMT 2018
 
 
---START--
-Sun 23 Dec 19:47:55 GMT 2018
-TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID     HOST            CLIENT-ID
-ztf_20181219_programid1 0          9953            20858           10905           -               -               -
-ztf_20181219_programid1 10         9906            20859           10953           -               -               -
-ztf_20181219_programid1 1          10159           20859           10700           -               -               -
-ztf_20181219_programid1 11         9932            20858           10926           -               -               -
-ztf_20181219_programid1 12         10173           20858           10685           -               -               -
-ztf_20181219_programid1 13         9925            20859           10934           -               -               -
-ztf_20181219_programid1 2          9898            20858           10960           -               -               -
-ztf_20181219_programid1 3          9938            20859           10921           -               -               -
-ztf_20181219_programid1 4          10175           20859           10684           -               -               -
-ztf_20181219_programid1 5          9922            20858           10936           -               -               -
-ztf_20181219_programid1 6          19831           20858           1027            -               -               -
-ztf_20181219_programid1 7          19778           20859           1081            -               -               -
-ztf_20181219_programid1 8          9947            20858           10911           -               -               -
-ztf_20181219_programid1 9          10155           20859           10704           -               -               -
-Sun 23 Dec 19:48:04 GMT 2018
---STOP--
+    >   Sun 23 Dec 19:47:55 GMT 2018
+    >   TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID     HOST            CLIENT-ID
+    >   ztf_20181219_programid1 0          9953            20858           10905           -               -               -
+    >   ztf_20181219_programid1 10         9906            20859           10953           -               -               -
+    >   ztf_20181219_programid1 1          10159           20859           10700           -               -               -
+    >   ztf_20181219_programid1 11         9932            20858           10926           -               -               -
+    >   ztf_20181219_programid1 12         10173           20858           10685           -               -               -
+    >   ztf_20181219_programid1 13         9925            20859           10934           -               -               -
+    >   ztf_20181219_programid1 2          9898            20858           10960           -               -               -
+    >   ztf_20181219_programid1 3          9938            20859           10921           -               -               -
+    >   ztf_20181219_programid1 4          10175           20859           10684           -               -               -
+    >   ztf_20181219_programid1 5          9922            20858           10936           -               -               -
+    >   ztf_20181219_programid1 6          19831           20858           1027            -               -               -
+    >   ztf_20181219_programid1 7          19778           20859           1081            -               -               -
+    >   ztf_20181219_programid1 8          9947            20858           10911           -               -               -
+    >   ztf_20181219_programid1 9          10155           20859           10704           -               -               -
+    >   Sun 23 Dec 19:48:04 GMT 2018
 
 
 # -----------------------------------------------------
@@ -3729,212 +3677,204 @@ Sun 23 Dec 19:48:04 GMT 2018
         done
 
 
---START--
----- ---- ---- ----
-[Stedigo][Sun 23 Dec 19:06:31 GMT 2018]
----- ----
-156M	/data1-02/ztf_20181219_programid1-10
-156M	/data1-02/ztf_20181219_programid1-4
-156M	/data1-02/ztf_20181219_programid1-8
-155M	/data1-02/ztf_20181219_programid1-12
-156M	/data1-02/ztf_20181219_programid1-6
-156M	/data1-02/ztf_20181219_programid1-0
-932M	/data1-02
----- ----
-16K	/data2-02
----- ---- ---- ----
-[Angece][Sun 23 Dec 19:06:31 GMT 2018]
----- ----
-156M	/data1-02/ztf_20181219_programid1-10
-156M	/data1-02/ztf_20181219_programid1-4
-155M	/data1-02/ztf_20181219_programid1-14
-156M	/data1-02/ztf_20181219_programid1-5
-155M	/data1-02/ztf_20181219_programid1-12
-156M	/data1-02/ztf_20181219_programid1-0
-931M	/data1-02
----- ----
-16K	/data2-02
----- ---- ---- ----
-[Edwalafia][Sun 23 Dec 19:06:31 GMT 2018]
----- ----
-156M	/data1-02/ztf_20181219_programid1-10
-156M	/data1-02/ztf_20181219_programid1-1
-156M	/data1-02/ztf_20181219_programid1-11
-156M	/data1-02/ztf_20181219_programid1-5
-156M	/data1-02/ztf_20181219_programid1-2
-156M	/data1-02/ztf_20181219_programid1-3
-932M	/data1-02
----- ----
-16K	/data2-02
----- ---- ---- ----
-[Onoza][Sun 23 Dec 19:06:32 GMT 2018]
----- ----
-156M	/data1-02/ztf_20181219_programid1-7
-156M	/data1-02/ztf_20181219_programid1-11
-156M	/data1-02/ztf_20181219_programid1-5
-156M	/data1-02/ztf_20181219_programid1-2
-156M	/data1-02/ztf_20181219_programid1-9
-156M	/data1-02/ztf_20181219_programid1-3
-933M	/data1-02
----- ----
-16K	/data2-02
---STOP--
+    >   ---- ---- ---- ----
+    >   [Stedigo][Sun 23 Dec 19:06:31 GMT 2018]
+    >   ---- ----
+    >   156M	/data1-02/ztf_20181219_programid1-10
+    >   156M	/data1-02/ztf_20181219_programid1-4
+    >   156M	/data1-02/ztf_20181219_programid1-8
+    >   155M	/data1-02/ztf_20181219_programid1-12
+    >   156M	/data1-02/ztf_20181219_programid1-6
+    >   156M	/data1-02/ztf_20181219_programid1-0
+    >   932M	/data1-02
+    >   ---- ----
+    >   16K	/data2-02
+    >   ---- ---- ---- ----
+    >   [Angece][Sun 23 Dec 19:06:31 GMT 2018]
+    >   ---- ----
+    >   156M	/data1-02/ztf_20181219_programid1-10
+    >   156M	/data1-02/ztf_20181219_programid1-4
+    >   155M	/data1-02/ztf_20181219_programid1-14
+    >   156M	/data1-02/ztf_20181219_programid1-5
+    >   155M	/data1-02/ztf_20181219_programid1-12
+    >   156M	/data1-02/ztf_20181219_programid1-0
+    >   931M	/data1-02
+    >   ---- ----
+    >   16K	/data2-02
+    >   ---- ---- ---- ----
+    >   [Edwalafia][Sun 23 Dec 19:06:31 GMT 2018]
+    >   ---- ----
+    >   156M	/data1-02/ztf_20181219_programid1-10
+    >   156M	/data1-02/ztf_20181219_programid1-1
+    >   156M	/data1-02/ztf_20181219_programid1-11
+    >   156M	/data1-02/ztf_20181219_programid1-5
+    >   156M	/data1-02/ztf_20181219_programid1-2
+    >   156M	/data1-02/ztf_20181219_programid1-3
+    >   932M	/data1-02
+    >   ---- ----
+    >   16K	/data2-02
+    >   ---- ---- ---- ----
+    >   [Onoza][Sun 23 Dec 19:06:32 GMT 2018]
+    >   ---- ----
+    >   156M	/data1-02/ztf_20181219_programid1-7
+    >   156M	/data1-02/ztf_20181219_programid1-11
+    >   156M	/data1-02/ztf_20181219_programid1-5
+    >   156M	/data1-02/ztf_20181219_programid1-2
+    >   156M	/data1-02/ztf_20181219_programid1-9
+    >   156M	/data1-02/ztf_20181219_programid1-3
+    >   933M	/data1-02
+    >   ---- ----
+    >   16K	/data2-02
 
 
---START--
----- ---- ---- ----
-[Stedigo][Sun 23 Dec 19:10:25 GMT 2018]
----- ----
-221M	/data1-02/ztf_20181219_programid1-10
-221M	/data1-02/ztf_20181219_programid1-4
-221M	/data1-02/ztf_20181219_programid1-8
-221M	/data1-02/ztf_20181219_programid1-12
-222M	/data1-02/ztf_20181219_programid1-6
-221M	/data1-02/ztf_20181219_programid1-0
-1.3G	/data1-02
----- ----
-16K	/data2-02
----- ---- ---- ----
-[Angece][Sun 23 Dec 19:10:26 GMT 2018]
----- ----
-222M	/data1-02/ztf_20181219_programid1-10
-221M	/data1-02/ztf_20181219_programid1-4
-221M	/data1-02/ztf_20181219_programid1-14
-221M	/data1-02/ztf_20181219_programid1-5
-221M	/data1-02/ztf_20181219_programid1-12
-221M	/data1-02/ztf_20181219_programid1-0
-1.3G	/data1-02
----- ----
-16K	/data2-02
----- ---- ---- ----
-[Edwalafia][Sun 23 Dec 19:10:26 GMT 2018]
----- ----
-222M	/data1-02/ztf_20181219_programid1-10
-221M	/data1-02/ztf_20181219_programid1-1
-221M	/data1-02/ztf_20181219_programid1-11
-221M	/data1-02/ztf_20181219_programid1-5
-221M	/data1-02/ztf_20181219_programid1-2
-222M	/data1-02/ztf_20181219_programid1-3
-1.3G	/data1-02
----- ----
-16K	/data2-02
----- ---- ---- ----
-[Onoza][Sun 23 Dec 19:10:27 GMT 2018]
----- ----
-222M	/data1-02/ztf_20181219_programid1-7
-222M	/data1-02/ztf_20181219_programid1-11
-221M	/data1-02/ztf_20181219_programid1-5
-221M	/data1-02/ztf_20181219_programid1-2
-222M	/data1-02/ztf_20181219_programid1-9
-222M	/data1-02/ztf_20181219_programid1-3
-1.3G	/data1-02
----- ----
-16K	/data2-02
---STOP--
+    >   ---- ---- ---- ----
+    >   [Stedigo][Sun 23 Dec 19:10:25 GMT 2018]
+    >   ---- ----
+    >   221M	/data1-02/ztf_20181219_programid1-10
+    >   221M	/data1-02/ztf_20181219_programid1-4
+    >   221M	/data1-02/ztf_20181219_programid1-8
+    >   221M	/data1-02/ztf_20181219_programid1-12
+    >   222M	/data1-02/ztf_20181219_programid1-6
+    >   221M	/data1-02/ztf_20181219_programid1-0
+    >   1.3G	/data1-02
+    >   ---- ----
+    >   16K	/data2-02
+    >   ---- ---- ---- ----
+    >   [Angece][Sun 23 Dec 19:10:26 GMT 2018]
+    >   ---- ----
+    >   222M	/data1-02/ztf_20181219_programid1-10
+    >   221M	/data1-02/ztf_20181219_programid1-4
+    >   221M	/data1-02/ztf_20181219_programid1-14
+    >   221M	/data1-02/ztf_20181219_programid1-5
+    >   221M	/data1-02/ztf_20181219_programid1-12
+    >   221M	/data1-02/ztf_20181219_programid1-0
+    >   1.3G	/data1-02
+    >   ---- ----
+    >   16K	/data2-02
+    >   ---- ---- ---- ----
+    >   [Edwalafia][Sun 23 Dec 19:10:26 GMT 2018]
+    >   ---- ----
+    >   222M	/data1-02/ztf_20181219_programid1-10
+    >   221M	/data1-02/ztf_20181219_programid1-1
+    >   221M	/data1-02/ztf_20181219_programid1-11
+    >   221M	/data1-02/ztf_20181219_programid1-5
+    >   221M	/data1-02/ztf_20181219_programid1-2
+    >   222M	/data1-02/ztf_20181219_programid1-3
+    >   1.3G	/data1-02
+    >   ---- ----
+    >   16K	/data2-02
+    >   ---- ---- ---- ----
+    >   [Onoza][Sun 23 Dec 19:10:27 GMT 2018]
+    >   ---- ----
+    >   222M	/data1-02/ztf_20181219_programid1-7
+    >   222M	/data1-02/ztf_20181219_programid1-11
+    >   221M	/data1-02/ztf_20181219_programid1-5
+    >   221M	/data1-02/ztf_20181219_programid1-2
+    >   222M	/data1-02/ztf_20181219_programid1-9
+    >   222M	/data1-02/ztf_20181219_programid1-3
+    >   1.3G	/data1-02
+    >   ---- ----
+    >   16K	/data2-02
 
 
---START--
----- ---- ---- ----
-[Stedigo][Sun 23 Dec 19:21:18 GMT 2018]
----- ----
-405M	/data1-02/ztf_20181219_programid1-10
-405M	/data1-02/ztf_20181219_programid1-4
-406M	/data1-02/ztf_20181219_programid1-8
-406M	/data1-02/ztf_20181219_programid1-12
-406M	/data1-02/ztf_20181219_programid1-6
-405M	/data1-02/ztf_20181219_programid1-0
-2.4G	/data1-02
----- ----
-16K	/data2-02
----- ---- ---- ----
-[Angece][Sun 23 Dec 19:21:18 GMT 2018]
----- ----
-406M	/data1-02/ztf_20181219_programid1-10
-406M	/data1-02/ztf_20181219_programid1-4
-405M	/data1-02/ztf_20181219_programid1-14
-406M	/data1-02/ztf_20181219_programid1-5
-406M	/data1-02/ztf_20181219_programid1-12
-406M	/data1-02/ztf_20181219_programid1-0
-2.4G	/data1-02
----- ----
-16K	/data2-02
----- ---- ---- ----
-[Edwalafia][Sun 23 Dec 19:21:19 GMT 2018]
----- ----
-406M	/data1-02/ztf_20181219_programid1-10
-405M	/data1-02/ztf_20181219_programid1-1
-406M	/data1-02/ztf_20181219_programid1-11
-406M	/data1-02/ztf_20181219_programid1-5
-406M	/data1-02/ztf_20181219_programid1-2
-406M	/data1-02/ztf_20181219_programid1-3
-2.4G	/data1-02
----- ----
-16K	/data2-02
----- ---- ---- ----
-[Onoza][Sun 23 Dec 19:21:20 GMT 2018]
----- ----
-406M	/data1-02/ztf_20181219_programid1-7
-406M	/data1-02/ztf_20181219_programid1-11
-406M	/data1-02/ztf_20181219_programid1-5
-406M	/data1-02/ztf_20181219_programid1-2
-406M	/data1-02/ztf_20181219_programid1-9
-406M	/data1-02/ztf_20181219_programid1-3
-2.4G	/data1-02
----- ----
-16K	/data2-02
---STOP--
+    >   ---- ---- ---- ----
+    >   [Stedigo][Sun 23 Dec 19:21:18 GMT 2018]
+    >   ---- ----
+    >   405M	/data1-02/ztf_20181219_programid1-10
+    >   405M	/data1-02/ztf_20181219_programid1-4
+    >   406M	/data1-02/ztf_20181219_programid1-8
+    >   406M	/data1-02/ztf_20181219_programid1-12
+    >   406M	/data1-02/ztf_20181219_programid1-6
+    >   405M	/data1-02/ztf_20181219_programid1-0
+    >   2.4G	/data1-02
+    >   ---- ----
+    >   16K	/data2-02
+    >   ---- ---- ---- ----
+    >   [Angece][Sun 23 Dec 19:21:18 GMT 2018]
+    >   ---- ----
+    >   406M	/data1-02/ztf_20181219_programid1-10
+    >   406M	/data1-02/ztf_20181219_programid1-4
+    >   405M	/data1-02/ztf_20181219_programid1-14
+    >   406M	/data1-02/ztf_20181219_programid1-5
+    >   406M	/data1-02/ztf_20181219_programid1-12
+    >   406M	/data1-02/ztf_20181219_programid1-0
+    >   2.4G	/data1-02
+    >   ---- ----
+    >   16K	/data2-02
+    >   ---- ---- ---- ----
+    >   [Edwalafia][Sun 23 Dec 19:21:19 GMT 2018]
+    >   ---- ----
+    >   406M	/data1-02/ztf_20181219_programid1-10
+    >   405M	/data1-02/ztf_20181219_programid1-1
+    >   406M	/data1-02/ztf_20181219_programid1-11
+    >   406M	/data1-02/ztf_20181219_programid1-5
+    >   406M	/data1-02/ztf_20181219_programid1-2
+    >   406M	/data1-02/ztf_20181219_programid1-3
+    >   2.4G	/data1-02
+    >   ---- ----
+    >   16K	/data2-02
+    >   ---- ---- ---- ----
+    >   [Onoza][Sun 23 Dec 19:21:20 GMT 2018]
+    >   ---- ----
+    >   406M	/data1-02/ztf_20181219_programid1-7
+    >   406M	/data1-02/ztf_20181219_programid1-11
+    >   406M	/data1-02/ztf_20181219_programid1-5
+    >   406M	/data1-02/ztf_20181219_programid1-2
+    >   406M	/data1-02/ztf_20181219_programid1-9
+    >   406M	/data1-02/ztf_20181219_programid1-3
+    >   2.4G	/data1-02
+    >   ---- ----
+    >   16K	/data2-02
 
 
---START--
----- ---- ---- ----
-[Stedigo][Sun 23 Dec 19:48:53 GMT 2018]
----- ----
-648M	/data1-02/ztf_20181219_programid1-10
-649M	/data1-02/ztf_20181219_programid1-4
-649M	/data1-02/ztf_20181219_programid1-8
-649M	/data1-02/ztf_20181219_programid1-12
-648M	/data1-02/ztf_20181219_programid1-6
-648M	/data1-02/ztf_20181219_programid1-0
-3.8G	/data1-02
----- ----
-16K	/data2-02
----- ---- ---- ----
-[Angece][Sun 23 Dec 19:48:54 GMT 2018]
----- ----
-648M	/data1-02/ztf_20181219_programid1-10
-649M	/data1-02/ztf_20181219_programid1-4
-648M	/data1-02/ztf_20181219_programid1-14
-648M	/data1-02/ztf_20181219_programid1-5
-649M	/data1-02/ztf_20181219_programid1-12
-648M	/data1-02/ztf_20181219_programid1-0
-3.8G	/data1-02
----- ----
-16K	/data2-02
----- ---- ---- ----
-[Edwalafia][Sun 23 Dec 19:48:55 GMT 2018]
----- ----
-648M	/data1-02/ztf_20181219_programid1-10
-647M	/data1-02/ztf_20181219_programid1-1
-648M	/data1-02/ztf_20181219_programid1-11
-648M	/data1-02/ztf_20181219_programid1-5
-648M	/data1-02/ztf_20181219_programid1-2
-648M	/data1-02/ztf_20181219_programid1-3
-3.8G	/data1-02
----- ----
-16K	/data2-02
----- ---- ---- ----
-[Onoza][Sun 23 Dec 19:48:55 GMT 2018]
----- ----
-649M	/data1-02/ztf_20181219_programid1-7
-649M	/data1-02/ztf_20181219_programid1-11
-648M	/data1-02/ztf_20181219_programid1-5
-648M	/data1-02/ztf_20181219_programid1-2
-649M	/data1-02/ztf_20181219_programid1-9
-649M	/data1-02/ztf_20181219_programid1-3
-3.8G	/data1-02
----- ----
-16K	/data2-02
---STOP--
+    >   ---- ---- ---- ----
+    >   [Stedigo][Sun 23 Dec 19:48:53 GMT 2018]
+    >   ---- ----
+    >   648M	/data1-02/ztf_20181219_programid1-10
+    >   649M	/data1-02/ztf_20181219_programid1-4
+    >   649M	/data1-02/ztf_20181219_programid1-8
+    >   649M	/data1-02/ztf_20181219_programid1-12
+    >   648M	/data1-02/ztf_20181219_programid1-6
+    >   648M	/data1-02/ztf_20181219_programid1-0
+    >   3.8G	/data1-02
+    >   ---- ----
+    >   16K	/data2-02
+    >   ---- ---- ---- ----
+    >   [Angece][Sun 23 Dec 19:48:54 GMT 2018]
+    >   ---- ----
+    >   648M	/data1-02/ztf_20181219_programid1-10
+    >   649M	/data1-02/ztf_20181219_programid1-4
+    >   648M	/data1-02/ztf_20181219_programid1-14
+    >   648M	/data1-02/ztf_20181219_programid1-5
+    >   649M	/data1-02/ztf_20181219_programid1-12
+    >   648M	/data1-02/ztf_20181219_programid1-0
+    >   3.8G	/data1-02
+    >   ---- ----
+    >   16K	/data2-02
+    >   ---- ---- ---- ----
+    >   [Edwalafia][Sun 23 Dec 19:48:55 GMT 2018]
+    >   ---- ----
+    >   648M	/data1-02/ztf_20181219_programid1-10
+    >   647M	/data1-02/ztf_20181219_programid1-1
+    >   648M	/data1-02/ztf_20181219_programid1-11
+    >   648M	/data1-02/ztf_20181219_programid1-5
+    >   648M	/data1-02/ztf_20181219_programid1-2
+    >   648M	/data1-02/ztf_20181219_programid1-3
+    >   3.8G	/data1-02
+    >   ---- ----
+    >   16K	/data2-02
+    >   ---- ---- ---- ----
+    >   [Onoza][Sun 23 Dec 19:48:55 GMT 2018]
+    >   ---- ----
+    >   649M	/data1-02/ztf_20181219_programid1-7
+    >   649M	/data1-02/ztf_20181219_programid1-11
+    >   648M	/data1-02/ztf_20181219_programid1-5
+    >   648M	/data1-02/ztf_20181219_programid1-2
+    >   649M	/data1-02/ztf_20181219_programid1-9
+    >   649M	/data1-02/ztf_20181219_programid1-3
+    >   3.8G	/data1-02
+    >   ---- ----
+    >   16K	/data2-02
 
 
 # -----------------------------------------------------
@@ -3942,19 +3882,17 @@ Sun 23 Dec 19:48:04 GMT 2018
 #[user@trop03]
 
 
---START--
-[2018-12-23 19:35:33,762] ERROR Error while appending records to ztf_20181219_programid1-15 in dir /data2-02 (kafka.server.LogDirFailureChannel)
-java.io.IOException: No space left on device
-	at sun.nio.ch.FileDispatcherImpl.write0(Native Method)
-	at sun.nio.ch.FileDispatcherImpl.write(FileDispatcherImpl.java:60)
-	....
-	....
---STOP--
+    >   [2018-12-23 19:35:33,762] ERROR Error while appending records to ztf_20181219_programid1-15 in dir /data2-02 (kafka.server.LogDirFailureChannel)
+    >   java.io.IOException: No space left on device
+    >   	at sun.nio.ch.FileDispatcherImpl.write0(Native Method)
+    >   	at sun.nio.ch.FileDispatcherImpl.write(FileDispatcherImpl.java:60)
+    >   	....
+    >   	....
+
 
 # -----------------------------------------------------
 # Stop kafka on each node.
 #[user@trop03]
-
 
     for vmname in ${kfnames[@]}
         do
@@ -3971,27 +3909,25 @@ java.io.IOException: No space left on device
         done
 
 
---START--
----- ----
-Stedigo
-Removing stevedore_emily_1 ... done
-Removing network stevedore_default
----- ----
-Angece
-Stopping stevedore_emily_1 ... done
-Removing stevedore_emily_1 ... done
-Removing network stevedore_default
----- ----
-Edwalafia
-Stopping stevedore_emily_1 ... done
-Removing stevedore_emily_1 ... done
-Removing network stevedore_default
-error while removing network: network stevedore_default id e147ed1b28de293cd536c266ddfef91606242c9530b378770744b7495b589832 has active endpoints
----- ----
-Onoza
-Removing stevedore_emily_1 ... done
-Removing network stevedore_default
---STOP--
+    >   ---- ----
+    >   Stedigo
+    >   Removing stevedore_emily_1 ... done
+    >   Removing network stevedore_default
+    >   ---- ----
+    >   Angece
+    >   Stopping stevedore_emily_1 ... done
+    >   Removing stevedore_emily_1 ... done
+    >   Removing network stevedore_default
+    >   ---- ----
+    >   Edwalafia
+    >   Stopping stevedore_emily_1 ... done
+    >   Removing stevedore_emily_1 ... done
+    >   Removing network stevedore_default
+    >   error while removing network: network stevedore_default id e147ed1b28de293cd536c266ddfef91606242c9530b378770744b7495b589832 has active endpoints
+    >   ---- ----
+    >   Onoza
+    >   Removing stevedore_emily_1 ... done
+    >   Removing network stevedore_default
 
 
 # -----------------------------------------------------
@@ -4013,16 +3949,15 @@ Removing network stevedore_default
         done
 
 
---START--
----- ----
-vmname [Afoaviel]
-Removing stevedore_tina_1 ... done
-Removing network stevedore_default
----- ----
-vmname [Rusaldez]
-Removing stevedore_tina_1 ... done
-Removing network stevedore_default
---STOP--
+    >   ---- ----
+    >   vmname [Afoaviel]
+    >   Removing stevedore_tina_1 ... done
+    >   Removing network stevedore_default
+    >   ---- ----
+    >   vmname [Rusaldez]
+    >   Removing stevedore_tina_1 ... done
+    >   Removing network stevedore_default
+
 
 # -----------------------------------------------------
 # Fix dumb mistakes in our Kafka compose YML files.
@@ -4078,28 +4013,28 @@ EOF
                 "
         done
 
---START--
----- ----
-Stedigo
-Creating network "stevedore_default" with the default driver
-Creating stevedore_emily_1 ... done
----- ----
-Angece
-Creating network "stevedore_default" with the default driver
-Creating stevedore_emily_1 ... done
----- ----
-Edwalafia
-Creating stevedore_emily_1 ... error
 
-ERROR: for stevedore_emily_1  Cannot start service emily: endpoint with name stevedore_emily_1 already exists in network stevedore_default
+    >   ---- ----
+    >   Stedigo
+    >   Creating network "stevedore_default" with the default driver
+    >   Creating stevedore_emily_1 ... done
+    >   ---- ----
+    >   Angece
+    >   Creating network "stevedore_default" with the default driver
+    >   Creating stevedore_emily_1 ... done
+    >   ---- ----
+    >   Edwalafia
+    >   Creating stevedore_emily_1 ... error
+    >
+    >   ERROR: for stevedore_emily_1  Cannot start service emily: endpoint with name stevedore_emily_1 already exists in network stevedore_default
+    >
+    >   ERROR: for emily  Cannot start service emily: endpoint with name stevedore_emily_1 already exists in network stevedore_default
+    >   Encountered errors while bringing up the project.
+    >   ---- ----
+    >   Onoza
+    >   Creating network "stevedore_default" with the default driver
+    >   Creating stevedore_emily_1 ... done
 
-ERROR: for emily  Cannot start service emily: endpoint with name stevedore_emily_1 already exists in network stevedore_default
-Encountered errors while bringing up the project.
----- ----
-Onoza
-Creating network "stevedore_default" with the default driver
-Creating stevedore_emily_1 ... done
---STOP--
 
 # -----------------------------------------------------
 # Login to the node and manually fix the container.
@@ -4107,69 +4042,53 @@ Creating stevedore_emily_1 ... done
 
     docker network ls
 
---START--
-    NETWORK ID          NAME                DRIVER              SCOPE
-    039bb2e2fd5a        bridge              bridge              local
-    06a06c16103d        host                host                local
-    14bfbb6b5abe        none                null                local
-    e147ed1b28de        stevedore_default   bridge              local
---STOP--
+    >       NETWORK ID          NAME                DRIVER              SCOPE
+    >       039bb2e2fd5a        bridge              bridge              local
+    >       06a06c16103d        host                host                local
+    >       14bfbb6b5abe        none                null                local
+    >       e147ed1b28de        stevedore_default   bridge              local
 
     docker network rm stevedore_default
 
---START--
-    Error response from daemon: error while removing network: network stevedore_default id e147ed1b28de293cd536c266ddfef91606242c9530b378770744b7495b589832 has active endpoints
---STOP--
+    >       Error response from daemon: error while removing network: network stevedore_default id e147ed1b28de293cd536c266ddfef91606242c9530b378770744b7495b589832 has active endpoints
 
     docker ps -a
 
---START--
-    CONTAINER ID        IMAGE                         COMMAND                  CREATED             STATUS              PORTS               NAMES
-    09f9d17d284e        confluentinc/cp-kafka:4.1.1   "/etc/confluent/dock…"   6 minutes ago       Created                                 stevedore_emily_1
-
-    docker rm -f stevedore_emily_1
-
---START--
-    stevedore_emily_1
---STOP--
+    >       CONTAINER ID        IMAGE                         COMMAND                  CREATED             STATUS              PORTS               NAMES
+    >       09f9d17d284e        confluentinc/cp-kafka:4.1.1   "/etc/confluent/dock…"   6 minutes ago       Created                                 stevedore_emily_1
+    >
+    >       docker rm -f stevedore_emily_1
+    >
+    >       stevedore_emily_1
 
     docker ps -a
 
---START--
-    CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS               NAMES
---STOP--
+    >       CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS               NAMES
 
     sudo systemctl restart docker
 
     docker network rm stevedore_default
 
---START--
-    stevedore_default
---STOP--
+    >       stevedore_default
 
     docker network ls
 
---START--
-    NETWORK ID          NAME                DRIVER              SCOPE
-    3da97f0faa04        bridge              bridge              local
-    06a06c16103d        host                host                local
-    14bfbb6b5abe        none                null                local
---STOP--
+    >       NETWORK ID          NAME                DRIVER              SCOPE
+    >       3da97f0faa04        bridge              bridge              local
+    >       06a06c16103d        host                host                local
+    >       14bfbb6b5abe        none                null                local
 
     docker ps
 
---START--
-    CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS               NAMES
---STOP--
+    >       CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS               NAMES
 
     docker-compose \
         --file kafka.yml \
         up -d
 
---START--
-    Creating network "stevedore_default" with the default driver
-    Creating stevedore_emily_1 ... done
---STOP--
+    >       Creating network "stevedore_default" with the default driver
+    >       Creating stevedore_emily_1 ... done
+
 
 # -----------------------------------------------------
 # Check our client offsets in the ZTF broker.
@@ -4195,26 +4114,24 @@ Creating stevedore_emily_1 ... done
     ; date
 
 
---START--
-Sun 23 Dec 20:51:33 GMT 2018
-Consumer group 'ztf-mirror.roe.ac.uk' has no active members.
-TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID     HOST            CLIENT-ID
-ztf_20181219_programid1 0          9953            20858           10905           -               -               -
-ztf_20181219_programid1 10         9906            20859           10953           -               -               -
-ztf_20181219_programid1 1          10159           20859           10700           -               -               -
-ztf_20181219_programid1 11         9932            20858           10926           -               -               -
-ztf_20181219_programid1 12         10173           20858           10685           -               -               -
-ztf_20181219_programid1 13         9925            20859           10934           -               -               -
-ztf_20181219_programid1 2          9898            20858           10960           -               -               -
-ztf_20181219_programid1 3          9938            20859           10921           -               -               -
-ztf_20181219_programid1 4          10175           20859           10684           -               -               -
-ztf_20181219_programid1 5          9922            20858           10936           -               -               -
-ztf_20181219_programid1 6          19831           20858           1027            -               -               -
-ztf_20181219_programid1 7          19778           20859           1081            -               -               -
-ztf_20181219_programid1 8          9947            20858           10911           -               -               -
-ztf_20181219_programid1 9          10155           20859           10704           -               -               -
-Sun 23 Dec 20:51:42 GMT 2018
---STOP--
+    >   Sun 23 Dec 20:51:33 GMT 2018
+    >   Consumer group 'ztf-mirror.roe.ac.uk' has no active members.
+    >   TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID     HOST            CLIENT-ID
+    >   ztf_20181219_programid1 0          9953            20858           10905           -               -               -
+    >   ztf_20181219_programid1 10         9906            20859           10953           -               -               -
+    >   ztf_20181219_programid1 1          10159           20859           10700           -               -               -
+    >   ztf_20181219_programid1 11         9932            20858           10926           -               -               -
+    >   ztf_20181219_programid1 12         10173           20858           10685           -               -               -
+    >   ztf_20181219_programid1 13         9925            20859           10934           -               -               -
+    >   ztf_20181219_programid1 2          9898            20858           10960           -               -               -
+    >   ztf_20181219_programid1 3          9938            20859           10921           -               -               -
+    >   ztf_20181219_programid1 4          10175           20859           10684           -               -               -
+    >   ztf_20181219_programid1 5          9922            20858           10936           -               -               -
+    >   ztf_20181219_programid1 6          19831           20858           1027            -               -               -
+    >   ztf_20181219_programid1 7          19778           20859           1081            -               -               -
+    >   ztf_20181219_programid1 8          9947            20858           10911           -               -               -
+    >   ztf_20181219_programid1 9          10155           20859           10704           -               -               -
+    >   Sun 23 Dec 20:51:42 GMT 2018
 
 
 # -----------------------------------------------------
@@ -4239,56 +4156,54 @@ Sun 23 Dec 20:51:42 GMT 2018
         done
 
 
---START--
----- ---- ---- ----
-[Stedigo][Sun 23 Dec 20:52:31 GMT 2018]
----- ----
-648M	/data1-02/ztf_20181219_programid1-10
-649M	/data1-02/ztf_20181219_programid1-4
-649M	/data1-02/ztf_20181219_programid1-8
-649M	/data1-02/ztf_20181219_programid1-12
-648M	/data1-02/ztf_20181219_programid1-6
-648M	/data1-02/ztf_20181219_programid1-0
-3.8G	/data1-02
----- ----
-16K	/data2-02
----- ---- ---- ----
-[Angece][Sun 23 Dec 20:52:33 GMT 2018]
----- ----
-648M	/data1-02/ztf_20181219_programid1-10
-649M	/data1-02/ztf_20181219_programid1-4
-648M	/data1-02/ztf_20181219_programid1-14
-648M	/data1-02/ztf_20181219_programid1-5
-649M	/data1-02/ztf_20181219_programid1-12
-648M	/data1-02/ztf_20181219_programid1-0
-3.8G	/data1-02
----- ----
-16K	/data2-02
----- ---- ---- ----
-[Edwalafia][Sun 23 Dec 20:52:34 GMT 2018]
----- ----
-648M	/data1-02/ztf_20181219_programid1-10
-647M	/data1-02/ztf_20181219_programid1-1
-648M	/data1-02/ztf_20181219_programid1-11
-648M	/data1-02/ztf_20181219_programid1-5
-648M	/data1-02/ztf_20181219_programid1-2
-648M	/data1-02/ztf_20181219_programid1-3
-3.8G	/data1-02
----- ----
-16K	/data2-02
----- ---- ---- ----
-[Onoza][Sun 23 Dec 20:52:35 GMT 2018]
----- ----
-649M	/data1-02/ztf_20181219_programid1-7
-649M	/data1-02/ztf_20181219_programid1-11
-648M	/data1-02/ztf_20181219_programid1-5
-648M	/data1-02/ztf_20181219_programid1-2
-649M	/data1-02/ztf_20181219_programid1-9
-649M	/data1-02/ztf_20181219_programid1-3
-3.8G	/data1-02
----- ----
-16K	/data2-02
---STOP--
+    >   ---- ---- ---- ----
+    >   [Stedigo][Sun 23 Dec 20:52:31 GMT 2018]
+    >   ---- ----
+    >   648M	/data1-02/ztf_20181219_programid1-10
+    >   649M	/data1-02/ztf_20181219_programid1-4
+    >   649M	/data1-02/ztf_20181219_programid1-8
+    >   649M	/data1-02/ztf_20181219_programid1-12
+    >   648M	/data1-02/ztf_20181219_programid1-6
+    >   648M	/data1-02/ztf_20181219_programid1-0
+    >   3.8G	/data1-02
+    >   ---- ----
+    >   16K	/data2-02
+    >   ---- ---- ---- ----
+    >   [Angece][Sun 23 Dec 20:52:33 GMT 2018]
+    >   ---- ----
+    >   648M	/data1-02/ztf_20181219_programid1-10
+    >   649M	/data1-02/ztf_20181219_programid1-4
+    >   648M	/data1-02/ztf_20181219_programid1-14
+    >   648M	/data1-02/ztf_20181219_programid1-5
+    >   649M	/data1-02/ztf_20181219_programid1-12
+    >   648M	/data1-02/ztf_20181219_programid1-0
+    >   3.8G	/data1-02
+    >   ---- ----
+    >   16K	/data2-02
+    >   ---- ---- ---- ----
+    >   [Edwalafia][Sun 23 Dec 20:52:34 GMT 2018]
+    >   ---- ----
+    >   648M	/data1-02/ztf_20181219_programid1-10
+    >   647M	/data1-02/ztf_20181219_programid1-1
+    >   648M	/data1-02/ztf_20181219_programid1-11
+    >   648M	/data1-02/ztf_20181219_programid1-5
+    >   648M	/data1-02/ztf_20181219_programid1-2
+    >   648M	/data1-02/ztf_20181219_programid1-3
+    >   3.8G	/data1-02
+    >   ---- ----
+    >   16K	/data2-02
+    >   ---- ---- ---- ----
+    >   [Onoza][Sun 23 Dec 20:52:35 GMT 2018]
+    >   ---- ----
+    >   649M	/data1-02/ztf_20181219_programid1-7
+    >   649M	/data1-02/ztf_20181219_programid1-11
+    >   648M	/data1-02/ztf_20181219_programid1-5
+    >   648M	/data1-02/ztf_20181219_programid1-2
+    >   649M	/data1-02/ztf_20181219_programid1-9
+    >   649M	/data1-02/ztf_20181219_programid1-3
+    >   3.8G	/data1-02
+    >   ---- ----
+    >   16K	/data2-02
 
 
 # -----------------------------------------------------
@@ -4319,20 +4234,18 @@ Sun 23 Dec 20:51:42 GMT 2018
         done
 
 
---START--
----- ----
-vmname [Afoaviel]
-Removing network stevedore_default
-Network stevedore_default not found.
-Creating network "stevedore_default" with the default driver
-Creating stevedore_tina_1 ... done
----- ----
-vmname [Rusaldez]
-Removing network stevedore_default
-Network stevedore_default not found.
-Creating network "stevedore_default" with the default driver
-Creating stevedore_tina_1 ... done
---STOP--
+    >   ---- ----
+    >   vmname [Afoaviel]
+    >   Removing network stevedore_default
+    >   Network stevedore_default not found.
+    >   Creating network "stevedore_default" with the default driver
+    >   Creating stevedore_tina_1 ... done
+    >   ---- ----
+    >   vmname [Rusaldez]
+    >   Removing network stevedore_default
+    >   Network stevedore_default not found.
+    >   Creating network "stevedore_default" with the default driver
+    >   Creating stevedore_tina_1 ... done
 
 
 # -----------------------------------------------------
@@ -4359,47 +4272,43 @@ Creating stevedore_tina_1 ... done
     ; date
 
 
---START--
-Sun 23 Dec 20:53:50 GMT 2018
-TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                 HOST            CLIENT-ID
-ztf_20181219_programid1 0          9953            20858           10905           ztf-mirror.roe.ac.uk-0-840d8bb1-ff1b-49f0-ba13-fec11fba2f8d /129.215.175.98 ztf-mirror.roe.ac.uk-0
-ztf_20181219_programid1 10         9906            20859           10953           ztf-mirror.roe.ac.uk-1-054d678a-2894-4654-89be-75f357aff52d /129.215.175.98 ztf-mirror.roe.ac.uk-1
-ztf_20181219_programid1 1          10159           20859           10700           ztf-mirror.roe.ac.uk-0-df75b4ac-ecb0-460b-b92d-6cd9f6192786 /129.215.175.98 ztf-mirror.roe.ac.uk-0
-ztf_20181219_programid1 11         9932            20858           10926           ztf-mirror.roe.ac.uk-1-29e0e12d-23bf-4309-b0b9-99aa5671e799 /129.215.175.98 ztf-mirror.roe.ac.uk-1
-ztf_20181219_programid1 12         10173           20858           10685           ztf-mirror.roe.ac.uk-2-98fbc524-6c31-4b44-b926-05459e966962 /129.215.175.98 ztf-mirror.roe.ac.uk-2
-ztf_20181219_programid1 13         9925            20859           10934           ztf-mirror.roe.ac.uk-2-d860ab18-7d28-4d0d-9438-e45fce3d4290 /129.215.175.98 ztf-mirror.roe.ac.uk-2
-ztf_20181219_programid1 2          9898            20858           10960           ztf-mirror.roe.ac.uk-1-054d678a-2894-4654-89be-75f357aff52d /129.215.175.98 ztf-mirror.roe.ac.uk-1
-ztf_20181219_programid1 3          9938            20859           10921           ztf-mirror.roe.ac.uk-1-29e0e12d-23bf-4309-b0b9-99aa5671e799 /129.215.175.98 ztf-mirror.roe.ac.uk-1
-ztf_20181219_programid1 4          10175           20859           10684           ztf-mirror.roe.ac.uk-2-98fbc524-6c31-4b44-b926-05459e966962 /129.215.175.98 ztf-mirror.roe.ac.uk-2
-ztf_20181219_programid1 5          9922            20858           10936           ztf-mirror.roe.ac.uk-2-d860ab18-7d28-4d0d-9438-e45fce3d4290 /129.215.175.98 ztf-mirror.roe.ac.uk-2
-ztf_20181219_programid1 6          19831           20858           1027            ztf-mirror.roe.ac.uk-3-3f4c45f0-2d86-4d31-8160-9c9d106122d7 /129.215.175.98 ztf-mirror.roe.ac.uk-3
-ztf_20181219_programid1 7          19778           20859           1081            ztf-mirror.roe.ac.uk-3-dcf0e662-af6a-49fb-91f8-c718fa7ff63d /129.215.175.98 ztf-mirror.roe.ac.uk-3
-ztf_20181219_programid1 8          9947            20858           10911           ztf-mirror.roe.ac.uk-0-840d8bb1-ff1b-49f0-ba13-fec11fba2f8d /129.215.175.98 ztf-mirror.roe.ac.uk-0
-ztf_20181219_programid1 9          10155           20859           10704           ztf-mirror.roe.ac.uk-0-df75b4ac-ecb0-460b-b92d-6cd9f6192786 /129.215.175.98 ztf-mirror.roe.ac.uk-0
-Sun 23 Dec 20:53:57 GMT 2018
---STOP--
+    >   Sun 23 Dec 20:53:50 GMT 2018
+    >   TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                 HOST            CLIENT-ID
+    >   ztf_20181219_programid1 0          9953            20858           10905           ztf-mirror.roe.ac.uk-0-840d8bb1-ff1b-49f0-ba13-fec11fba2f8d /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181219_programid1 10         9906            20859           10953           ztf-mirror.roe.ac.uk-1-054d678a-2894-4654-89be-75f357aff52d /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181219_programid1 1          10159           20859           10700           ztf-mirror.roe.ac.uk-0-df75b4ac-ecb0-460b-b92d-6cd9f6192786 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181219_programid1 11         9932            20858           10926           ztf-mirror.roe.ac.uk-1-29e0e12d-23bf-4309-b0b9-99aa5671e799 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181219_programid1 12         10173           20858           10685           ztf-mirror.roe.ac.uk-2-98fbc524-6c31-4b44-b926-05459e966962 /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181219_programid1 13         9925            20859           10934           ztf-mirror.roe.ac.uk-2-d860ab18-7d28-4d0d-9438-e45fce3d4290 /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181219_programid1 2          9898            20858           10960           ztf-mirror.roe.ac.uk-1-054d678a-2894-4654-89be-75f357aff52d /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181219_programid1 3          9938            20859           10921           ztf-mirror.roe.ac.uk-1-29e0e12d-23bf-4309-b0b9-99aa5671e799 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181219_programid1 4          10175           20859           10684           ztf-mirror.roe.ac.uk-2-98fbc524-6c31-4b44-b926-05459e966962 /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181219_programid1 5          9922            20858           10936           ztf-mirror.roe.ac.uk-2-d860ab18-7d28-4d0d-9438-e45fce3d4290 /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181219_programid1 6          19831           20858           1027            ztf-mirror.roe.ac.uk-3-3f4c45f0-2d86-4d31-8160-9c9d106122d7 /129.215.175.98 ztf-mirror.roe.ac.uk-3
+    >   ztf_20181219_programid1 7          19778           20859           1081            ztf-mirror.roe.ac.uk-3-dcf0e662-af6a-49fb-91f8-c718fa7ff63d /129.215.175.98 ztf-mirror.roe.ac.uk-3
+    >   ztf_20181219_programid1 8          9947            20858           10911           ztf-mirror.roe.ac.uk-0-840d8bb1-ff1b-49f0-ba13-fec11fba2f8d /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181219_programid1 9          10155           20859           10704           ztf-mirror.roe.ac.uk-0-df75b4ac-ecb0-460b-b92d-6cd9f6192786 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   Sun 23 Dec 20:53:57 GMT 2018
 
 
---START--
-Sun 23 Dec 20:58:33 GMT 2018
-Consumer group 'ztf-mirror.roe.ac.uk' has no active members.
-TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID     HOST            CLIENT-ID
-ztf_20181219_programid1 0          9953            20858           10905           -               -               -
-ztf_20181219_programid1 10         9906            20859           10953           -               -               -
-ztf_20181219_programid1 1          10159           20859           10700           -               -               -
-ztf_20181219_programid1 11         9932            20858           10926           -               -               -
-ztf_20181219_programid1 12         10173           20858           10685           -               -               -
-ztf_20181219_programid1 13         9925            20859           10934           -               -               -
-ztf_20181219_programid1 2          9898            20858           10960           -               -               -
-ztf_20181219_programid1 3          9938            20859           10921           -               -               -
-ztf_20181219_programid1 4          10175           20859           10684           -               -               -
-ztf_20181219_programid1 5          9922            20858           10936           -               -               -
-ztf_20181219_programid1 6          19831           20858           1027            -               -               -
-ztf_20181219_programid1 7          19778           20859           1081            -               -               -
-ztf_20181219_programid1 8          9947            20858           10911           -               -               -
-ztf_20181219_programid1 9          10155           20859           10704           -               -               -
-Sun 23 Dec 20:58:42 GMT 2018
---STOP--
+    >   Sun 23 Dec 20:58:33 GMT 2018
+    >   Consumer group 'ztf-mirror.roe.ac.uk' has no active members.
+    >   TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID     HOST            CLIENT-ID
+    >   ztf_20181219_programid1 0          9953            20858           10905           -               -               -
+    >   ztf_20181219_programid1 10         9906            20859           10953           -               -               -
+    >   ztf_20181219_programid1 1          10159           20859           10700           -               -               -
+    >   ztf_20181219_programid1 11         9932            20858           10926           -               -               -
+    >   ztf_20181219_programid1 12         10173           20858           10685           -               -               -
+    >   ztf_20181219_programid1 13         9925            20859           10934           -               -               -
+    >   ztf_20181219_programid1 2          9898            20858           10960           -               -               -
+    >   ztf_20181219_programid1 3          9938            20859           10921           -               -               -
+    >   ztf_20181219_programid1 4          10175           20859           10684           -               -               -
+    >   ztf_20181219_programid1 5          9922            20858           10936           -               -               -
+    >   ztf_20181219_programid1 6          19831           20858           1027            -               -               -
+    >   ztf_20181219_programid1 7          19778           20859           1081            -               -               -
+    >   ztf_20181219_programid1 8          9947            20858           10911           -               -               -
+    >   ztf_20181219_programid1 9          10155           20859           10704           -               -               -
+    >   Sun 23 Dec 20:58:42 GMT 2018
 
 # -----------------------------------------------------
 # Check the disc use on each Kafka node.
@@ -4423,59 +4332,54 @@ Sun 23 Dec 20:58:42 GMT 2018
         done
 
 
---START--
----- ---- ---- ----
-[Stedigo][Sun 23 Dec 20:54:40 GMT 2018]
----- ----
-648M	/data1-02/ztf_20181219_programid1-10
-649M	/data1-02/ztf_20181219_programid1-4
-649M	/data1-02/ztf_20181219_programid1-8
-649M	/data1-02/ztf_20181219_programid1-12
-648M	/data1-02/ztf_20181219_programid1-6
-648M	/data1-02/ztf_20181219_programid1-0
-3.8G	/data1-02
----- ----
-16K	/data2-02
----- ---- ---- ----
-[Angece][Sun 23 Dec 20:54:41 GMT 2018]
----- ----
-648M	/data1-02/ztf_20181219_programid1-10
-649M	/data1-02/ztf_20181219_programid1-4
-648M	/data1-02/ztf_20181219_programid1-14
-648M	/data1-02/ztf_20181219_programid1-5
-649M	/data1-02/ztf_20181219_programid1-12
-648M	/data1-02/ztf_20181219_programid1-0
-3.8G	/data1-02
----- ----
-16K	/data2-02
----- ---- ---- ----
-[Edwalafia][Sun 23 Dec 20:54:44 GMT 2018]
----- ----
-648M	/data1-02/ztf_20181219_programid1-10
-647M	/data1-02/ztf_20181219_programid1-1
-648M	/data1-02/ztf_20181219_programid1-11
-648M	/data1-02/ztf_20181219_programid1-5
-648M	/data1-02/ztf_20181219_programid1-2
-648M	/data1-02/ztf_20181219_programid1-3
-3.8G	/data1-02
----- ----
-16K	/data2-02
----- ---- ---- ----
-[Onoza][Sun 23 Dec 20:54:46 GMT 2018]
----- ----
-649M	/data1-02/ztf_20181219_programid1-7
-649M	/data1-02/ztf_20181219_programid1-11
-648M	/data1-02/ztf_20181219_programid1-5
-648M	/data1-02/ztf_20181219_programid1-2
-649M	/data1-02/ztf_20181219_programid1-9
-649M	/data1-02/ztf_20181219_programid1-3
-3.8G	/data1-02
----- ----
-16K	/data2-02
---STOP--
-
-
-
+    >   ---- ---- ---- ----
+    >   [Stedigo][Sun 23 Dec 20:54:40 GMT 2018]
+    >   ---- ----
+    >   648M	/data1-02/ztf_20181219_programid1-10
+    >   649M	/data1-02/ztf_20181219_programid1-4
+    >   649M	/data1-02/ztf_20181219_programid1-8
+    >   649M	/data1-02/ztf_20181219_programid1-12
+    >   648M	/data1-02/ztf_20181219_programid1-6
+    >   648M	/data1-02/ztf_20181219_programid1-0
+    >   3.8G	/data1-02
+    >   ---- ----
+    >   16K	/data2-02
+    >   ---- ---- ---- ----
+    >   [Angece][Sun 23 Dec 20:54:41 GMT 2018]
+    >   ---- ----
+    >   648M	/data1-02/ztf_20181219_programid1-10
+    >   649M	/data1-02/ztf_20181219_programid1-4
+    >   648M	/data1-02/ztf_20181219_programid1-14
+    >   648M	/data1-02/ztf_20181219_programid1-5
+    >   649M	/data1-02/ztf_20181219_programid1-12
+    >   648M	/data1-02/ztf_20181219_programid1-0
+    >   3.8G	/data1-02
+    >   ---- ----
+    >   16K	/data2-02
+    >   ---- ---- ---- ----
+    >   [Edwalafia][Sun 23 Dec 20:54:44 GMT 2018]
+    >   ---- ----
+    >   648M	/data1-02/ztf_20181219_programid1-10
+    >   647M	/data1-02/ztf_20181219_programid1-1
+    >   648M	/data1-02/ztf_20181219_programid1-11
+    >   648M	/data1-02/ztf_20181219_programid1-5
+    >   648M	/data1-02/ztf_20181219_programid1-2
+    >   648M	/data1-02/ztf_20181219_programid1-3
+    >   3.8G	/data1-02
+    >   ---- ----
+    >   16K	/data2-02
+    >   ---- ---- ---- ----
+    >   [Onoza][Sun 23 Dec 20:54:46 GMT 2018]
+    >   ---- ----
+    >   649M	/data1-02/ztf_20181219_programid1-7
+    >   649M	/data1-02/ztf_20181219_programid1-11
+    >   648M	/data1-02/ztf_20181219_programid1-5
+    >   648M	/data1-02/ztf_20181219_programid1-2
+    >   649M	/data1-02/ztf_20181219_programid1-9
+    >   649M	/data1-02/ztf_20181219_programid1-3
+    >   3.8G	/data1-02
+    >   ---- ----
+    >   16K	/data2-02
 
 
 
