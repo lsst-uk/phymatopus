@@ -25,4 +25,437 @@
     Restart all of the virtual machines connected to that network.
     Restart all of the containers.
 
+# -----------------------------------------------------
+# Configure our SSH settings.
+#[user@trop03]
+
+    sshuser=Stevedore
+
+    sshopts=(
+        '-A'
+        '-o LogLevel=ERROR'
+        '-o CheckHostIP=no'
+        '-o UserKnownHostsFile=/dev/null'
+        '-o StrictHostKeyChecking=no'
+        )
+
+    scpopts=(
+        '-o LogLevel=ERROR'
+        '-o CheckHostIP=no'
+        '-o UserKnownHostsFile=/dev/null'
+        '-o StrictHostKeyChecking=no'
+        )
+
+# -----------------------------------------------------
+# Assign our virtual machine names.
+#[user@trop03]
+
+    kfnames=(
+        Stedigo
+        Angece
+        Edwalafia
+        Onoza
+        )
+
+    zknames=(
+        Fosauri
+        Marpus
+        Byflame
+        )
+
+    mmnames=(
+        Afoaviel
+        Rusaldez
+        )
+
+# -----------------------------------------------------
+# Check the 'default' network configuration.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        --connect ${connection:?} \
+        net-dumpxml \
+            'default'
+
+--START--
+<network connections='4' ipv6='yes'>
+  <name>default</name>
+  <uuid>31cb63d0-459d-4768-a489-9d17480a3d58</uuid>
+  <forward mode='nat'>
+    <nat>
+      <port start='1024' end='65535'/>
+    </nat>
+  </forward>
+  <bridge name='virbr0' stp='off' delay='0'/>
+  <mac address='52:54:00:02:03:01'/>
+  <ip family='ipv4' address='192.168.203.1' netmask='255.255.255.0'>
+    <dhcp>
+      <range start='192.168.203.8' end='192.168.203.23'/>
+      <host mac='52:54:00:02:03:08' name='Umiawyth' ip='192.168.203.8'/>
+      <host mac='52:54:00:02:03:09' name='Etalema' ip='192.168.203.9'/>
+      <host mac='52:54:00:02:03:0A' name='Greand' ip='192.168.203.10'/>
+      <host mac='52:54:00:02:03:0B' name='Nydiralle' ip='192.168.203.11'/>
+      <host mac='52:54:00:02:03:0C' name='Kedaekoth' ip='192.168.203.12'/>
+      <host mac='52:54:00:02:03:0D' name='Onelith' ip='192.168.203.13'/>
+      <host mac='52:54:00:02:03:0E' name='Elaleld' ip='192.168.203.14'/>
+      <host mac='52:54:00:02:03:0F' name='Afoaviel' ip='192.168.203.15'/>
+      <host mac='52:54:00:02:03:10' name='Rusaldez' ip='192.168.203.16'/>
+      <host mac='52:54:00:02:03:11' name='Stedigo' ip='192.168.203.17'/>
+      <host mac='52:54:00:02:03:12' name='Angece' ip='192.168.203.18'/>
+      <host mac='52:54:00:02:03:13' name='Edwalafia' ip='192.168.203.19'/>
+      <host mac='52:54:00:02:03:14' name='Onoza' ip='192.168.203.20'/>
+      <host mac='52:54:00:02:03:15' name='Fosauri' ip='192.168.203.21'/>
+      <host mac='52:54:00:02:03:16' name='Marpus' ip='192.168.203.22'/>
+      <host mac='52:54:00:02:03:17' name='Byflame' ip='192.168.203.23'/>
+    </dhcp>
+  </ip>
+</network>
+--END--
+
+
+# -----------------------------------------------------
+# Shutdown all of the current virtual machines.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+    for vmname in $(
+        virsh \
+            --quiet \
+            --connect ${connection:?} \
+            list --all \
+          | sed '
+            s/[[:space:]]*\([^[:space:]]*\)[[:space:]]*\([^[:space:]]*\)[[:space:]]*\(.*$\)/\2/
+            '
+        )
+        do
+            echo ""
+            echo "Stopping [${vmname}]"
+            virsh \
+                --connect ${connection:?} \
+                shutdown \
+                    "${vmname}"
+
+        done
+
+--START--
+Stopping [Fosauri]
+Domain Fosauri is being shutdown
+
+Stopping [Marpus]
+Domain Marpus is being shutdown
+
+Stopping [Byflame]
+Domain Byflame is being shutdown
+
+Stopping [Afoaviel]
+Domain Afoaviel is being shutdown
+
+Stopping [Rusaldez]
+Domain Rusaldez is being shutdown
+
+Stopping [Stedigo]
+Domain Stedigo is being shutdown
+
+Stopping [Angece]
+Domain Angece is being shutdown
+
+Stopping [Edwalafia]
+Domain Edwalafia is being shutdown
+
+Stopping [Onoza]
+Domain Onoza is being shutdown
+--END--
+
+
+# -----------------------------------------------------
+# Wait for all the virtual machines to stop.
+#[user@trop03]
+
+    virsh \
+        --connect ${connection:?} \
+        list \
+            --all
+
+--START--
+ 37    Stedigo                        running
+ 38    Angece                         running
+ 39    Edwalafia                      running
+ 40    Onoza                          running
+ -     Afoaviel                       shut off
+ -     Byflame                        shut off
+ -     Fosauri                        shut off
+ -     Marpus                         shut off
+ -     Rusaldez                       shut off
+--END--
+
+
+
+--START--
+ Id    Name                           State
+----------------------------------------------------
+ -     Afoaviel                       shut off
+ -     Angece                         shut off
+ -     Byflame                        shut off
+ -     Edwalafia                      shut off
+ -     Fosauri                        shut off
+ -     Marpus                         shut off
+ -     Onoza                          shut off
+ -     Rusaldez                       shut off
+ -     Stedigo                        shut off
+--END--
+
+
+# -----------------------------------------------------
+# Change the forward mode from 'nat' to 'route'.
+#[user@trop03]
+
+    tempxml=$(mktemp)
+    tempnew=$(mktemp)
+
+    #
+    # Stop (destroy) the active network.
+    virsh \
+        --connect ${connection:?} \
+        net-destroy \
+            'default'
+
+--START--
+Network default destroyed
+--END--
+
+    #
+    # Get the network definition.
+    virsh \
+        --connect ${connection:?} \
+        net-dumpxml \
+            'default' \
+    | tee "${tempxml:?}" \
+    | xmlstarlet select \
+        --root \
+        --indent \
+        --template \
+        --copy-of '//network/forward'
+
+--START--
+<xsl-select>
+  <forward mode="nat">
+    <nat>
+      <port start="1024" end="65535"/>
+    </nat>
+  </forward>
+</xsl-select>
+--END--
+
+    #
+    # Change the forward mode.
+    xmlstarlet edit \
+         --delete 'network/forward/nat' \
+         --update 'network/forward/@mode' \
+         --value  'route' \
+         --insert 'network/forward' \
+         --type   'attr' \
+         --name   'dev'  \
+         --value  'br0'  \
+        "${tempxml:?}"   \
+    | tee "${tempnew:?}" \
+    | xmlstarlet select \
+        --root \
+        --indent \
+        --template \
+        --copy-of '//network/forward'
+
+--START--
+<xsl-select>
+  <forward mode="route" dev="br0"/>
+</xsl-select>
+--END--
+
+    #
+    # Update the network definition.
+    virsh \
+        --connect ${connection:?} \
+        net-define \
+            "${tempnew:?}"
+
+--START--
+Network default defined from /tmp/tmp.tCRi4Dt03Z
+--END--
+
+    #
+    # Start the new network.
+    virsh \
+        --connect ${connection:?} \
+        net-start \
+            'default'
+
+--START--
+Network default started
+--END--
+
+
+# -----------------------------------------------------
+# Start all of the virtual machines.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+    for vmname in $(
+        virsh \
+            --quiet \
+            --connect ${connection:?} \
+            list --all \
+          | sed '
+            s/[[:space:]]*\([^[:space:]]*\)[[:space:]]*\([^[:space:]]*\)[[:space:]]*\(.*$\)/\2/
+            '
+        )
+        do
+            echo ""
+            echo "Starting [${vmname}]"
+            virsh \
+                --connect ${connection:?} \
+                start \
+                    "${vmname}"
+
+        done
+
+--START--
+Starting [Afoaviel]
+Domain Afoaviel started
+
+Starting [Angece]
+Domain Angece started
+
+Starting [Byflame]
+Domain Byflame started
+
+Starting [Edwalafia]
+Domain Edwalafia started
+
+Starting [Fosauri]
+Domain Fosauri started
+
+Starting [Marpus]
+Domain Marpus started
+
+Starting [Onoza]
+Domain Onoza started
+
+Starting [Rusaldez]
+Domain Rusaldez started
+
+Starting [Stedigo]
+Domain Stedigo started
+--END--
+
+
+# -----------------------------------------------------
+# Check all of the virtual machines are running.
+#[user@trop03]
+
+    virsh \
+        --connect ${connection:?} \
+        list \
+            --all
+
+--START--
+ Id    Name                           State
+----------------------------------------------------
+ 50    Afoaviel                       running
+ 51    Angece                         running
+ 52    Byflame                        running
+ 53    Edwalafia                      running
+ 54    Fosauri                        running
+ 55    Marpus                         running
+ 56    Onoza                          running
+ 57    Rusaldez                       running
+ 58    Stedigo                        running
+--END--
+
+
+# -----------------------------------------------------
+# Check all of the virtual machines are running.
+#[user@trop03]
+
+    for vmname in $(
+        virsh \
+            --quiet \
+            --connect ${connection:?} \
+            list --all \
+          | sed '
+            s/[[:space:]]*\([^[:space:]]*\)[[:space:]]*\([^[:space:]]*\)[[:space:]]*\([^[:space:]]*\)/\2/
+            '
+        )
+        do
+            echo "---- ----"
+            echo "Checking [${vmname:?}]"
+            ssh ${sshopts[*]} "${vmname:?}" '
+                hostname
+                date
+                '
+        done
+
+--START--
+---- ----
+Checking [Afoaviel]
+Afoaviel
+Mon  7 Jan 02:23:30 GMT 2019
+---- ----
+Checking [Angece]
+ssh: connect to host angece port 22: No route to host
+---- ----
+Checking [Byflame]
+Byflame
+Mon  7 Jan 02:23:33 GMT 2019
+---- ----
+Checking [Edwalafia]
+ssh: connect to host edwalafia port 22: No route to host
+---- ----
+Checking [Fosauri]
+Fosauri
+Mon  7 Jan 02:23:36 GMT 2019
+---- ----
+Checking [Marpus]
+Marpus
+Mon  7 Jan 02:23:36 GMT 2019
+---- ----
+Checking [Onoza]
+ssh: connect to host onoza port 22: No route to host
+---- ----
+Checking [Rusaldez]
+Rusaldez
+Mon  7 Jan 02:23:40 GMT 2019
+---- ----
+Checking [Stedigo]
+ssh: connect to host stedigo port 22: No route to host
+--END--
+
+    FAIL : Not all of the virtual machines started cleanly.
+
+--START--
+[ TIME ] Timed out waiting for device dev-disk-by\x2duuid-23ab...
+[DEPEND] Dependency failed for /data1-01.
+[DEPEND] Dependency failed for Local File Systems.
+[DEPEND] Dependency failed for Mark the need to relabel after reboot.
+[ TIME ] Timed out waiting for device dev-disk-by\x2duuid-a921...
+[DEPEND] Dependency failed for /data1-02.
+[ TIME ] Timed out waiting for device dev-disk-by\x2duuid-4bdd...
+[DEPEND] Dependency failed for /data2-01.
+[ TIME ] Timed out waiting for device dev-disk-by\x2duuid-ce19...
+....
+You are in emergency mode. After logging in, type "journalctl -xb" to view
+system logs, "systemctl reboot" to reboot, "systemctl default" or "exit"
+to boot into default mode.
+Give root password for maintenance
+(or press Control-D to continue):
+--END--
+
+    Looks like previous work added discs to the Kafka virtual machines,
+    but didn't make the changes permanent.
+    So the Kafka virtual machines lost their data discs when they were
+    re-booted.
+
+    Continued in next notes ..
 

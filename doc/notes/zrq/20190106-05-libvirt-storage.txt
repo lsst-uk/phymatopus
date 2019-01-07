@@ -1,0 +1,790 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+    Looks like previous work added discs to the Kafka virtual machines,
+    but didn't make the changes permanent.
+    So the Kafka virtual machines lost their data discs when they were
+    re-booted.
+
+# -----------------------------------------------------
+# Shutdown all the virtual machines.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+    for vmname in $(
+        virsh \
+            --quiet \
+            --connect ${connection:?} \
+            list --all \
+          | sed '
+            s/[[:space:]]*\([^[:space:]]*\)[[:space:]]*\([^[:space:]]*\)[[:space:]]*\(.*$\)/\2/
+            '
+        )
+        do
+            echo "Stopping [${vmname}]"
+            virsh \
+                --connect ${connection:?} \
+                shutdown \
+                    "${vmname}"
+
+        done
+
+--START--
+Stopping [Afoaviel]
+Domain Afoaviel is being shutdown
+
+Stopping [Angece]
+Domain Angece is being shutdown
+
+Stopping [Byflame]
+Domain Byflame is being shutdown
+
+Stopping [Edwalafia]
+Domain Edwalafia is being shutdown
+
+Stopping [Fosauri]
+Domain Fosauri is being shutdown
+
+Stopping [Marpus]
+Domain Marpus is being shutdown
+
+Stopping [Onoza]
+Domain Onoza is being shutdown
+
+Stopping [Rusaldez]
+Domain Rusaldez is being shutdown
+
+Stopping [Stedigo]
+Domain Stedigo is being shutdown
+--END--
+
+# -----------------------------------------------------
+# Force all the Kafka machines to stop.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "Stopping [${vmname}]"
+            virsh \
+                --connect ${connection:?} \
+                destroy \
+                    "${vmname}"
+        done
+
+--START--
+Stopping [Stedigo]
+Domain Stedigo destroyed
+
+Stopping [Angece]
+Domain Angece destroyed
+
+Stopping [Edwalafia]
+Domain Edwalafia destroyed
+
+Stopping [Onoza]
+Domain Onoza destroyed
+--END--
+
+
+# -----------------------------------------------------
+# Add the data discs to the Kafka nodes.
+#[user@trop03]
+
+    unset volpools
+    volpools=(
+        data1
+        data2
+        )
+
+    unset voldevs
+    declare -A voldevs=(
+        [data1-01]=vdc
+        [data2-01]=vdd
+        [data1-02]=vde
+        [data2-02]=vdf
+        )
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname}]"
+            for volpool in ${poolnames[@]}
+                do
+                    echo "----"
+                    for volnum in {1..2}
+                        do
+                            volname=$(printf "%s-%02d" ${volpool} ${volnum})
+                            volfile=${vmname}-${volname}.qcow
+                            volpath=/${volpool}/libvirt/images/${volpool}/${volfile}
+                            voldev=${voldevs[${volname:?}]}
+
+                            echo "volpool [${volpool}]"
+                            echo "volpath [${volpath}]"
+                            echo "voldev  [${voldev}]"
+
+                            virsh \
+                                --connect "${connection:?}" \
+                                attach-disk \
+                                    ${vmname:?}   \
+                                    ${volpath:?}  \
+                                    ${voldev:?}   \
+                                    --driver qemu  \
+                                    --subdriver qcow2 \
+                                    --config
+                        done
+                done
+        done
+
+--START--
+---- ----
+Node [Stedigo]
+----
+volpool [data1]
+volpath [/data1/libvirt/images/data1/Stedigo-data1-01.qcow]
+voldev  [vdc]
+Disk attached successfully
+
+volpool [data1]
+volpath [/data1/libvirt/images/data1/Stedigo-data1-02.qcow]
+voldev  [vde]
+Disk attached successfully
+
+----
+volpool [data2]
+volpath [/data2/libvirt/images/data2/Stedigo-data2-01.qcow]
+voldev  [vdd]
+Disk attached successfully
+
+volpool [data2]
+volpath [/data2/libvirt/images/data2/Stedigo-data2-02.qcow]
+voldev  [vdf]
+Disk attached successfully
+
+---- ----
+Node [Angece]
+----
+volpool [data1]
+volpath [/data1/libvirt/images/data1/Angece-data1-01.qcow]
+voldev  [vdc]
+Disk attached successfully
+
+volpool [data1]
+volpath [/data1/libvirt/images/data1/Angece-data1-02.qcow]
+voldev  [vde]
+Disk attached successfully
+
+----
+volpool [data2]
+volpath [/data2/libvirt/images/data2/Angece-data2-01.qcow]
+voldev  [vdd]
+Disk attached successfully
+
+volpool [data2]
+volpath [/data2/libvirt/images/data2/Angece-data2-02.qcow]
+voldev  [vdf]
+Disk attached successfully
+
+---- ----
+Node [Edwalafia]
+----
+volpool [data1]
+volpath [/data1/libvirt/images/data1/Edwalafia-data1-01.qcow]
+voldev  [vdc]
+Disk attached successfully
+
+volpool [data1]
+volpath [/data1/libvirt/images/data1/Edwalafia-data1-02.qcow]
+voldev  [vde]
+Disk attached successfully
+
+----
+volpool [data2]
+volpath [/data2/libvirt/images/data2/Edwalafia-data2-01.qcow]
+voldev  [vdd]
+Disk attached successfully
+
+volpool [data2]
+volpath [/data2/libvirt/images/data2/Edwalafia-data2-02.qcow]
+voldev  [vdf]
+Disk attached successfully
+
+---- ----
+Node [Onoza]
+----
+volpool [data1]
+volpath [/data1/libvirt/images/data1/Onoza-data1-01.qcow]
+voldev  [vdc]
+Disk attached successfully
+
+volpool [data1]
+volpath [/data1/libvirt/images/data1/Onoza-data1-02.qcow]
+voldev  [vde]
+Disk attached successfully
+
+----
+volpool [data2]
+volpath [/data2/libvirt/images/data2/Onoza-data2-01.qcow]
+voldev  [vdd]
+Disk attached successfully
+
+volpool [data2]
+volpath [/data2/libvirt/images/data2/Onoza-data2-02.qcow]
+voldev  [vdf]
+Disk attached successfully
+--END--
+
+
+# -----------------------------------------------------
+# Start all of the virtual machines.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+    for vmname in $(
+        virsh \
+            --quiet \
+            --connect ${connection:?} \
+            list --all \
+          | sed '
+            s/[[:space:]]*\([^[:space:]]*\)[[:space:]]*\([^[:space:]]*\)[[:space:]]*\(.*$\)/\2/
+            '
+        )
+        do
+            echo "Starting [${vmname}]"
+            virsh \
+                --connect ${connection:?} \
+                start \
+                    "${vmname}"
+
+        done
+
+--START--
+Starting [Afoaviel]
+Domain Afoaviel started
+
+Starting [Angece]
+Domain Angece started
+
+Starting [Byflame]
+Domain Byflame started
+
+Starting [Edwalafia]
+Domain Edwalafia started
+
+Starting [Fosauri]
+Domain Fosauri started
+
+Starting [Marpus]
+Domain Marpus started
+
+Starting [Onoza]
+Domain Onoza started
+
+Starting [Rusaldez]
+Domain Rusaldez started
+
+Starting [Stedigo]
+Domain Stedigo started
+--END--
+
+
+# -----------------------------------------------------
+# Check all of the virtual machines are running.
+#[user@trop03]
+
+    virsh \
+        --connect ${connection:?} \
+        list \
+            --all
+
+--START--
+ Id    Name                           State
+----------------------------------------------------
+ 59    Afoaviel                       running
+ 60    Angece                         running
+ 61    Byflame                        running
+ 62    Edwalafia                      running
+ 63    Fosauri                        running
+ 64    Marpus                         running
+ 65    Onoza                          running
+ 66    Rusaldez                       running
+ 67    Stedigo                        running
+--END--
+
+
+# -----------------------------------------------------
+# Check all of the virtual machines are running.
+#[user@trop03]
+
+    for vmname in $(
+        virsh \
+            --quiet \
+            --connect ${connection:?} \
+            list --all \
+          | sed '
+            s/[[:space:]]*\([^[:space:]]*\)[[:space:]]*\([^[:space:]]*\)[[:space:]]*\(.*$\)/\2/
+            '
+        )
+        do
+            echo "---- ----"
+            echo "Checking [${vmname:?}]"
+            ssh ${sshopts[*]} "${vmname:?}" '
+                hostname
+                date
+                '
+        done
+
+--START--
+---- ----
+Checking [Afoaviel]
+Afoaviel
+Mon  7 Jan 04:15:08 GMT 2019
+---- ----
+Checking [Angece]
+Angece
+Mon  7 Jan 04:15:09 GMT 2019
+---- ----
+Checking [Byflame]
+Byflame
+Mon  7 Jan 04:15:09 GMT 2019
+---- ----
+Checking [Edwalafia]
+Edwalafia
+Mon  7 Jan 04:15:11 GMT 2019
+---- ----
+Checking [Fosauri]
+Fosauri
+Mon  7 Jan 04:15:10 GMT 2019
+---- ----
+Checking [Marpus]
+Marpus
+Mon  7 Jan 04:15:11 GMT 2019
+---- ----
+Checking [Onoza]
+Onoza
+Mon  7 Jan 04:15:12 GMT 2019
+---- ----
+Checking [Rusaldez]
+Rusaldez
+Mon  7 Jan 04:15:13 GMT 2019
+---- ----
+Checking [Stedigo]
+Stedigo
+Mon  7 Jan 04:15:13 GMT 2019
+--END--
+
+
+# -----------------------------------------------------
+# Check the containers on each Kafka node.
+#[user@trop03]
+
+    for vmname in ${kfnames[@]}
+        do
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    echo \"---- ---- ---- ----\"
+                    echo \"[\$(hostname)][\$(date)]\"
+                    echo \"---- ----\"
+                    docker ps -a
+
+                    "
+        done
+
+--START--
+---- ---- ---- ----
+[Stedigo][Mon  7 Jan 04:34:03 GMT 2019]
+---- ----
+CONTAINER ID        IMAGE                         COMMAND                  CREATED             STATUS                        PORTS                              NAMES
+cd4f0a1d987b        confluentinc/cp-kafka:4.1.1   "/etc/confluent/dock…"   2 weeks ago         Exited (255) 19 minutes ago   0.0.0.0:9092-9093->9092-9093/tcp   stevedore_emily_1
+---- ---- ---- ----
+[Angece][Mon  7 Jan 04:34:04 GMT 2019]
+---- ----
+CONTAINER ID        IMAGE                         COMMAND                  CREATED             STATUS                        PORTS                              NAMES
+c656d5adb6d2        confluentinc/cp-kafka:4.1.1   "/etc/confluent/dock…"   2 weeks ago         Exited (255) 19 minutes ago   0.0.0.0:9092-9093->9092-9093/tcp   stevedore_emily_1
+---- ---- ---- ----
+[Edwalafia][Mon  7 Jan 04:34:05 GMT 2019]
+---- ----
+CONTAINER ID        IMAGE                         COMMAND                  CREATED             STATUS                        PORTS                              NAMES
+7fba134176e8        confluentinc/cp-kafka:4.1.1   "/etc/confluent/dock…"   2 weeks ago         Exited (255) 19 minutes ago   0.0.0.0:9092-9093->9092-9093/tcp   stevedore_emily_1
+---- ---- ---- ----
+[Onoza][Mon  7 Jan 04:34:05 GMT 2019]
+---- ----
+CONTAINER ID        IMAGE                         COMMAND                  CREATED             STATUS                        PORTS                              NAMES
+8fa6618128e2        confluentinc/cp-kafka:4.1.1   "/etc/confluent/dock…"   2 weeks ago         Exited (255) 19 minutes ago   0.0.0.0:9092-9093->9092-9093/tcp   stevedore_emily_1
+--END--
+
+
+# -----------------------------------------------------
+# Check the disc space on each Kafka node.
+#[user@trop03]
+
+    for vmname in ${kfnames[@]}
+        do
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    echo \"---- ---- ---- ----\"
+                    echo \"[\$(hostname)][\$(date)]\"
+                    echo \"---- ----\"
+
+                    df -h /
+                    echo \"---- ----\"
+                    df -h \"/data1-01\"
+                    echo \"---- ----\"
+                    df -h \"/data1-02\"
+
+                    echo "---- ----"
+                    df -h \"/data2-01\"
+                    echo "---- ----"
+                    df -h \"/data2-02\"
+                    "
+        done
+
+--START--
+---- ---- ---- ----
+[Stedigo][Mon  7 Jan 04:35:01 GMT 2019]
+---- ----
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vda3       6.8G  2.5G  3.8G  40% /
+---- ----
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vdc         32G   31G   12K 100% /data1-01
+---- ----
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vdd         64G   48G   15G  77% /data1-02
+---- ----
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vde         32G   31G   20K 100% /data2-01
+---- ----
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vdf         64G   46G   17G  73% /data2-02
+---- ---- ---- ----
+[Angece][Mon  7 Jan 04:35:02 GMT 2019]
+---- ----
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vda3       6.8G  2.6G  3.7G  41% /
+---- ----
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vdc         32G   31G   12K 100% /data1-01
+---- ----
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vdd         64G   50G   14G  79% /data1-02
+---- ----
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vde         32G   31G   12K 100% /data2-01
+---- ----
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vdf         64G   46G   17G  73% /data2-02
+---- ---- ---- ----
+[Edwalafia][Mon  7 Jan 04:35:03 GMT 2019]
+---- ----
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vda3       6.8G  2.5G  3.8G  40% /
+---- ----
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vdc         32G   31G   32K 100% /data1-01
+---- ----
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vdd         64G   47G   16G  75% /data1-02
+---- ----
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vde         32G   31G  4.0K 100% /data2-01
+---- ----
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vdf         64G   47G   16G  75% /data2-02
+---- ---- ---- ----
+[Onoza][Mon  7 Jan 04:35:03 GMT 2019]
+---- ----
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vda3       6.8G  2.5G  3.8G  40% /
+---- ----
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vdc         32G   31G   12K 100% /data1-01
+---- ----
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vdd         64G   46G   17G  73% /data1-02
+---- ----
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vde         32G   31G   20K 100% /data2-01
+---- ----
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vdf         64G   48G   15G  77% /data2-02
+--END--
+
+
+# -----------------------------------------------------
+# Start Zookeeper on each node.
+#[user@trop03]
+
+    for vmname in ${zknames[@]}
+        do
+            echo "---- ----"
+            echo "vmname [${vmname:?}]"
+            ssh \
+                ${scpopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                docker-compose \
+                    --file zookeeper.yml \
+                    up -d
+                "
+        done
+
+--START--
+---- ----
+vmname [Fosauri]
+Starting stevedore_courtney_1 ... done
+---- ----
+vmname [Marpus]
+Starting stevedore_courtney_1 ... done
+---- ----
+vmname [Byflame]
+Starting stevedore_courtney_1 ... done
+--END--
+
+# -----------------------------------------------------
+# Start Kafka on each node.
+#[user@trop03]
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            echo "vmname [${vmname:?}]"
+            ssh \
+                ${scpopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                docker-compose \
+                    --file kafka.yml \
+                    up -d
+                "
+        done
+
+--START--
+---- ----
+vmname [Stedigo]
+Starting stevedore_emily_1 ... done
+---- ----
+vmname [Angece]
+Starting stevedore_emily_1 ... done
+---- ----
+vmname [Edwalafia]
+Starting stevedore_emily_1 ... done
+---- ----
+vmname [Onoza]
+Starting stevedore_emily_1 ... done
+--END--
+
+
+# -----------------------------------------------------
+# Tail the logs on each Kafka node.
+# https://www.systutorials.com/docs/linux/man/1-gnome-terminal/
+# https://www.systutorials.com/docs/linux/man/7-X/#lbAH
+#[user@desktop]
+
+    mate-terminal \
+        --geometry '160x10+25+25' \
+        --command '
+            ssh -t Edwalafia "
+                docker logs -f stevedore_emily_1
+                ${SHELL}
+                "
+            '
+    sleep 1
+
+    mate-terminal \
+        --geometry '160x10+125+125' \
+        --command '
+            ssh -t Onoza "
+                docker logs -f stevedore_emily_1
+                ${SHELL}
+                "
+            '
+    sleep 1
+
+    mate-terminal \
+        --geometry '160x10+225+225' \
+        --command '
+            ssh -t Angece "
+                docker logs -f stevedore_emily_1
+                ${SHELL}
+                "
+            '
+    sleep 1
+
+    mate-terminal \
+        --geometry '160x10+325+325' \
+        --command '
+            ssh -t Stedigo "
+                docker logs -f stevedore_emily_1
+                ${SHELL}
+                "
+            '
+
+--START--
+[2019-01-07 04:45:48,039] WARN [Log partition=ztf_20181219_programid1-2, dir=/data1-02] Found a corrupted index file corresponding to log file /data1-02/ztf_20181219_programid1-2/00000000000000015985.log due to Corrupt index found, index file (/data1-02/ztf_20181219_programid1-2/00000000000000015985.index) has non-zero size but the last offset is 15985 which is no greater than the base offset 15985.}, recovering segment and rebuilding index files... (kafka.log.Log)
+[2019-01-07 04:45:48,040] INFO [ProducerStateManager partition=ztf_20181219_programid1-2] Loading producer state from snapshot file '/data1-02/ztf_20181219_programid1-2/00000000000000015985.snapshot' (kafka.log.ProducerStateManager)
+[2019-01-07 04:45:54,341] INFO [ProducerStateManager partition=ztf_20181220_programid1-3] Writing producer snapshot at offset 10093 (kafka.log.ProducerStateManager)
+[2019-01-07 04:45:54,342] INFO [Log partition=ztf_20181220_programid1-3, dir=/data2-02] Recovering unflushed segment 0 (kafka.log.Log)
+[2019-01-07 04:45:55,697] INFO [ProducerStateManager partition=ztf_20181220_programid1-3] Writing producer snapshot at offset 10093 (kafka.log.ProducerStateManager)
+[2019-01-07 04:45:55,698] INFO [Log partition=ztf_20181220_programid1-3, dir=/data2-02] Loading producer state from offset 10093 with message format version 2 (kafka.log.Log)
+[2019-01-07 04:45:55,699] INFO [ProducerStateManager partition=ztf_20181220_programid1-3] Loading producer state from snapshot file '/data2-02/ztf_20181220_programid1-3/00000000000000010093.snapshot' (kafka.log.ProducerStateManager)
+[2019-01-07 04:45:55,699] INFO [Log partition=ztf_20181220_programid1-3, dir=/data2-02] Completed load of log with 1 segments, log start offset 0 and log end offset 10093 in 48937 ms (kafka.log.Log)
+--END--
+
+
+--START--
+[2019-01-07 04:46:34,488] WARN [Log partition=ztf_20181220_programid1-0, dir=/data2-02] Found a corrupted index file corresponding to log file /data2-02/ztf_20181220_programid1-0/00000000000000000000.log due to Corrupt index found, index file (/data2-02/ztf_20181220_programid1-0/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
+[2019-01-07 04:46:50,948] INFO [ProducerStateManager partition=ztf_20181220_programid1-14] Writing producer snapshot at offset 10092 (kafka.log.ProducerStateManager)
+[2019-01-07 04:46:50,950] INFO [Log partition=ztf_20181220_programid1-14, dir=/data1-02] Recovering unflushed segment 0 (kafka.log.Log)
+[2019-01-07 04:46:52,547] INFO [ProducerStateManager partition=ztf_20181220_programid1-14] Writing producer snapshot at offset 10092 (kafka.log.ProducerStateManager)
+[2019-01-07 04:46:52,548] INFO [Log partition=ztf_20181220_programid1-14, dir=/data1-02] Loading producer state from offset 10092 with message format version 2 (kafka.log.Log)
+[2019-01-07 04:46:52,549] INFO [ProducerStateManager partition=ztf_20181220_programid1-14] Loading producer state from snapshot file '/data1-02/ztf_20181220_programid1-14/00000000000000010092.snapshot' (kafka.log.ProducerStateManager)
+[2019-01-07 04:46:52,549] INFO [Log partition=ztf_20181220_programid1-14, dir=/data1-02] Completed load of log with 1 segments, log start offset 0 and log end offset 10092 in 41293 ms (kafka.log.Log)
+--END--
+
+
+--START--
+[2019-01-07 04:47:43,183] WARN [Log partition=ztf_20181219_programid1-5, dir=/data1-02] Found a corrupted index file corresponding to log file /data1-02/ztf_20181219_programid1-5/00000000000000015995.log due to Corrupt index found, index file (/data1-02/ztf_20181219_programid1-5/00000000000000015995.index) has non-zero size but the last offset is 15995 which is no greater than the base offset 15995.}, recovering segment and rebuilding index files... (kafka.log.Log)
+[2019-01-07 04:47:43,184] INFO [ProducerStateManager partition=ztf_20181219_programid1-5] Loading producer state from snapshot file '/data1-02/ztf_20181219_programid1-5/00000000000000015995.snapshot' (kafka.log.ProducerStateManager)
+[2019-01-07 04:47:44,716] INFO [ProducerStateManager partition=ztf_20181220_programid1-4] Writing producer snapshot at offset 10092 (kafka.log.ProducerStateManager)
+[2019-01-07 04:47:44,717] INFO [Log partition=ztf_20181220_programid1-4, dir=/data2-02] Recovering unflushed segment 0 (kafka.log.Log)
+[2019-01-07 04:47:46,522] INFO [ProducerStateManager partition=ztf_20181220_programid1-4] Writing producer snapshot at offset 10092 (kafka.log.ProducerStateManager)
+[2019-01-07 04:47:46,523] INFO [Log partition=ztf_20181220_programid1-4, dir=/data2-02] Loading producer state from offset 10092 with message format version 2 (kafka.log.Log)
+[2019-01-07 04:47:46,524] INFO [ProducerStateManager partition=ztf_20181220_programid1-4] Loading producer state from snapshot file '/data2-02/ztf_20181220_programid1-4/00000000000000010092.snapshot' (kafka.log.ProducerStateManager)
+[2019-01-07 04:47:46,525] INFO [Log partition=ztf_20181220_programid1-4, dir=/data2-02] Completed load of log with 1 segments, log start offset 0 and log end offset 10092 in 44834 ms (kafka.log.Log)
+--END--
+
+
+--START--
+[2019-01-07 04:47:56,188] WARN [Log partition=ztf_20181221_programid1-14, dir=/data2-02] Found a corrupted index file corresponding to log file /data2-02/ztf_20181221_programid1-14/00000000000000000000.log due to Corrupt index found, index file (/data2-02/ztf_20181221_programid1-14/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
+[2019-01-07 04:48:07,147] INFO [ProducerStateManager partition=ztf_20181221_programid1-14] Writing producer snapshot at offset 2365 (kafka.log.ProducerStateManager)
+[2019-01-07 04:48:07,148] INFO [Log partition=ztf_20181221_programid1-14, dir=/data2-02] Recovering unflushed segment 0 (kafka.log.Log)
+[2019-01-07 04:48:07,480] INFO [ProducerStateManager partition=ztf_20181221_programid1-14] Writing producer snapshot at offset 2365 (kafka.log.ProducerStateManager)
+[2019-01-07 04:48:07,481] INFO [Log partition=ztf_20181221_programid1-14, dir=/data2-02] Loading producer state from offset 2365 with message format version 2 (kafka.log.Log)
+[2019-01-07 04:48:07,482] INFO [ProducerStateManager partition=ztf_20181221_programid1-14] Loading producer state from snapshot file '/data2-02/ztf_20181221_programid1-14/00000000000000002365.snapshot' (kafka.log.ProducerStateManager)
+[2019-01-07 04:48:07,482] INFO [Log partition=ztf_20181221_programid1-14, dir=/data2-02] Completed load of log with 1 segments, log start offset 0 and log end offset 2365 in 11297 ms (kafka.log.Log)
+--END--
+
+
+--START--
+[2019-01-07 05:23:58,594] WARN [Log partition=ztf_20190105_programid1-3, dir=/data1-02] Found a corrupted index file corresponding to log file /data1-02/ztf_20190105_programid1-3/00000000000000015925.log due to Corrupt index found, index file (/data1-02/ztf_20190105_programid1-3/00000000000000015925.index) has non-zero size but the last offset is 15925 which is no greater than the base offset 15925.}, recovering segment and rebuilding index files... (kafka.log.Log)
+[2019-01-07 05:23:58,595] INFO [ProducerStateManager partition=ztf_20190105_programid1-3] Loading producer state from snapshot file '/data1-02/ztf_20190105_programid1-3/00000000000000015925.snapshot' (kafka.log.ProducerStateManager)
+[2019-01-07 05:24:00,631] INFO [ProducerStateManager partition=ztf_20190105_programid1-3] Writing producer snapshot at offset 16317 (kafka.log.ProducerStateManager)
+[2019-01-07 05:24:00,632] INFO [Log partition=ztf_20190105_programid1-3, dir=/data1-02] Recovering unflushed segment 15925 (kafka.log.Log)
+[2019-01-07 05:24:00,633] INFO [ProducerStateManager partition=ztf_20190105_programid1-3] Loading producer state from snapshot file '/data1-02/ztf_20190105_programid1-3/00000000000000015925.snapshot' (kafka.log.ProducerStateManager)
+[2019-01-07 05:24:00,706] INFO [ProducerStateManager partition=ztf_20190105_programid1-3] Writing producer snapshot at offset 16317 (kafka.log.ProducerStateManager)
+[2019-01-07 05:24:00,707] INFO [Log partition=ztf_20190105_programid1-3, dir=/data1-02] Loading producer state from offset 16317 with message format version 2 (kafka.log.Log)
+[2019-01-07 05:24:00,708] INFO [ProducerStateManager partition=ztf_20190105_programid1-3] Loading producer state from snapshot file '/data1-02/ztf_20190105_programid1-3/00000000000000016317.snapshot' (kafka.log.ProducerStateManager)
+[2019-01-07 05:24:00,708] INFO [Log partition=ztf_20190105_programid1-3, dir=/data1-02] Completed load of log with 2 segments, log start offset 0 and log end offset 16317 in 2534 ms (kafka.log.Log)
+[2019-01-07 05:24:00,725] ERROR There was an error in one of the threads during logs loading: java.lang.InternalError: a fault occurred in a recent unsafe memory access operation in compiled Java code (kafka.log.LogManager)
+[2019-01-07 05:24:00,738] ERROR [KafkaServer id=4] Fatal error during KafkaServer startup. Prepare to shutdown (kafka.server.KafkaServer)
+java.lang.InternalError: a fault occurred in a recent unsafe memory access operation in compiled Java code
+	at java.nio.HeapByteBuffer.<init>(HeapByteBuffer.java:57)
+	at java.nio.ByteBuffer.allocate(ByteBuffer.java:335)
+	at org.apache.kafka.common.record.FileLogInputStream$FileChannelRecordBatch.loadBatchWithSize(FileLogInputStream.java:209)
+	at org.apache.kafka.common.record.FileLogInputStream$FileChannelRecordBatch.loadFullBatch(FileLogInputStream.java:192)
+	at org.apache.kafka.common.record.FileLogInputStream$FileChannelRecordBatch.ensureValid(FileLogInputStream.java:164)
+	at kafka.log.LogSegment$$anonfun$recover$1.apply(LogSegment.scala:277)
+	at kafka.log.LogSegment$$anonfun$recover$1.apply(LogSegment.scala:276)
+	at scala.collection.Iterator$class.foreach(Iterator.scala:891)
+	at scala.collection.AbstractIterator.foreach(Iterator.scala:1334)
+	at scala.collection.IterableLike$class.foreach(IterableLike.scala:72)
+	at scala.collection.AbstractIterable.foreach(Iterable.scala:54)
+	at kafka.log.LogSegment.recover(LogSegment.scala:276)
+	at kafka.log.Log.kafka$log$Log$$recoverSegment(Log.scala:370)
+	at kafka.log.Log$$anonfun$loadSegmentFiles$3.apply(Log.scala:348)
+	at kafka.log.Log$$anonfun$loadSegmentFiles$3.apply(Log.scala:320)
+	at scala.collection.TraversableLike$WithFilter$$anonfun$foreach$1.apply(TraversableLike.scala:733)
+	at scala.collection.IndexedSeqOptimized$class.foreach(IndexedSeqOptimized.scala:33)
+	at scala.collection.mutable.ArrayOps$ofRef.foreach(ArrayOps.scala:186)
+	at scala.collection.TraversableLike$WithFilter.foreach(TraversableLike.scala:732)
+	at kafka.log.Log.loadSegmentFiles(Log.scala:320)
+	at kafka.log.Log.loadSegments(Log.scala:403)
+	at kafka.log.Log.<init>(Log.scala:216)
+	at kafka.log.Log$.apply(Log.scala:1747)
+	at kafka.log.LogManager.kafka$log$LogManager$$loadLog(LogManager.scala:260)
+	at kafka.log.LogManager$$anonfun$loadLogs$2$$anonfun$11$$anonfun$apply$15$$anonfun$apply$2.apply$mcV$sp(LogManager.scala:340)
+	at kafka.utils.CoreUtils$$anon$1.run(CoreUtils.scala:62)
+	at java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:511)
+	at java.util.concurrent.FutureTask.run(FutureTask.java:266)
+	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1149)
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
+	at java.lang.Thread.run(Thread.java:748)
+--END--
+
+
+# -----------------------------------------------------
+# (re-)start Kafka on each node.
+#[user@trop03]
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            echo "vmname [${vmname:?}]"
+            ssh \
+                ${scpopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                docker-compose \
+                    --file kafka.yml \
+                    up -d
+                "
+        done
+
+--START--
+--END--
+
+--START--
+--END--
+
+--START--
+--END--
+
+--START--
+--END--
+
+--START--
+--END--
+
+--START--
+--END--
+
+--START--
+--END--
+
+--START--
+--END--
+
+--START--
+--END--
+
+
+
+
+
