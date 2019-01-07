@@ -960,7 +960,7 @@ java.lang.InternalError: a fault occurred in a recent unsafe memory access opera
 
 # -----------------------------------------------------
 # Check the system logs for filesystem errors ..
-#[user@virtual]
+#[Stevedore@Edwalafia]
 
     sudo journalctl
 
@@ -1024,7 +1024,7 @@ Jan 07 06:57:33 Edwalafia audit: NETFILTER_CFG table=raw family=10 entries=32
 
 # -----------------------------------------------------
 # Check what partitions are where ...
-#[user@virtual]
+#[Stevedore@Edwalafia]
 
     ls /data1-01/
 
@@ -1056,7 +1056,7 @@ ztf_20181219_programid1-3         ztf_20181221_programid1-13  ztf_20181223_progr
 
 # -----------------------------------------------------
 # Try moving the ztf_20181231 partitions from the full discs to the discs with space.
-#[user@virtual]
+#[Stevedore@Edwalafia]
 
     find /data1-01/ -name 'ztf_20181231*'
 
@@ -1083,7 +1083,7 @@ target [/data1-01/ztf_20181231_programid1-4]
     find /data1-01/ -name 'ztf_20181231*'
 
 --START--
-
+-
 --END--
 
     find /data1-02/ -name 'ztf_20181231*'
@@ -1099,7 +1099,7 @@ target [/data1-01/ztf_20181231_programid1-4]
 
 # -----------------------------------------------------
 # Restart Kafka and tail the logs.
-#[user@virtual]
+#[Stevedore@Edwalafia]
 
     docker-compose \
         --file kafka.yml \
@@ -1181,8 +1181,619 @@ java.lang.InternalError: a fault occurred in a recent unsafe memory access opera
 	at java.lang.Thread.run(Thread.java:748)
 --END--
 
+# -----------------------------------------------------
+# Check the available disc space.
+#[Stevedore@Edwalafia]
+
+        df -h
+
+--START--
+Filesystem      Size  Used Avail Use% Mounted on
+devtmpfs        2.0G     0  2.0G   0% /dev
+tmpfs           2.0G     0  2.0G   0% /dev/shm
+tmpfs           2.0G  572K  2.0G   1% /run
+tmpfs           2.0G     0  2.0G   0% /sys/fs/cgroup
+/dev/vda3       6.8G  2.5G  3.8G  40% /
+/dev/vda1       240M  118M  106M  53% /boot
+tmpfs           2.0G  4.0K  2.0G   1% /tmp
+/dev/vdd         64G   47G   16G  75% /data1-02
+/dev/vdf         64G   47G   16G  75% /data2-02
+/dev/vdc         32G   31G  6.3M 100% /data1-01
+/dev/vde         32G   31G     0 100% /data2-01
+tmpfs           395M     0  395M   0% /run/user/1001
+--END--
+
+    Possible clue .. we cleared some space on /data1-01, so it has 6.3M available.
+    We didn't clear any space on /data2-01, so that has no space available.
+
+    Searching the debug log for /data2-01 found the following entries, about 20min before the crach :
+
+--START--
+[2019-01-07 07:26:42,161] WARN [Log partition=ztf_20181219_programid1-1, dir=/data1-02] Found a corrupted index file corresponding to log file /data1-02/ztf_20181219_programid1-1/00000000000000016000.log due to Corrupt index found, index file (/data1-02/ztf_20181219_programid1-1/00000000000000016000.index) has non-zero size but the last offset is 16000 which is no greater than the base offset 16000.}, recovering segment and rebuilding index files... (kafka.log.Log)
+[2019-01-07 07:26:42,162] INFO [ProducerStateManager partition=ztf_20181219_programid1-1] Loading producer state from snapshot file '/data1-02/ztf_20181219_programid1-1/00000000000000016000.snapshot' (kafka.log.ProducerStateManager)
+[2019-01-07 07:26:42,726] WARN [Log partition=ztf_20181217_programid1-6, dir=/data2-01] Found a corrupted index file corresponding to log file /data2-01/ztf_20181217_programid1-6/00000000000000000000.log due to Corrupt index found, index file (/data2-01/ztf_20181217_programid1-6/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
+[2019-01-07 07:26:43,131] WARN [Log partition=ztf_20181231_programid1-1, dir=/data2-01] Found a corrupted index file corresponding to log file /data2-01/ztf_20181231_programid1-1/00000000000000000000.log due to Corrupt index found, index file (/data2-01/ztf_20181231_programid1-1/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
+[2019-01-07 07:26:43,994] WARN [Log partition=ztf_20181231_programid1-14, dir=/data2-01] Found a corrupted index file corresponding to log file /data2-01/ztf_20181231_programid1-14/00000000000000000000.log due to Corrupt index found, index file (/data2-01/ztf_20181231_programid1-14/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
+[2019-01-07 07:26:44,403] WARN [Log partition=ztf_20181231_programid1-0, dir=/data2-01] Found a corrupted index file corresponding to log file /data2-01/ztf_20181231_programid1-0/00000000000000000000.log due to Corrupt index found, index file (/data2-01/ztf_20181231_programid1-0/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
+--END--
+
+    Normally these entries would be followed by entries from ProducerStateManager describing the index recovery process.
+    Somethinglike these (from a different partition):
+
+--START--
+[2019-01-07 07:43:38,105] INFO [ProducerStateManager partition=ztf_20181231_programid1-4] Writing producer snapshot at offset 21 (kafka.log.ProducerStateManager)
+[2019-01-07 07:43:38,106] INFO [Log partition=ztf_20181231_programid1-4, dir=/data1-02] Recovering unflushed segment 0 (kafka.log.Log)
+--END--
+
+# -----------------------------------------------------
+# Check how much space is used by the 20181231 partitions.
+#[Stevedore@Edwalafia]
+
+    du -h /data2-01
+
+--START--
+716M	/data2-01/ztf_20181205_programid1-8
+716M	/data2-01/ztf_20181205_programid1-0
+715M	/data2-01/ztf_20181205_programid1-11
+716M	/data2-01/ztf_20181205_programid1-2
+716M	/data2-01/ztf_20181205_programid1-9
+715M	/data2-01/ztf_20181205_programid1-3
+269M	/data2-01/ztf_20181209_programid1-13
+269M	/data2-01/ztf_20181209_programid1-5
+269M	/data2-01/ztf_20181209_programid1-0
+269M	/data2-01/ztf_20181209_programid1-7
+269M	/data2-01/ztf_20181209_programid1-14
+269M	/data2-01/ztf_20181209_programid1-2
+437M	/data2-01/ztf_20181210_programid1-6
+436M	/data2-01/ztf_20181210_programid1-14
+436M	/data2-01/ztf_20181210_programid1-12
+437M	/data2-01/ztf_20181210_programid1-0
+437M	/data2-01/ztf_20181210_programid1-7
+437M	/data2-01/ztf_20181210_programid1-1
+646M	/data2-01/ztf_20181212_programid1-8
+646M	/data2-01/ztf_20181212_programid1-0
+647M	/data2-01/ztf_20181212_programid1-14
+646M	/data2-01/ztf_20181212_programid1-5
+646M	/data2-01/ztf_20181212_programid1-15
+647M	/data2-01/ztf_20181212_programid1-6
+496M	/data2-01/ztf_20181213_programid1-12
+496M	/data2-01/ztf_20181213_programid1-4
+497M	/data2-01/ztf_20181213_programid1-9
+496M	/data2-01/ztf_20181213_programid1-3
+496M	/data2-01/ztf_20181213_programid1-11
+497M	/data2-01/ztf_20181213_programid1-2
+958M	/data2-01/ztf_20181214_programid1-10
+958M	/data2-01/ztf_20181214_programid1-2
+957M	/data2-01/ztf_20181214_programid1-7
+958M	/data2-01/ztf_20181214_programid1-1
+957M	/data2-01/ztf_20181214_programid1-12
+957M	/data2-01/ztf_20181214_programid1-0
+42M	/data2-01/ztf_20181215_programid1-15
+42M	/data2-01/ztf_20181215_programid1-7
+42M	/data2-01/ztf_20181215_programid1-8
+42M	/data2-01/ztf_20181215_programid1-2
+42M	/data2-01/ztf_20181215_programid1-10
+42M	/data2-01/ztf_20181215_programid1-1
+560M	/data2-01/ztf_20181216_programid1-3
+560M	/data2-01/ztf_20181216_programid1-11
+560M	/data2-01/ztf_20181216_programid1-13
+560M	/data2-01/ztf_20181216_programid1-4
+560M	/data2-01/ztf_20181216_programid1-14
+560M	/data2-01/ztf_20181216_programid1-5
+991M	/data2-01/ztf_20181217_programid1-8
+991M	/data2-01/ztf_20181217_programid1-0
+992M	/data2-01/ztf_20181217_programid1-14
+992M	/data2-01/ztf_20181217_programid1-5
+993M	/data2-01/ztf_20181217_programid1-15
+992M	/data2-01/ztf_20181217_programid1-6
+1.1M	/data2-01/ztf_20181231_programid1-1
+1.2M	/data2-01/ztf_20181231_programid1-14
+1.2M	/data2-01/ztf_20181231_programid1-0
+30G	/data2-01
+--END--
+
+    This matches with the system running out of space and crashing while processing the 20181231 data.
+    This could have left corrupted or incomplete indexes on /data2-01, but absolutely no space left to repair them.
+
+# -----------------------------------------------------
+# Check the available space.
+#[Stevedore@Edwalafia]
+
+    df -h /data2-01
+
+--START--
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vde         32G   31G     0 100% /data2-01
+--END--
+
+    df -h /data2-02
+
+--START--
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vdf         64G   47G   16G  75% /data2-02
+--END--
+
+
+# -----------------------------------------------------
+# Try moving the ztf_20181231 partitions from the full disc to the disc with space.
+#[Stevedore@Edwalafia]
+
+    find /data2-01/ -name 'ztf_20181231*'
+
+--START--
+/data2-01/ztf_20181231_programid1-1
+/data2-01/ztf_20181231_programid1-14
+/data2-01/ztf_20181231_programid1-0
+--END--
+
+    for target in $(
+        find /data2-01/ -name 'ztf_20181231*'
+        )
+        do
+            echo "target [${target}]"
+            sudo mv ${target} /data2-02/
+        done
+
+--START--
+target [/data2-01/ztf_20181231_programid1-1]
+target [/data2-01/ztf_20181231_programid1-14]
+target [/data2-01/ztf_20181231_programid1-0]
+--END--
+
+    find /data2-01/ -name 'ztf_20181231*'
+
+--START--
+-
+--END--
+
+    find /data2-02/ -name 'ztf_20181231*'
+
+--START--
+/data2-02/ztf_20181231_programid1-9
+/data2-02/ztf_20181231_programid1-2
+/data2-02/ztf_20181231_programid1-7
+/data2-02/ztf_20181231_programid1-1
+/data2-02/ztf_20181231_programid1-14
+/data2-02/ztf_20181231_programid1-0
+--END--
+
+
+# -----------------------------------------------------
+# Restart Kafka and tail the logs.
+#[Stevedore@Edwalafia]
+
+    docker-compose \
+        --file kafka.yml \
+        up -d
+
+    docker logs -f stevedore_emily_1
+
+
+--START--
+[main] INFO org.apache.zookeeper.ZooKeeper - Client environment:zookeeper.version=3.4.10-39d3a4f269333c922ed3db283be479f9deacaa0f, built on 03/23/2017 10:13 GMT
+[main] INFO org.apache.zookeeper.ZooKeeper - Client environment:host.name=7fba134176e8
+[main] INFO org.apache.zookeeper.ZooKeeper - Client environment:java.version=1.8.0_172
+[main] INFO org.apache.zookeeper.ZooKeeper - Client environment:java.vendor=Azul Systems, Inc.
+[main] INFO org.apache.zookeeper.ZooKeeper - Client environment:java.home=/usr/lib/jvm/zulu-8-amd64/jre
+[main] INFO org.apache.zookeeper.ZooKeeper - Client environment:java.class.path=/etc/confluent/docker/docker-utils.jar
+[main] INFO org.apache.zookeeper.ZooKeeper - Client environment:java.library.path=/usr/java/packages/lib/amd64:/usr/lib64:/lib64:/lib:/usr/lib
+[main] INFO org.apache.zookeeper.ZooKeeper - Client environment:java.io.tmpdir=/tmp
+[main] INFO org.apache.zookeeper.ZooKeeper - Client environment:java.compiler=<NA>
+[main] INFO org.apache.zookeeper.ZooKeeper - Client environment:os.name=Linux
+[main] INFO org.apache.zookeeper.ZooKeeper - Client environment:os.arch=amd64
+[main] INFO org.apache.zookeeper.ZooKeeper - Client environment:os.version=4.19.7-200.fc28.x86_64
+[main] INFO org.apache.zookeeper.ZooKeeper - Client environment:user.name=root
+[main] INFO org.apache.zookeeper.ZooKeeper - Client environment:user.home=/root
+[main] INFO org.apache.zookeeper.ZooKeeper - Client environment:user.dir=/
+--END--
+
+--START--
+exec /etc/confluent/docker/launch
++ exec /etc/confluent/docker/launch
+===> Launching kafka ...
+[2019-01-07 14:49:05,320] INFO Registered kafka:type=kafka.Log4jController MBean (kafka.utils.Log4jControllerRegistration$)
+[2019-01-07 14:49:05,734] INFO KafkaConfig values:
+	advertised.host.name = null
+	advertised.listeners = LISTENER_BOB://Edwalafia:9092
+	advertised.port = null
+	alter.config.policy.class.name = null
+	alter.log.dirs.replication.quota.window.num = 11
+	alter.log.dirs.replication.quota.window.size.seconds = 1
+	authorizer.class.name =
+	auto.create.topics.enable = true
+	auto.leader.rebalance.enable = true
+	background.threads = 10
+	broker.id = 3
+	broker.id.generation.enable = true
+	broker.interceptor.class = class org.apache.kafka.server.interceptor.DefaultBrokerInterceptor
+	broker.rack = 3
+	compression.type = producer
+	connections.max.idle.ms = 600000
+	controlled.shutdown.enable = true
+	controlled.shutdown.max.retries = 3
+	controlled.shutdown.retry.backoff.ms = 5000
+	controller.socket.timeout.ms = 30000
+	create.topic.policy.class.name = null
+	default.replication.factor = 3
+	delegation.token.expiry.check.interval.ms = 3600000
+	delegation.token.expiry.time.ms = 86400000
+	delegation.token.master.key = null
+	delegation.token.max.lifetime.ms = 604800000
+	delete.records.purgatory.purge.interval.requests = 1
+	delete.topic.enable = true
+	fetch.purgatory.purge.interval.requests = 1000
+	group.initial.rebalance.delay.ms = 3000
+	group.max.session.timeout.ms = 300000
+	group.min.session.timeout.ms = 6000
+	host.name =
+	inter.broker.listener.name = LISTENER_BOB
+	inter.broker.protocol.version = 1.1-IV0
+	leader.imbalance.check.interval.seconds = 300
+	leader.imbalance.per.broker.percentage = 10
+	listener.security.protocol.map = LISTENER_BOB:PLAINTEXT,LISTENER_FRED:PLAINTEXT
+	listeners = LISTENER_BOB://0.0.0.0:9092
+	log.cleaner.backoff.ms = 15000
+	log.cleaner.dedupe.buffer.size = 134217728
+	log.cleaner.delete.retention.ms = 86400000
+	log.cleaner.enable = true
+	log.cleaner.io.buffer.load.factor = 0.9
+	log.cleaner.io.buffer.size = 524288
+	log.cleaner.io.max.bytes.per.second = 1.7976931348623157E308
+	log.cleaner.min.cleanable.ratio = 0.5
+	log.cleaner.min.compaction.lag.ms = 0
+	log.cleaner.threads = 1
+	log.cleanup.policy = [delete]
+	log.dir = /tmp/kafka-logs
+	log.dirs = /data1-01,/data2-01,/data1-02,/data2-02
+	log.flush.interval.messages = 9223372036854775807
+	log.flush.interval.ms = null
+	log.flush.offset.checkpoint.interval.ms = 60000
+	log.flush.scheduler.interval.ms = 9223372036854775807
+	log.flush.start.offset.checkpoint.interval.ms = 60000
+	log.index.interval.bytes = 4096
+	log.index.size.max.bytes = 10485760
+	log.message.format.version = 1.1-IV0
+	log.message.timestamp.difference.max.ms = 9223372036854775807
+	log.message.timestamp.type = CreateTime
+	log.preallocate = false
+	log.retention.bytes = -1
+	log.retention.check.interval.ms = 300000
+	log.retention.hours = 168
+	log.retention.minutes = null
+	log.retention.ms = -1
+	log.roll.hours = 168
+	log.roll.jitter.hours = 0
+	log.roll.jitter.ms = null
+	log.roll.ms = null
+	log.segment.bytes = 1073741824
+	log.segment.delete.delay.ms = 60000
+	max.connections.per.ip = 2147483647
+	max.connections.per.ip.overrides =
+	max.incremental.fetch.session.cache.slots = 1000
+	message.max.bytes = 10485760
+	metric.reporters = []
+	metrics.num.samples = 2
+	metrics.recording.level = INFO
+	metrics.sample.window.ms = 30000
+	min.insync.replicas = 1
+	num.io.threads = 8
+	num.network.threads = 3
+	num.partitions = 16
+	num.recovery.threads.per.data.dir = 1
+	num.replica.alter.log.dirs.threads = null
+	num.replica.fetchers = 1
+	offset.metadata.max.bytes = 4096
+	offsets.commit.required.acks = -1
+	offsets.commit.timeout.ms = 5000
+	offsets.load.buffer.size = 5242880
+	offsets.retention.check.interval.ms = 600000
+	offsets.retention.minutes = 1440
+	offsets.topic.compression.codec = 0
+	offsets.topic.num.partitions = 50
+	offsets.topic.replication.factor = 3
+	offsets.topic.segment.bytes = 104857600
+	password.encoder.cipher.algorithm = AES/CBC/PKCS5Padding
+	password.encoder.iterations = 4096
+	password.encoder.key.length = 128
+	password.encoder.keyfactory.algorithm = null
+	password.encoder.old.secret = null
+	password.encoder.secret = null
+	port = 9092
+	principal.builder.class = null
+	producer.purgatory.purge.interval.requests = 1000
+	queued.max.request.bytes = -1
+	queued.max.requests = 500
+	quota.consumer.default = 9223372036854775807
+	quota.producer.default = 9223372036854775807
+	quota.window.num = 11
+	quota.window.size.seconds = 1
+	replica.fetch.backoff.ms = 1000
+	replica.fetch.max.bytes = 1048576
+	replica.fetch.min.bytes = 1
+	replica.fetch.response.max.bytes = 10485760
+	replica.fetch.wait.max.ms = 500
+	replica.high.watermark.checkpoint.interval.ms = 5000
+	replica.lag.time.max.ms = 10000
+	replica.socket.receive.buffer.bytes = 65536
+	replica.socket.timeout.ms = 30000
+	replication.quota.window.num = 11
+	replication.quota.window.size.seconds = 1
+	request.timeout.ms = 30000
+	reserved.broker.max.id = 1000
+	sasl.enabled.mechanisms = [GSSAPI]
+	sasl.jaas.config = null
+	sasl.kerberos.kinit.cmd = /usr/bin/kinit
+	sasl.kerberos.min.time.before.relogin = 60000
+	sasl.kerberos.principal.to.local.rules = [DEFAULT]
+	sasl.kerberos.service.name = null
+	sasl.kerberos.ticket.renew.jitter = 0.05
+	sasl.kerberos.ticket.renew.window.factor = 0.8
+	sasl.mechanism.inter.broker.protocol = GSSAPI
+	security.inter.broker.protocol = PLAINTEXT
+	socket.receive.buffer.bytes = 102400
+	socket.request.max.bytes = 104857600
+	socket.send.buffer.bytes = 102400
+	ssl.cipher.suites = []
+	ssl.client.auth = none
+	ssl.enabled.protocols = [TLSv1.2, TLSv1.1, TLSv1]
+	ssl.endpoint.identification.algorithm = null
+	ssl.key.password = null
+	ssl.keymanager.algorithm = SunX509
+	ssl.keystore.location = null
+	ssl.keystore.password = null
+	ssl.keystore.type = JKS
+	ssl.protocol = TLS
+	ssl.provider = null
+	ssl.secure.random.implementation = null
+	ssl.trustmanager.algorithm = PKIX
+	ssl.truststore.location = null
+	ssl.truststore.password = null
+	ssl.truststore.type = JKS
+	transaction.abort.timed.out.transaction.cleanup.interval.ms = 60000
+	transaction.max.timeout.ms = 900000
+	transaction.remove.expired.transaction.cleanup.interval.ms = 3600000
+	transaction.state.log.load.buffer.size = 5242880
+	transaction.state.log.min.isr = 2
+	transaction.state.log.num.partitions = 50
+	transaction.state.log.replication.factor = 3
+	transaction.state.log.segment.bytes = 104857600
+	transactional.id.expiration.ms = 604800000
+	unclean.leader.election.enable = false
+	zookeeper.connect = 192.168.203.21,192.168.203.22,192.168.203.23
+	zookeeper.connection.timeout.ms = null
+	zookeeper.max.in.flight.requests = 10
+	zookeeper.session.timeout.ms = 6000
+	zookeeper.set.acl = false
+	zookeeper.sync.time.ms = 2000
+ (kafka.server.KafkaConfig)
+[2019-01-07 14:49:05,807] WARN The package io.confluent.support.metrics.collectors.FullCollector for collecting the full set of support metrics could not be loaded, so we are reverting to anonymous, basic metric collection. If you are a Confluent customer, please refer to the Confluent Platform documentation, section Proactive Support, on how to activate full metrics collection. (io.confluent.support.metrics.KafkaSupportConfig)
+[2019-01-07 14:49:05,833] WARN Please note that the support metrics collection feature ("Metrics") of Proactive Support is enabled.  With Metrics enabled, this broker is configured to collect and report certain broker and cluster metadata ("Metadata") about your use of the Confluent Platform (including without limitation, your remote internet protocol address) to Confluent, Inc. ("Confluent") or its parent, subsidiaries, affiliates or service providers every 24hours.  This Metadata may be transferred to any country in which Confluent maintains facilities.  For a more in depth discussion of how Confluent processes such information, please read our Privacy Policy located at http://www.confluent.io/privacy. By proceeding with `confluent.support.metrics.enable=true`, you agree to all such collection, transfer, storage and use of Metadata by Confluent.  You can turn the Metrics feature off by setting `confluent.support.metrics.enable=false` in the broker configuration and restarting the broker.  See the Confluent Platform documentation for further information. (io.confluent.support.metrics.SupportedServerStartable)
+[2019-01-07 14:49:05,834] INFO starting (kafka.server.KafkaServer)
+[2019-01-07 14:49:05,835] INFO Connecting to zookeeper on 192.168.203.21,192.168.203.22,192.168.203.23 (kafka.server.KafkaServer)
+[2019-01-07 14:49:05,854] INFO [ZooKeeperClient] Initializing a new session to 192.168.203.21,192.168.203.22,192.168.203.23. (kafka.zookeeper.ZooKeeperClient)
+[2019-01-07 14:49:05,860] INFO Client environment:zookeeper.version=3.4.10-39d3a4f269333c922ed3db283be479f9deacaa0f, built on 03/23/2017 10:13 GMT (org.apache.zookeeper.ZooKeeper)
+[2019-01-07 14:49:05,861] INFO Client environment:host.name=7fba134176e8 (org.apache.zookeeper.ZooKeeper)
+[2019-01-07 14:49:05,861] INFO Client environment:java.version=1.8.0_172 (org.apache.zookeeper.ZooKeeper)
+[2019-01-07 14:49:05,861] INFO Client environment:java.vendor=Azul Systems, Inc. (org.apache.zookeeper.ZooKeeper)
+[2019-01-07 14:49:05,861] INFO Client environment:java.home=/usr/lib/jvm/zulu-8-amd64/jre (org.apache.zookeeper.ZooKeeper)
+--END--
+
+    Looks like it has to go through an re-index a lot of the data, AGAIN.
+
+--START--
+[2019-01-07 14:49:06,667] INFO Loading logs. (kafka.log.LogManager)
+[2019-01-07 14:49:06,730] WARN [Log partition=ztf_20181205_programid1-8, dir=/data2-01] Found a corrupted index file corresponding to log file /data2-01/ztf_20181205_programid1-8/00000000000000000000.log due to Corrupt index found, index file (/data2-01/ztf_20181205_programid1-8/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
+[2019-01-07 14:49:06,730] WARN [Log partition=__confluent.support.metrics-0, dir=/data1-01] Found a corrupted index file corresponding to log file /data1-01/__confluent.support.metrics-0/00000000000000000000.log due to Corrupt index found, index file (/data1-01/__confluent.support.metrics-0/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
+[2019-01-07 14:49:06,781] WARN [Log partition=ztf_20181219_programid1-4, dir=/data2-02] Found a corrupted index file corresponding to log file /data2-02/ztf_20181219_programid1-4/00000000000000015988.log due to Corrupt index found, index file (/data2-02/ztf_20181219_programid1-4/00000000000000015988.index) has non-zero size but the last offset is 15988 which is no greater than the base offset 15988.}, recovering segment and rebuilding index files... (kafka.log.Log)
+[2019-01-07 14:49:06,785] INFO [ProducerStateManager partition=ztf_20181219_programid1-4] Loading producer state from snapshot file '/data2-02/ztf_20181219_programid1-4/00000000000000015988.snapshot' (kafka.log.ProducerStateManager)
+[2019-01-07 14:49:06,787] INFO [Log partition=__confluent.support.metrics-0, dir=/data1-01] Recovering unflushed segment 0 (kafka.log.Log)
+[2019-01-07 14:49:06,797] INFO [Log partition=__confluent.support.metrics-0, dir=/data1-01] Loading producer state from offset 0 with message format version 2 (kafka.log.Log)
+[2019-01-07 14:49:06,800] INFO [Log partition=__confluent.support.metrics-0, dir=/data1-01] Completed load of log with 1 segments, log start offset 0 and log end offset 0 in 96 ms (kafka.log.Log)
+--END--
+
+    Shame it didn't manage to save the repaired index files from last time ..
+
+    Anyway ... this timeit gets past fixing the corrupted index files ..
+
+    Moving on to leader elections ..
+
+--START--
+[2019-01-07 15:10:13,501] TRACE [Controller id=3] Leader imbalance ratio for broker 3 is 0.2159090909090909 (kafka.controller.KafkaController)
+[2019-01-07 15:10:13,502] INFO [Controller id=3] Starting preferred replica leader election for partitions ztf_20181216_programid1-11 (kafka.controller.KafkaController)
+[2019-01-07 15:10:13,509] ERROR [Controller id=3 epoch=14] Controller 3 epoch 14 failed to change state for partition ztf_20181216_programid1-11 from OfflinePartition to OnlinePartition (state.change.logger)
+kafka.common.StateChangeFailedException: Failed to elect leader for partition ztf_20181216_programid1-11 under strategy PreferredReplicaPartitionLeaderElectionStrategy
+	at kafka.controller.PartitionStateMachine$$anonfun$doElectLeaderForPartitions$3.apply(PartitionStateMachine.scala:328)
+	at kafka.controller.PartitionStateMachine$$anonfun$doElectLeaderForPartitions$3.apply(PartitionStateMachine.scala:326)
+	at scala.collection.mutable.ResizableArray$class.foreach(ResizableArray.scala:59)
+	at scala.collection.mutable.ArrayBuffer.foreach(ArrayBuffer.scala:48)
+	at kafka.controller.PartitionStateMachine.doElectLeaderForPartitions(PartitionStateMachine.scala:326)
+	at kafka.controller.PartitionStateMachine.electLeaderForPartitions(PartitionStateMachine.scala:254)
+	at kafka.controller.PartitionStateMachine.doHandleStateChanges(PartitionStateMachine.scala:175)
+	at kafka.controller.PartitionStateMachine.handleStateChanges(PartitionStateMachine.scala:116)
+	at kafka.controller.KafkaController.kafka$controller$KafkaController$$onPreferredReplicaElection(KafkaController.scala:607)
+	at kafka.controller.KafkaController$$anonfun$kafka$controller$KafkaController$$checkAndTriggerAutoLeaderRebalance$3$$anonfun$apply$18.apply(KafkaController.scala:1003)
+	at kafka.controller.KafkaController$$anonfun$kafka$controller$KafkaController$$checkAndTriggerAutoLeaderRebalance$3$$anonfun$apply$18.apply(KafkaController.scala:996)
+--END--
+
+# -----------------------------------------------------
+# Try applying the same changes to the other nodes.
+#[Stevedore@Onoza]
+
+    find /data2-01/ -name 'ztf_20181231*'
+
+--START--
+/data2-01/ztf_20181231_programid1-2
+/data2-01/ztf_20181231_programid1-11
+/data2-01/ztf_20181231_programid1-13
+--END--
+
+    for target in $(
+        find /data2-01/ -name 'ztf_20181231*'
+        )
+        do
+            echo "target [${target}]"
+            sudo mv ${target} /data2-02/
+        done
+
+--START--
+target [/data2-01/ztf_20181231_programid1-2]
+target [/data2-01/ztf_20181231_programid1-11]
+target [/data2-01/ztf_20181231_programid1-13]
+--END--
+
+    find /data2-01/ -name 'ztf_20181231*'
+
+--START--
+-
+--END--
+
+    find /data2-02/ -name 'ztf_20181231*'
+
+--START--
+/data2-02/ztf_20181231_programid1-10
+/data2-02/ztf_20181231_programid1-5
+/data2-02/ztf_20181231_programid1-4
+/data2-02/ztf_20181231_programid1-2
+/data2-02/ztf_20181231_programid1-11
+/data2-02/ztf_20181231_programid1-13
+--END--
+
+# -----------------------------------------------------
+# Restart Kafka and tail the logs.
+#[Stevedore@Onoza]
+
+    docker-compose \
+        --file kafka.yml \
+        up -d
+
+    docker logs -f stevedore_emily_1
+
 --START--
 --END--
+
+
+# -----------------------------------------------------
+# Try applying the same changes to the other nodes.
+#[Stevedore@Angece]
+
+    find /data2-01/ -name 'ztf_20181231*'
+
+--START--
+/data2-01/ztf_20181231_programid1-8
+/data2-01/ztf_20181231_programid1-1
+/data2-01/ztf_20181231_programid1-13
+--END--
+
+    for target in $(
+        find /data2-01/ -name 'ztf_20181231*'
+        )
+        do
+            echo "target [${target}]"
+            sudo mv ${target} /data2-02/
+        done
+
+--START--
+target [/data2-01/ztf_20181231_programid1-8]
+target [/data2-01/ztf_20181231_programid1-1]
+target [/data2-01/ztf_20181231_programid1-13]
+--END--
+
+    find /data2-01/ -name 'ztf_20181231*'
+
+--START--
+-
+--END--
+
+    find /data2-02/ -name 'ztf_20181231*'
+
+--START--
+/data2-02/ztf_20181231_programid1-0
+/data2-02/ztf_20181231_programid1-9
+/data2-02/ztf_20181231_programid1-10
+/data2-02/ztf_20181231_programid1-8
+/data2-02/ztf_20181231_programid1-1
+/data2-02/ztf_20181231_programid1-13
+--END--
+
+# -----------------------------------------------------
+# Restart Kafka and tail the logs.
+#[Stevedore@Angece]
+
+    docker-compose \
+        --file kafka.yml \
+        up -d
+
+    docker logs -f stevedore_emily_1
+
+--START--
+--END--
+
+
+# -----------------------------------------------------
+# Try applying the same changes to the other nodes.
+#[Stevedore@Stedigo]
+
+    find /data2-01/ -name 'ztf_20181231*'
+
+--START--
+/data2-01/ztf_20181231_programid1-11
+/data2-01/ztf_20181231_programid1-14
+/data2-01/ztf_20181231_programid1-12
+--END--
+
+    for target in $(
+        find /data2-01/ -name 'ztf_20181231*'
+        )
+        do
+            echo "target [${target}]"
+            sudo mv ${target} /data2-02/
+        done
+
+--START--
+target [/data2-01/ztf_20181231_programid1-11]
+target [/data2-01/ztf_20181231_programid1-14]
+target [/data2-01/ztf_20181231_programid1-12]
+--END--
+
+    find /data2-01/ -name 'ztf_20181231*'
+
+--START--
+-
+--END--
+
+    find /data2-02/ -name 'ztf_20181231*'
+
+--START--
+/data2-02/ztf_20181231_programid1-3
+/data2-02/ztf_20181231_programid1-5
+/data2-02/ztf_20181231_programid1-0
+/data2-02/ztf_20181231_programid1-11
+/data2-02/ztf_20181231_programid1-14
+/data2-02/ztf_20181231_programid1-12
+--END--
+
+# -----------------------------------------------------
+# Restart Kafka and tail the logs.
+#[Stevedore@Stedigo]
+
+    docker-compose \
+        --file kafka.yml \
+        up -d
+
+    docker logs -f stevedore_emily_1
+
+--START--
+--END--
+
+
+
+
+
+
+
+
+
+
 
 --START--
 --END--
@@ -1190,9 +1801,4 @@ java.lang.InternalError: a fault occurred in a recent unsafe memory access opera
 --START--
 --END--
 
---START--
---END--
-
---START--
---END--
 
