@@ -1016,28 +1016,169 @@ Jan 07 06:57:33 Edwalafia audit: NETFILTER_CFG table=raw family=10 entries=32
 
     # Nothing that looks like a filesystem error.
 
+    Two possible casues.
+    1) It is running out of space trying to rebuild the existing indexes on the 100% full discs, /data1-01 and /data2-01.
+    2) It is running out of space trying to build new indexes on the 70% full discs, /data1-02 and /data2-02.
+
+    We could try moving partitions from /data1-01 to /data1-02 ?
+
+# -----------------------------------------------------
+# Check what partitions are where ...
+#[user@virtual]
+
+    ls /data1-01/
+
 --START--
+cleaner-offset-checkpoint         ztf_20181205_programid1-15  ztf_20181209_programid1-4   ztf_20181212_programid1-11  ztf_20181213_programid1-15  ztf_20181214_programid1-6   ztf_20181216_programid1-1   ztf_20181217_programid1-2
+__confluent.support.metrics-0     ztf_20181205_programid1-4   ztf_20181209_programid1-9   ztf_20181212_programid1-12  ztf_20181213_programid1-5   ztf_20181214_programid1-9   ztf_20181216_programid1-10  ztf_20181217_programid1-3
+log-start-offset-checkpoint       ztf_20181205_programid1-5   ztf_20181210_programid1-10  ztf_20181212_programid1-2   ztf_20181213_programid1-6   ztf_20181215_programid1-11  ztf_20181216_programid1-15  ztf_20181217_programid1-4
+meta.properties                   ztf_20181205_programid1-6   ztf_20181210_programid1-11  ztf_20181212_programid1-3   ztf_20181213_programid1-8   ztf_20181215_programid1-13  ztf_20181216_programid1-2   ztf_20181217_programid1-9
+recovery-point-offset-checkpoint  ztf_20181209_programid1-1   ztf_20181210_programid1-13  ztf_20181212_programid1-4   ztf_20181214_programid1-11  ztf_20181215_programid1-14  ztf_20181216_programid1-7   ztf_20181231_programid1-12
+replication-offset-checkpoint     ztf_20181209_programid1-10  ztf_20181210_programid1-2   ztf_20181212_programid1-9   ztf_20181214_programid1-13  ztf_20181215_programid1-3   ztf_20181216_programid1-8   ztf_20181231_programid1-13
+ztf_20181205_programid1-12        ztf_20181209_programid1-11  ztf_20181210_programid1-4   ztf_20181213_programid1-0   ztf_20181214_programid1-14  ztf_20181215_programid1-4   ztf_20181217_programid1-11  ztf_20181231_programid1-4
+ztf_20181205_programid1-14        ztf_20181209_programid1-12  ztf_20181210_programid1-9   ztf_20181213_programid1-14  ztf_20181214_programid1-4   ztf_20181215_programid1-5   ztf_20181217_programid1-12
+--END--
+
+    ls /data1-02/
+
+--START--
+cleaner-offset-checkpoint         ztf_20181219_programid1-5   ztf_20181221_programid1-4   ztf_20181223_programid1-1   ztf_20181224_programid1-8   ztf_20181229_programid1-5   ztf_20181231_programid1-11  ztf_20190104_programid1-15
+log-start-offset-checkpoint       ztf_20181220_programid1-13  ztf_20181221_programid1-5   ztf_20181223_programid1-10  ztf_20181228_programid1-0   ztf_20181229_programid1-6   ztf_20181231_programid1-5   ztf_20190104_programid1-3
+meta.properties                   ztf_20181220_programid1-14  ztf_20181221_programid1-7   ztf_20181223_programid1-2   ztf_20181228_programid1-11  ztf_20181229_programid1-7   ztf_20190103_programid1-11  ztf_20190104_programid1-6
+recovery-point-offset-checkpoint  ztf_20181220_programid1-15  ztf_20181222_programid1-0   ztf_20181223_programid1-7   ztf_20181228_programid1-2   ztf_20181230_programid1-11  ztf_20190103_programid1-13  ztf_20190104_programid1-8
+replication-offset-checkpoint     ztf_20181220_programid1-4   ztf_20181222_programid1-10  ztf_20181223_programid1-9   ztf_20181228_programid1-3   ztf_20181230_programid1-13  ztf_20190103_programid1-14  ztf_20190105_programid1-0
+ztf_20181219_programid1-1         ztf_20181220_programid1-5   ztf_20181222_programid1-15  ztf_20181224_programid1-0   ztf_20181228_programid1-8   ztf_20181230_programid1-14  ztf_20190103_programid1-3   ztf_20190105_programid1-1
+ztf_20181219_programid1-10        ztf_20181220_programid1-7   ztf_20181222_programid1-2   ztf_20181224_programid1-13  ztf_20181228_programid1-9   ztf_20181230_programid1-3   ztf_20190103_programid1-4   ztf_20190105_programid1-11
+ztf_20181219_programid1-11        ztf_20181221_programid1-1   ztf_20181222_programid1-8   ztf_20181224_programid1-14  ztf_20181229_programid1-12  ztf_20181230_programid1-4   ztf_20190103_programid1-8   ztf_20190105_programid1-12
+ztf_20181219_programid1-2         ztf_20181221_programid1-12  ztf_20181222_programid1-9   ztf_20181224_programid1-5   ztf_20181229_programid1-14  ztf_20181230_programid1-5   ztf_20190104_programid1-0   ztf_20190105_programid1-4
+ztf_20181219_programid1-3         ztf_20181221_programid1-13  ztf_20181223_programid1-0   ztf_20181224_programid1-7   ztf_20181229_programid1-3   ztf_20181231_programid1-10  ztf_20190104_programid1-14  ztf_20190105_programid1-9
+--END--
+
+# -----------------------------------------------------
+# Try moving the ztf_20181231 partitions from the full discs to the discs with space.
+#[user@virtual]
+
+    find /data1-01/ -name 'ztf_20181231*'
+
+--START--
+/data1-01/ztf_20181231_programid1-13
+/data1-01/ztf_20181231_programid1-12
+/data1-01/ztf_20181231_programid1-4
+--END--
+
+    for target in $(
+        find /data1-01/ -name 'ztf_20181231*'
+        )
+        do
+            echo "target [${target}]"
+            sudo mv ${target} /data1-02/
+        done
+
+--START--
+target [/data1-01/ztf_20181231_programid1-13]
+target [/data1-01/ztf_20181231_programid1-12]
+target [/data1-01/ztf_20181231_programid1-4]
+--END--
+
+    find /data1-01/ -name 'ztf_20181231*'
+
+--START--
+
+--END--
+
+    find /data1-02/ -name 'ztf_20181231*'
+
+--START--
+/data1-02/ztf_20181231_programid1-5
+/data1-02/ztf_20181231_programid1-11
+/data1-02/ztf_20181231_programid1-10
+/data1-02/ztf_20181231_programid1-13
+/data1-02/ztf_20181231_programid1-12
+/data1-02/ztf_20181231_programid1-4
+--END--
+
+# -----------------------------------------------------
+# Restart Kafka and tail the logs.
+#[user@virtual]
+
+    docker-compose \
+        --file kafka.yml \
+        up -d
+
+    docker logs -f stevedore_emily_1
+
+--START--
+[2019-01-07 07:27:43,354] WARN [Log partition=ztf_20181220_programid1-1, dir=/data2-02] Found a corrupted index file corresponding to log file /data2-02/ztf_20181220_programid1-1/00000000000000000000.log due to Corrupt index found, index file (/data2-02/ztf_20181220_programid1-1/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
+[2019-01-07 07:27:44,096] INFO [ProducerStateManager partition=ztf_20181220_programid1-15] Writing producer snapshot at offset 10093 (kafka.log.ProducerStateManager)
+[2019-01-07 07:27:44,097] INFO [Log partition=ztf_20181220_programid1-15, dir=/data1-02] Recovering unflushed segment 0 (kafka.log.Log)
+[2019-01-07 07:27:45,690] INFO [ProducerStateManager partition=ztf_20181220_programid1-15] Writing producer snapshot at offset 10093 (kafka.log.ProducerStateManager)
+[2019-01-07 07:27:45,694] INFO [Log partition=ztf_20181220_programid1-15, dir=/data1-02] Loading producer state from offset 10093 with message format version 2 (kafka.log.Log)
+[2019-01-07 07:27:45,697] INFO [ProducerStateManager partition=ztf_20181220_programid1-15] Loading producer state from snapshot file '/data1-02/ztf_20181220_programid1-15/00000000000000010093.snapshot' (kafka.log.ProducerStateManager)
+[2019-01-07 07:27:45,701] INFO [Log partition=ztf_20181220_programid1-15, dir=/data1-02] Completed load of log with 1 segments, log start offset 0 and log end offset 10093 in 20140 ms (kafka.log.Log)
 --END--
 
 --START--
+[2019-01-07 07:43:37,917] WARN [Log partition=ztf_20181231_programid1-13, dir=/data1-02] Found a corrupted index file corresponding to log file /data1-02/ztf_20181231_programid1-13/00000000000000000000.log due to Corrupt index found, index file (/data1-02/ztf_20181231_programid1-13/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
+[2019-01-07 07:43:37,964] INFO [ProducerStateManager partition=ztf_20181231_programid1-13] Writing producer snapshot at offset 30 (kafka.log.ProducerStateManager)
+[2019-01-07 07:43:37,964] INFO [Log partition=ztf_20181231_programid1-13, dir=/data1-02] Recovering unflushed segment 0 (kafka.log.Log)
+[2019-01-07 07:43:37,969] INFO [ProducerStateManager partition=ztf_20181231_programid1-13] Writing producer snapshot at offset 30 (kafka.log.ProducerStateManager)
+[2019-01-07 07:43:37,969] INFO [Log partition=ztf_20181231_programid1-13, dir=/data1-02] Loading producer state from offset 30 with message format version 2 (kafka.log.Log)
+[2019-01-07 07:43:37,970] INFO [ProducerStateManager partition=ztf_20181231_programid1-13] Loading producer state from snapshot file '/data1-02/ztf_20181231_programid1-13/00000000000000000030.snapshot' (kafka.log.ProducerStateManager)
+[2019-01-07 07:43:37,970] INFO [Log partition=ztf_20181231_programid1-13, dir=/data1-02] Completed load of log with 1 segments, log start offset 0 and log end offset 30 in 56 ms (kafka.log.Log)
 --END--
 
 --START--
+[2019-01-07 07:43:37,973] WARN [Log partition=ztf_20181231_programid1-12, dir=/data1-02] Found a corrupted index file corresponding to log file /data1-02/ztf_20181231_programid1-12/00000000000000000000.log due to Corrupt index found, index file (/data1-02/ztf_20181231_programid1-12/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
+[2019-01-07 07:43:38,002] INFO [ProducerStateManager partition=ztf_20181231_programid1-12] Writing producer snapshot at offset 41 (kafka.log.ProducerStateManager)
+[2019-01-07 07:43:38,003] INFO [Log partition=ztf_20181231_programid1-12, dir=/data1-02] Recovering unflushed segment 0 (kafka.log.Log)
+[2019-01-07 07:43:38,008] INFO [ProducerStateManager partition=ztf_20181231_programid1-12] Writing producer snapshot at offset 41 (kafka.log.ProducerStateManager)
+[2019-01-07 07:43:38,008] INFO [Log partition=ztf_20181231_programid1-12, dir=/data1-02] Loading producer state from offset 41 with message format version 2 (kafka.log.Log)
+[2019-01-07 07:43:38,009] INFO [ProducerStateManager partition=ztf_20181231_programid1-12] Loading producer state from snapshot file '/data1-02/ztf_20181231_programid1-12/00000000000000000041.snapshot' (kafka.log.ProducerStateManager)
+[2019-01-07 07:43:38,009] INFO [Log partition=ztf_20181231_programid1-12, dir=/data1-02] Completed load of log with 1 segments, log start offset 0 and log end offset 41 in 38 ms (kafka.log.Log)
 --END--
 
 --START--
---END--
-
---START--
---END--
-
---START--
---END--
-
---START--
---END--
-
---START--
+[2019-01-07 07:43:38,013] WARN [Log partition=ztf_20181231_programid1-4, dir=/data1-02] Found a corrupted index file corresponding to log file /data1-02/ztf_20181231_programid1-4/00000000000000000000.log due to Corrupt index found, index file (/data1-02/ztf_20181231_programid1-4/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
+[2019-01-07 07:43:38,105] INFO [ProducerStateManager partition=ztf_20181231_programid1-4] Writing producer snapshot at offset 21 (kafka.log.ProducerStateManager)
+[2019-01-07 07:43:38,106] INFO [Log partition=ztf_20181231_programid1-4, dir=/data1-02] Recovering unflushed segment 0 (kafka.log.Log)
+[2019-01-07 07:43:38,112] INFO [ProducerStateManager partition=ztf_20181231_programid1-4] Writing producer snapshot at offset 21 (kafka.log.ProducerStateManager)
+[2019-01-07 07:43:38,112] INFO [Log partition=ztf_20181231_programid1-4, dir=/data1-02] Loading producer state from offset 21 with message format version 2 (kafka.log.Log)
+[2019-01-07 07:43:38,113] INFO [ProducerStateManager partition=ztf_20181231_programid1-4] Loading producer state from snapshot file '/data1-02/ztf_20181231_programid1-4/00000000000000000021.snapshot' (kafka.log.ProducerStateManager)
+[2019-01-07 07:43:38,113] INFO [Log partition=ztf_20181231_programid1-4, dir=/data1-02] Completed load of log with 1 segments, log start offset 0 and log end offset 21 in 103 ms (kafka.log.Log)
+[2019-01-07 07:43:38,130] ERROR There was an error in one of the threads during logs loading: java.lang.InternalError: a fault occurred in a recent unsafe memory access operation in compiled Java code (kafka.log.LogManager)
+[2019-01-07 07:43:38,145] ERROR [KafkaServer id=3] Fatal error during KafkaServer startup. Prepare to shutdown (kafka.server.KafkaServer)
+java.lang.InternalError: a fault occurred in a recent unsafe memory access operation in compiled Java code
+	at kafka.log.TimeIndex$$anonfun$maybeAppend$1.apply$mcV$sp(TimeIndex.scala:133)
+	at kafka.log.TimeIndex$$anonfun$maybeAppend$1.apply(TimeIndex.scala:110)
+	at kafka.log.TimeIndex$$anonfun$maybeAppend$1.apply(TimeIndex.scala:110)
+	at kafka.utils.CoreUtils$.inLock(CoreUtils.scala:250)
+	at kafka.log.TimeIndex.maybeAppend(TimeIndex.scala:110)
+	at kafka.log.LogSegment$$anonfun$recover$1.apply(LogSegment.scala:289)
+	at kafka.log.LogSegment$$anonfun$recover$1.apply(LogSegment.scala:276)
+	at scala.collection.Iterator$class.foreach(Iterator.scala:891)
+	at scala.collection.AbstractIterator.foreach(Iterator.scala:1334)
+	at scala.collection.IterableLike$class.foreach(IterableLike.scala:72)
+	at scala.collection.AbstractIterable.foreach(Iterable.scala:54)
+	at kafka.log.LogSegment.recover(LogSegment.scala:276)
+	at kafka.log.Log.kafka$log$Log$$recoverSegment(Log.scala:370)
+	at kafka.log.Log$$anonfun$loadSegmentFiles$3.apply(Log.scala:348)
+	at kafka.log.Log$$anonfun$loadSegmentFiles$3.apply(Log.scala:320)
+	at scala.collection.TraversableLike$WithFilter$$anonfun$foreach$1.apply(TraversableLike.scala:733)
+	at scala.collection.IndexedSeqOptimized$class.foreach(IndexedSeqOptimized.scala:33)
+	at scala.collection.mutable.ArrayOps$ofRef.foreach(ArrayOps.scala:186)
+	at scala.collection.TraversableLike$WithFilter.foreach(TraversableLike.scala:732)
+	at kafka.log.Log.loadSegmentFiles(Log.scala:320)
+	at kafka.log.Log.loadSegments(Log.scala:403)
+	at kafka.log.Log.<init>(Log.scala:216)
+	at kafka.log.Log$.apply(Log.scala:1747)
+	at kafka.log.LogManager.kafka$log$LogManager$$loadLog(LogManager.scala:260)
+	at kafka.log.LogManager$$anonfun$loadLogs$2$$anonfun$11$$anonfun$apply$15$$anonfun$apply$2.apply$mcV$sp(LogManager.scala:340)
+	at kafka.utils.CoreUtils$$anon$1.run(CoreUtils.scala:62)
+	at java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:511)
+	at java.util.concurrent.FutureTask.run(FutureTask.java:266)
+	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1149)
+	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
+	at java.lang.Thread.run(Thread.java:748)
 --END--
 
 --START--
