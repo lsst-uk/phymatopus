@@ -20,43 +20,848 @@
 #
 #
 
+    #
+    # Shutdown the services.
+    # Change the 'default' network back to NAT.
+    # Assign a searate IP address range for the NAT network.
+    # Create a new network for inter-host connections.
+    # Assign two network cards to each node, one NAT and one routed.
+    #
+    # Use the heliodines project to update the physical machines.
+    # Use the ischnura code to configure the network interfaces.
+    #
+
+
+# -----------------------------------------------------
+# Load our libvirt configuration.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+# -----------------------------------------------------
+# Configure our SSH settings.
+#[user@trop03]
+
+    sshuser=Stevedore
+    sshopts=(
+        '-A'
+        '-o LogLevel=ERROR'
+        '-o CheckHostIP=no'
+        '-o UserKnownHostsFile=/dev/null'
+        '-o StrictHostKeyChecking=no'
+        )
+
+    scpopts=(
+        '-o LogLevel=ERROR'
+        '-o CheckHostIP=no'
+        '-o UserKnownHostsFile=/dev/null'
+        '-o StrictHostKeyChecking=no'
+        )
+
+# -----------------------------------------------------
+# Assign our virtual machine names.
+#[user@trop03]
+
+    kfnames=(
+        Stedigo
+        Angece
+        Edwalafia
+        Onoza
+        )
+
+    zknames=(
+        Fosauri
+        Marpus
+        Byflame
+        )
+
+    mmnames=(
+        Afoaviel
+        Rusaldez
+        )
+
+# -----------------------------------------------------
+# Stop the Kafka containers.
+#[user@trop03]
+
+    for vmname in ${kfnames[@]}
+        do
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    echo \"---- ---- ---- ----\"
+                    echo \"[\$(hostname)][\$(date)]\"
+                    echo \"---- ----\"
+
+                    docker stop stevedore_emily_1
+
+                    "
+        done
+
+
+--START--
+---- ---- ---- ----
+[Stedigo][Tue  8 Jan 19:21:22 GMT 2019]
+---- ----
+stevedore_emily_1
+---- ---- ---- ----
+[Angece][Tue  8 Jan 19:21:33 GMT 2019]
+---- ----
+stevedore_emily_1
+---- ---- ---- ----
+[Edwalafia][Tue  8 Jan 19:21:45 GMT 2019]
+---- ----
+stevedore_emily_1
+---- ---- ---- ----
+[Onoza][Tue  8 Jan 19:21:57 GMT 2019]
+---- ----
+stevedore_emily_1
+--END--
+
+
+    Two nodes managed to shutdown cleanly, two were halted before they were ready.
+    Extend the timeout next time ?
+
+--START--
+[2019-01-08 19:21:31,636] INFO [LogDirFailureHandler]: Shutting down (kafka.server.ReplicaManager$LogDirFailureHandler)
+[2019-01-08 19:21:31,637] INFO [LogDirFailureHandler]: Stopped (kafka.server.ReplicaManager$LogDirFailureHandler)
+[2019-01-08 19:21:31,637] INFO [LogDirFailureHandler]: Shutdown completed (kafka.server.ReplicaManager$LogDirFailureHandler)
+[2019-01-08 19:21:31,638] INFO [ReplicaFetcherManager on broker 1] shutting down (kafka.server.ReplicaFetcherManager)
+[2019-01-08 19:21:31,641] INFO [ReplicaFetcherManager on broker 1] shutdown completed (kafka.server.ReplicaFetcherManager)
+[2019-01-08 19:21:31,642] INFO [ReplicaAlterLogDirsManager on broker 1] shutting down (kafka.server.ReplicaAlterLogDirsManager)
+[2019-01-08 19:21:31,643] INFO [ReplicaAlterLogDirsManager on broker 1] shutdown completed (kafka.server.ReplicaAlterLogDirsManager)
+[2019-01-08 19:21:31,643] INFO [ExpirationReaper-1-Fetch]: Shutting down (kafka.server.DelayedOperationPurgatory$ExpiredOperationReaper)
+[2019-01-08 19:21:31,691] INFO [ExpirationReaper-1-Fetch]: Stopped (kafka.server.DelayedOperationPurgatory$ExpiredOperationReaper)
+[2019-01-08 19:21:31,691] INFO [ExpirationReaper-1-Fetch]: Shutdown completed (kafka.server.DelayedOperationPurgatory$ExpiredOperationReaper)
+[2019-01-08 19:21:31,691] INFO [ExpirationReaper-1-Produce]: Shutting down (kafka.server.DelayedOperationPurgatory$ExpiredOperationReaper)
+[2019-01-08 19:21:31,884] INFO [ExpirationReaper-1-Produce]: Stopped (kafka.server.DelayedOperationPurgatory$ExpiredOperationReaper)
+[2019-01-08 19:21:31,884] INFO [ExpirationReaper-1-Produce]: Shutdown completed (kafka.server.DelayedOperationPurgatory$ExpiredOperationReaper)
+[2019-01-08 19:21:31,884] INFO [ExpirationReaper-1-DeleteRecords]: Shutting down (kafka.server.DelayedOperationPurgatory$ExpiredOperationReaper)
+[2019-01-08 19:21:32,032] INFO [ExpirationReaper-1-DeleteRecords]: Stopped (kafka.server.DelayedOperationPurgatory$ExpiredOperationReaper)
+[2019-01-08 19:21:32,032] INFO [ExpirationReaper-1-DeleteRecords]: Shutdown completed (kafka.server.DelayedOperationPurgatory$ExpiredOperationReaper)
+[2019-01-08 19:21:32,209] INFO [ReplicaManager broker=1] Shut down completely (kafka.server.ReplicaManager)
+[2019-01-08 19:21:32,211] INFO Shutting down. (kafka.log.LogManager)
+[2019-01-08 19:21:32,214] INFO Shutting down the log cleaner. (kafka.log.LogCleaner)
+[2019-01-08 19:21:32,216] INFO [kafka-log-cleaner-thread-0]: Shutting down (kafka.log.LogCleaner)
+[2019-01-08 19:21:32,217] INFO [kafka-log-cleaner-thread-0]: Stopped (kafka.log.LogCleaner)
+[2019-01-08 19:21:32,217] INFO [kafka-log-cleaner-thread-0]: Shutdown completed (kafka.log.LogCleaner)
+--END--
+
+--START--
+[2019-01-08 19:21:42,913] INFO [GroupCoordinator 2]: Shutting down. (kafka.coordinator.group.GroupCoordinator)
+[2019-01-08 19:21:42,915] INFO [ExpirationReaper-2-Heartbeat]: Shutting down (kafka.server.DelayedOperationPurgatory$ExpiredOperationReaper)
+[2019-01-08 19:21:42,916] INFO [ExpirationReaper-2-Heartbeat]: Stopped (kafka.server.DelayedOperationPurgatory$ExpiredOperationReaper)
+[2019-01-08 19:21:42,916] INFO [ExpirationReaper-2-Heartbeat]: Shutdown completed (kafka.server.DelayedOperationPurgatory$ExpiredOperationReaper)
+[2019-01-08 19:21:42,916] INFO [ExpirationReaper-2-Rebalance]: Shutting down (kafka.server.DelayedOperationPurgatory$ExpiredOperationReaper)
+[2019-01-08 19:21:43,078] INFO [ExpirationReaper-2-Rebalance]: Stopped (kafka.server.DelayedOperationPurgatory$ExpiredOperationReaper)
+[2019-01-08 19:21:43,078] INFO [ExpirationReaper-2-Rebalance]: Shutdown completed (kafka.server.DelayedOperationPurgatory$ExpiredOperationReaper)
+[2019-01-08 19:21:43,079] INFO [GroupCoordinator 2]: Shutdown complete. (kafka.coordinator.group.GroupCoordinator)
+[2019-01-08 19:21:43,081] INFO [ReplicaManager broker=2] Shutting down (kafka.server.ReplicaManager)
+[2019-01-08 19:21:43,082] INFO [LogDirFailureHandler]: Shutting down (kafka.server.ReplicaManager$LogDirFailureHandler)
+[2019-01-08 19:21:43,083] INFO [LogDirFailureHandler]: Stopped (kafka.server.ReplicaManager$LogDirFailureHandler)
+[2019-01-08 19:21:43,083] INFO [LogDirFailureHandler]: Shutdown completed (kafka.server.ReplicaManager$LogDirFailureHandler)
+[2019-01-08 19:21:43,084] INFO [ReplicaFetcherManager on broker 2] shutting down (kafka.server.ReplicaFetcherManager)
+[2019-01-08 19:21:43,110] INFO [ReplicaFetcherManager on broker 2] shutdown completed (kafka.server.ReplicaFetcherManager)
+[2019-01-08 19:21:43,111] INFO [ReplicaAlterLogDirsManager on broker 2] shutting down (kafka.server.ReplicaAlterLogDirsManager)
+[2019-01-08 19:21:43,112] INFO [ReplicaAlterLogDirsManager on broker 2] shutdown completed (kafka.server.ReplicaAlterLogDirsManager)
+[2019-01-08 19:21:43,112] INFO [ExpirationReaper-2-Fetch]: Shutting down (kafka.server.DelayedOperationPurgatory$ExpiredOperationReaper)
+[2019-01-08 19:21:43,158] INFO [ExpirationReaper-2-Fetch]: Stopped (kafka.server.DelayedOperationPurgatory$ExpiredOperationReaper)
+[2019-01-08 19:21:43,158] INFO [ExpirationReaper-2-Fetch]: Shutdown completed (kafka.server.DelayedOperationPurgatory$ExpiredOperationReaper)
+[2019-01-08 19:21:43,158] INFO [ExpirationReaper-2-Produce]: Shutting down (kafka.server.DelayedOperationPurgatory$ExpiredOperationReaper)
+[2019-01-08 19:21:43,279] INFO [ExpirationReaper-2-Produce]: Stopped (kafka.server.DelayedOperationPurgatory$ExpiredOperationReaper)
+[2019-01-08 19:21:43,279] INFO [ExpirationReaper-2-Produce]: Shutdown completed (kafka.server.DelayedOperationPurgatory$ExpiredOperationReaper)
+[2019-01-08 19:21:43,279] INFO [ExpirationReaper-2-DeleteRecords]: Shutting down (kafka.server.DelayedOperationPurgatory$ExpiredOperationReaper)
+[2019-01-08 19:21:43,377] INFO [ExpirationReaper-2-DeleteRecords]: Stopped (kafka.server.DelayedOperationPurgatory$ExpiredOperationReaper)
+[2019-01-08 19:21:43,377] INFO [ExpirationReaper-2-DeleteRecords]: Shutdown completed (kafka.server.DelayedOperationPurgatory$ExpiredOperationReaper)
+[2019-01-08 19:21:43,580] INFO [ReplicaManager broker=2] Shut down completely (kafka.server.ReplicaManager)
+[2019-01-08 19:21:43,582] INFO Shutting down. (kafka.log.LogManager)
+[2019-01-08 19:21:43,585] INFO Shutting down the log cleaner. (kafka.log.LogCleaner)
+[2019-01-08 19:21:43,587] INFO [kafka-log-cleaner-thread-0]: Shutting down (kafka.log.LogCleaner)
+[2019-01-08 19:21:43,588] INFO [kafka-log-cleaner-thread-0]: Stopped (kafka.log.LogCleaner)
+[2019-01-08 19:21:43,590] INFO [kafka-log-cleaner-thread-0]: Shutdown completed (kafka.log.LogCleaner)
+[2019-01-08 19:21:44,145] INFO [ProducerStateManager partition=ztf_20181231_programid1-13] Writing producer snapshot at offset 30 (kafka.log.ProducerStateManager)
+--END--
+
+
+--START--
+[2019-01-08 19:22:05,948] ERROR [Controller id=4 epoch=15] Controller 4 epoch 15 failed to change state for partition ztf_20190104_programid1-13 from OnlinePartition to OnlinePartition (state.change.logger)
+kafka.common.StateChangeFailedException: Failed to elect leader for partition ztf_20190104_programid1-13 under strategy ControlledShutdownPartitionLeaderElectionStrategy
+	at kafka.controller.PartitionStateMachine$$anonfun$doElectLeaderForPartitions$3.apply(PartitionStateMachine.scala:328)
+	at kafka.controller.PartitionStateMachine$$anonfun$doElectLeaderForPartitions$3.apply(PartitionStateMachine.scala:326)
+	at scala.collection.mutable.ResizableArray$class.foreach(ResizableArray.scala:59)
+....
+[2019-01-08 19:22:05,965] INFO [KafkaServer id=4] Error from controller: NONE (kafka.server.KafkaServer)
+--END--
+
+
+--START--
+[2019-01-08 19:21:54,868] INFO [ReplicaFetcherManager on broker 3] Removed fetcher for partitions ztf_20181214_programid1-7 (kafka.server.ReplicaFetcherManager)
+[2019-01-08 19:21:54,868] INFO [ReplicaAlterLogDirsManager on broker 3] Removed fetcher for partitions ztf_20181214_programid1-7 (kafka.server.ReplicaAlterLogDirsManager)
+[2019-01-08 19:21:54,868] TRACE [Broker id=3] Handling stop replica (delete=false) for partition ztf_20181214_programid1-7 (state.change.logger)
+[2019-01-08 19:21:54,868] TRACE [Broker id=3] Finished handling stop replica (delete=false) for partition ztf_20181214_programid1-7 (state.change.logger)
+[2019-01-08 19:21:54,868] TRACE [Controller id=3 epoch=14] Received response {error_code=0,partitions=[{topic=ztf_20181214_programid1,partition=7,error_code=0}]} for request STOP_REPLICA with correlation id 562 sent to broker Edwalafia:9092 (id: 3 rack: 3) (state.change.logger)
+[2019-01-08 19:21:54,869] INFO [ReplicaFetcherManager on broker 3] Removed fetcher for partitions ztf_20181214_programid1-11 (kafka.server.ReplicaFetcherManager)
+[2019-01-08 19:21:54,869] INFO [ReplicaAlterLogDirsManager on broker 3] Removed fetcher for partitions ztf_20181214_programid1-11 (kafka.server.ReplicaAlterLogDirsManager)
+[2019-01-08 19:21:54,869] TRACE [Broker id=3] Handling stop replica (delete=false) for partition ztf_20181214_programid1-11 (state.change.logger)
+[2019-01-08 19:21:54,869] TRACE [Broker id=3] Finished handling stop replica (delete=false) for partition ztf_20181214_programid1-11 (state.change.logger)
+[2019-01-08 19:21:54,869] TRACE [Controller id=3 epoch=14] Received response {error_code=0,partitions=[{topic=ztf_20181214_programid1,partition=11,error_code=0}]} for request STOP_REPLICA with correlation id 563 sent to broker Edwalafia:9092 (id: 3 rack: 3) (state.change.logger)
+--END--
+
+
+Tools to handle shutdown
+
+    Graceful shutdown
+    https://kafka.apache.org/documentation/#basic_ops_restarting
+
+    Implementing a graceful shutdown
+    https://subscription.packtpub.com/book/big_data_and_business_intelligence/9781785882449/6/ch06lvl1sec52/implementing-a-graceful-shutdown
+
+        bin/kafka-server-stop.sh
+
+    Lots of sueful info
+    https://archive.cloudera.com/kafka/kafka/2/kafka-0.9.0-kafka2.0.1/ops.html
+
+# -----------------------------------------------------
+# Stop the MirroMaker containers.
+#[user@trop03]
+
+    for vmname in ${mmnames[@]}
+        do
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    echo \"---- ---- ---- ----\"
+                    echo \"[\$(hostname)][\$(date)]\"
+                    echo \"---- ----\"
+
+                    docker stop stevedore_tina_1
+
+                    "
+        done
+
+--START--
+---- ---- ---- ----
+[Afoaviel][Tue  8 Jan 19:42:31 GMT 2019]
+---- ----
+stevedore_tina_1
+---- ---- ---- ----
+[Rusaldez][Tue  8 Jan 19:42:33 GMT 2019]
+---- ----
+stevedore_tina_1
+--END--
+
+# -----------------------------------------------------
+# Stop the Zookeeper containers.
+#[user@trop03]
+
+    for vmname in ${zknames[@]}
+        do
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    echo \"---- ---- ---- ----\"
+                    echo \"[\$(hostname)][\$(date)]\"
+                    echo \"---- ----\"
+
+                    docker stop stevedore_courtney_1
+
+                    "
+        done
+
+--START--
+---- ---- ---- ----
+[Fosauri][Tue  8 Jan 19:44:59 GMT 2019]
+---- ----
+stevedore_courtney_1
+---- ---- ---- ----
+[Marpus][Tue  8 Jan 19:45:01 GMT 2019]
+---- ----
+stevedore_courtney_1
+---- ---- ---- ----
+[Byflame][Tue  8 Jan 19:45:03 GMT 2019]
+---- ----
+--END--
+
+# -----------------------------------------------------
+# Stop all our virtual machines.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+    for vmname in $(
+        virsh \
+            --quiet \
+            --connect ${connection:?} \
+            list --all \
+          | sed '
+            s/[[:space:]]*\([^[:space:]]*\)[[:space:]]*\([^[:space:]]*\)[[:space:]]*\(.*$\)/\2/
+            '
+        )
+        do
+            echo "Stopping [${vmname}]"
+            virsh \
+                --connect ${connection:?} \
+                shutdown \
+                    "${vmname}"
+
+        done
+
+--START--
+Stopping [Afoaviel]
+Domain Afoaviel is being shutdown
+
+Stopping [Angece]
+Domain Angece is being shutdown
+
+Stopping [Byflame]
+Domain Byflame is being shutdown
+
+Stopping [Edwalafia]
+Domain Edwalafia is being shutdown
+
+Stopping [Fosauri]
+Domain Fosauri is being shutdown
+
+Stopping [Marpus]
+Domain Marpus is being shutdown
+
+Stopping [Onoza]
+Domain Onoza is being shutdown
+
+Stopping [Rusaldez]
+Domain Rusaldez is being shutdown
+
+Stopping [Stedigo]
+Domain Stedigo is being shutdown
+--END--
+
+# -----------------------------------------------------
+# Check all of the virtual machines are stopped.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        --connect ${connection:?} \
+        list \
+            --all
+
+--START--
+ Id    Name                           State
+----------------------------------------------------
+ -     Afoaviel                       shut off
+ -     Angece                         shut off
+ -     Byflame                        shut off
+ -     Edwalafia                      shut off
+ -     Fosauri                        shut off
+ -     Marpus                         shut off
+ -     Onoza                          shut off
+ -     Rusaldez                       shut off
+ -     Stedigo                        shut off
+--END--
+
+# -----------------------------------------------------
+# Update the ischnura machine template.
+#[user@trop03]
+
+    Add a second interface ...
+
+    <interface type='network'>
+      <mac address='unknown'/>
+      <source network='natted'/>
+      <target dev='vnet0'/>
+      <model type='virtio'/>
+      <alias name='net0'/>
+      <address type='pci' domain='0x0000' bus='0x00' slot='0x03' function='0x0'/>
+    </interface>
+
+    <interface type='network'>
+      <mac address='unknown'/>
+      <source network='routed'/>
+      <target dev='vnet0'/>
+      <model type='virtio'/>
+      <alias name='net0'/>
+      <address type='pci' domain='0x0000' bus='0x00' slot='0x07' function='0x0'/>
+    </interface>
+
+
+# -----------------------------------------------------
+# Update the ischnura data file.
+#[user@trop03]
+
+    Add a second set of interface data for each machine
+
+    Do we convert from txt files to more structured data ?
+    e.g. xml .. ?
+
+
+# -----------------------------------------------------
+# Update the ischnura code for creating virtual machines.
+#[user@trop03]
+
+    ....
+
+# -----------------------------------------------------
+# Update the host name lookup on the physical machine.
+#[user@trop03]
+
+    /etc/hosts
+
+
+# -----------------------------------------------------
+# Calculate the network addresses.
+#[user@trop03]
+
+
+    Each physical machine can run 30 virtual machines.
+    Each physical machine gets 30 virtual machine names.
+
+    Each physical machine has 2 virtual networks.
+    Each virtual network has 32 addesses.
+
+    IPv4 network mask is 255.255.255.224 or FF:FF:FF:E0
+
+    For each network :
+
+        The router address ends in 0x1E
+        The broadcast address ends in 0x1F
+
+    Reserved address range
+
+            192.168.200 - 192.168.264
+
+            192.168.200.0   trop1-trop4
+            192.168.201.0   trop5-trop8
+
+            192.168.202.0   trop9-trop12
+            192.168.203.0   trop13-trop16
+
+    Current trop machines
+
+        trop1
+
+            mask = 255.255.255.224  FF:E0
+            base = 192.168.200.0    C8:00
+            inet = 192.168.200.30   C8:1E
+            cast = 192.168.200.31   C8:1F
+
+            mask = 255.255.255.224  FF:E0
+            base = 192.168.200.32   C8:20
+            inet = 192.168.200.62   C8:3E
+            cast = 192.168.200.63   C8:3F
+
+        trop2
+
+            mask = 255.255.255.224  FF:E0
+            base = 192.168.200.64   C8:40
+            inet = 192.168.200.94   C8:5E
+            cast = 192.168.200.95   C8:5F
+
+            mask = 255.255.255.224  FF:E0
+            base = 192.168.200.96   C8:60
+            inet = 192.168.200.126  C8:7E
+            cast = 192.168.200.127  C8:7F
+
+        trop3
+
+            mask = 255.255.255.224  FF:E0
+            base = 192.168.200.128  C8:80
+            inet = 192.168.200.158  C8:9E
+            cast = 192.168.200.159  C8:9F
+
+            mask = 255.255.255.224  FF:E0
+            base = 192.168.200.160  C8:A0
+            inet = 192.168.200.190  C8:BE
+            cast = 192.168.200.191  C8:BF
+
+        trop4
+
+            mask = 255.255.255.224  FF:E0
+            base = 192.168.200.192  C8:C0
+            inet = 192.168.200.222  C8:DE
+            cast = 192.168.200.223  C8:DF
+
+            mask = 255.255.255.224  FF:E0
+            base = 192.168.200.224  C8:E0
+            inet = 192.168.200.254  C8:FE
+            cast = 192.168.200.255  C8:FF
+
+    New trop machines (Jan 2019)
+
+        trop5
+
+            mask = 255.255.255.224  FF:E0
+            base = 192.168.201.0    C9:00
+            inet = 192.168.201.30   C9:1E
+            cast = 192.168.201.31   C9:1F
+
+            mask = 255.255.255.224  FF:E0
+            base = 192.168.201.32   C9:20
+            inet = 192.168.201.62   C9:3E
+            cast = 192.168.201.63   C9:3F
+
+        trop6
+
+            mask = 255.255.255.224  FF:E0
+            base = 192.168.201.64   C9:40
+            inet = 192.168.201.94   C9:5E
+            cast = 192.168.201.95   C9:5F
+
+            mask = 255.255.255.224  FF:E0
+            base = 192.168.201.96   C9:60
+            inet = 192.168.201.126  C9:7E
+            cast = 192.168.201.127  C9:7F
+
+        trop7
+
+            mask = 255.255.255.224  FF:E0
+            base = 192.168.201.128  C9:80
+            inet = 192.168.201.158  C9:9E
+            cast = 192.168.201.159  C9:9F
+
+            mask = 255.255.255.224  FF:E0
+            base = 192.168.201.160  C9:A0
+            inet = 192.168.201.190  C9:BE
+            cast = 192.168.201.191  C9:BF
+
+        trop8
+
+            mask = 255.255.255.224  FF:E0
+            base = 192.168.201.192  C9:C0
+            inet = 192.168.201.222  C9:DE
+            cast = 192.168.201.223  C9:DF
+
+            mask = 255.255.255.224  FF:E0
+            base = 192.168.201.224  C9:E0
+            inet = 192.168.201.254  C9:FE
+            cast = 192.168.201.255  C9:FF
+
+
+# -----------------------------------------------------
+# Generate the network addresses.
+#[user@trop03]
+
+    printmac()
+        {
+        local hibyte
+        local lobyte
+        local array
+        local string
+        hibyte=$((
+            $1 / 256
+            ))
+        lobyte=$((
+            $1 % 256
+            ))
+        array=('52' '54' '0' '0' '0' '0')
+        array[4]=$(
+            printf "%02X" ${hibyte}
+            )
+        array[5]=$(
+            printf "%02X" ${lobyte}
+            )
+        string=${array[*]}
+        echo ${string// /:}
+        }
+
+    printinet()
+        {
+        local hibyte
+        local lobyte
+        local array
+        local string
+        hibyte=$((
+            $1 / 256
+            ))
+        lobyte=$((
+            $1 % 256
+            ))
+        array=('192' '168' '0' '0')
+        array[2]=$(
+            printf "%d" ${hibyte}
+            )
+        array[3]=$(
+            printf "%d" ${lobyte}
+            )
+        string=${array[*]}
+        echo ${string// /.}
+        }
+
+    printnet()
+        {
+        local name=$1
+        local base=$2
+        local inet=$((base + 30))
+        local cast=$((base + 31))
+        local virt
+        echo "----"
+        echo "${name}"
+        echo "inet [$(printmac  ${inet})] [$(printinet ${inet})]"
+        echo "cast [$(printinet ${cast})]"
+        for virt in {0..29}
+        do
+            echo "virt [$(printf "%02X" ${virt})] [$(printmac  $((base + virt)))] [$(printinet $((base + virt)))]"
+        done
+        }
+
+    for node in {1..8}
+    do
+        echo "---- ----"
+        echo "trop-${node}"
+        printnet 'routed' $((
+            (((${node} * 2) - 2) * 32) + (200 * 256)
+            ))
+        printnet 'natted' $((
+            (((${node} * 2) - 1) * 32) + (200 * 256)
+            ))
+    done
 
     #
-    # Generate some new names ...
-    # https://www.namegenerator.biz/fantasy-name-generator.php
-    Alaujar
-    Cralle
-    Thendam
-    Lothaylith
-    Etauk
-    Learwen
-    Rhaegord
-    Siligord
-    Elacien
-    Erilikith
-    Acude
-    Chaedon
-    Ocoawen
-    Ediravia
-    Edarev
-    Prelilla
-    Thorenad
-    Fromal
-    Laedith
-    Talewyn
+    # Generated results ....
 
-# -----------------------------------------------------
-# Extend the list of hosts on trop04.
-#[user@trop04]
-
-# -----------------------------------------------------
-# Update the KVM base image on trop04.
-#[user@trop04]
-
-# -----------------------------------------------------
-# Run a client on a trop04 VM and pull data from the Kafka brokers on trop03.
-#[user@trop04]
-
-
-
+--START--
+---- ----
+trop-1
+----
+routed
+inet [52:54:0:0:C8:1E] [192.168.200.30]
+cast [192.168.200.31]
+virt [00] [52:54:0:0:C8:00] [192.168.200.0]
+virt [01] [52:54:0:0:C8:01] [192.168.200.1]
+virt [02] [52:54:0:0:C8:02] [192.168.200.2]
+virt [03] [52:54:0:0:C8:03] [192.168.200.3]
+....
+....
+virt [1A] [52:54:0:0:C8:1A] [192.168.200.26]
+virt [1B] [52:54:0:0:C8:1B] [192.168.200.27]
+virt [1C] [52:54:0:0:C8:1C] [192.168.200.28]
+virt [1D] [52:54:0:0:C8:1D] [192.168.200.29]
+----
+natted
+inet [52:54:0:0:C8:3E] [192.168.200.62]
+cast [192.168.200.63]
+virt [00] [52:54:0:0:C8:20] [192.168.200.32]
+virt [01] [52:54:0:0:C8:21] [192.168.200.33]
+virt [02] [52:54:0:0:C8:22] [192.168.200.34]
+virt [03] [52:54:0:0:C8:23] [192.168.200.35]
+....
+....
+virt [1A] [52:54:0:0:C8:3A] [192.168.200.58]
+virt [1B] [52:54:0:0:C8:3B] [192.168.200.59]
+virt [1C] [52:54:0:0:C8:3C] [192.168.200.60]
+virt [1D] [52:54:0:0:C8:3D] [192.168.200.61]
+---- ----
+trop-2
+----
+routed
+inet [52:54:0:0:C8:5E] [192.168.200.94]
+cast [192.168.200.95]
+virt [00] [52:54:0:0:C8:40] [192.168.200.64]
+virt [01] [52:54:0:0:C8:41] [192.168.200.65]
+virt [02] [52:54:0:0:C8:42] [192.168.200.66]
+virt [03] [52:54:0:0:C8:43] [192.168.200.67]
+....
+....
+virt [1A] [52:54:0:0:C8:5A] [192.168.200.90]
+virt [1B] [52:54:0:0:C8:5B] [192.168.200.91]
+virt [1C] [52:54:0:0:C8:5C] [192.168.200.92]
+virt [1D] [52:54:0:0:C8:5D] [192.168.200.93]
+----
+natted
+inet [52:54:0:0:C8:7E] [192.168.200.126]
+cast [192.168.200.127]
+virt [00] [52:54:0:0:C8:60] [192.168.200.96]
+virt [01] [52:54:0:0:C8:61] [192.168.200.97]
+virt [02] [52:54:0:0:C8:62] [192.168.200.98]
+virt [03] [52:54:0:0:C8:63] [192.168.200.99]
+....
+....
+virt [1A] [52:54:0:0:C8:7A] [192.168.200.122]
+virt [1B] [52:54:0:0:C8:7B] [192.168.200.123]
+virt [1C] [52:54:0:0:C8:7C] [192.168.200.124]
+virt [1D] [52:54:0:0:C8:7D] [192.168.200.125]
+---- ----
+trop-3
+----
+routed
+inet [52:54:0:0:C8:9E] [192.168.200.158]
+cast [192.168.200.159]
+virt [00] [52:54:0:0:C8:80] [192.168.200.128]
+virt [01] [52:54:0:0:C8:81] [192.168.200.129]
+virt [02] [52:54:0:0:C8:82] [192.168.200.130]
+virt [03] [52:54:0:0:C8:83] [192.168.200.131]
+....
+....
+virt [1A] [52:54:0:0:C8:9A] [192.168.200.154]
+virt [1B] [52:54:0:0:C8:9B] [192.168.200.155]
+virt [1C] [52:54:0:0:C8:9C] [192.168.200.156]
+virt [1D] [52:54:0:0:C8:9D] [192.168.200.157]
+----
+natted
+inet [52:54:0:0:C8:BE] [192.168.200.190]
+cast [192.168.200.191]
+virt [00] [52:54:0:0:C8:A0] [192.168.200.160]
+virt [01] [52:54:0:0:C8:A1] [192.168.200.161]
+virt [02] [52:54:0:0:C8:A2] [192.168.200.162]
+virt [03] [52:54:0:0:C8:A3] [192.168.200.163]
+....
+....
+virt [1A] [52:54:0:0:C8:BA] [192.168.200.186]
+virt [1B] [52:54:0:0:C8:BB] [192.168.200.187]
+virt [1C] [52:54:0:0:C8:BC] [192.168.200.188]
+virt [1D] [52:54:0:0:C8:BD] [192.168.200.189]
+---- ----
+trop-4
+----
+routed
+inet [52:54:0:0:C8:DE] [192.168.200.222]
+cast [192.168.200.223]
+virt [00] [52:54:0:0:C8:C0] [192.168.200.192]
+virt [01] [52:54:0:0:C8:C1] [192.168.200.193]
+virt [02] [52:54:0:0:C8:C2] [192.168.200.194]
+virt [03] [52:54:0:0:C8:C3] [192.168.200.195]
+....
+....
+virt [1A] [52:54:0:0:C8:DA] [192.168.200.218]
+virt [1B] [52:54:0:0:C8:DB] [192.168.200.219]
+virt [1C] [52:54:0:0:C8:DC] [192.168.200.220]
+virt [1D] [52:54:0:0:C8:DD] [192.168.200.221]
+----
+natted
+inet [52:54:0:0:C8:FE] [192.168.200.254]
+cast [192.168.200.255]
+virt [00] [52:54:0:0:C8:E0] [192.168.200.224]
+virt [01] [52:54:0:0:C8:E1] [192.168.200.225]
+virt [02] [52:54:0:0:C8:E2] [192.168.200.226]
+virt [03] [52:54:0:0:C8:E3] [192.168.200.227]
+....
+....
+virt [1A] [52:54:0:0:C8:FA] [192.168.200.250]
+virt [1B] [52:54:0:0:C8:FB] [192.168.200.251]
+virt [1C] [52:54:0:0:C8:FC] [192.168.200.252]
+virt [1D] [52:54:0:0:C8:FD] [192.168.200.253]
+---- ----
+trop-5
+----
+routed
+inet [52:54:0:0:C9:1E] [192.168.201.30]
+cast [192.168.201.31]
+virt [00] [52:54:0:0:C9:00] [192.168.201.0]
+virt [01] [52:54:0:0:C9:01] [192.168.201.1]
+virt [02] [52:54:0:0:C9:02] [192.168.201.2]
+virt [03] [52:54:0:0:C9:03] [192.168.201.3]
+....
+....
+virt [1A] [52:54:0:0:C9:1A] [192.168.201.26]
+virt [1B] [52:54:0:0:C9:1B] [192.168.201.27]
+virt [1C] [52:54:0:0:C9:1C] [192.168.201.28]
+virt [1D] [52:54:0:0:C9:1D] [192.168.201.29]
+----
+natted
+inet [52:54:0:0:C9:3E] [192.168.201.62]
+cast [192.168.201.63]
+virt [00] [52:54:0:0:C9:20] [192.168.201.32]
+virt [01] [52:54:0:0:C9:21] [192.168.201.33]
+virt [02] [52:54:0:0:C9:22] [192.168.201.34]
+virt [03] [52:54:0:0:C9:23] [192.168.201.35]
+....
+....
+virt [1A] [52:54:0:0:C9:3A] [192.168.201.58]
+virt [1B] [52:54:0:0:C9:3B] [192.168.201.59]
+virt [1C] [52:54:0:0:C9:3C] [192.168.201.60]
+virt [1D] [52:54:0:0:C9:3D] [192.168.201.61]
+---- ----
+trop-6
+----
+routed
+inet [52:54:0:0:C9:5E] [192.168.201.94]
+cast [192.168.201.95]
+virt [00] [52:54:0:0:C9:40] [192.168.201.64]
+virt [01] [52:54:0:0:C9:41] [192.168.201.65]
+virt [02] [52:54:0:0:C9:42] [192.168.201.66]
+virt [03] [52:54:0:0:C9:43] [192.168.201.67]
+....
+....
+virt [1A] [52:54:0:0:C9:5A] [192.168.201.90]
+virt [1B] [52:54:0:0:C9:5B] [192.168.201.91]
+virt [1C] [52:54:0:0:C9:5C] [192.168.201.92]
+virt [1D] [52:54:0:0:C9:5D] [192.168.201.93]
+----
+natted
+inet [52:54:0:0:C9:7E] [192.168.201.126]
+cast [192.168.201.127]
+virt [00] [52:54:0:0:C9:60] [192.168.201.96]
+virt [01] [52:54:0:0:C9:61] [192.168.201.97]
+virt [02] [52:54:0:0:C9:62] [192.168.201.98]
+virt [03] [52:54:0:0:C9:63] [192.168.201.99]
+....
+....
+virt [1A] [52:54:0:0:C9:7A] [192.168.201.122]
+virt [1B] [52:54:0:0:C9:7B] [192.168.201.123]
+virt [1C] [52:54:0:0:C9:7C] [192.168.201.124]
+virt [1D] [52:54:0:0:C9:7D] [192.168.201.125]
+---- ----
+trop-7
+----
+routed
+inet [52:54:0:0:C9:9E] [192.168.201.158]
+cast [192.168.201.159]
+virt [00] [52:54:0:0:C9:80] [192.168.201.128]
+virt [01] [52:54:0:0:C9:81] [192.168.201.129]
+virt [02] [52:54:0:0:C9:82] [192.168.201.130]
+virt [03] [52:54:0:0:C9:83] [192.168.201.131]
+....
+....
+virt [1A] [52:54:0:0:C9:9A] [192.168.201.154]
+virt [1B] [52:54:0:0:C9:9B] [192.168.201.155]
+virt [1C] [52:54:0:0:C9:9C] [192.168.201.156]
+virt [1D] [52:54:0:0:C9:9D] [192.168.201.157]
+----
+natted
+inet [52:54:0:0:C9:BE] [192.168.201.190]
+cast [192.168.201.191]
+virt [00] [52:54:0:0:C9:A0] [192.168.201.160]
+virt [01] [52:54:0:0:C9:A1] [192.168.201.161]
+virt [02] [52:54:0:0:C9:A2] [192.168.201.162]
+virt [03] [52:54:0:0:C9:A3] [192.168.201.163]
+....
+....
+virt [1A] [52:54:0:0:C9:BA] [192.168.201.186]
+virt [1B] [52:54:0:0:C9:BB] [192.168.201.187]
+virt [1C] [52:54:0:0:C9:BC] [192.168.201.188]
+virt [1D] [52:54:0:0:C9:BD] [192.168.201.189]
+---- ----
+trop-8
+----
+routed
+inet [52:54:0:0:C9:DE] [192.168.201.222]
+cast [192.168.201.223]
+virt [00] [52:54:0:0:C9:C0] [192.168.201.192]
+virt [01] [52:54:0:0:C9:C1] [192.168.201.193]
+virt [02] [52:54:0:0:C9:C2] [192.168.201.194]
+virt [03] [52:54:0:0:C9:C3] [192.168.201.195]
+....
+....
+virt [1A] [52:54:0:0:C9:DA] [192.168.201.218]
+virt [1B] [52:54:0:0:C9:DB] [192.168.201.219]
+virt [1C] [52:54:0:0:C9:DC] [192.168.201.220]
+virt [1D] [52:54:0:0:C9:DD] [192.168.201.221]
+----
+natted
+inet [52:54:0:0:C9:FE] [192.168.201.254]
+cast [192.168.201.255]
+virt [00] [52:54:0:0:C9:E0] [192.168.201.224]
+virt [01] [52:54:0:0:C9:E1] [192.168.201.225]
+virt [02] [52:54:0:0:C9:E2] [192.168.201.226]
+virt [03] [52:54:0:0:C9:E3] [192.168.201.227]
+....
+....
+virt [1A] [52:54:0:0:C9:FA] [192.168.201.250]
+virt [1B] [52:54:0:0:C9:FB] [192.168.201.251]
+virt [1C] [52:54:0:0:C9:FC] [192.168.201.252]
+virt [1D] [52:54:0:0:C9:FD] [192.168.201.253]
+--END--
 
