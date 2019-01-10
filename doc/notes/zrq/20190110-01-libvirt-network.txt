@@ -360,6 +360,9 @@
 # Generate the network addresses.
 #[user@trop03]
 
+    netsize=32
+    netbase=200
+
     printmac()
         {
         local hibyte
@@ -410,14 +413,19 @@
         {
         local host=$1
         local type=$2
-        local base=$3
+        local netn=$3
+
+        base=$(((${netbase:?} * 256) + (${netn:?} * netsize)))
+
         local inet=$((base + 30))
         local cast=$((base + 31))
-        local virt
+
         echo "----"
         echo "${host} ${type}"
         echo "inet [$(printmac  ${inet})] [$(printinet ${inet})]"
         echo "cast [$(printinet ${cast})]"
+
+        local virt
         for virt in {0..29}
         do
             temp=${host}[${virt}]
@@ -435,14 +443,24 @@
         echo "---- ----"
         host=$(printf "trop%02x" ${node})
         echo "${host}"
-        printnetwork ${host} 'routed' $((
-            (((${node} * 2) - 2) * 32) + (200 * 256)
-            ))
-        printnetwork ${host} 'natted' $((
-            (((${node} * 2) - 1) * 32) + (200 * 256)
-            ))
+        printnetwork \
+            ${host} \
+            'routed' \
+            $(((${node} * 2) - 2))
+
+        printnetwork \
+            ${host} \
+            'natted' \
+            $(((${node} * 2) - 1))
+
     done
 
+
+
+
+    printroutes()
+        {
+        }
 
 
 
