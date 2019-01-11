@@ -34,7 +34,7 @@
 # https://stackoverflow.com/questions/16487258/how-to-declare-2d-array-in-bash
 # https://stackoverflow.com/a/16487405
 
-    declare -a trop01=(
+    declare -a trop01names=(
         Delild
         Abecien
         Saewan
@@ -74,7 +74,7 @@
         Rhardoweth
         )
 
-    declare -a trop02=(
+    declare -a trop02names=(
         Araybwyn
         Lothigometh
         Ulov
@@ -114,7 +114,7 @@
         Frardowen
         )
 
-    declare -a trop03=(
+    declare -a trop03names=(
         Umiawyth
         Etalema
         Greand
@@ -154,7 +154,7 @@
         Drilibaen
         )
 
-    declare -a trop04=(
+    declare -a trop04names=(
         Wumar
         Larilaweth
         Ror
@@ -194,7 +194,7 @@
         Daulian
         )
 
-    declare -a trop05=(
+    declare -a trop05names=(
         Nydaulin
         Caysien
         Mirendald
@@ -234,7 +234,7 @@
         Qerralle
         )
 
-    declare -a trop06=(
+    declare -a trop06names=(
 
         Roagan
         Zydia
@@ -275,7 +275,7 @@
         Ocun
         )
 
-    declare -a trop07=(
+    declare -a trop07names=(
         Berav
         Wicaron
         Astillan
@@ -315,7 +315,7 @@
         Lardobard
         )
 
-    declare -a trop08=(
+    declare -a trop08names=(
         Mirigoniel
         Unerawyn
         Agrobeth
@@ -357,65 +357,76 @@
 
 
 # -----------------------------------------------------
-# Generate the network addresses.
+# Generate the network configurations.
 #[user@trop03]
 
     netsize=32
-    netbase=200
+    netbase=210
 
     printmac()
         {
-        local hibyte
-        local lobyte
-        local array
-        local string
-        hibyte=$((
-            $1 / 256
+        local hextet=${1:?}
+        local hibyte=$((
+            ${hextet} / 256
             ))
-        lobyte=$((
-            $1 % 256
+        local lobyte=$((
+            ${hextet} % 256
             ))
-        array=('52' '54' '0' '0' '0' '0')
+        local array=(
+            '52'
+            '54'
+            '0'
+            '0'
+            '0'
+            '0'
+            )
         array[4]=$(
             printf "%02X" ${hibyte}
             )
         array[5]=$(
             printf "%02X" ${lobyte}
             )
-        string=${array[*]}
+        local string=${array[*]}
         echo ${string// /:}
         }
 
     printinet()
         {
+        local hextet=${1:?}
         local hibyte
         local lobyte
         local array
         local string
-        hibyte=$((
-            $1 / 256
+        local hibyte=$((
+            ${hextet} / 256
             ))
-        lobyte=$((
-            $1 % 256
+        local lobyte=$((
+            ${hextet} % 256
             ))
-        array=('192' '168' '0' '0')
+        local array=(
+            '192'
+            '168'
+            '0'
+            '0'
+            )
         array[2]=$(
             printf "%d" ${hibyte}
             )
         array[3]=$(
             printf "%d" ${lobyte}
             )
-        string=${array[*]}
+        local string=${array[*]}
         echo ${string// /.}
         }
 
     printnetwork()
         {
-        local host=$1
-        local type=$2
-        local netn=$3
+        local node=${1:?}
+        local type=${2:?}
+        local netn=${3:?}
 
-        base=$(((${netbase:?} * 256) + (${netn:?} * netsize)))
+        local host=$(printf "trop%02x" ${node})
+        local base=$(((${netbase:?} * 256) + (${netn} * ${netsize:?})))
 
         local inet=$((base + 30))
         local cast=$((base + 31))
@@ -428,7 +439,7 @@
         local virt
         for virt in {0..29}
         do
-            temp=${host}[${virt}]
+            temp=${host}names[${virt}]
             name=${!temp}
             if [ ${type} == 'natted' ]
             then
@@ -438,29 +449,78 @@
         done
         }
 
-    for node in {1..8}
-    do
-        echo "---- ----"
-        host=$(printf "trop%02x" ${node})
-        echo "${host}"
-        printnetwork \
-            ${host} \
-            'routed' \
-            $(((${node} * 2) - 2))
+    printnetworks()
+        {
+        local node
+        for node in {1..8}
+        do
+            printnetwork \
+                ${node} \
+                'routed' \
+                $(((${node} * 2) - 2))
 
-        printnetwork \
-            ${host} \
-            'natted' \
-            $(((${node} * 2) - 1))
+            printnetwork \
+                ${node} \
+                'natted' \
+                $(((${node} * 2) - 1))
 
-    done
+        done
+        }
+
+    printnetworks
 
 
+    declare -A publicips=(
+        [trop01]=129.215.175.96
+        [trop02]=129.215.175.97
+        [trop03]=129.215.175.98
+        [trop04]=129.215.175.99
+        [trop05]=192.41.108.100
+        [trop06]=192.41.108.101
+        [trop07]=192.41.108.102
+        [trop08]=192.41.108.103
+        )
 
+    printroute()
+        {
+        local node=${1:?}
+        local host=$(printf "trop%02x" ${node})
+        base=$((
+            (${netbase:?} * 256) + (((${node} * 2) - 2) * ${netsize:?})
+            ))
+        echo "route [${host}][$(printinet ${base})/27] via [${publicips[${host}]}]"
+        }
 
     printroutes()
         {
+        local node
+        for outer in {1..4}
+        do
+            echo "---- ----"
+            echo "$(printf "trop%02x" ${outer})"
+            for inner in {1..4}
+            do
+                if [ ${inner} != ${outer} ]
+                then
+                    printroute \
+                        ${inner}
+                else
+                    echo "self"
+                fi
+            done
+        done
         }
+
+    printroutes
+
+
+
+
+
+
+
+
+
 
 
 

@@ -1,0 +1,507 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+# -----------------------------------------------------
+# Global network params.
+#[user@trop03]
+
+    netsize=32
+    netbase=210
+
+# -----------------------------------------------------
+# Print a 52:54 MAC address.
+#[user@trop03]
+
+    printmac()
+        {
+        local hextet=${1:?}
+        local hibyte=$((
+            ${hextet} / 256
+            ))
+        local lobyte=$((
+            ${hextet} % 256
+            ))
+        local array=(
+            '52'
+            '54'
+            '0'
+            '0'
+            '0'
+            '0'
+            )
+        array[4]=$(
+            printf "%02X" ${hibyte}
+            )
+        array[5]=$(
+            printf "%02X" ${lobyte}
+            )
+        local string=${array[*]}
+        echo ${string// /:}
+        }
+
+# -----------------------------------------------------
+# Print a 192.168 IPv4 address.
+#[user@trop03]
+
+    printinet()
+        {
+        local hextet=${1:?}
+        local hibyte
+        local lobyte
+        local array
+        local string
+        local hibyte=$((
+            ${hextet} / 256
+            ))
+        local lobyte=$((
+            ${hextet} % 256
+            ))
+        local array=(
+            '192'
+            '168'
+            '0'
+            '0'
+            )
+        array[2]=$(
+            printf "%d" ${hibyte}
+            )
+        array[3]=$(
+            printf "%d" ${lobyte}
+            )
+        local string=${array[*]}
+        echo ${string// /.}
+        }
+
+# -----------------------------------------------------
+# Generate the extra routes.
+#[user@trop03]
+
+    declare -A publicips=(
+        [trop01]=129.215.175.96
+        [trop02]=129.215.175.97
+        [trop03]=129.215.175.98
+        [trop04]=129.215.175.99
+        [trop05]=192.41.108.100
+        [trop06]=192.41.108.101
+        [trop07]=192.41.108.102
+        [trop08]=192.41.108.103
+        )
+
+    addroute()
+        {
+        local node=${1:?}
+        local host=$(printf "trop%02x" ${node})
+        base=$((
+            (${netbase:?} * 256) + (((${node} * 2) - 2) * ${netsize:?})
+            ))
+        local route=$(printinet ${base})/27
+        local router=${publicips[${host}]}
+        echo "Adding route [${host}][${route} via ${router}]"
+        echo "sudo ip route add ${route} via ${router} dev br0"
+        }
+
+    addroutes()
+        {
+        for node in {1..4}
+        do
+            name=$(printf "trop%02x" ${node})
+            if [ "${name}" != "$(hostname -s)" ]
+            then
+                addroute \
+                    ${node}
+            fi
+        done
+        }
+
+    addroutes
+
+--START--
+Adding route [trop04][192.168.210.192/27 via 129.215.175.99]
+sudo ip route add 192.168.210.192/27 via 129.215.175.99 dev br0
+Adding route [trop04][192.168.210.192/27 via 129.215.175.99]
+sudo ip route add 192.168.210.192/27 via 129.215.175.99 dev br0
+Adding route [trop04][192.168.210.192/27 via 129.215.175.99]
+sudo ip route add 192.168.210.192/27 via 129.215.175.99 dev br0
+--END--
+
+
+# -----------------------------------------------------
+# Generate the libvirt networks.
+#[user@trop03]
+
+    printnetwork()
+        {
+        local node=${1:?}
+        local type=${2:?}
+        local netn=${3:?}
+
+        local host=$(printf "trop%02x" ${node})
+        local base=$(((${netbase:?} * 256) + (${netn} * ${netsize:?})))
+
+        local inet=$((base + 30))
+        local cast=$((base + 31))
+
+        echo "----"
+        echo "${host} ${type}"
+        echo "inet [$(printmac  ${inet})] [$(printinet ${inet})]"
+        echo "cast [$(printinet ${cast})]"
+
+        local virt
+        for virt in {0..29}
+        do
+            temp=${host}names[${virt}]
+            name=${!temp}
+            if [ ${type} == 'natted' ]
+            then
+                name=${name}-nat
+            fi
+            echo "virt $(printf "%16s" $name) [$(printf "%02X" ${virt})] [$(printmac  $((base + virt)))] [$(printinet $((base + virt)))]"
+        done
+        }
+
+    printnetworks()
+        {
+        local node
+        for node in {1..8}
+        do
+            printnetwork \
+                ${node} \
+                'routed' \
+                $(((${node} * 2) - 2))
+
+            printnetwork \
+                ${node} \
+                'natted' \
+                $(((${node} * 2) - 1))
+
+        done
+        }
+
+    printnetworks
+
+
+    declare -A publicips=(
+        [trop01]=129.215.175.96
+        [trop02]=129.215.175.97
+        [trop03]=129.215.175.98
+        [trop04]=129.215.175.99
+        [trop05]=192.41.108.100
+        [trop06]=192.41.108.101
+        [trop07]=192.41.108.102
+        [trop08]=192.41.108.103
+        )
+
+    printroute()
+        {
+        local node=${1:?}
+        local host=$(printf "trop%02x" ${node})
+        base=$((
+            (${netbase:?} * 256) + (((${node} * 2) - 2) * ${netsize:?})
+            ))
+        echo "route [${host}][$(printinet ${base})/27] via [${publicips[${host}]}]"
+        }
+
+    printroutes()
+        {
+        local node
+        for outer in {1..4}
+        do
+            echo "---- ----"
+            echo "$(printf "trop%02x" ${outer})"
+            for inner in {1..4}
+            do
+                if [ ${inner} != ${outer} ]
+                then
+                    printroute \
+                        ${inner}
+                else
+                    echo "self"
+                fi
+            done
+        done
+        }
+
+    printroutes
+
+
+
+>   <network connections='4' ipv6='yes'>
+>     <name>default</name>
+>     <uuid>31cb63d0-459d-4768-a489-9d17480a3d58</uuid>
+>     <forward mode='nat'>
+>       <nat>
+>         <port start='1024' end='65535'/>
+>       </nat>
+>     </forward>
+>     <bridge name='virbr0' stp='off' delay='0'/>
+>     <mac address='52:54:00:02:03:01'/>
+>     <ip family='ipv4' address='192.168.203.1' netmask='255.255.255.0'>
+>       <dhcp>
+>         <range start='192.168.203.8' end='192.168.203.23'/>
+>         <host mac='52:54:00:02:03:08' name='Umiawyth' ip='192.168.203.8'/>
+>         <host mac='52:54:00:02:03:09' name='Etalema' ip='192.168.203.9'/>
+>         <host mac='52:54:00:02:03:0A' name='Greand' ip='192.168.203.10'/>
+>         <host mac='52:54:00:02:03:0B' name='Nydiralle' ip='192.168.203.11'/>
+>         <host mac='52:54:00:02:03:0C' name='Kedaekoth' ip='192.168.203.12'/>
+>         <host mac='52:54:00:02:03:0D' name='Onelith' ip='192.168.203.13'/>
+>         <host mac='52:54:00:02:03:0E' name='Elaleld' ip='192.168.203.14'/>
+>         <host mac='52:54:00:02:03:0F' name='Afoaviel' ip='192.168.203.15'/>
+>         <host mac='52:54:00:02:03:10' name='Rusaldez' ip='192.168.203.16'/>
+>         <host mac='52:54:00:02:03:11' name='Stedigo' ip='192.168.203.17'/>
+>         <host mac='52:54:00:02:03:12' name='Angece' ip='192.168.203.18'/>
+>         <host mac='52:54:00:02:03:13' name='Edwalafia' ip='192.168.203.19'/>
+>         <host mac='52:54:00:02:03:14' name='Onoza' ip='192.168.203.20'/>
+>         <host mac='52:54:00:02:03:15' name='Fosauri' ip='192.168.203.21'/>
+>         <host mac='52:54:00:02:03:16' name='Marpus' ip='192.168.203.22'/>
+>         <host mac='52:54:00:02:03:17' name='Byflame' ip='192.168.203.23'/>
+>       </dhcp>
+>     </ip>
+>   </network>
+
+
+
+
+# -----------------------------------------------------
+# Generate the network addresses.
+#[user@trop03]
+
+    netsize=32
+    netbase=210
+
+    printmac()
+        {
+        local hextet=${1:?}
+        local hibyte=$((
+            ${hextet} / 256
+            ))
+        local lobyte=$((
+            ${hextet} % 256
+            ))
+        local array=(
+            '52'
+            '54'
+            '0'
+            '0'
+            '0'
+            '0'
+            )
+        array[4]=$(
+            printf "%02X" ${hibyte}
+            )
+        array[5]=$(
+            printf "%02X" ${lobyte}
+            )
+        local string=${array[*]}
+        echo ${string// /:}
+        }
+
+    printinet()
+        {
+        local hextet=${1:?}
+        local hibyte
+        local lobyte
+        local array
+        local string
+        local hibyte=$((
+            ${hextet} / 256
+            ))
+        local lobyte=$((
+            ${hextet} % 256
+            ))
+        local array=(
+            '192'
+            '168'
+            '0'
+            '0'
+            )
+        array[2]=$(
+            printf "%d" ${hibyte}
+            )
+        array[3]=$(
+            printf "%d" ${lobyte}
+            )
+        local string=${array[*]}
+        echo ${string// /.}
+        }
+
+    printnetworkxml()
+        {
+        local node=${1:?}
+        local type=${2:?}
+        local netn=${3:?}
+
+        local host=$(printf "trop%02x" ${node})
+        local base=$(((${netbase:?} * 256) + (${netn} * ${netsize:?})))
+
+        local inet=$((base + 30))
+        local cast=$((base + 31))
+
+        echo "----"
+        echo "${host} ${type}"
+        echo "inet [$(printmac  ${inet})] [$(printinet ${inet})]"
+        echo "cast [$(printinet ${cast})]"
+
+        local virt
+        for virt in {0..29}
+        do
+            temp=${host}names[${virt}]
+            name=${!temp}
+            if [ ${type} == 'natted' ]
+            then
+                name=${name}-nat
+            fi
+            echo "$(printf "%16s" $name) [$(printf "%02X" ${virt})] [$(printmac  $((base + virt)))] [$(printinet $((base + virt)))]"
+        done
+        }
+
+    printnetworks()
+        {
+        local host=$(hostname -s)
+        local node=${host:4}
+
+        printnetworkxml \
+            ${node} \
+            'routed' \
+            $(((${node} * 2) - 2))
+
+        printnetworkxml \
+            ${node} \
+            'natted' \
+            $(((${node} * 2) - 1))
+
+        }
+
+    printnetworks
+
+
+    declare -A publicips=(
+        [trop01]=129.215.175.96
+        [trop02]=129.215.175.97
+        [trop03]=129.215.175.98
+        [trop04]=129.215.175.99
+        [trop05]=192.41.108.100
+        [trop06]=192.41.108.101
+        [trop07]=192.41.108.102
+        [trop08]=192.41.108.103
+        )
+
+    addroute()
+        {
+        local node=${1:?}
+        local host=$(printf "trop%02x" ${node})
+        base=$((
+            (${netbase:?} * 256) + (((${node} * 2) - 2) * ${netsize:?})
+            ))
+        local route=$(printinet ${base})/27
+        local router=${publicips[${host}]}
+        echo "Adding route [${host}][${route} via ${router}]"
+        echo "sudo ip route add ${route} via ${router} dev br0"
+        }
+
+    addroutes()
+        {
+        for node in {1..4}
+        do
+            name=$(printf "trop%02x" ${node})
+            if [ "${name}" != "$(hostname -s)" ]
+            then
+                addroute \
+                    ${inner}
+            fi
+        done
+        }
+
+    addroutes
+
+--START--
+Adding route [trop04][192.168.210.192/27 via 129.215.175.99]
+sudo ip route add 192.168.210.192/27 via 129.215.175.99 dev br0
+Adding route [trop04][192.168.210.192/27 via 129.215.175.99]
+sudo ip route add 192.168.210.192/27 via 129.215.175.99 dev br0
+Adding route [trop04][192.168.210.192/27 via 129.215.175.99]
+sudo ip route add 192.168.210.192/27 via 129.215.175.99 dev br0
+--END--
+
+
+
+
+        node=$(hostname -s)
+
+
+
+
+
+
+
+
+    printnetworkxml()
+        {
+        local node=${1:?}
+        local type=${2:?}
+        local netn=${3:?}
+
+        local host=$(printf "trop%02x" ${node})
+        local base=$(((${netbase:?} * 256) + (${netn} * ${netsize:?})))
+
+        local inet=$((base + 30))
+        local cast=$((base + 31))
+
+        echo "----"
+        echo "${host} ${type}"
+        echo "inet [$(printmac  ${inet})] [$(printinet ${inet})]"
+        echo "cast [$(printinet ${cast})]"
+
+        local virt
+        for virt in {0..29}
+        do
+            temp=${host}names[${virt}]
+            name=${!temp}
+            if [ ${type} == 'natted' ]
+            then
+                name=${name}-nat
+            fi
+            echo "$(printf "%16s" $name) [$(printf "%02X" ${virt})] [$(printmac  $((base + virt)))] [$(printinet $((base + virt)))]"
+        done
+        }
+
+    printnetworks()
+        {
+        local host=$(hostname -s)
+        local node=${host:4}
+
+        printnetworkxml \
+            ${node} \
+            'routed' \
+            $(((${node} * 2) - 2))
+
+        printnetworkxml \
+            ${node} \
+            'natted' \
+            $(((${node} * 2) - 1))
+
+        }
+
+    printnetworks
+
+
+
+
