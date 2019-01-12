@@ -93,26 +93,24 @@ EOF
             --copy-of "//interface" \
         "${template:?}"
 
---START--
-<xsl-select>
-  <interface type="network">
-      <mac address="##:##:##:##:##:##"/>
-      <source network="routed"/>
-      <target dev="vnet0"/>
-      <model type="virtio"/>
-      <alias name="net0"/>
-      <address type="pci" domain="0x0000" bus="0x00" slot="0x03" function="0x0"/>
-    </interface>
-  <interface type="network">
-      <mac address="##:##:##:##:##:##"/>
-      <source network="natted"/>
-      <target dev="vnet1"/>
-      <model type="virtio"/>
-      <alias name="net1"/>
-      <address type="pci" domain="0x0000" bus="0x00" slot="0x07" function="0x0"/>
-    </interface>
-</xsl-select>
---END--
+    >   <xsl-select>
+    >     <interface type="network">
+    >         <mac address="##:##:##:##:##:##"/>
+    >         <source network="routed"/>
+    >         <target dev="vnet0"/>
+    >         <model type="virtio"/>
+    >         <alias name="net0"/>
+    >         <address type="pci" domain="0x0000" bus="0x00" slot="0x03" function="0x0"/>
+    >       </interface>
+    >     <interface type="network">
+    >         <mac address="##:##:##:##:##:##"/>
+    >         <source network="natted"/>
+    >         <target dev="vnet1"/>
+    >         <model type="virtio"/>
+    >         <alias name="net1"/>
+    >         <address type="pci" domain="0x0000" bus="0x00" slot="0x07" function="0x0"/>
+    >       </interface>
+    >   </xsl-select>
 
 # -----------------------------------------------------
 # Check the template changes.
@@ -120,41 +118,39 @@ EOF
 
     git diff --ignore-all-space src/dat/tropo-template.xml
 
---START--
-diff --git a/src/dat/tropo-template.xml b/src/dat/tropo-template.xml
-index 4c48e08..629a8be 100644
---- a/src/dat/tropo-template.xml
-+++ b/src/dat/tropo-template.xml
-@@ -1,3 +1,4 @@
-+<?xml version='1.0'?>
- <domain type='kvm'>
-   <name></name>
-   <uuid></uuid>
-@@ -35,13 +36,21 @@
-       <address type='pci' domain='0x0000' bus='0x00' slot='0x05' function='0x0'/>
-     </disk>
-     <interface type='network'>
--      <mac address='52:54:00:00:00:00'/>
--      <source network='default'/>
-+      <mac address='##:##:##:##:##:##'/>
-+      <source network='routed'/>
-       <target dev='vnet0'/>
-       <model type='virtio'/>
-       <alias name='net0'/>
-       <address type='pci' domain='0x0000' bus='0x00' slot='0x03' function='0x0'/>
-     </interface>
-+    <interface type='network'>
-+      <mac address='##:##:##:##:##:##'/>
-+      <source network='natted'/>
-+      <target dev='vnet1'/>
-+      <model type='virtio'/>
-+      <alias name='net1'/>
-+      <address type='pci' domain='0x0000' bus='0x00' slot='0x07' function='0x0'/>
-+    </interface>
-     <serial type='pty'>
-       <source path='/dev/pts/0'/>
-       <target port='0'/>
---END--
+    >   diff --git a/src/dat/tropo-template.xml b/src/dat/tropo-template.xml
+    >   index 4c48e08..629a8be 100644
+    >   --- a/src/dat/tropo-template.xml
+    >   +++ b/src/dat/tropo-template.xml
+    >   @@ -1,3 +1,4 @@
+    >   +<?xml version='1.0'?>
+    >    <domain type='kvm'>
+    >      <name></name>
+    >      <uuid></uuid>
+    >   @@ -35,13 +36,21 @@
+    >          <address type='pci' domain='0x0000' bus='0x00' slot='0x05' function='0x0'/>
+    >        </disk>
+    >        <interface type='network'>
+    >   -      <mac address='52:54:00:00:00:00'/>
+    >   -      <source network='default'/>
+    >   +      <mac address='##:##:##:##:##:##'/>
+    >   +      <source network='routed'/>
+    >          <target dev='vnet0'/>
+    >          <model type='virtio'/>
+    >          <alias name='net0'/>
+    >          <address type='pci' domain='0x0000' bus='0x00' slot='0x03' function='0x0'/>
+    >        </interface>
+    >   +    <interface type='network'>
+    >   +      <mac address='##:##:##:##:##:##'/>
+    >   +      <source network='natted'/>
+    >   +      <target dev='vnet1'/>
+    >   +      <model type='virtio'/>
+    >   +      <alias name='net1'/>
+    >   +      <address type='pci' domain='0x0000' bus='0x00' slot='0x07' function='0x0'/>
+    >   +    </interface>
+    >        <serial type='pty'>
+    >          <source path='/dev/pts/0'/>
+    >          <target port='0'/>
 
 
 # -----------------------------------------------------
@@ -169,82 +165,80 @@ index 4c48e08..629a8be 100644
 
     git diff --ignore-all-space src/bin/createvm
 
---START--
-diff --git a/src/bin/createvm b/src/bin/createvm
-index 526edaa..77fda20 100755
---- a/src/bin/createvm
-+++ b/src/bin/createvm
-@@ -81,6 +81,10 @@ else
- fi
-
- #
-+# Load our network tools.
-+source "${binpath}/tools"
-+
-+#
- # Select the machine name.
- echo ""
- #echo "Available machine names"
-@@ -92,6 +96,7 @@ do
- done
-
- nodename=''
-+nodenum=0
- while [ "${nodename}" == '' ]
- do
-     read -p "Select machine name (1) " response
-@@ -105,6 +110,7 @@ do
-         if (( (index > 0) && (index <= limit) ))
-         then
-             nodename=${namelist[$[index-1]]}
-+            nodenum=$((index - 1))
-         fi
-     fi
- done
-@@ -194,13 +200,22 @@ echo ""
- thisname=$(hostname -s)
- thisline=($(cat "${machines:?}" | awk '{if (($1 == "'${thisname:?}'") && ($2 == "'${nodename:?}'")) {print}}'))
-
--nodemac=${thisline[2]}
--nodeip4=${thisline[3]}
--nodeip6=${thisline[4]}
--
--echo "INFO : MAC  [${nodemac}]"
--echo "INFO : IPv4 [${nodeip4}]"
--echo "INFO : IPv6 [${nodeip6}]"
-+host=$(hostname -s)
-+node=${host:4}
-+base=$((
-+    (${netbase:?} * 256) + (((${node} * 2) - 2) * ${netsize:?})
-+    ))
-+routed=$((base + nodenum))
-+base=$((
-+    (${netbase:?} * 256) + (((${node} * 2) - 1) * ${netsize:?})
-+    ))
-+natted=$((base + nodenum))
-+
-+echo "INFO : node [${nodenum}]"
-+echo "INFO : MAC  [$(printmac  ${routed})]"
-+echo "INFO : IPv4 [$(printinet ${routed})]"
-+echo "INFO : MAC  [$(printmac  ${natted})]"
-+echo "INFO : IPv4 [$(printinet ${natted})]"
- echo ""
-
- confirm "Create virtual machine"
-@@ -458,8 +473,10 @@ EOF
-         ed \
-         --update "/domain/name" \
-         --value  "${nodename:?}" \
--        --update "//interface[@type='network']/mac/@address" \
--        --value  "${nodemac:?}" \
-+        --update "//interface[source/@network='routed']/mac/@address" \
-+        --value  "$(printmac  ${routed})" \
-+        --update "//interface[source/@network='natted']/mac/@address" \
-+        --value  "$(printmac  ${natted})" \
-         --update "//disk[@device='disk']/source/@file" \
-         --value  "${volpath:?}" \
-         --update "//disk[@device='cdrom']/source/@file" \
---END--
+    >   diff --git a/src/bin/createvm b/src/bin/createvm
+    >   index 526edaa..77fda20 100755
+    >   --- a/src/bin/createvm
+    >   +++ b/src/bin/createvm
+    >   @@ -81,6 +81,10 @@ else
+    >    fi
+    >   
+    >    #
+    >   +# Load our network tools.
+    >   +source "${binpath}/tools"
+    >   +
+    >   +#
+    >    # Select the machine name.
+    >    echo ""
+    >    #echo "Available machine names"
+    >   @@ -92,6 +96,7 @@ do
+    >    done
+    >   
+    >    nodename=''
+    >   +nodenum=0
+    >    while [ "${nodename}" == '' ]
+    >    do
+    >        read -p "Select machine name (1) " response
+    >   @@ -105,6 +110,7 @@ do
+    >            if (( (index > 0) && (index <= limit) ))
+    >            then
+    >                nodename=${namelist[$[index-1]]}
+    >   +            nodenum=$((index - 1))
+    >            fi
+    >        fi
+    >    done
+    >   @@ -194,13 +200,22 @@ echo ""
+    >    thisname=$(hostname -s)
+    >    thisline=($(cat "${machines:?}" | awk '{if (($1 == "'${thisname:?}'") && ($2 == "'${nodename:?}'")) {print}}'))
+    >   
+    >   -nodemac=${thisline[2]}
+    >   -nodeip4=${thisline[3]}
+    >   -nodeip6=${thisline[4]}
+    >   -
+    >   -echo "INFO : MAC  [${nodemac}]"
+    >   -echo "INFO : IPv4 [${nodeip4}]"
+    >   -echo "INFO : IPv6 [${nodeip6}]"
+    >   +host=$(hostname -s)
+    >   +node=${host:4}
+    >   +base=$((
+    >   +    (${netbase:?} * 256) + (((${node} * 2) - 2) * ${netsize:?})
+    >   +    ))
+    >   +routed=$((base + nodenum))
+    >   +base=$((
+    >   +    (${netbase:?} * 256) + (((${node} * 2) - 1) * ${netsize:?})
+    >   +    ))
+    >   +natted=$((base + nodenum))
+    >   +
+    >   +echo "INFO : node [${nodenum}]"
+    >   +echo "INFO : MAC  [$(printmac  ${routed})]"
+    >   +echo "INFO : IPv4 [$(printinet ${routed})]"
+    >   +echo "INFO : MAC  [$(printmac  ${natted})]"
+    >   +echo "INFO : IPv4 [$(printinet ${natted})]"
+    >    echo ""
+    >   
+    >    confirm "Create virtual machine"
+    >   @@ -458,8 +473,10 @@ EOF
+    >            ed \
+    >            --update "/domain/name" \
+    >            --value  "${nodename:?}" \
+    >   -        --update "//interface[@type='network']/mac/@address" \
+    >   -        --value  "${nodemac:?}" \
+    >   +        --update "//interface[source/@network='routed']/mac/@address" \
+    >   +        --value  "$(printmac  ${routed})" \
+    >   +        --update "//interface[source/@network='natted']/mac/@address" \
+    >   +        --value  "$(printmac  ${natted})" \
+    >            --update "//disk[@device='disk']/source/@file" \
+    >            --value  "${volpath:?}" \
+    >            --update "//disk[@device='cdrom']/source/@file" \
 
 
 # -----------------------------------------------------
@@ -258,12 +252,10 @@ index 526edaa..77fda20 100755
         net-list \
             --all
 
---START--
- Name                 State      Autostart     Persistent
-----------------------------------------------------------
- bridged              active     no            no
- default              active     no            yes
---END--
+    >    Name                 State      Autostart     Persistent
+    >   ----------------------------------------------------------
+    >    bridged              active     no            no
+    >    default              active     no            yes
 
 
 # -----------------------------------------------------
@@ -277,9 +269,7 @@ index 526edaa..77fda20 100755
         net-destroy \
             default
 
---START--
-Network default destroyed
---END--
+    >   Network default destroyed
 
 
     virsh \
@@ -287,9 +277,7 @@ Network default destroyed
         net-undefine \
             default
 
---START--
-Network default has been undefined
---END--
+    >   Network default has been undefined
 
 
 # -----------------------------------------------------
@@ -308,10 +296,8 @@ Network default has been undefined
         net-create \
             "${xmlfile:?}"
 
---START--
-error: Failed to create network from /tmp/tmp.nd4C0LusoK
-error: internal error: start of range 192.168.210.128 - 192.168.210.157 in network 192.168.210.158/27 is the network address
---END--
+    >   error: Failed to create network from /tmp/tmp.nd4C0LusoK
+    >   error: internal error: start of range 192.168.210.128 - 192.168.210.157 in network 192.168.210.158/27 is the network address
 
 # -----------------------------------------------------
 # Edit the network functions to start at 1 and end at 28.
@@ -333,132 +319,122 @@ error: internal error: start of range 192.168.210.128 - 192.168.210.157 in netwo
 
     cat $(printrouted)
 
---START--
-<network ipv6='yes'>
-    <name>routed</name>
-    <uuid/>
-    <bridge name='virbr0' stp='off' delay='0'/>
-    <forward mode='route'>
-    </forward>
-    <mac address='52:54:0:0:D2:9E'/>
-    <ip family='ipv4' address='192.168.210.158' netmask='255.255.255.224'>
-        <dhcp>
-            <range start='192.168.210.129' end='192.168.210.156'/>
-            <host mac='52:54:0:0:D2:81' ip='192.168.210.129' name='Umiawyth'/>
-            <host mac='52:54:0:0:D2:82' ip='192.168.210.130' name='Etalema'/>
-            <host mac='52:54:0:0:D2:83' ip='192.168.210.131' name='Greand'/>
-            ....
-            <host mac='52:54:0:0:D2:9A' ip='192.168.210.154' name='Afib'/>
-            <host mac='52:54:0:0:D2:9B' ip='192.168.210.155' name='Lotholia'/>
-            <host mac='52:54:0:0:D2:9C' ip='192.168.210.156' name='Astilamos'/>
-        </dhcp>
-    </ip>
-</network>
---END--
+    >   <network ipv6='yes'>
+    >       <name>routed</name>
+    >       <uuid/>
+    >       <bridge name='virbr0' stp='off' delay='0'/>
+    >       <forward mode='route'>
+    >       </forward>
+    >       <mac address='52:54:0:0:D2:9E'/>
+    >       <ip family='ipv4' address='192.168.210.158' netmask='255.255.255.224'>
+    >           <dhcp>
+    >               <range start='192.168.210.129' end='192.168.210.156'/>
+    >               <host mac='52:54:0:0:D2:81' ip='192.168.210.129' name='Umiawyth'/>
+    >               <host mac='52:54:0:0:D2:82' ip='192.168.210.130' name='Etalema'/>
+    >               <host mac='52:54:0:0:D2:83' ip='192.168.210.131' name='Greand'/>
+    >               ....
+    >               <host mac='52:54:0:0:D2:9A' ip='192.168.210.154' name='Afib'/>
+    >               <host mac='52:54:0:0:D2:9B' ip='192.168.210.155' name='Lotholia'/>
+    >               <host mac='52:54:0:0:D2:9C' ip='192.168.210.156' name='Astilamos'/>
+    >           </dhcp>
+    >       </ip>
+    >   </network>
 
 
     cat $(printnatted)
 
---START--
-<network ipv6='yes'>
-    <name>natted</name>
-    <uuid/>
-    <bridge name='virbr1' stp='off' delay='0'/>
-    <forward mode='nat'>
-        <nat>
-            <port start='1024' end='65535'/>
-        </nat>
-    </forward>
-    <mac address='52:54:0:0:D2:BE'/>
-    <ip family='ipv4' address='192.168.210.190' netmask='255.255.255.224'>
-        <dhcp>
-            <range start='192.168.210.161' end='192.168.210.188'/>
-            <host mac='52:54:0:0:D2:A1' ip='192.168.210.161' name='Umiawyth-nat'/>
-            <host mac='52:54:0:0:D2:A2' ip='192.168.210.162' name='Etalema-nat'/>
-            <host mac='52:54:0:0:D2:A3' ip='192.168.210.163' name='Greand-nat'/>
-            ....
-            <host mac='52:54:0:0:D2:BA' ip='192.168.210.186' name='Afib-nat'/>
-            <host mac='52:54:0:0:D2:BB' ip='192.168.210.187' name='Lotholia-nat'/>
-            <host mac='52:54:0:0:D2:BC' ip='192.168.210.188' name='Astilamos-nat'/>
-        </dhcp>
-    </ip>
-</network>
---END--
+    >   <network ipv6='yes'>
+    >       <name>natted</name>
+    >       <uuid/>
+    >       <bridge name='virbr1' stp='off' delay='0'/>
+    >       <forward mode='nat'>
+    >           <nat>
+    >               <port start='1024' end='65535'/>
+    >           </nat>
+    >       </forward>
+    >       <mac address='52:54:0:0:D2:BE'/>
+    >       <ip family='ipv4' address='192.168.210.190' netmask='255.255.255.224'>
+    >           <dhcp>
+    >               <range start='192.168.210.161' end='192.168.210.188'/>
+    >               <host mac='52:54:0:0:D2:A1' ip='192.168.210.161' name='Umiawyth-nat'/>
+    >               <host mac='52:54:0:0:D2:A2' ip='192.168.210.162' name='Etalema-nat'/>
+    >               <host mac='52:54:0:0:D2:A3' ip='192.168.210.163' name='Greand-nat'/>
+    >               ....
+    >               <host mac='52:54:0:0:D2:BA' ip='192.168.210.186' name='Afib-nat'/>
+    >               <host mac='52:54:0:0:D2:BB' ip='192.168.210.187' name='Lotholia-nat'/>
+    >               <host mac='52:54:0:0:D2:BC' ip='192.168.210.188' name='Astilamos-nat'/>
+    >           </dhcp>
+    >       </ip>
+    >   </network>
 
 
     cat $(printroutes)
 
---START--
-sudo ip route add 192.168.210.0/27 via 129.215.175.96 dev br0
-sudo ip route add 192.168.210.64/27 via 129.215.175.97 dev br0
-sudo ip route add 192.168.210.192/27 via 129.215.175.99 dev br0
---END--
+    >   sudo ip route add 192.168.210.0/27 via 129.215.175.96 dev br0
+    >   sudo ip route add 192.168.210.64/27 via 129.215.175.97 dev br0
+    >   sudo ip route add 192.168.210.192/27 via 129.215.175.99 dev br0
 
 
     cat $(printhosts)
 
---START--
-#
-# trop01
-192.168.210.1    Delild
-192.168.210.2    Abecien
-192.168.210.3    Saewan
-....
-192.168.210.26   Fromal
-192.168.210.27   Laedith
-192.168.210.28   Talewyn
-
-#
-# trop02
-192.168.210.65   Araybwyn
-192.168.210.66   Lothigometh
-192.168.210.67   Ulov
-....
-192.168.210.90   Agraesa
-192.168.210.91   Onardonydd
-192.168.210.92   Wicardometh
-
-#
-# trop03
-192.168.210.129  Umiawyth
-192.168.210.130  Etalema
-192.168.210.131  Greand
-....
-192.168.210.154  Afib
-192.168.210.155  Lotholia
-192.168.210.156  Astilamos
-
-#
-# trop04
-192.168.210.193  Wumar
-192.168.210.194  Larilaweth
-192.168.210.195  Ror
-....
-192.168.210.218  Adwaeric
-192.168.210.219  Moemond
-192.168.210.220  Iberidia
---END--
+    >   #
+    >   # trop01
+    >   192.168.210.1    Delild
+    >   192.168.210.2    Abecien
+    >   192.168.210.3    Saewan
+    >   ....
+    >   192.168.210.26   Fromal
+    >   192.168.210.27   Laedith
+    >   192.168.210.28   Talewyn
+    >   
+    >   #
+    >   # trop02
+    >   192.168.210.65   Araybwyn
+    >   192.168.210.66   Lothigometh
+    >   192.168.210.67   Ulov
+    >   ....
+    >   192.168.210.90   Agraesa
+    >   192.168.210.91   Onardonydd
+    >   192.168.210.92   Wicardometh
+    >   
+    >   #
+    >   # trop03
+    >   192.168.210.129  Umiawyth
+    >   192.168.210.130  Etalema
+    >   192.168.210.131  Greand
+    >   ....
+    >   192.168.210.154  Afib
+    >   192.168.210.155  Lotholia
+    >   192.168.210.156  Astilamos
+    >   
+    >   #
+    >   # trop04
+    >   192.168.210.193  Wumar
+    >   192.168.210.194  Larilaweth
+    >   192.168.210.195  Ror
+    >   ....
+    >   192.168.210.218  Adwaeric
+    >   192.168.210.219  Moemond
+    >   192.168.210.220  Iberidia
 
 
     cat $(printconfig)
 
---START--
-#
-# trop01 virtual machines
-host Delild Abecien Saewan Cadelicia Froeseth Astoalith Erennon
-    ....
-
-host Gworewia Alaujar Cralle Thendam Lothaylith Etauk Learwen
-    ....
-
-host Rhaegord Siligord Elacien Erilikith Acude Chaedon Ocoawen
-    ....
-
-host Ediravia Edarev Prelilla Thorenad Fromal Laedith Talewyn
-    ....
-    ....
-
---END--
+    >   #
+    >   # trop01 virtual machines
+    >   host Delild Abecien Saewan Cadelicia Froeseth Astoalith Erennon
+    >       ....
+    >   
+    >   host Gworewia Alaujar Cralle Thendam Lothaylith Etauk Learwen
+    >       ....
+    >   
+    >   host Rhaegord Siligord Elacien Erilikith Acude Chaedon Ocoawen
+    >       ....
+    >   
+    >   host Ediravia Edarev Prelilla Thorenad Fromal Laedith Talewyn
+    >       ....
+    >       ....
+    >   
 
 
 # -----------------------------------------------------
@@ -477,9 +453,7 @@ host Ediravia Edarev Prelilla Thorenad Fromal Laedith Talewyn
         net-define \
             "${xmlfile:?}"
 
---START--
-Network routed defined from /tmp/tmp.6IcBfJwh29
---END--
+    >   Network routed defined from /tmp/tmp.6IcBfJwh29
 
 # -----------------------------------------------------
 # Create the new natted network.
@@ -497,9 +471,7 @@ Network routed defined from /tmp/tmp.6IcBfJwh29
         net-define \
             "${xmlfile:?}"
 
---START--
-Network natted defined from /tmp/tmp.uX17Wtiohl
---END--
+    >   Network natted defined from /tmp/tmp.uX17Wtiohl
 
 # -----------------------------------------------------
 # Configure the new networks to start on boot.
@@ -512,18 +484,14 @@ Network natted defined from /tmp/tmp.uX17Wtiohl
         net-autostart \
             'routed'
 
---START--
-Network routed marked as autostarted
---END--
+    >   Network routed marked as autostarted
 
     virsh \
         --connect ${connection:?} \
         net-autostart \
             'natted'
 
---START--
-Network natted marked as autostarted
---END--
+    >   Network natted marked as autostarted
 
 
 # -----------------------------------------------------
@@ -537,18 +505,14 @@ Network natted marked as autostarted
         net-start \
             'routed'
 
---START--
-Network routed started
---END--
+    >   Network routed started
 
     virsh \
         --connect ${connection:?} \
         net-start \
             'natted'
 
---START--
-Network natted started
---END--
+    >   Network natted started
 
 
 # -----------------------------------------------------
@@ -562,13 +526,11 @@ Network natted started
         net-list \
             --all
 
---START--
- Name                 State      Autostart     Persistent
-----------------------------------------------------------
- bridged              active     no            no
- natted               active     yes           yes
- routed               active     yes           yes
---END--
+    >    Name                 State      Autostart     Persistent
+    >   ----------------------------------------------------------
+    >    bridged              active     no            no
+    >    natted               active     yes           yes
+    >    routed               active     yes           yes
 
 
 # -----------------------------------------------------
@@ -583,9 +545,7 @@ Network natted started
 
     printhosts
 
---START--
-/tmp/tmp.uB6PE0jBiW
---END--
+    >   /tmp/tmp.uB6PE0jBiW
 
     sudo -s
         cat  /tmp/tmp.uB6PE0jBiW >> /etc/hosts
@@ -598,11 +558,9 @@ Network natted started
 
     cat $(printroutes)
 
---START--
-sudo ip route add 192.168.210.0/27 via 129.215.175.96 dev br0
-sudo ip route add 192.168.210.64/27 via 129.215.175.97 dev br0
-sudo ip route add 192.168.210.192/27 via 129.215.175.99 dev br0
---END--
+    >   sudo ip route add 192.168.210.0/27 via 129.215.175.96 dev br0
+    >   sudo ip route add 192.168.210.64/27 via 129.215.175.97 dev br0
+    >   sudo ip route add 192.168.210.192/27 via 129.215.175.99 dev br0
 
     ** Don't add these until we know we need them **
 
@@ -617,18 +575,16 @@ sudo ip route add 192.168.210.192/27 via 129.215.175.99 dev br0
         list \
             --all
 
---START--
- Id    Name                           State
-----------------------------------------------------
- -     Afoaviel                       shut off
- -     Angece                         shut off
- -     Byflame                        shut off
- -     Edwalafia                      shut off
- -     Fosauri                        shut off
- -     Onoza                          shut off
- -     Rusaldez                       shut off
- -     Stedigo                        shut off
---END--
+    >    Id    Name                           State
+    >   ----------------------------------------------------
+    >    -     Afoaviel                       shut off
+    >    -     Angece                         shut off
+    >    -     Byflame                        shut off
+    >    -     Edwalafia                      shut off
+    >    -     Fosauri                        shut off
+    >    -     Onoza                          shut off
+    >    -     Rusaldez                       shut off
+    >    -     Stedigo                        shut off
 
 
 # -----------------------------------------------------
@@ -637,37 +593,35 @@ sudo ip route add 192.168.210.192/27 via 129.215.175.99 dev br0
 
     createvm
 
---START--
-INFO : Base pool  [base]
-INFO : Live pool  [live]
-INFO : Connection [qemu:///system]
-
-INFO : Data path  [/var/local/projects/ischnura/github/src/dat]
-
-INFO : Machines   [/var/local/projects/ischnura/github/src/dat/tropo-machines.txt]
-INFO : Template   [/var/local/projects/ischnura/github/src/dat/tropo-template.xml]
-
-    ....
-    ....
-
-INFO : Node name [Umiawyth]
-INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
-INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
-INFO : Disc name [Umiawyth.qcow]
-INFO : Disc size [8GiB]
-
-INFO : node [0]
-INFO : MAC  [52:54:0:0:D2:80]
-INFO : IPv4 [192.168.210.128]
-INFO : MAC  [52:54:0:0:D2:A0]
-INFO : IPv4 [192.168.210.160]
-
-    ....
-    ....
-
-Creating new virtual machine [Umiawyth]
-Starting new virtual machine [Umiawyth]
---END--
+    >   INFO : Base pool  [base]
+    >   INFO : Live pool  [live]
+    >   INFO : Connection [qemu:///system]
+    >   
+    >   INFO : Data path  [/var/local/projects/ischnura/github/src/dat]
+    >   
+    >   INFO : Machines   [/var/local/projects/ischnura/github/src/dat/tropo-machines.txt]
+    >   INFO : Template   [/var/local/projects/ischnura/github/src/dat/tropo-template.xml]
+    >   
+    >       ....
+    >       ....
+    >   
+    >   INFO : Node name [Umiawyth]
+    >   INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Disc name [Umiawyth.qcow]
+    >   INFO : Disc size [8GiB]
+    >   
+    >   INFO : node [0]
+    >   INFO : MAC  [52:54:0:0:D2:80]
+    >   INFO : IPv4 [192.168.210.128]
+    >   INFO : MAC  [52:54:0:0:D2:A0]
+    >   INFO : IPv4 [192.168.210.160]
+    >   
+    >       ....
+    >       ....
+    >   
+    >   Creating new virtual machine [Umiawyth]
+    >   Starting new virtual machine [Umiawyth]
 
 
 # -----------------------------------------------------
@@ -681,111 +635,109 @@ Starting new virtual machine [Umiawyth]
         dumpxml \
             'Umiawyth'
 
---START--
-<domain type='kvm' id='68'>
-  <name>Umiawyth</name>
-  <uuid>48a03449-2bb5-4234-bfca-0be6eceb4153</uuid>
-  <memory unit='KiB'>4194304</memory>
-  <currentMemory unit='KiB'>4194304</currentMemory>
-  <vcpu placement='static'>4</vcpu>
-  <resource>
-    <partition>/machine</partition>
-  </resource>
-  <os>
-    <type arch='x86_64' machine='pc-1.1'>hvm</type>
-    <boot dev='hd'/>
-  </os>
-  <features>
-    <acpi/>
-    <apic/>
-    <pae/>
-  </features>
-  <clock offset='utc'/>
-  <on_poweroff>destroy</on_poweroff>
-  <on_reboot>restart</on_reboot>
-  <on_crash>restart</on_crash>
-  <devices>
-    <emulator>/usr/bin/kvm</emulator>
-    <disk type='file' device='disk'>
-      <driver name='qemu' type='qcow2'/>
-      <source file='/var/lib/libvirt/images/live/Umiawyth.qcow'/>
-      <backingStore type='file' index='1'>
-        <format type='qcow2'/>
-        <source file='/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow'/>
-        <backingStore/>
-      </backingStore>
-      <target dev='vda' bus='virtio'/>
-      <alias name='virtio-disk0'/>
-      <address type='pci' domain='0x0000' bus='0x00' slot='0x04' function='0x0'/>
-    </disk>
-    <disk type='file' device='cdrom'>
-      <driver name='qemu' type='raw'/>
-      <source file='/var/lib/libvirt/images/init/Umiawyth.iso'/>
-      <backingStore/>
-      <target dev='vdb' bus='virtio'/>
-      <readonly/>
-      <alias name='virtio-disk1'/>
-      <address type='pci' domain='0x0000' bus='0x00' slot='0x05' function='0x0'/>
-    </disk>
-    <controller type='usb' index='0' model='piix3-uhci'>
-      <alias name='usb'/>
-      <address type='pci' domain='0x0000' bus='0x00' slot='0x01' function='0x2'/>
-    </controller>
-    <controller type='pci' index='0' model='pci-root'>
-      <alias name='pci.0'/>
-    </controller>
-    <interface type='network'>
-      <mac address='52:54:00:00:d2:80'/>
-      <source network='routed' bridge='virbr0'/>
-      <target dev='vnet0'/>
-      <model type='virtio'/>
-      <alias name='net0'/>
-      <address type='pci' domain='0x0000' bus='0x00' slot='0x03' function='0x0'/>
-    </interface>
-    <interface type='network'>
-      <mac address='52:54:00:00:d2:a0'/>
-      <source network='natted' bridge='virbr1'/>
-      <target dev='vnet1'/>
-      <model type='virtio'/>
-      <alias name='net1'/>
-      <address type='pci' domain='0x0000' bus='0x00' slot='0x07' function='0x0'/>
-    </interface>
-    <serial type='pty'>
-      <source path='/dev/pts/1'/>
-      <target port='0'/>
-      <alias name='serial0'/>
-    </serial>
-    <console type='pty' tty='/dev/pts/1'>
-      <source path='/dev/pts/1'/>
-      <target type='serial' port='0'/>
-      <alias name='serial0'/>
-    </console>
-    <input type='keyboard' bus='ps2'>
-      <alias name='input0'/>
-    </input>
-    <input type='mouse' bus='ps2'>
-      <alias name='input1'/>
-    </input>
-    <graphics type='vnc' port='5900' autoport='yes' listen='127.0.0.1'>
-      <listen type='address' address='127.0.0.1'/>
-    </graphics>
-    <video>
-      <model type='cirrus' vram='16384' heads='1' primary='yes'/>
-      <alias name='video0'/>
-      <address type='pci' domain='0x0000' bus='0x00' slot='0x02' function='0x0'/>
-    </video>
-    <memballoon model='virtio'>
-      <alias name='balloon0'/>
-      <address type='pci' domain='0x0000' bus='0x00' slot='0x06' function='0x0'/>
-    </memballoon>
-  </devices>
-  <seclabel type='none' model='none'/>
-  <seclabel type='dynamic' model='dac' relabel='yes'>
-    <label>+107:+114</label>
-    <imagelabel>+107:+114</imagelabel>
-  </seclabel>
-</domain>
---END--
+    >   <domain type='kvm' id='68'>
+    >     <name>Umiawyth</name>
+    >     <uuid>48a03449-2bb5-4234-bfca-0be6eceb4153</uuid>
+    >     <memory unit='KiB'>4194304</memory>
+    >     <currentMemory unit='KiB'>4194304</currentMemory>
+    >     <vcpu placement='static'>4</vcpu>
+    >     <resource>
+    >       <partition>/machine</partition>
+    >     </resource>
+    >     <os>
+    >       <type arch='x86_64' machine='pc-1.1'>hvm</type>
+    >       <boot dev='hd'/>
+    >     </os>
+    >     <features>
+    >       <acpi/>
+    >       <apic/>
+    >       <pae/>
+    >     </features>
+    >     <clock offset='utc'/>
+    >     <on_poweroff>destroy</on_poweroff>
+    >     <on_reboot>restart</on_reboot>
+    >     <on_crash>restart</on_crash>
+    >     <devices>
+    >       <emulator>/usr/bin/kvm</emulator>
+    >       <disk type='file' device='disk'>
+    >         <driver name='qemu' type='qcow2'/>
+    >         <source file='/var/lib/libvirt/images/live/Umiawyth.qcow'/>
+    >         <backingStore type='file' index='1'>
+    >           <format type='qcow2'/>
+    >           <source file='/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow'/>
+    >           <backingStore/>
+    >         </backingStore>
+    >         <target dev='vda' bus='virtio'/>
+    >         <alias name='virtio-disk0'/>
+    >         <address type='pci' domain='0x0000' bus='0x00' slot='0x04' function='0x0'/>
+    >       </disk>
+    >       <disk type='file' device='cdrom'>
+    >         <driver name='qemu' type='raw'/>
+    >         <source file='/var/lib/libvirt/images/init/Umiawyth.iso'/>
+    >         <backingStore/>
+    >         <target dev='vdb' bus='virtio'/>
+    >         <readonly/>
+    >         <alias name='virtio-disk1'/>
+    >         <address type='pci' domain='0x0000' bus='0x00' slot='0x05' function='0x0'/>
+    >       </disk>
+    >       <controller type='usb' index='0' model='piix3-uhci'>
+    >         <alias name='usb'/>
+    >         <address type='pci' domain='0x0000' bus='0x00' slot='0x01' function='0x2'/>
+    >       </controller>
+    >       <controller type='pci' index='0' model='pci-root'>
+    >         <alias name='pci.0'/>
+    >       </controller>
+    >       <interface type='network'>
+    >         <mac address='52:54:00:00:d2:80'/>
+    >         <source network='routed' bridge='virbr0'/>
+    >         <target dev='vnet0'/>
+    >         <model type='virtio'/>
+    >         <alias name='net0'/>
+    >         <address type='pci' domain='0x0000' bus='0x00' slot='0x03' function='0x0'/>
+    >       </interface>
+    >       <interface type='network'>
+    >         <mac address='52:54:00:00:d2:a0'/>
+    >         <source network='natted' bridge='virbr1'/>
+    >         <target dev='vnet1'/>
+    >         <model type='virtio'/>
+    >         <alias name='net1'/>
+    >         <address type='pci' domain='0x0000' bus='0x00' slot='0x07' function='0x0'/>
+    >       </interface>
+    >       <serial type='pty'>
+    >         <source path='/dev/pts/1'/>
+    >         <target port='0'/>
+    >         <alias name='serial0'/>
+    >       </serial>
+    >       <console type='pty' tty='/dev/pts/1'>
+    >         <source path='/dev/pts/1'/>
+    >         <target type='serial' port='0'/>
+    >         <alias name='serial0'/>
+    >       </console>
+    >       <input type='keyboard' bus='ps2'>
+    >         <alias name='input0'/>
+    >       </input>
+    >       <input type='mouse' bus='ps2'>
+    >         <alias name='input1'/>
+    >       </input>
+    >       <graphics type='vnc' port='5900' autoport='yes' listen='127.0.0.1'>
+    >         <listen type='address' address='127.0.0.1'/>
+    >       </graphics>
+    >       <video>
+    >         <model type='cirrus' vram='16384' heads='1' primary='yes'/>
+    >         <alias name='video0'/>
+    >         <address type='pci' domain='0x0000' bus='0x00' slot='0x02' function='0x0'/>
+    >       </video>
+    >       <memballoon model='virtio'>
+    >         <alias name='balloon0'/>
+    >         <address type='pci' domain='0x0000' bus='0x00' slot='0x06' function='0x0'/>
+    >       </memballoon>
+    >     </devices>
+    >     <seclabel type='none' model='none'/>
+    >     <seclabel type='dynamic' model='dac' relabel='yes'>
+    >       <label>+107:+114</label>
+    >       <imagelabel>+107:+114</imagelabel>
+    >     </seclabel>
+    >   </domain>
 
 
 # -----------------------------------------------------
@@ -794,16 +746,14 @@ Starting new virtual machine [Umiawyth]
 
     ssh -v Umiawyth
 
---START--
-OpenSSH_7.4p1 Debian-10+deb9u4, OpenSSL 1.0.2l  25 May 2017
-debug1: Reading configuration data /home/dmr/.ssh/config
-debug1: /home/dmr/.ssh/config line 24: Applying options for Umiawyth
-debug1: Reading configuration data /etc/ssh/ssh_config
-debug1: /etc/ssh/ssh_config line 19: Applying options for *
-debug1: Connecting to umiawyth [192.168.210.129] port 22.
-debug1: connect to address 192.168.210.129 port 22: No route to host
-ssh: connect to host umiawyth port 22: No route to host
---END--
+    >   OpenSSH_7.4p1 Debian-10+deb9u4, OpenSSL 1.0.2l  25 May 2017
+    >   debug1: Reading configuration data /home/dmr/.ssh/config
+    >   debug1: /home/dmr/.ssh/config line 24: Applying options for Umiawyth
+    >   debug1: Reading configuration data /etc/ssh/ssh_config
+    >   debug1: /etc/ssh/ssh_config line 19: Applying options for *
+    >   debug1: Connecting to umiawyth [192.168.210.129] port 22.
+    >   debug1: connect to address 192.168.210.129 port 22: No route to host
+    >   ssh: connect to host umiawyth port 22: No route to host
 
 
 # -----------------------------------------------------
@@ -812,13 +762,11 @@ ssh: connect to host umiawyth port 22: No route to host
 
     ip route list
 
---START--
-default via 129.215.175.126 dev br0 onlink
-129.215.175.0/24 dev br0 proto kernel scope link src 129.215.175.98
-192.168.204.0/24 via 129.215.175.99 dev br0
-192.168.210.128/27 dev virbr0 proto kernel scope link src 192.168.210.158
-192.168.210.160/27 dev virbr1 proto kernel scope link src 192.168.210.190
---END--
+    >   default via 129.215.175.126 dev br0 onlink
+    >   129.215.175.0/24 dev br0 proto kernel scope link src 129.215.175.98
+    >   192.168.204.0/24 via 129.215.175.99 dev br0
+    >   192.168.210.128/27 dev virbr0 proto kernel scope link src 192.168.210.158
+    >   192.168.210.160/27 dev virbr1 proto kernel scope link src 192.168.210.190
 
 
 # -----------------------------------------------------
@@ -838,26 +786,24 @@ default via 129.215.175.126 dev br0 onlink
             --template \
                 --copy-of '//interface'
 
---START--
-<xsl-select>
-  <interface type="network">
-      <mac address="52:54:00:00:d2:80"/>
-      <source network="routed" bridge="virbr0"/>
-      <target dev="vnet0"/>
-      <model type="virtio"/>
-      <alias name="net0"/>
-      <address type="pci" domain="0x0000" bus="0x00" slot="0x03" function="0x0"/>
-    </interface>
-  <interface type="network">
-      <mac address="52:54:00:00:d2:a0"/>
-      <source network="natted" bridge="virbr1"/>
-      <target dev="vnet1"/>
-      <model type="virtio"/>
-      <alias name="net1"/>
-      <address type="pci" domain="0x0000" bus="0x00" slot="0x07" function="0x0"/>
-    </interface>
-</xsl-select>
---END--
+    >   <xsl-select>
+    >     <interface type="network">
+    >         <mac address="52:54:00:00:d2:80"/>
+    >         <source network="routed" bridge="virbr0"/>
+    >         <target dev="vnet0"/>
+    >         <model type="virtio"/>
+    >         <alias name="net0"/>
+    >         <address type="pci" domain="0x0000" bus="0x00" slot="0x03" function="0x0"/>
+    >       </interface>
+    >     <interface type="network">
+    >         <mac address="52:54:00:00:d2:a0"/>
+    >         <source network="natted" bridge="virbr1"/>
+    >         <target dev="vnet1"/>
+    >         <model type="virtio"/>
+    >         <alias name="net1"/>
+    >         <address type="pci" domain="0x0000" bus="0x00" slot="0x07" function="0x0"/>
+    >       </interface>
+    >   </xsl-select>
 
 
 # -----------------------------------------------------
@@ -876,10 +822,8 @@ default via 129.215.175.126 dev br0 onlink
                 --value-of '//interface/mac/@address' \
                 --nl
 
---START--
-52:54:00:00:d2:80
-52:54:00:00:d2:a0
---END--
+    >   52:54:00:00:d2:80
+    >   52:54:00:00:d2:a0
 
     # The MAC addresses are ..80 and ..a0
     # When they should be ..81 and ..a1
@@ -911,37 +855,35 @@ default via 129.215.175.126 dev br0 onlink
 
     createvm
 
---START--
-INFO : Base pool  [base]
-INFO : Live pool  [live]
-INFO : Connection [qemu:///system]
-
-INFO : Data path  [/var/local/projects/ischnura/github/src/dat]
-
-INFO : Machines   [/var/local/projects/ischnura/github/src/dat/tropo-machines.txt]
-INFO : Template   [/var/local/projects/ischnura/github/src/dat/tropo-template.xml]
-
-....
-....
-
-INFO : Node name [Umiawyth]
-INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
-INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
-INFO : Disc name [Umiawyth.qcow]
-INFO : Disc size [8GiB]
-
-INFO : node [0]
-INFO : MAC  [52:54:0:0:D2:81]
-INFO : IPv4 [192.168.210.129]
-INFO : MAC  [52:54:0:0:D2:A1]
-INFO : IPv4 [192.168.210.161]
-
-....
-....
-
-Creating new virtual machine [Umiawyth]
-Starting new virtual machine [Umiawyth]
---END--
+    >   INFO : Base pool  [base]
+    >   INFO : Live pool  [live]
+    >   INFO : Connection [qemu:///system]
+    >   
+    >   INFO : Data path  [/var/local/projects/ischnura/github/src/dat]
+    >   
+    >   INFO : Machines   [/var/local/projects/ischnura/github/src/dat/tropo-machines.txt]
+    >   INFO : Template   [/var/local/projects/ischnura/github/src/dat/tropo-template.xml]
+    >   
+    >   ....
+    >   ....
+    >   
+    >   INFO : Node name [Umiawyth]
+    >   INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Disc name [Umiawyth.qcow]
+    >   INFO : Disc size [8GiB]
+    >   
+    >   INFO : node [0]
+    >   INFO : MAC  [52:54:0:0:D2:81]
+    >   INFO : IPv4 [192.168.210.129]
+    >   INFO : MAC  [52:54:0:0:D2:A1]
+    >   INFO : IPv4 [192.168.210.161]
+    >   
+    >   ....
+    >   ....
+    >   
+    >   Creating new virtual machine [Umiawyth]
+    >   Starting new virtual machine [Umiawyth]
 
 # -----------------------------------------------------
 # Check the virtual machine interfaces.
@@ -961,26 +903,24 @@ Starting new virtual machine [Umiawyth]
                 --copy-of '//interface'
 
 
---START--
-<xsl-select>
-  <interface type="network">
-      <mac address="52:54:00:00:d2:81"/>
-      <source network="routed" bridge="virbr0"/>
-      <target dev="vnet0"/>
-      <model type="virtio"/>
-      <alias name="net0"/>
-      <address type="pci" domain="0x0000" bus="0x00" slot="0x03" function="0x0"/>
-    </interface>
-  <interface type="network">
-      <mac address="52:54:00:00:d2:a1"/>
-      <source network="natted" bridge="virbr1"/>
-      <target dev="vnet1"/>
-      <model type="virtio"/>
-      <alias name="net1"/>
-      <address type="pci" domain="0x0000" bus="0x00" slot="0x07" function="0x0"/>
-    </interface>
-</xsl-select>
---END--
+    >   <xsl-select>
+    >     <interface type="network">
+    >         <mac address="52:54:00:00:d2:81"/>
+    >         <source network="routed" bridge="virbr0"/>
+    >         <target dev="vnet0"/>
+    >         <model type="virtio"/>
+    >         <alias name="net0"/>
+    >         <address type="pci" domain="0x0000" bus="0x00" slot="0x03" function="0x0"/>
+    >       </interface>
+    >     <interface type="network">
+    >         <mac address="52:54:00:00:d2:a1"/>
+    >         <source network="natted" bridge="virbr1"/>
+    >         <target dev="vnet1"/>
+    >         <model type="virtio"/>
+    >         <alias name="net1"/>
+    >         <address type="pci" domain="0x0000" bus="0x00" slot="0x07" function="0x0"/>
+    >       </interface>
+    >   </xsl-select>
 
 # -----------------------------------------------------
 # Check we can login from the physical host.
@@ -988,18 +928,16 @@ Starting new virtual machine [Umiawyth]
 
     ssh -v Umiawyth
 
---START--
-....
-debug1: Connecting to umiawyth [192.168.210.129] port 22.
-debug1: Connection established.
-....
-Authenticated to umiawyth ([192.168.210.129]:22).
-....
-debug1: Sending environment.
-debug1: Sending env LANG = en_GB.UTF-8
-
-[Stevedore@Umiawyth ~]$
---END--
+    >   ....
+    >   debug1: Connecting to umiawyth [192.168.210.129] port 22.
+    >   debug1: Connection established.
+    >   ....
+    >   Authenticated to umiawyth ([192.168.210.129]:22).
+    >   ....
+    >   debug1: Sending environment.
+    >   debug1: Sending env LANG = en_GB.UTF-8
+    >   
+    >   [Stevedore@Umiawyth ~]$
 
 # -----------------------------------------------------
 # Check we can see external resources.
@@ -1007,9 +945,7 @@ debug1: Sending env LANG = en_GB.UTF-8
 
     curl --head 'http://data.metagrid.co.uk/'
 
---START--
--
---END--
+    >   -
 
     FAIL - connection times out :-(
 
@@ -1019,13 +955,11 @@ debug1: Sending env LANG = en_GB.UTF-8
 
     ip route list
 
---START--
-default via 192.168.210.158 dev ens3 proto dhcp metric 100
-default via 192.168.210.190 dev ens7 proto dhcp metric 101
-172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown
-192.168.210.128/27 dev ens3 proto kernel scope link src 192.168.210.129 metric 100
-192.168.210.160/27 dev ens7 proto kernel scope link src 192.168.210.161 metric 101
---END--
+    >   default via 192.168.210.158 dev ens3 proto dhcp metric 100
+    >   default via 192.168.210.190 dev ens7 proto dhcp metric 101
+    >   172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown
+    >   192.168.210.128/27 dev ens3 proto kernel scope link src 192.168.210.129 metric 100
+    >   192.168.210.160/27 dev ens7 proto kernel scope link src 192.168.210.161 metric 101
 
     Two default routes, with weights preferring the routed interface.
 
@@ -1056,19 +990,17 @@ default via 192.168.210.190 dev ens7 proto dhcp metric 101
 
     ip route list
 
---START--
-default via 192.168.210.190 dev ens7 proto dhcp metric 101
-129.215.175.96 dev ens3 scope link
-129.215.175.97 dev ens3 scope link
-129.215.175.98 dev ens3 scope link
-129.215.175.99 dev ens3 scope link
-172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown
-192.168.210.0/27 dev ens3 scope link
-192.168.210.64/27 dev ens3 scope link
-192.168.210.128/27 dev ens3 proto kernel scope link src 192.168.210.129 metric 100
-192.168.210.160/27 dev ens7 proto kernel scope link src 192.168.210.161 metric 101
-192.168.210.192/27 dev ens3 scope link
---END--
+    >   default via 192.168.210.190 dev ens7 proto dhcp metric 101
+    >   129.215.175.96 dev ens3 scope link
+    >   129.215.175.97 dev ens3 scope link
+    >   129.215.175.98 dev ens3 scope link
+    >   129.215.175.99 dev ens3 scope link
+    >   172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown
+    >   192.168.210.0/27 dev ens3 scope link
+    >   192.168.210.64/27 dev ens3 scope link
+    >   192.168.210.128/27 dev ens3 proto kernel scope link src 192.168.210.129 metric 100
+    >   192.168.210.160/27 dev ens7 proto kernel scope link src 192.168.210.161 metric 101
+    >   192.168.210.192/27 dev ens3 scope link
 
 # -----------------------------------------------------
 # Check we can see external resources.
@@ -1076,9 +1008,7 @@ default via 192.168.210.190 dev ens7 proto dhcp metric 101
 
     curl --head 'http://data.metagrid.co.uk/robots.txt'
 
---START--
-HTTP/1.1 200 OK
---END--
+    >   HTTP/1.1 200 OK
 
     PASS - external get works :-)
 
@@ -1092,11 +1022,9 @@ HTTP/1.1 200 OK
         hostname
         '
 
---START--
-debug1: /etc/ssh/ssh_config.d/05-redhat.conf line 8: Applying options for *
-debug1: Connecting to trop03.roe.ac.uk [129.215.175.98] port 22.
-....
---END--
+    >   debug1: /etc/ssh/ssh_config.d/05-redhat.conf line 8: Applying options for *
+    >   debug1: Connecting to trop03.roe.ac.uk [129.215.175.98] port 22.
+    >   ....
 
     FAIL - connection times out :-(
 
@@ -1124,11 +1052,9 @@ debug1: Connecting to trop03.roe.ac.uk [129.215.175.98] port 22.
         hostname
         '
 
---START--
-debug1: /etc/ssh/ssh_config.d/05-redhat.conf line 8: Applying options for *
-debug1: Connecting to trop03.roe.ac.uk [129.215.175.98] port 22.
-....
---END--
+    >   debug1: /etc/ssh/ssh_config.d/05-redhat.conf line 8: Applying options for *
+    >   debug1: Connecting to trop03.roe.ac.uk [129.215.175.98] port 22.
+    >   ....
 
     FAIL - connection times out :-(
 
@@ -1139,10 +1065,8 @@ debug1: Connecting to trop03.roe.ac.uk [129.215.175.98] port 22.
 
     ip route get 129.215.175.98
 
---START--
-129.215.175.98 via 192.168.210.158 dev ens3 src 192.168.210.129 uid 1001
-    cache
---END--
+    >   129.215.175.98 via 192.168.210.158 dev ens3 src 192.168.210.129 uid 1001
+    >       cache
 
 # -----------------------------------------------------
 # What if ... leave the physical hosts to connect via the default.
@@ -1162,10 +1086,8 @@ debug1: Connecting to trop03.roe.ac.uk [129.215.175.98] port 22.
         hostname
         '
 
---START--
-debug1: Connecting to trop03.roe.ac.uk [129.215.175.98] port 22.
--
---END--
+    >   debug1: Connecting to trop03.roe.ac.uk [129.215.175.98] port 22.
+    >   -
 
     FAIL - connection times out :-(
 
@@ -1176,10 +1098,8 @@ debug1: Connecting to trop03.roe.ac.uk [129.215.175.98] port 22.
 
     ip route get 129.215.175.98
 
---START--
-129.215.175.98 via 192.168.210.190 dev ens7 src 192.168.210.161 uid 1001
-    cache
---END--
+    >   129.215.175.98 via 192.168.210.190 dev ens7 src 192.168.210.161 uid 1001
+    >       cache
 
     Ok - that tries to route to our physical host via the NAT network.
 
@@ -1189,15 +1109,13 @@ debug1: Connecting to trop03.roe.ac.uk [129.215.175.98] port 22.
 
     ip route show
 
---START--
-default via 192.168.210.190 dev ens7 proto dhcp metric 101
-172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown
-192.168.210.0/27 dev ens3 scope link
-192.168.210.64/27 dev ens3 scope link
-192.168.210.128/27 dev ens3 proto kernel scope link src 192.168.210.129 metric 100
-192.168.210.160/27 dev ens7 proto kernel scope link src 192.168.210.161 metric 101
-192.168.210.192/27 dev ens3 scope link
---END--
+    >   default via 192.168.210.190 dev ens7 proto dhcp metric 101
+    >   172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown
+    >   192.168.210.0/27 dev ens3 scope link
+    >   192.168.210.64/27 dev ens3 scope link
+    >   192.168.210.128/27 dev ens3 proto kernel scope link src 192.168.210.129 metric 100
+    >   192.168.210.160/27 dev ens7 proto kernel scope link src 192.168.210.161 metric 101
+    >   192.168.210.192/27 dev ens3 scope link
 
 
 # -----------------------------------------------------
@@ -1225,11 +1143,9 @@ default via 192.168.210.190 dev ens7 proto dhcp metric 101
         hostname
         '
 
---START--
-....
-debug1: Connecting to trop01.roe.ac.uk [129.215.175.96] port 22.
--
---END--
+    >   ....
+    >   debug1: Connecting to trop01.roe.ac.uk [129.215.175.96] port 22.
+    >   -
 
     FAIL - connection times out :-(
 
@@ -1239,10 +1155,8 @@ debug1: Connecting to trop01.roe.ac.uk [129.215.175.96] port 22.
 
     ip route get 129.215.175.96
 
---START--
-129.215.175.96 via 192.168.210.158 dev ens3 src 192.168.210.129 uid 1001
-    cache
---END--
+    >   129.215.175.96 via 192.168.210.158 dev ens3 src 192.168.210.129 uid 1001
+    >       cache
 
     FAIL - that is trying to use the routed interface.
 
@@ -1252,17 +1166,15 @@ debug1: Connecting to trop01.roe.ac.uk [129.215.175.96] port 22.
 
     ip route show
 
---START--
-ip route show
-default via 192.168.210.158 dev ens3 proto dhcp metric 100
-default via 192.168.210.190 dev ens7 proto dhcp metric 101
-172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown
-192.168.210.0/27 via 192.168.210.158 dev ens3
-192.168.210.64/27 via 192.168.210.158 dev ens3
-192.168.210.128/27 dev ens3 scope link
-192.168.210.160/27 dev ens7 proto kernel scope link src 192.168.210.161 metric 101
-192.168.210.192/27 via 192.168.210.158 dev ens3
---END--
+    >   ip route show
+    >   default via 192.168.210.158 dev ens3 proto dhcp metric 100
+    >   default via 192.168.210.190 dev ens7 proto dhcp metric 101
+    >   172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown
+    >   192.168.210.0/27 via 192.168.210.158 dev ens3
+    >   192.168.210.64/27 via 192.168.210.158 dev ens3
+    >   192.168.210.128/27 dev ens3 scope link
+    >   192.168.210.160/27 dev ens7 proto kernel scope link src 192.168.210.161 metric 101
+    >   192.168.210.192/27 via 192.168.210.158 dev ens3
 
     # The second default is back !
 
@@ -1295,16 +1207,14 @@ default via 192.168.210.190 dev ens7 proto dhcp metric 101
 
     ip route show
 
---START--
-default via 192.168.210.190 dev ens7 proto dhcp metric 101
-172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown
-192.168.210.0/27 via 192.168.210.158 dev ens3
-192.168.210.64/27 via 192.168.210.158 dev ens3
-192.168.210.128/27 dev ens3 scope link
-192.168.210.128/27 dev ens3 proto kernel scope link src 192.168.210.129 metric 100
-192.168.210.160/27 dev ens7 proto kernel scope link src 192.168.210.161 metric 101
-192.168.210.192/27 via 192.168.210.158 dev ens3
---END--
+    >   default via 192.168.210.190 dev ens7 proto dhcp metric 101
+    >   172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown
+    >   192.168.210.0/27 via 192.168.210.158 dev ens3
+    >   192.168.210.64/27 via 192.168.210.158 dev ens3
+    >   192.168.210.128/27 dev ens3 scope link
+    >   192.168.210.128/27 dev ens3 proto kernel scope link src 192.168.210.129 metric 100
+    >   192.168.210.160/27 dev ens7 proto kernel scope link src 192.168.210.161 metric 101
+    >   192.168.210.192/27 via 192.168.210.158 dev ens3
 
 
 # -----------------------------------------------------
@@ -1313,10 +1223,8 @@ default via 192.168.210.190 dev ens7 proto dhcp metric 101
 
     ip route get 129.215.175.96
 
---START--
-129.215.175.96 via 192.168.210.190 dev ens7 src 192.168.210.161 uid 1001
-    cache
---END--
+    >   129.215.175.96 via 192.168.210.190 dev ens7 src 192.168.210.161 uid 1001
+    >       cache
 
 
 # -----------------------------------------------------
@@ -1328,24 +1236,22 @@ default via 192.168.210.190 dev ens7 proto dhcp metric 101
         hostname
         '
 
---START--
-....
-debug1: Connecting to trop01.roe.ac.uk [129.215.175.96] port 22.
-debug1: Connection established.
-....
-Authenticated to trop01.roe.ac.uk ([129.215.175.96]:22).
-....
-debug1: Sending environment.
-debug1: Sending env LANG = en_GB.UTF-8
-debug1: Sending command:
-        hostname
-
-trop01
-....
-Transferred: sent 3504, received 2112 bytes, in 0.0 seconds
-Bytes per second: sent 120194.1, received 72445.7
-debug1: Exit status 0
---END--
+    >   ....
+    >   debug1: Connecting to trop01.roe.ac.uk [129.215.175.96] port 22.
+    >   debug1: Connection established.
+    >   ....
+    >   Authenticated to trop01.roe.ac.uk ([129.215.175.96]:22).
+    >   ....
+    >   debug1: Sending environment.
+    >   debug1: Sending env LANG = en_GB.UTF-8
+    >   debug1: Sending command:
+    >           hostname
+    >   
+    >   trop01
+    >   ....
+    >   Transferred: sent 3504, received 2112 bytes, in 0.0 seconds
+    >   Bytes per second: sent 120194.1, received 72445.7
+    >   debug1: Exit status 0
 
     PASS - we can reach the other physcal hosts via the default route
 
@@ -1359,10 +1265,8 @@ debug1: Exit status 0
         hostname
         '
 
---START--
-debug1: Connecting to trop03.roe.ac.uk [129.215.175.98] port 22.
--
---END--
+    >   debug1: Connecting to trop03.roe.ac.uk [129.215.175.98] port 22.
+    >   -
 
     FAIL - connection hangs
 
@@ -1372,18 +1276,14 @@ debug1: Connecting to trop03.roe.ac.uk [129.215.175.98] port 22.
 
     ip route get 129.215.175.96
 
---START--
-129.215.175.96 via 192.168.210.190 dev ens7 src 192.168.210.161 uid 1001
-    cache
---END--
+    >   129.215.175.96 via 192.168.210.190 dev ens7 src 192.168.210.161 uid 1001
+    >       cache
 
 
     ip route get 129.215.175.98
 
---START--
-129.215.175.98 via 192.168.210.190 dev ens7 src 192.168.210.161 uid 1001
-    cache
---END--
+    >   129.215.175.98 via 192.168.210.190 dev ens7 src 192.168.210.161 uid 1001
+    >       cache
 
     Outbound routes are the same .. so it is the return that fails ?
 
@@ -1401,33 +1301,17 @@ debug1: Connecting to trop03.roe.ac.uk [129.215.175.98] port 22.
 
 
 
---START--
---END--
-
---START--
---END--
 
 
 
---START--
---END--
-
---START--
---END--
-
---START--
---END--
 
 
 
---START--
---END--
 
---START--
---END--
 
---START--
---END--
+
+
+
 
 
 
