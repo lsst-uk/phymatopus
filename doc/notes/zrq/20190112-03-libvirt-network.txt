@@ -471,3 +471,44 @@ Last login: Sun Jan 13 01:59:22 2019 from 192.168.210.222
     TODO - do we need to use something like OpemnVPN to do this properly ?
     https://community.openvpn.net/openvpn/wiki/BridgingAndRouting
 
+# -----------------------------------------------------
+
+    03:30 - both terminals hung :-(
+
+    htop is no longer running on the virtual machines
+
+# -----------------------------------------------------
+
+    PASS - virtual machines running ok
+    PASS - static routes on the physical machines seems to be intact
+
+    FAIL - connections from virtual machine to virtual machine fail
+    FAIL - static routes on the virtual machines have been lost
+
+# -----------------------------------------------------
+# Restore the static routes.
+#[Stevedore@Umiawyth]
+
+    sed '
+        s/^192/sudo ip route add 192/
+        ' /etc/sysconfig/network-scripts/route-ens3
+
+
+--START--
+sudo ip route add 192.168.210.0/27   via 192.168.210.158 dev ens3
+sudo ip route add 192.168.210.64/27  via 192.168.210.158 dev ens3
+sudo ip route add 192.168.210.192/27 via 192.168.210.158 dev ens3
+--END--
+
+    PASS - SSH between virtual machines works :-D
+    TODO - make the static routes persistent beyond DHCP refresh
+
+    /etc/dhcp/dhclient-up-hooks:
+    https://unix.stackexchange.com/questions/444393/is-it-possible-to-have-the-dhcp-client-ignore-option-121-routes
+
+
+    https://mkdev.me/en/posts/how-networks-work-what-is-a-switch-router-dns-dhcp-nat-vpn-and-a-dozen-of-other-useful-things
+
+
+    https://kb.novaordis.com/index.php/KVM_Virtual_Networking_Concepts
+
