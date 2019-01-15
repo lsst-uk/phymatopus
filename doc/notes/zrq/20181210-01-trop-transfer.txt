@@ -1,0 +1,540 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2018, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+    # Create Zookeeper nodes.
+    # Deploy Zookeeper.
+
+    # Create Kafka nodes.
+    # Assign volumes.
+    # Deploy Kafka.
+
+    # Create MirroMaker nodes.
+    # Deploy MirroMaker.
+
+
+# -----------------------------------------------------
+# Extend the list of virtual machines.
+#[user@trop03]
+
+    pushd $(dirname $(which createvm))
+
+        vi ../dat/tropo-machines.txt
+
+
+            trop03  Umiawyth    52:54:00:02:03:08   192.168.203.8
+            trop03  Etalema     52:54:00:02:03:09   192.168.203.9
+            trop03  Greand      52:54:00:02:03:0A   192.168.203.10
+            trop03  Nydiralle   52:54:00:02:03:0B   192.168.203.11
+
+            trop03  Kedaekoth   52:54:00:02:03:0C   192.168.203.12
+            trop03  Onelith     52:54:00:02:03:0D   192.168.203.13
+            trop03  Elaleld     52:54:00:02:03:0E   192.168.203.14
+            trop03  Afoaviel    52:54:00:02:03:0F   192.168.203.15
+
+        +   trop03  Rusaldez    52:54:00:02:03:10   192.168.203.16
+        +   trop03  Stedigo     52:54:00:02:03:11   192.168.203.17
+        +   trop03  Angece      52:54:00:02:03:12   192.168.203.18
+        +   trop03  Edwalafia   52:54:00:02:03:13   192.168.203.19
+
+        +   trop03  Onoza       52:54:00:02:03:14   192.168.203.20
+        +   trop03  Fosauri     52:54:00:02:03:15   192.168.203.21
+        +   trop03  Marpus      52:54:00:02:03:16   192.168.203.22
+        +   trop03  Byflame     52:54:00:02:03:17   192.168.203.23
+
+            trop04  Wumar       52:54:00:02:04:08   192.168.204.8
+            trop04  Larilaweth  52:54:00:02:04:09   192.168.204.9
+            trop04  Ror         52:54:00:02:04:0A   192.168.204.10
+            trop04  Asterade    52:54:00:02:04:0B   192.168.204.11
+
+# -----------------------------------------------------
+# Extend the list of host names.
+#[user@trop03]
+
+    sudo vi /etc/hosts
+
+        # trop03 virtual machines
+        192.168.203.8       Umiawyth
+        192.168.203.9       Etalema
+        192.168.203.10      Greand
+        192.168.203.11      Nydiralle
+        192.168.203.12      Kedaekoth
+        192.168.203.13      Onelith
+        192.168.203.14      Elaleld
+        192.168.203.15      Afoaviel
+
+    +   192.168.203.16      Rusaldez
+    +   192.168.203.17      Stedigo
+    +   192.168.203.18      Angece
+    +   192.168.203.19      Edwalafia
+    +   192.168.203.20      Onoza
+    +   192.168.203.21      Fosauri
+    +   192.168.203.22      Marpus
+    +   192.168.203.23      Byflame
+
+# -----------------------------------------------------
+# Add the new host names to our ssh config.
+#[user@trop03]
+
+    vi "${HOME}/.ssh/config"
+
+    +    host Rusaldez Stedigo Angece Edwalafia Onoza Fosauri Marpus Byflame
+    +       User Stevedore
+    +       CheckHostIP no
+    +       UserKnownHostsFile /dev/null
+    +        StrictHostKeyChecking no
+
+# -----------------------------------------------------
+# Extend the list of DHCP entries.
+#[user@trop03]
+
+    virsh \
+        --connect ${connection:?} \
+            net-edit \
+                'default'
+
+
+        <network ....>
+          ....
+          ....
+          <ip ....>
+            <dhcp>
+    -         <range start='192.168.203.8' end='192.168.203.15'/>
+    +         <range start='192.168.203.8' end='192.168.203.23'/>
+              ....
+              ....
+    +         <host mac='52:54:00:02:03:10' name='Rusaldez'  ip='192.168.203.16'/>
+    +         <host mac='52:54:00:02:03:11' name='Stedigo'   ip='192.168.203.17'/>
+    +         <host mac='52:54:00:02:03:12' name='Angece'    ip='192.168.203.18'/>
+    +         <host mac='52:54:00:02:03:13' name='Edwalafia' ip='192.168.203.19'/>
+    +         <host mac='52:54:00:02:03:14' name='Onoza'     ip='192.168.203.20'/>
+    +         <host mac='52:54:00:02:03:15' name='Fosauri'   ip='192.168.203.21'/>
+    +         <host mac='52:54:00:02:03:16' name='Marpus'    ip='192.168.203.22'/>
+    +         <host mac='52:54:00:02:03:17' name='Byflame'   ip='192.168.203.23'/>
+            </dhcp>
+          </ip>
+        </network>
+
+    virsh \
+        --connect ${connection:?} \
+            net-destroy \
+                'default'
+
+    virsh \
+        --connect ${connection:?} \
+            net-start \
+                'default'
+
+    virsh \
+        --connect ${connection:?} \
+            net-dumpxml \
+                'default'
+
+
+# -----------------------------------------------------
+# Assign our virtual machine names.
+#[user@trop03]
+
+    kfnames=(
+        Stedigo
+        Angece
+        Edwalafia
+        Onoza
+        )
+
+    zknames=(
+        Fosauri
+        Marpus
+        Byflame
+        )
+
+    mmnames=(
+        Afoaviel
+        Rusaldez
+        )
+
+# -----------------------------------------------------
+# Create our Zookeeper nodes.
+#[user@trop03]
+
+    createvm
+
+        INFO : Node name [Fosauri]
+        INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+        INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+        INFO : Disc name [Fosauri.qcow]
+        INFO : Disc size [8GiB]
+
+        INFO : MAC  [52:54:00:02:03:15]
+        INFO : IPv4 [192.168.203.21]
+
+    createvm
+
+        INFO : Node name [Marpus]
+        INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+        INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+        INFO : Disc name [Marpus.qcow]
+        INFO : Disc size [8GiB]
+
+        INFO : MAC  [52:54:00:02:03:16]
+        INFO : IPv4 [192.168.203.22]
+
+    createvm
+
+        INFO : Node name [Byflame]
+        INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+        INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+        INFO : Disc name [Byflame.qcow]
+        INFO : Disc size [8GiB]
+
+        INFO : MAC  [52:54:00:02:03:17]
+        INFO : IPv4 [192.168.203.23]
+
+
+# -----------------------------------------------------
+# Update the number of cores on our Zookeeper nodes.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+    for vmname in ${zknames[@]}
+        do
+            virsh \
+                --connect ${connection:?} \
+                    setvcpus \
+                    ${vmname:?} \
+                    2 \
+                    --maximum \
+                    --config
+        done
+
+# -----------------------------------------------------
+# Shutdown and restart each of our Zookeeper nodes.
+#[user@trop03]
+
+    for vmname in ${zknames[@]}
+        do
+            virsh \
+                --connect ${connection:?} \
+                    shutdown \
+                    ${vmname:?}
+        done
+
+    sleep 30
+
+    for vmname in ${zknames[@]}
+        do
+            virsh \
+                --connect ${connection:?} \
+                    start \
+                    ${vmname:?}
+        done
+
+
+        Domain Fosauri is being shutdown
+        Domain Marpus is being shutdown
+        Domain Byflame is being shutdown
+
+
+        Domain Fosauri started
+        Domain Marpus started
+        Domain Byflame started
+
+
+# -----------------------------------------------------
+# Check the number of cores on our Zookeeper nodes.
+#[user@trop03]
+
+    for vmname in ${zknames[@]}
+        do
+            virsh \
+                --quiet \
+                --connect ${connection:?} \
+                    dumpxml \
+                        "${vmname}" \
+            | xmlstarlet \
+                select \
+                    --root \
+                    --indent \
+                    --template \
+                        --copy-of '//domain/name' \
+                        --copy-of '//domain/vcpu'
+
+        done
+
+
+        <xsl-select>
+          <name>Fosauri</name>
+          <vcpu placement="static">2</vcpu>
+        </xsl-select>
+        <xsl-select>
+          <name>Marpus</name>
+          <vcpu placement="static">2</vcpu>
+        </xsl-select>
+        <xsl-select>
+          <name>Byflame</name>
+          <vcpu placement="static">2</vcpu>
+        </xsl-select>
+
+# -----------------------------------------------------
+# Collect the IP addreses for our Zookeeper nodes.
+#[user@trop03]
+
+    unset zknodes
+    declare -A zknodes
+
+    for vmname in ${zknames[@]}
+        do
+            vmipv4=$(
+                virsh \
+                    --connect ${connection:?} \
+                        net-dumpxml \
+                            'default' \
+                | xmlstarlet \
+                    select \
+                        --template \
+                            --value-of "//host[@name=\"${vmname}\"]/@ip"
+                )
+            echo "vmname [${vmname}]"
+            echo "vmipv4 [${vmipv4}]"
+
+            zknodes[${vmname}]=${vmipv4}
+    done
+
+
+        vmname [Fosauri]
+        vmipv4 [192.168.203.21]
+        vmname [Marpus]
+        vmipv4 [192.168.203.22]
+        vmname [Byflame]
+        vmipv4 [192.168.203.23]
+
+
+    for vmname in ${!zknodes[@]}
+        do
+            echo "vmname [${vmname}]"
+            echo "vmipv4 [${zknodes[${vmname}]}]"
+        done
+
+
+        vmname [Fosauri]
+        vmipv4 [192.168.203.21]
+        vmname [Marpus]
+        vmipv4 [192.168.203.22]
+        vmname [Byflame]
+        vmipv4 [192.168.203.23]
+
+
+# -----------------------------------------------------
+# Build a list of lists of zookeeper addresses.
+# The address for this server should be 0.0.0.0 to make zookeeper
+# listen on all interfaces for inter zookeeper communications.
+#[user@trop03]
+
+    unset serverlist
+    serverlist=()
+
+    for i in {0..2}
+    do
+
+        delim=''
+        ports=':2888:3888'
+        servers=''
+
+        j=0
+
+        for vmname in ${!zknodes[@]}
+        do
+            if [[ $i -eq $j ]]
+            then
+                server="0.0.0.0"
+            else
+                server=${zknodes[${vmname}]}
+            fi
+            servers=${servers}${delim}${server}${ports}
+            delim=';'
+            j=$(($j + 1))
+        done
+        serverlist+=(${servers})
+    done
+
+    echo "List [${serverlist[0]}]"
+    echo "List [${serverlist[1]}]"
+    echo "List [${serverlist[2]}]"
+
+
+    >   List [0.0.0.0:2888:3888;192.168.203.22:2888:3888;192.168.203.23:2888:3888]
+    >   List [192.168.203.21:2888:3888;0.0.0.0:2888:3888;192.168.203.23:2888:3888]
+    >   List [192.168.203.21:2888:3888;192.168.203.22:2888:3888;0.0.0.0:2888:3888]
+
+
+# -----------------------------------------------------
+# Create our compose YAML file.
+#[user@trop03]
+
+cat > /tmp/zookeeper.yml << 'EOYML'
+
+version: '3'
+
+networks:
+    zookeeper:
+
+volumes:
+    zklog:
+    zkdata:
+
+services:
+
+    courtney:
+        image:
+            confluentinc/cp-zookeeper:4.1.1
+        ports:
+            - "2181:2181"
+            - "2888:2888"
+            - "3888:3888"
+        environment:
+            - ZOOKEEPER_SERVER_ID=${ZOOKEEPER_SERVER_ID}
+            - ZOOKEEPER_SERVERS=${ZOOKEEPER_SERVERS}
+            - ZOOKEEPER_TICK_TIME=2000
+            - ZOOKEEPER_INIT_LIMIT=5
+            - ZOOKEEPER_SYNC_LIMIT=2
+            - ZOOKEEPER_CLIENT_PORT=2181
+            - ZOOKEEPER_CLIENT_PORT_ADDRESS=0.0.0.0
+        volumes:
+            - "zklog:/var/lib/zookeeper/log"
+            - "zkdata:/var/lib/zookeeper/data"
+        networks:
+            - zookeeper
+
+EOYML
+
+# -----------------------------------------------------
+# Configure our SSH settings.
+#[user@trop03]
+
+    sshuser=Stevedore
+    sshopts=(
+        '-A'
+        '-o LogLevel=ERROR'
+        '-o CheckHostIP=no'
+        '-o UserKnownHostsFile=/dev/null'
+        '-o StrictHostKeyChecking=no'
+        )
+
+    scpopts=(
+        '-o LogLevel=ERROR'
+        '-o CheckHostIP=no'
+        '-o UserKnownHostsFile=/dev/null'
+        '-o StrictHostKeyChecking=no'
+        )
+
+# -----------------------------------------------------
+# Deploy our compose YAML file.
+#[user@trop03]
+
+    for vmname in ${!zknodes[@]}
+        do
+            scp \
+                ${scpopts[*]} \
+                /tmp/zookeeper.yml \
+                ${sshuser:?}@${vmname:?}:zookeeper.yml
+        done
+
+# -----------------------------------------------------
+# Deploy our compose ENV file.
+#[user@trop03]
+
+    vmnum=0
+    for vmname in ${!zknodes[@]}
+        do
+            ssh \
+                ${scpopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+cat > zookeeper.env << EOF
+ZOOKEEPER_SERVER_ID=$((${vmnum}+1))
+ZOOKEEPER_SERVERS=${serverlist[${vmnum}]}
+EOF
+ln -sf zookeeper.env .env
+                "
+            vmnum=$((${vmnum}+1))
+        done
+
+
+    for vmname in ${!zknodes[@]}
+        do
+            echo "---- ----"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                hostname
+                cat .env
+                "
+        done
+
+
+        ---- ----
+        Fosauri
+        ZOOKEEPER_SERVER_ID=1
+        ZOOKEEPER_SERVERS=0.0.0.0:2888:3888;192.168.203.22:2888:3888;192.168.203.23:2888:3888
+        ---- ----
+        Marpus
+        ZOOKEEPER_SERVER_ID=2
+        ZOOKEEPER_SERVERS=192.168.203.21:2888:3888;0.0.0.0:2888:3888;192.168.203.23:2888:3888
+        ---- ----
+        Byflame
+        ZOOKEEPER_SERVER_ID=3
+        ZOOKEEPER_SERVERS=192.168.203.21:2888:3888;192.168.203.22:2888:3888;0.0.0.0:2888:3888
+
+
+# -----------------------------------------------------
+# Start Zookeeper on each node.
+#[user@trop03]
+
+    for vmname in ${!zknodes[@]}
+        do
+            echo "---- ----"
+            ssh \
+                ${scpopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                hostname
+                docker-compose \
+                    --file zookeeper.yml \
+                    up -d
+                "
+        done
+
+
+# -----------------------------------------------------
+# Login and tail the logs (separate terminals).
+#[user@trop03]
+
+    ssh trop03
+        ssh Fosauri
+        ssh Marpus
+        ssh Byflame
+
+            docker logs -f stevedore_courtney_1
+
+
+

@@ -1,0 +1,1107 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2018, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+    #
+    # Refactor the pools (again)
+
+        Keep the base and live images in '/var' (65G)
+
+            Name [default]
+            Path [/var/lib/libvirt/images]
+
+            Name [base]
+            Path [/var/lib/libvirt/images/base]
+
+            Name [live]
+            Path [/var/lib/libvirt/images/live]
+
+        Add a /home (53G) directory for libvirt and make that available as a pool
+
+            Name [home]
+            Path [/home/libvirt/images/home]
+
+        Add a /data0 directory on '/' (92G), and make that available as a pool.
+
+            Name [data0]
+            Path [/data0/libvirt/images/data0]
+
+        Add a /data{n} directory on each of the HDD drives and make them available as pools.
+
+            Name [data1]
+            Path [/data1/libvirt/images/data1]
+
+            Name [data2]
+            Path [/data2/libvirt/images/data2]
+
+
+
+# -----------------------------------------------------
+# List the pools.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        --connect ${connection:?} \
+        pool-list \
+            --all \
+            --details
+
+    >    Name     State    Autostart  Persistent   Capacity  Allocation  Available
+    >   ---------------------------------------------------------------------------
+    >    base     running  yes        yes         64.04 GiB    4.35 GiB  59.70 GiB
+    >    data1    running  yes        yes          3.58 TiB   68.01 MiB   3.58 TiB
+    >    data2    running  yes        yes          3.58 TiB    2.55 TiB   1.03 TiB
+    >    default  running  no         yes         64.04 GiB    4.35 GiB  59.70 GiB
+    >    init     running  yes        yes         91.54 GiB    1.58 GiB  89.96 GiB
+    >    live     running  yes        yes         91.54 GiB    1.58 GiB  89.96 GiB
+
+
+# -----------------------------------------------------
+# List the pool paths.
+#[user@trop03]
+
+    for poolname in $(
+        virsh \
+            --quiet \
+            --connect ${connection:?} \
+            pool-list --all \
+          | sed '
+            s/[[:space:]]*\([^[:space:]]*\)[[:space:]]*\([^[:space:]]*\)[[:space:]]*\([^[:space:]]*\)/\1/
+            '
+        )
+        do
+            poolpath=$(
+                virsh \
+                    --connect ${connection:?} \
+                    pool-dumpxml \
+                        "${poolname:?}" \
+                  | xmlstarlet select -t -v '//target/path'
+                )
+            echo ""
+            echo "Name [${poolname}]"
+            echo "Path [${poolpath}]"
+        done
+
+    >   Name [base]
+    >   Path [/var/lib/libvirt/images/base]
+    >
+    >   Name [data1]
+    >   Path [/data1/libvirt/images/data1]
+    >
+    >   Name [data2]
+    >   Path [/data2/libvirt/images/data2]
+    >
+    >   Name [default]
+    >   Path [/var/lib/libvirt/images]
+    >
+    >   Name [init]
+    >   Path [/libvirt/images/init]
+    >
+    >   Name [live]
+    >   Path [/libvirt/images/live]
+
+
+# -----------------------------------------------------
+# Changes ...
+
+        Move 'live' to '/var/lib/libvirt'
+        Move 'init' to '/var/lib/libvirt'
+
+        Add a /data0 directory on '/' (92G), and make that available as a pool.
+
+            Name [data0]
+            Path [/data0/libvirt/images/data0]
+
+        Add a /home (53G) directory for libvirt and make that available as a pool
+
+            Name [home]
+            Path [/home/libvirt/images/home]
+
+# -----------------------------------------------------
+# Shutdown the existing VMs.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+    for vmname in $(
+        virsh \
+            --quiet \
+            --connect ${connection:?} \
+            list --all \
+          | sed '
+            s/[[:space:]]*\([^[:space:]]*\)[[:space:]]*\([^[:space:]]*\)[[:space:]]*\([^[:space:]]*\)/\2/
+            '
+        )
+        do
+            echo ""
+            echo "Stopping [${vmname}]"
+            virsh \
+                --quiet \
+                --connect ${connection:?} \
+                destroy \
+                    "${vmname}"
+
+            echo "Deleting [${vmname}]"
+            virsh \
+                --quiet \
+                --connect ${connection:?} \
+                undefine \
+                    "${vmname:?}" \
+                    --remove-all-storage
+
+        done
+
+    >   Stopping [Umiawyth]
+    >   Deleting [Umiawyth]
+
+
+# -----------------------------------------------------
+# Delete the pools we want to move.
+#[user@trop03]
+
+    oldpools=(
+        init
+        live
+        )
+
+    for poolname in ${oldpools[@]}
+        do
+            echo "Autostart pool [${poolname}]"
+            virsh \
+                --connect ${connection:?} \
+                pool-autostart \
+                    --disable \
+                    ${poolname:?}
+            echo "Destroying pool [${poolname}]"
+            virsh \
+                --connect ${connection:?} \
+                pool-destroy \
+                    ${poolname:?}
+            echo "Deleting pool [${poolname}]"
+            virsh \
+                --connect ${connection:?} \
+                pool-delete \
+                    ${poolname:?}
+            echo "Undefining pool [${poolname}]"
+            virsh \
+                --connect ${connection:?} \
+                pool-undefine \
+                    ${poolname:?}
+        done
+
+    >   Autostart pool [init]
+    >   Pool init unmarked as autostarted
+    >
+    >   Destroying pool [init]
+    >   Pool init destroyed
+    >
+    >   Deleting pool [init]
+    >   Pool init deleted
+    >
+    >   Undefining pool [init]
+    >   Pool init has been undefined
+    >
+    >   Autostart pool [live]
+    >   Pool live unmarked as autostarted
+    >
+    >   Destroying pool [live]
+    >   Pool live destroyed
+    >
+    >   Deleting pool [live]
+    >   Pool live deleted
+    >
+    >   Undefining pool [live]
+    >   Pool live has been undefined
+
+
+# -----------------------------------------------------
+# Define the new pools we want to create.
+#[user@trop03]
+
+    unset pooldata
+    declare -A pooldata=(
+        [init]=/var/lib/libvirt/images/init
+        [live]=/var/lib/libvirt/images/live
+        [home]=/home/libvirt/images/home
+        [data0]=/data/libvirt/images/data0
+        )
+
+    sudo ls
+
+    source "${HOME}/libvirt.settings"
+
+    for poolname in "${!pooldata[@]}"
+        do
+            poolpath=${pooldata[${poolname:?}]}
+            echo "Name [${poolname:?}]"
+            echo "Path [${poolpath:?}]"
+
+            sudo mkdir -p ${poolpath:?}
+
+            virsh \
+                --connect ${connection:?} \
+                pool-define-as \
+                    "${poolname:?}" \
+                    'dir' \
+                    --target "${poolpath}"
+
+        done
+
+    >   Name [init]
+    >   Path [/var/lib/libvirt/images/init]
+    >   Pool init defined
+    >
+    >   Name [home]
+    >   Path [/home/libvirt/images/home]
+    >   Pool home defined
+    >
+    >   Name [data0]
+    >   Path [/data/libvirt/images/data0]
+    >   Pool data0 defined
+    >
+    >   Name [live]
+    >   Path [/var/lib/libvirt/images/live]
+    >   Pool live defined
+
+
+# -----------------------------------------------------
+# Initialise the new pools.
+#[user@trop03]
+
+    for poolname in "${!pooldata[@]}"
+        do
+
+            virsh \
+                --connect ${connection:?} \
+                pool-build \
+                    "${poolname:?}"
+
+            virsh \
+                --connect ${connection:?} \
+                pool-autostart \
+                    ${poolname:?}
+
+            virsh \
+                --connect ${connection:?} \
+                pool-start \
+                    ${poolname:?}
+
+        done
+
+    >   Pool init built
+    >   Pool init marked as autostarted
+    >   Pool init started
+    >
+    >   Pool home built
+    >   Pool home marked as autostarted
+    >   Pool home started
+    >
+    >   Pool data0 built
+    >   Pool data0 marked as autostarted
+    >   Pool data0 started
+    >
+    >   Pool live built
+    >   Pool live marked as autostarted
+    >   Pool live started
+
+
+# -----------------------------------------------------
+# Remove the 'default' pool.
+#[user@trop03]
+
+        poolname=default
+
+        virsh \
+            --connect ${connection:?} \
+            pool-destroy \
+                ${poolname:?}
+
+        virsh \
+            --connect ${connection:?} \
+            pool-undefine \
+                ${poolname:?}
+
+# -----------------------------------------------------
+# List the pools.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        --connect ${connection:?} \
+        pool-list \
+            --all \
+            --details
+
+    >    Name   State    Autostart  Persistent   Capacity  Allocation  Available
+    >   -------------------------------------------------------------------------
+    >    base   running  yes        yes         64.04 GiB    4.35 GiB  59.70 GiB
+    >    data0  running  yes        yes         91.54 GiB    1.58 GiB  89.96 GiB
+    >    data1  running  yes        yes          3.58 TiB   68.01 MiB   3.58 TiB
+    >    data2  running  yes        yes          3.58 TiB    2.55 TiB   1.03 TiB
+    >    home   running  yes        yes         52.60 GiB    4.15 GiB  48.45 GiB
+    >    init   running  yes        yes         64.04 GiB    4.35 GiB  59.69 GiB
+    >    live   running  yes        yes         64.04 GiB    4.35 GiB  59.69 GiB
+
+
+# -----------------------------------------------------
+# List the pool paths.
+#[user@trop03]
+
+    for poolname in $(
+        virsh \
+            --quiet \
+            --connect ${connection:?} \
+            pool-list --all \
+          | sed '
+            s/[[:space:]]*\([^[:space:]]*\)[[:space:]]*\([^[:space:]]*\)[[:space:]]*\([^[:space:]]*\)/\1/
+            '
+        )
+        do
+            poolpath=$(
+                virsh \
+                    --connect ${connection:?} \
+                    pool-dumpxml \
+                        "${poolname:?}" \
+                  | xmlstarlet select -t -v '//target/path'
+                )
+            echo ""
+            echo "Name [${poolname}]"
+            echo "Path [${poolpath}]"
+        done
+
+    >   Name [base]
+    >   Path [/var/lib/libvirt/images/base]
+    >
+    >   Name [data0]
+    >   Path [/data/libvirt/images/data0]
+    >
+    >   Name [data1]
+    >   Path [/data1/libvirt/images/data1]
+    >
+    >   Name [data2]
+    >   Path [/data2/libvirt/images/data2]
+    >
+    >   Name [home]
+    >   Path [/home/libvirt/images/home]
+    >
+    >   Name [init]
+    >   Path [/var/lib/libvirt/images/init]
+    >
+    >   Name [live]
+    >   Path [/var/lib/libvirt/images/live]
+
+
+# -----------------------------------------------------
+# Restart the libvirt daemon.
+#[user@trop03]
+
+    sudo \
+        systemctl \
+            restart libvirtd
+
+    sudo \
+        systemctl \
+            status libvirtd
+
+
+        ● libvirtd.service - Virtualization daemon
+           Loaded: loaded (/lib/systemd/system/libvirtd.service; enabled; vendor preset: enabled)
+           Active: active (running) since Sun 2018-12-09 14:48:57 GMT; 13s ago
+             Docs: man:libvirtd(8)
+                   http://libvirt.org
+         Main PID: 30582 (libvirtd)
+            Tasks: 18 (limit: 4915)
+           CGroup: /system.slice/libvirtd.service
+                   ├─ 1453 /usr/sbin/dnsmasq --conf-file=/var/lib/libvirt/dnsmasq/default.conf --leasefile-ro --dhcp-script=/usr/lib/libvirt/libvirt_leaseshelper
+                   ├─ 1454 /usr/sbin/dnsmasq --conf-file=/var/lib/libvirt/dnsmasq/default.conf --leasefile-ro --dhcp-script=/usr/lib/libvirt/libvirt_leaseshelper
+                   └─30582 /usr/sbin/libvirtd
+
+    >   Dec 09 14:48:56 trop03 systemd[1]: Starting Virtualization daemon...
+    >   Dec 09 14:48:57 trop03 systemd[1]: Started Virtualization daemon.
+    >   Dec 09 14:48:57 trop03 libvirtd[30582]: 2018-12-09 14:48:57.040+0000: 30598: info : libvirt version: 3.0.0, package: 4+deb9u3 (Guido Günther <agx@sigxcpu.org> Mon, 12 Mar 2018 19:11:51 +0100)
+    >   Dec 09 14:48:57 trop03 libvirtd[30582]: 2018-12-09 14:48:57.040+0000: 30598: info : hostname: trop03
+    >   Dec 09 14:48:57 trop03 libvirtd[30582]: 2018-12-09 14:48:57.040+0000: 30598: error : virNetworkAssignDefLocked:568 : operation failed: network 'default' already exists with uuid 31cb63d0-459d-4768-a489-9d17480a3d58
+    >   Dec 09 14:48:57 trop03 libvirtd[30582]: 2018-12-09 14:48:57.040+0000: 30598: error : virNetworkAssignDefLocked:568 : operation failed: network 'bridged' already exists with uuid e2c945f3-eb3e-4020-befa-c752e8b11de7
+    >   Dec 09 14:48:57 trop03 dnsmasq[1453]: read /etc/hosts - 52 addresses
+    >   Dec 09 14:48:57 trop03 dnsmasq[1453]: read /var/lib/libvirt/dnsmasq/default.addnhosts - 0 addresses
+    >   Dec 09 14:48:57 trop03 dnsmasq-dhcp[1453]: read /var/lib/libvirt/dnsmasq/default.hostsfile
+
+
+# -----------------------------------------------------
+# Create a minimal test VM.
+#[user@trop03]
+
+    createvm
+
+    >   INFO : Base pool  [base]
+    >   INFO : Live pool  [live]
+    >   INFO : Connection [qemu:///system]
+    >
+    >   INFO : Data path  [/var/local/projects/ischnura/github/src/dat]
+    >
+    >   INFO : Machines   [/var/local/projects/ischnura/github/src/dat/tropo-machines.txt]
+    >   INFO : Template   [/var/local/projects/ischnura/github/src/dat/tropo-template.xml]
+    >
+    >   [1] Umiawyth
+    >   [2] Etalema
+    >   [3] Greand
+    >   [4] Nydiralle
+    >   [5] Kedaekoth
+    >   [6] Onelith
+    >   [7] Elaleld
+    >   [8] Afoaviel
+    >   Select machine name (1) 1
+    >
+    >   [1] fedora-28-8G-docker-base-20181016.qcow
+    >   [2] fedora-28-32G-docker-base-20181016.qcow
+    >   [3] fedora-28-16G-docker-base-20181016.qcow
+    >   Select base image (1)
+    >
+    >   INFO : Node name [Umiawyth]
+    >   INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Disc name [Umiawyth.qcow]
+    >   INFO : Disc size [8GiB]
+    >
+    >   INFO : MAC  [52:54:00:02:03:08]
+    >   INFO : IPv4 [192.168.203.8]
+    >   INFO : IPv6 []
+    >
+    >   Create virtual machine (Y/n)
+    >
+    >   Creating new volume [Umiawyth.qcow]
+    >   Name:           Umiawyth.qcow
+    >   Type:           file
+    >   Capacity:       8.00 GiB
+    >   Allocation:     196.00 KiB
+    >
+    >   Creating new virtual machine [Umiawyth]
+    >   Starting new virtual machine [Umiawyth]
+
+
+# -----------------------------------------------------
+# Check the VM volumes.
+#[user@trop03]
+
+    vmname=Umiawyth
+
+    virsh \
+        --quiet \
+        --connect ${connection:?} \
+            dumpxml \
+                "${vmname}" \
+    | xmlstarlet \
+        select \
+            --root \
+            --indent \
+            --template \
+                --copy-of '//devices/disk'
+
+    >   <xsl-select>
+    >     <disk type="file" device="disk">
+    >         <driver name="qemu" type="qcow2"/>
+    >         <source file="/var/lib/libvirt/images/live/Umiawyth.qcow"/>
+    >         <backingStore type="file" index="1">
+    >           <format type="qcow2"/>
+    >           <source file="/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow"/>
+    >           <backingStore/>
+    >         </backingStore>
+    >         <target dev="vda" bus="virtio"/>
+    >         <alias name="virtio-disk0"/>
+    >         <address type="pci" domain="0x0000" bus="0x00" slot="0x04" function="0x0"/>
+    >       </disk>
+    >     <disk type="file" device="cdrom">
+    >         <driver name="qemu" type="raw"/>
+    >         <source file="/var/lib/libvirt/images/init/Umiawyth.iso"/>
+    >         <backingStore/>
+    >         <target dev="vdb" bus="virtio"/>
+    >         <readonly/>
+    >         <alias name="virtio-disk1"/>
+    >         <address type="pci" domain="0x0000" bus="0x00" slot="0x05" function="0x0"/>
+    >       </disk>
+    >   </xsl-select>
+
+
+# -----------------------------------------------------
+# Create a new 32G volume in the data0 pool.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+    vmname=Umiawyth
+
+    volpool=data0
+    volname=${vmname:?}-${volpool:?}-01.qcow
+    volsize=32G
+
+    virsh \
+        --connect ${connection:?} \
+        vol-create-as \
+            ${volpool:?} \
+            ${volname:?} \
+            ${volsize} \
+            --allocation 0 \
+            --format qcow2
+
+    >   Vol Umiawyth-data0-01.qcow created
+
+
+# -----------------------------------------------------
+# Check the volume info.
+#[user@trop03]
+
+    virsh \
+        --connect ${connection:?} \
+        vol-info \
+            --pool "${volpool:?}" \
+            ${volname:?}
+
+    >   Name:           Umiawyth-data0-01.qcow
+    >   Type:           file
+    >   Capacity:       32.00 GiB
+    >   Allocation:     196.00 KiB
+
+
+# -----------------------------------------------------
+# Get the volume path.
+#[user@trop03]
+
+    volpath=$(
+        virsh \
+            --connect "${connection:?}" \
+            vol-path \
+                --pool "${volpool:?}" \
+                "${volname:?}"
+        )
+
+    echo "Path [${volpath:?}]"
+
+    >   Path [/data/libvirt/images/data0/Umiawyth-data0-01.qcow]
+
+
+# -----------------------------------------------------
+# Attach the volume to the VM.
+#[user@trop03]
+
+    voldev=vdc
+
+    virsh \
+        --connect "${connection:?}" \
+        attach-disk \
+            ${vmname:?}   \
+            ${volpath:?}  \
+            ${voldev:?}   \
+            --driver qemu  \
+            --subdriver qcow2
+
+    >   Disk attached successfully
+
+
+#---------------------------------------------------------------------
+# Login to the VM and expand the root filesystem to use the new space.
+# https://www.thegeekdiary.com/how-to-resize-expand-a-btrfs-volume-filesystem/
+#[user@trop03]
+
+    ssh "${vmname:?}"
+
+#---------------------------------------------------------------------
+# Scan the scsi-bus to find new LUN/disk.
+# https://www.thegeekdiary.com/how-to-resize-expand-a-btrfs-volume-filesystem/
+# https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/5/html/online_storage_reconfiguration_guide/rescan-scsi-bus
+#[user@virtual]
+#
+#    dnf info sg3_utils
+#
+#    rescan-scsi-bus.sh -a
+#
+
+#---------------------------------------------------------------------
+# Check we can see the new device.
+#[user@virtual]
+
+    lsblk -f
+
+    >   NAME   FSTYPE  LABEL  UUID                                 MOUNTPOINT
+    >   vda
+    >   ├─vda1 ext4    boot   3de0577b-7b0d-4b93-b164-3e0cfaa9478c /boot
+    >   ├─vda2 swap    swap   84568855-af15-4b56-8409-7f463213a734 [SWAP]
+    >   └─vda3 btrfs   system 7b0ea027-9351-4659-8b35-bc6aef4451d2 /
+    >   vdb    iso9660 cidata 2018-12-09-14-51-20-00
+    >   vdc
+
+
+    devpath=/dev/vdc
+
+    sudo fdisk -l ${devpath:?}
+
+    >   Disk /dev/vdc: 32 GiB, 34359738368 bytes, 67108864 sectors
+    >   Units: sectors of 1 * 512 = 512 bytes
+    >   Sector size (logical/physical): 512 bytes / 512 bytes
+    >   I/O size (minimum/optimal): 512 bytes / 512 bytes
+
+
+#---------------------------------------------------------------------
+# Check the available space.
+#[user@virtual]
+
+    df -h '/'
+
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vda3       6.8G  1.8G  4.5G  28% /
+
+
+#---------------------------------------------------------------------
+# Add the new device to our root '/' volume.
+#[user@virtual]
+
+    sudo btrfs \
+        device add \
+            --force \
+            ${devpath:?} '/'
+
+#---------------------------------------------------------------------
+# Check the available space.
+#[user@virtual]
+
+    df -h '/'
+
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vda3        39G  1.8G   37G   5% /
+
+
+#---------------------------------------------------------------------
+# Re-balance the btrfs metadata.
+#[user@virtual]
+
+    sudo btrfs \
+        balance \
+            start \
+            --full-balance \
+            '/'
+
+    >   Done, had to relocate 4 out of 4 chunks
+
+
+#---------------------------------------------------------------------
+# Check the available space.
+#[user@virtual]
+
+    df -h '/'
+
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vda3        39G  1.8G   37G   5% /
+
+
+#---------------------------------------------------------------------
+# Create some dummy files to fill up the space.
+#[user@virtual]
+
+    for i in {1..5}
+    do
+        filename
+        dd if=/dev/urandom bs=$((1024 * 1024)) count=$((1024 * 5)) of=dummy-$(uuidgen)
+    done
+
+    >   5120+0 records in
+    >   5120+0 records out
+    >   5368709120 bytes (5.4 GB, 5.0 GiB) copied, 19.8274 s, 271 MB/s
+    >   5120+0 records in
+    >   5120+0 records out
+    >   5368709120 bytes (5.4 GB, 5.0 GiB) copied, 31.9911 s, 168 MB/s
+    >   5120+0 records in
+    >   5120+0 records out
+    >   5368709120 bytes (5.4 GB, 5.0 GiB) copied, 30.7725 s, 174 MB/s
+    >   5120+0 records in
+    >   5120+0 records out
+    >   5368709120 bytes (5.4 GB, 5.0 GiB) copied, 28.1862 s, 190 MB/s
+    >   5120+0 records in
+    >   5120+0 records out
+    >   5368709120 bytes (5.4 GB, 5.0 GiB) copied, 26.3553 s, 204 MB/s
+
+
+    ls -lh dummy*
+
+    >   -rw-rw-r--. 1 Stevedore Stevedore 5.0G Dec  9 18:56 dummy-4c6c5398-b8d2-4589-a290-87594b20722b
+    >   -rw-rw-r--. 1 Stevedore Stevedore 5.0G Dec  9 18:56 dummy-4d54aca4-9ca7-4e2e-9025-3637c419652c
+    >   -rw-rw-r--. 1 Stevedore Stevedore 5.0G Dec  9 18:55 dummy-54d44f3e-d908-459f-98dc-2c5dab04300f
+    >   -rw-rw-r--. 1 Stevedore Stevedore 5.0G Dec  9 18:55 dummy-9edc3d8a-bd20-405b-a269-b4c460f2e683
+    >   -rw-rw-r--. 1 Stevedore Stevedore 5.0G Dec  9 18:54 dummy-c87f3f96-014f-43cd-9f3d-2b40315e8b97
+
+
+    sudo du -h -d 1 --exclude /proc / | sort -h
+
+    >   0	    /dev
+    >   0	    /media
+    >   0	    /mnt
+    >   0	    /opt
+    >   0	    /srv
+    >   0	    /sys
+    >   0	    /tmp
+    >   40K	    /root
+    >   524K	/run
+    >   23M	    /etc
+    >   88M	    /boot
+    >   495M	/var
+    >   1.2G	/usr
+    >   26G	    /home
+    >   27G	    /
+
+
+    df -h /
+
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vda3        39G   27G   12G  70% /
+
+
+# -----------------------------------------------------
+# Create a minimal test VM.
+#[user@trop03]
+
+    createvm
+
+    >   INFO : Base pool  [base]
+    >   INFO : Live pool  [live]
+    >   INFO : Connection [qemu:///system]
+    >
+    >   INFO : Data path  [/var/local/projects/ischnura/github/src/dat]
+    >
+    >   INFO : Machines   [/var/local/projects/ischnura/github/src/dat/tropo-machines.txt]
+    >   INFO : Template   [/var/local/projects/ischnura/github/src/dat/tropo-template.xml]
+    >
+    >   [1] Umiawyth
+    >   [2] Etalema
+    >   [3] Greand
+    >   [4] Nydiralle
+    >   [5] Kedaekoth
+    >   [6] Onelith
+    >   [7] Elaleld
+    >   [8] Afoaviel
+    >   Select machine name (1) 2
+    >
+    >   [1] fedora-28-8G-docker-base-20181016.qcow
+    >   [2] fedora-28-32G-docker-base-20181016.qcow
+    >   [3] fedora-28-16G-docker-base-20181016.qcow
+    >   Select base image (1)
+    >
+    >   INFO : Node name [Etalema]
+    >   INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Disc name [Etalema.qcow]
+    >   INFO : Disc size [8GiB]
+    >
+    >   INFO : MAC  [52:54:00:02:03:09]
+    >   INFO : IPv4 [192.168.203.9]
+    >   INFO : IPv6 []
+    >
+    >   Create virtual machine (Y/n)
+    >
+    >   Creating new volume [Etalema.qcow]
+    >   Name:           Etalema.qcow
+    >   Type:           file
+    >   Capacity:       8.00 GiB
+    >   Allocation:     196.00 KiB
+    >
+    >   Creating new virtual machine [Etalema]
+    >   Starting new virtual machine [Etalema]
+
+
+# -----------------------------------------------------
+# Check the VM volumes.
+#[user@trop03]
+
+    vmname=Etalema
+
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        --quiet \
+        --connect ${connection:?} \
+            dumpxml \
+                "${vmname}" \
+    | xmlstarlet \
+        select \
+            --root \
+            --indent \
+            --template \
+                --copy-of '//devices/disk'
+
+    >   <xsl-select>
+    >     <disk type="file" device="disk">
+    >         <driver name="qemu" type="qcow2"/>
+    >         <source file="/var/lib/libvirt/images/live/Etalema.qcow"/>
+    >         <backingStore type="file" index="1">
+    >           <format type="qcow2"/>
+    >           <source file="/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow"/>
+    >           <backingStore/>
+    >         </backingStore>
+    >         <target dev="vda" bus="virtio"/>
+    >         <alias name="virtio-disk0"/>
+    >         <address type="pci" domain="0x0000" bus="0x00" slot="0x04" function="0x0"/>
+    >       </disk>
+    >     <disk type="file" device="cdrom">
+    >         <driver name="qemu" type="raw"/>
+    >         <source file="/var/lib/libvirt/images/init/Etalema.iso"/>
+    >         <backingStore/>
+    >         <target dev="vdb" bus="virtio"/>
+    >         <readonly/>
+    >         <alias name="virtio-disk1"/>
+    >         <address type="pci" domain="0x0000" bus="0x00" slot="0x05" function="0x0"/>
+    >       </disk>
+    >   </xsl-select>
+
+
+# -----------------------------------------------------
+# Create a new 32G volume in the data1 pool.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+    volpool=data1
+    volname=${vmname:?}-${volpool:?}-01.qcow
+    volsize=32G
+
+    virsh \
+        --connect ${connection:?} \
+        vol-create-as \
+            ${volpool:?} \
+            ${volname:?} \
+            ${volsize} \
+            --allocation 0 \
+            --format qcow2
+
+    >   Vol Etalema-data1-01.qcow created
+
+
+# -----------------------------------------------------
+# Check the volume info.
+#[user@trop03]
+
+    virsh \
+        --connect ${connection:?} \
+        vol-info \
+            --pool "${volpool:?}" \
+            ${volname:?}
+
+
+    >   Name:           Etalema-data1-01.qcow
+    >   Type:           file
+    >   Capacity:       32.00 GiB
+    >   Allocation:     196.00 KiB
+
+
+# -----------------------------------------------------
+# Get the volume path.
+#[user@trop03]
+
+    volpath=$(
+        virsh \
+            --connect "${connection:?}" \
+            vol-path \
+                --pool "${volpool:?}" \
+                "${volname:?}"
+        )
+
+    echo "Path [${volpath:?}]"
+
+
+    >   Path [/data1/libvirt/images/data1/Etalema-data1-01.qcow]
+
+
+# -----------------------------------------------------
+# Attach the volume to the VM.
+#[user@trop03]
+
+    voldev=vdc
+
+    virsh \
+        --connect "${connection:?}" \
+        attach-disk \
+            ${vmname:?}   \
+            ${volpath:?}  \
+            ${voldev:?}   \
+            --driver qemu  \
+            --subdriver qcow2
+
+    >   Disk attached successfully
+
+
+#---------------------------------------------------------------------
+# Login to the VM and add the new volume as a new partition.
+# https://www.thegeekdiary.com/how-to-resize-expand-a-btrfs-volume-filesystem/
+#[user@trop03]
+
+    ssh "${vmname:?}"
+
+#---------------------------------------------------------------------
+# Check we can see the new device.
+#[user@virtual]
+
+    lsblk -f
+
+    >   NAME   FSTYPE  LABEL  UUID                                 MOUNTPOINT
+    >   vda
+    >   ├─vda1 ext4    boot   3de0577b-7b0d-4b93-b164-3e0cfaa9478c /boot
+    >   ├─vda2 swap    swap   84568855-af15-4b56-8409-7f463213a734 [SWAP]
+    >   └─vda3 btrfs   system 7b0ea027-9351-4659-8b35-bc6aef4451d2 /
+    >   vdb    iso9660 cidata 2018-12-09-23-31-12-00
+    >   vdc
+
+
+#---------------------------------------------------------------------
+# Check the available space.
+#[user@virtual]
+
+    df -h | sort
+
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   devtmpfs        2.0G     0  2.0G   0% /dev
+    >   tmpfs           2.0G     0  2.0G   0% /dev/shm
+    >   tmpfs           2.0G  524K  2.0G   1% /run
+    >   tmpfs           2.0G     0  2.0G   0% /sys/fs/cgroup
+    >   /dev/vda3       6.8G  1.6G  4.7G  25% /
+    >   /dev/vda1       240M   89M  135M  40% /boot
+    >   tmpfs           2.0G  4.0K  2.0G   1% /tmp
+    >   tmpfs           395M     0  395M   0% /run/user/1001
+
+
+#---------------------------------------------------------------------
+# Check the device info.
+#[user@virtual]
+
+    devpath=/dev/vdc
+    mntpath=/data1-01
+
+    sudo fdisk -l ${devpath:?}
+
+    >   Disk /dev/vdc: 32 GiB, 34359738368 bytes, 67108864 sectors
+    >   Units: sectors of 1 * 512 = 512 bytes
+    >   Sector size (logical/physical): 512 bytes / 512 bytes
+    >   I/O size (minimum/optimal): 512 bytes / 512 bytes
+
+
+#---------------------------------------------------------------------
+# Create a filesystem on the new device.
+#[user@virtual]
+
+    sudo \
+        mkfs.btrfs \
+            --force \
+            ${devpath:?}
+
+    >   Label:              (null)
+    >   UUID:               592c4938-8789-4481-bb33-c9262b056c1f
+    >   Node size:          16384
+    >   Sector size:        4096
+    >   Filesystem size:    32.00GiB
+    >   Block group profiles:
+    >     Data:             single            8.00MiB
+    >     Metadata:         DUP               1.00GiB
+    >     System:           DUP               8.00MiB
+    >   SSD detected:       no
+    >   Incompat features:  extref, skinny-metadata
+    >   Number of devices:  1
+    >   Devices:
+    >      ID        SIZE  PATH
+    >       1    32.00GiB  /dev/vdc
+
+
+#---------------------------------------------------------------------
+# Check the new filesystem.
+#[user@virtual]
+
+    sudo \
+        btrfs \
+            filesystem show \
+                ${devpath:?}
+
+    >   Label: none  uuid: 592c4938-8789-4481-bb33-c9262b056c1f
+    >       Total devices 1 FS bytes used 128.00KiB
+    >       devid    1 size 32.00GiB used 2.02GiB path /dev/vdc
+
+
+#---------------------------------------------------------------------
+# Create our mount point.
+#[user@virtual]
+
+    sudo mkdir -p "${mntpath:?}"
+    sudo touch "${mntpath:?}/mount-failed"
+
+#---------------------------------------------------------------------
+# Add the volume to our FileSystemTABle.
+# https://www.howtoforge.com/reducing-disk-io-by-mounting-partitions-with-noatime
+#[user@virtual]
+
+    devuuid=$(
+        lsblk --noheadings --output UUID "${devpath:?}"
+        )
+
+sudo tee -a /etc/fstab << EOTAB
+UUID=${devuuid:?} ${mntpath:?}    btrfs    defaults,noatime    0  0
+EOTAB
+
+#---------------------------------------------------------------------
+# Mount the new volume.
+#[user@virtual]
+
+    sudo \
+        mount "${mntpath:?}"
+
+#---------------------------------------------------------------------
+# Check the new volume.
+#[user@virtual]
+
+    df -h "${mntpath:?}"
+
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdc         32G   17M   30G   1% /data1-01
+
+
+    df -h
+
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   devtmpfs        2.0G     0  2.0G   0% /dev
+    >   tmpfs           2.0G     0  2.0G   0% /dev/shm
+    >   tmpfs           2.0G  524K  2.0G   1% /run
+    >   tmpfs           2.0G     0  2.0G   0% /sys/fs/cgroup
+    >   /dev/vda3       6.8G  1.6G  4.7G  25% /
+    >   /dev/vda1       240M   89M  135M  40% /boot
+    >   tmpfs           2.0G  4.0K  2.0G   1% /tmp
+    >   tmpfs           395M     0  395M   0% /run/user/1001
+    >   /dev/vdc         32G   17M   30G   1% /data1-01
+
+
+    lsblk
+
+    >   NAME   MAJ:MIN RM  SIZE RO TYPE MOUNTPOINT
+    >   vda    252:0    0    8G  0 disk
+    >   ├─vda1 252:1    0  256M  0 part /boot
+    >   ├─vda2 252:2    0    1G  0 part [SWAP]
+    >   └─vda3 252:3    0  6.8G  0 part /
+    >   vdb    252:16   0  368K  1 disk
+    >   vdc    252:32   0   32G  0 disk /data1-01
+
+
+
+
+

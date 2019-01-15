@@ -1,0 +1,973 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2018, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+# -----------------------------------------------------
+# Load our libvirt configuration.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+# -----------------------------------------------------
+# Configure our SSH settings.
+#[user@trop03]
+
+    sshuser=Stevedore
+    sshopts=(
+        '-A'
+        '-o LogLevel=ERROR'
+        '-o CheckHostIP=no'
+        '-o UserKnownHostsFile=/dev/null'
+        '-o StrictHostKeyChecking=no'
+        )
+
+    scpopts=(
+        '-o LogLevel=ERROR'
+        '-o CheckHostIP=no'
+        '-o UserKnownHostsFile=/dev/null'
+        '-o StrictHostKeyChecking=no'
+        )
+
+# -----------------------------------------------------
+# Assign our virtual machine names.
+#[user@trop03]
+
+    kfnames=(
+        Stedigo
+        Angece
+        Edwalafia
+        Onoza
+        )
+
+    zknames=(
+        Fosauri
+        Marpus
+        Byflame
+        )
+
+    mmnames=(
+        Afoaviel
+        Rusaldez
+        )
+
+# -----------------------------------------------------
+# Sed script to indent output.
+#[user@laptop]
+
+    sed -i '
+        /^--START--/,/^--STOP--/ {
+            /^--START--/ d
+            /^--STOP--/  d
+            s/^\(.*\)/    >   \1/
+            }
+        ' doc/notes/zrq/20181224-01-trop-transfer.txt
+
+    --START--
+    --STOP--
+
+
+# -----------------------------------------------------
+# Stop MirrorMaker on each node.
+#[user@trop03]
+
+    for vmname in ${mmnames[@]}
+        do
+            echo "---- ----"
+            echo "vmname [${vmname:?}]"
+            ssh \
+                ${scpopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                docker-compose \
+                    --file mirror.yml \
+                    down
+                "
+        done
+
+    >   ---- ----
+    >   vmname [Afoaviel]
+    >   Stopping stevedore_tina_1 ... done
+    >   Removing stevedore_tina_1 ... done
+    >   Removing network stevedore_default
+    >   ---- ----
+    >   vmname [Rusaldez]
+    >   Stopping stevedore_tina_1 ... done
+    >   Removing stevedore_tina_1 ... done
+    >   Removing network stevedore_default
+
+
+# -----------------------------------------------------
+# Check our client offsets in the ZTF broker.
+#[user@trop03]
+
+    devnode=Rusaldez
+
+    ztfconnect=public.alerts.ztf.uw.edu:9092
+    roegroupid=ztf-mirror.roe.ac.uk
+
+    date ; \
+    ssh \
+        ${sshopts[*]} \
+        ${sshuser:?}@${devnode:?} \
+        "
+        docker run --rm phymatopus/kafka-core \
+            bin/kafka-consumer-groups.sh \
+                --bootstrap-server "${ztfconnect:?}" \
+                --describe \
+                --group "${roegroupid:?}"
+         " \
+    | sort \
+    ; date
+
+
+    >   Wed 26 Dec 00:19:11 GMT 2018
+    >   Note: This will not show information about old Zookeeper-based consumers.
+    >   Error: Consumer group 'ztf-mirror.roe.ac.uk' does not exist.
+    >   Wed 26 Dec 00:19:17 GMT 2018
+
+
+# -----------------------------------------------------
+# Check the disc use on each Kafka node.
+#[user@trop03]
+
+    for vmname in ${kfnames[@]}
+        do
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    echo \"---- ---- ---- ----\"
+                    echo \"[\$(hostname)][\$(date)]\"
+
+                    echo \"---- ----\"
+                    du -h -d 1 \"/data1-02\"
+
+                    echo "---- ----"
+                    du -h -d 1 \"/data2-02\"
+                    "
+        done
+
+
+    >   ---- ---- ---- ----
+    >   [Stedigo][Wed 26 Dec 00:20:46 GMT 2018]
+    >   ---- ----
+    >   1.8G	/data1-02/ztf_20181219_programid1-10
+    >   1.8G	/data1-02/ztf_20181219_programid1-4
+    >   1.2G	/data1-02/ztf_20181219_programid1-8
+    >   1.8G	/data1-02/ztf_20181219_programid1-12
+    >   1.2G	/data1-02/ztf_20181219_programid1-6
+    >   1.8G	/data1-02/ztf_20181219_programid1-0
+    >   646M	/data1-02/ztf_20181220_programid1-9
+    >   646M	/data1-02/ztf_20181220_programid1-1
+    >   646M	/data1-02/ztf_20181220_programid1-15
+    >   646M	/data1-02/ztf_20181220_programid1-6
+    >   646M	/data1-02/ztf_20181220_programid1-10
+    >   646M	/data1-02/ztf_20181220_programid1-7
+    >   154M	/data1-02/ztf_20181221_programid1-10
+    >   154M	/data1-02/ztf_20181221_programid1-2
+    >   154M	/data1-02/ztf_20181221_programid1-7
+    >   154M	/data1-02/ztf_20181221_programid1-5
+    >   154M	/data1-02/ztf_20181221_programid1-12
+    >   154M	/data1-02/ztf_20181221_programid1-3
+    >   286M	/data1-02/ztf_20181222_programid1-8
+    >   286M	/data1-02/ztf_20181222_programid1-0
+    >   286M	/data1-02/ztf_20181222_programid1-2
+    >   287M	/data1-02/ztf_20181222_programid1-5
+    >   286M	/data1-02/ztf_20181222_programid1-10
+    >   286M	/data1-02/ztf_20181222_programid1-1
+    >   278M	/data1-02/ztf_20181223_programid1-0
+    >   278M	/data1-02/ztf_20181223_programid1-8
+    >   278M	/data1-02/ztf_20181223_programid1-14
+    >   278M	/data1-02/ztf_20181223_programid1-5
+    >   278M	/data1-02/ztf_20181223_programid1-9
+    >   278M	/data1-02/ztf_20181223_programid1-15
+    >   368M	/data1-02/ztf_20181224_programid1-14
+    >   368M	/data1-02/ztf_20181224_programid1-6
+    >   368M	/data1-02/ztf_20181224_programid1-8
+    >   368M	/data1-02/ztf_20181224_programid1-15
+    >   368M	/data1-02/ztf_20181224_programid1-9
+    >   368M	/data1-02/ztf_20181224_programid1-0
+    >   20G	/data1-02
+    >   ---- ----
+    >   1.2G	/data2-02/ztf_20181219_programid1-7
+    >   1.2G	/data2-02/ztf_20181219_programid1-1
+    >   1.2G	/data2-02/ztf_20181219_programid1-15
+    >   1.2G	/data2-02/ztf_20181219_programid1-9
+    >   1.2G	/data2-02/ztf_20181219_programid1-3
+    >   1.2G	/data2-02/ztf_20181219_programid1-13
+    >   646M	/data2-02/ztf_20181220_programid1-13
+    >   646M	/data2-02/ztf_20181220_programid1-5
+    >   646M	/data2-02/ztf_20181220_programid1-12
+    >   646M	/data2-02/ztf_20181220_programid1-3
+    >   646M	/data2-02/ztf_20181220_programid1-0
+    >   646M	/data2-02/ztf_20181220_programid1-8
+    >   154M	/data2-02/ztf_20181221_programid1-14
+    >   154M	/data2-02/ztf_20181221_programid1-6
+    >   154M	/data2-02/ztf_20181221_programid1-8
+    >   154M	/data2-02/ztf_20181221_programid1-15
+    >   154M	/data2-02/ztf_20181221_programid1-9
+    >   154M	/data2-02/ztf_20181221_programid1-0
+    >   286M	/data2-02/ztf_20181222_programid1-12
+    >   286M	/data2-02/ztf_20181222_programid1-4
+    >   286M	/data2-02/ztf_20181222_programid1-11
+    >   286M	/data2-02/ztf_20181222_programid1-13
+    >   286M	/data2-02/ztf_20181222_programid1-7
+    >   286M	/data2-02/ztf_20181222_programid1-14
+    >   278M	/data2-02/ztf_20181223_programid1-4
+    >   278M	/data2-02/ztf_20181223_programid1-12
+    >   278M	/data2-02/ztf_20181223_programid1-11
+    >   278M	/data2-02/ztf_20181223_programid1-2
+    >   278M	/data2-02/ztf_20181223_programid1-6
+    >   278M	/data2-02/ztf_20181223_programid1-3
+    >   368M	/data2-02/ztf_20181224_programid1-2
+    >   368M	/data2-02/ztf_20181224_programid1-10
+    >   368M	/data2-02/ztf_20181224_programid1-5
+    >   368M	/data2-02/ztf_20181224_programid1-12
+    >   368M	/data2-02/ztf_20181224_programid1-3
+    >   368M	/data2-02/ztf_20181224_programid1-7
+    >   17G	/data2-02
+    >   ---- ---- ---- ----
+    >   [Angece][Wed 26 Dec 00:20:47 GMT 2018]
+    >   ---- ----
+    >   1.8G	/data1-02/ztf_20181219_programid1-10
+    >   1.8G	/data1-02/ztf_20181219_programid1-4
+    >   1.8G	/data1-02/ztf_20181219_programid1-14
+    >   1.8G	/data1-02/ztf_20181219_programid1-5
+    >   1.8G	/data1-02/ztf_20181219_programid1-12
+    >   1.8G	/data1-02/ztf_20181219_programid1-0
+    >   646M	/data1-02/ztf_20181220_programid1-6
+    >   646M	/data1-02/ztf_20181220_programid1-14
+    >   646M	/data1-02/ztf_20181220_programid1-12
+    >   646M	/data1-02/ztf_20181220_programid1-13
+    >   646M	/data1-02/ztf_20181220_programid1-7
+    >   646M	/data1-02/ztf_20181220_programid1-1
+    >   154M	/data1-02/ztf_20181221_programid1-7
+    >   154M	/data1-02/ztf_20181221_programid1-15
+    >   154M	/data1-02/ztf_20181221_programid1-13
+    >   154M	/data1-02/ztf_20181221_programid1-4
+    >   154M	/data1-02/ztf_20181221_programid1-12
+    >   154M	/data1-02/ztf_20181221_programid1-6
+    >   287M	/data1-02/ztf_20181222_programid1-5
+    >   286M	/data1-02/ztf_20181222_programid1-13
+    >   286M	/data1-02/ztf_20181222_programid1-2
+    >   286M	/data1-02/ztf_20181222_programid1-8
+    >   286M	/data1-02/ztf_20181222_programid1-6
+    >   286M	/data1-02/ztf_20181222_programid1-4
+    >   278M	/data1-02/ztf_20181223_programid1-13
+    >   278M	/data1-02/ztf_20181223_programid1-5
+    >   278M	/data1-02/ztf_20181223_programid1-0
+    >   278M	/data1-02/ztf_20181223_programid1-7
+    >   278M	/data1-02/ztf_20181223_programid1-6
+    >   278M	/data1-02/ztf_20181223_programid1-3
+    >   368M	/data1-02/ztf_20181224_programid1-11
+    >   368M	/data1-02/ztf_20181224_programid1-3
+    >   368M	/data1-02/ztf_20181224_programid1-12
+    >   368M	/data1-02/ztf_20181224_programid1-6
+    >   368M	/data1-02/ztf_20181224_programid1-0
+    >   368M	/data1-02/ztf_20181224_programid1-4
+    >   21G	/data1-02
+    >   ---- ----
+    >   1.2G	/data2-02/ztf_20181219_programid1-7
+    >   1.2G	/data2-02/ztf_20181219_programid1-1
+    >   1.2G	/data2-02/ztf_20181219_programid1-11
+    >   1.2G	/data2-02/ztf_20181219_programid1-2
+    >   1.2G	/data2-02/ztf_20181219_programid1-9
+    >   1.2G	/data2-02/ztf_20181219_programid1-13
+    >   646M	/data2-02/ztf_20181220_programid1-10
+    >   646M	/data2-02/ztf_20181220_programid1-2
+    >   646M	/data2-02/ztf_20181220_programid1-9
+    >   646M	/data2-02/ztf_20181220_programid1-0
+    >   646M	/data2-02/ztf_20181220_programid1-4
+    >   646M	/data2-02/ztf_20181220_programid1-11
+    >   154M	/data2-02/ztf_20181221_programid1-11
+    >   154M	/data2-02/ztf_20181221_programid1-3
+    >   154M	/data2-02/ztf_20181221_programid1-10
+    >   154M	/data2-02/ztf_20181221_programid1-1
+    >   154M	/data2-02/ztf_20181221_programid1-9
+    >   154M	/data2-02/ztf_20181221_programid1-0
+    >   286M	/data2-02/ztf_20181222_programid1-9
+    >   286M	/data2-02/ztf_20181222_programid1-1
+    >   286M	/data2-02/ztf_20181222_programid1-11
+    >   286M	/data2-02/ztf_20181222_programid1-15
+    >   287M	/data2-02/ztf_20181222_programid1-3
+    >   286M	/data2-02/ztf_20181222_programid1-14
+    >   278M	/data2-02/ztf_20181223_programid1-1
+    >   278M	/data2-02/ztf_20181223_programid1-9
+    >   278M	/data2-02/ztf_20181223_programid1-10
+    >   278M	/data2-02/ztf_20181223_programid1-8
+    >   278M	/data2-02/ztf_20181223_programid1-15
+    >   278M	/data2-02/ztf_20181223_programid1-12
+    >   368M	/data2-02/ztf_20181224_programid1-15
+    >   368M	/data2-02/ztf_20181224_programid1-7
+    >   368M	/data2-02/ztf_20181224_programid1-9
+    >   368M	/data2-02/ztf_20181224_programid1-13
+    >   368M	/data2-02/ztf_20181224_programid1-10
+    >   368M	/data2-02/ztf_20181224_programid1-1
+    >   17G	/data2-02
+    >   ---- ---- ---- ----
+    >   [Edwalafia][Wed 26 Dec 00:20:48 GMT 2018]
+    >   ---- ----
+    >   1.8G	/data1-02/ztf_20181219_programid1-10
+    >   1.2G	/data1-02/ztf_20181219_programid1-1
+    >   1.2G	/data1-02/ztf_20181219_programid1-11
+    >   1.8G	/data1-02/ztf_20181219_programid1-5
+    >   1.2G	/data1-02/ztf_20181219_programid1-2
+    >   1.2G	/data1-02/ztf_20181219_programid1-3
+    >   646M	/data1-02/ztf_20181220_programid1-15
+    >   646M	/data1-02/ztf_20181220_programid1-7
+    >   646M	/data1-02/ztf_20181220_programid1-13
+    >   646M	/data1-02/ztf_20181220_programid1-4
+    >   646M	/data1-02/ztf_20181220_programid1-14
+    >   646M	/data1-02/ztf_20181220_programid1-5
+    >   154M	/data1-02/ztf_20181221_programid1-4
+    >   154M	/data1-02/ztf_20181221_programid1-12
+    >   154M	/data1-02/ztf_20181221_programid1-13
+    >   154M	/data1-02/ztf_20181221_programid1-7
+    >   154M	/data1-02/ztf_20181221_programid1-1
+    >   154M	/data1-02/ztf_20181221_programid1-5
+    >   286M	/data1-02/ztf_20181222_programid1-2
+    >   286M	/data1-02/ztf_20181222_programid1-10
+    >   286M	/data1-02/ztf_20181222_programid1-8
+    >   286M	/data1-02/ztf_20181222_programid1-15
+    >   286M	/data1-02/ztf_20181222_programid1-9
+    >   286M	/data1-02/ztf_20181222_programid1-0
+    >   278M	/data1-02/ztf_20181223_programid1-10
+    >   278M	/data1-02/ztf_20181223_programid1-2
+    >   278M	/data1-02/ztf_20181223_programid1-0
+    >   278M	/data1-02/ztf_20181223_programid1-7
+    >   278M	/data1-02/ztf_20181223_programid1-1
+    >   278M	/data1-02/ztf_20181223_programid1-9
+    >   368M	/data1-02/ztf_20181224_programid1-8
+    >   368M	/data1-02/ztf_20181224_programid1-0
+    >   368M	/data1-02/ztf_20181224_programid1-14
+    >   368M	/data1-02/ztf_20181224_programid1-5
+    >   368M	/data1-02/ztf_20181224_programid1-13
+    >   368M	/data1-02/ztf_20181224_programid1-7
+    >   19G	/data1-02
+    >   ---- ----
+    >   1.8G	/data2-02/ztf_20181219_programid1-4
+    >   1.8G	/data2-02/ztf_20181219_programid1-14
+    >   1.2G	/data2-02/ztf_20181219_programid1-8
+    >   1.2G	/data2-02/ztf_20181219_programid1-15
+    >   1.2G	/data2-02/ztf_20181219_programid1-6
+    >   1.2G	/data2-02/ztf_20181219_programid1-13
+    >   646M	/data2-02/ztf_20181220_programid1-3
+    >   646M	/data2-02/ztf_20181220_programid1-11
+    >   646M	/data2-02/ztf_20181220_programid1-10
+    >   646M	/data2-02/ztf_20181220_programid1-1
+    >   646M	/data2-02/ztf_20181220_programid1-8
+    >   646M	/data2-02/ztf_20181220_programid1-2
+    >   154M	/data2-02/ztf_20181221_programid1-8
+    >   154M	/data2-02/ztf_20181221_programid1-0
+    >   154M	/data2-02/ztf_20181221_programid1-10
+    >   154M	/data2-02/ztf_20181221_programid1-14
+    >   154M	/data2-02/ztf_20181221_programid1-11
+    >   154M	/data2-02/ztf_20181221_programid1-2
+    >   286M	/data2-02/ztf_20181222_programid1-6
+    >   286M	/data2-02/ztf_20181222_programid1-14
+    >   287M	/data2-02/ztf_20181222_programid1-5
+    >   286M	/data2-02/ztf_20181222_programid1-12
+    >   287M	/data2-02/ztf_20181222_programid1-3
+    >   286M	/data2-02/ztf_20181222_programid1-7
+    >   278M	/data2-02/ztf_20181223_programid1-14
+    >   278M	/data2-02/ztf_20181223_programid1-6
+    >   278M	/data2-02/ztf_20181223_programid1-13
+    >   278M	/data2-02/ztf_20181223_programid1-4
+    >   278M	/data2-02/ztf_20181223_programid1-11
+    >   278M	/data2-02/ztf_20181223_programid1-12
+    >   368M	/data2-02/ztf_20181224_programid1-12
+    >   368M	/data2-02/ztf_20181224_programid1-4
+    >   368M	/data2-02/ztf_20181224_programid1-11
+    >   368M	/data2-02/ztf_20181224_programid1-2
+    >   368M	/data2-02/ztf_20181224_programid1-10
+    >   368M	/data2-02/ztf_20181224_programid1-1
+    >   19G	/data2-02
+    >   ---- ---- ---- ----
+    >   [Onoza][Wed 26 Dec 00:20:49 GMT 2018]
+    >   ---- ----
+    >   1.2G	/data1-02/ztf_20181219_programid1-8
+    >   1.2G	/data1-02/ztf_20181219_programid1-6
+    >   1.2G	/data1-02/ztf_20181219_programid1-7
+    >   1.2G	/data1-02/ztf_20181219_programid1-11
+    >   1.2G	/data1-02/ztf_20181219_programid1-2
+    >   1.2G	/data1-02/ztf_20181219_programid1-9
+    >   646M	/data1-02/ztf_20181220_programid1-12
+    >   646M	/data1-02/ztf_20181220_programid1-4
+    >   646M	/data1-02/ztf_20181220_programid1-15
+    >   646M	/data1-02/ztf_20181220_programid1-6
+    >   646M	/data1-02/ztf_20181220_programid1-14
+    >   646M	/data1-02/ztf_20181220_programid1-5
+    >   154M	/data1-02/ztf_20181221_programid1-13
+    >   154M	/data1-02/ztf_20181221_programid1-5
+    >   154M	/data1-02/ztf_20181221_programid1-4
+    >   154M	/data1-02/ztf_20181221_programid1-11
+    >   154M	/data1-02/ztf_20181221_programid1-2
+    >   154M	/data1-02/ztf_20181221_programid1-6
+    >   286M	/data1-02/ztf_20181222_programid1-11
+    >   287M	/data1-02/ztf_20181222_programid1-3
+    >   286M	/data1-02/ztf_20181222_programid1-12
+    >   286M	/data1-02/ztf_20181222_programid1-6
+    >   286M	/data1-02/ztf_20181222_programid1-13
+    >   286M	/data1-02/ztf_20181222_programid1-4
+    >   278M	/data1-02/ztf_20181223_programid1-7
+    >   278M	/data1-02/ztf_20181223_programid1-15
+    >   278M	/data1-02/ztf_20181223_programid1-13
+    >   278M	/data1-02/ztf_20181223_programid1-4
+    >   278M	/data1-02/ztf_20181223_programid1-14
+    >   278M	/data1-02/ztf_20181223_programid1-5
+    >   368M	/data1-02/ztf_20181224_programid1-5
+    >   368M	/data1-02/ztf_20181224_programid1-13
+    >   368M	/data1-02/ztf_20181224_programid1-14
+    >   368M	/data1-02/ztf_20181224_programid1-8
+    >   368M	/data1-02/ztf_20181224_programid1-15
+    >   368M	/data1-02/ztf_20181224_programid1-3
+    >   17G	/data1-02
+    >   ---- ----
+    >   1.2G	/data2-02/ztf_20181219_programid1-15
+    >   1.2G	/data2-02/ztf_20181219_programid1-3
+    >   1.8G	/data2-02/ztf_20181219_programid1-14
+    >   1.8G	/data2-02/ztf_20181219_programid1-5
+    >   1.8G	/data2-02/ztf_20181219_programid1-12
+    >   1.8G	/data2-02/ztf_20181219_programid1-0
+    >   646M	/data2-02/ztf_20181220_programid1-0
+    >   646M	/data2-02/ztf_20181220_programid1-8
+    >   646M	/data2-02/ztf_20181220_programid1-9
+    >   646M	/data2-02/ztf_20181220_programid1-3
+    >   646M	/data2-02/ztf_20181220_programid1-11
+    >   646M	/data2-02/ztf_20181220_programid1-2
+    >   154M	/data2-02/ztf_20181221_programid1-1
+    >   154M	/data2-02/ztf_20181221_programid1-9
+    >   154M	/data2-02/ztf_20181221_programid1-14
+    >   154M	/data2-02/ztf_20181221_programid1-8
+    >   154M	/data2-02/ztf_20181221_programid1-15
+    >   154M	/data2-02/ztf_20181221_programid1-3
+    >   286M	/data2-02/ztf_20181222_programid1-15
+    >   286M	/data2-02/ztf_20181222_programid1-7
+    >   286M	/data2-02/ztf_20181222_programid1-9
+    >   286M	/data2-02/ztf_20181222_programid1-0
+    >   286M	/data2-02/ztf_20181222_programid1-10
+    >   286M	/data2-02/ztf_20181222_programid1-1
+    >   278M	/data2-02/ztf_20181223_programid1-11
+    >   278M	/data2-02/ztf_20181223_programid1-3
+    >   278M	/data2-02/ztf_20181223_programid1-10
+    >   278M	/data2-02/ztf_20181223_programid1-1
+    >   278M	/data2-02/ztf_20181223_programid1-8
+    >   278M	/data2-02/ztf_20181223_programid1-2
+    >   368M	/data2-02/ztf_20181224_programid1-9
+    >   368M	/data2-02/ztf_20181224_programid1-1
+    >   368M	/data2-02/ztf_20181224_programid1-11
+    >   368M	/data2-02/ztf_20181224_programid1-2
+    >   368M	/data2-02/ztf_20181224_programid1-6
+    >   368M	/data2-02/ztf_20181224_programid1-4
+    >   20G	/data2-02
+
+# -----------------------------------------------------
+# Check the disc space on each Kafka node.
+#[user@trop03]
+
+    for vmname in ${kfnames[@]}
+        do
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    echo \"---- ---- ---- ----\"
+                    echo \"[\$(hostname)][\$(date)]\"
+                    echo \"---- ----\"
+
+                    df -h /
+                    echo \"---- ----\"
+                    df -h \"/data1-01\"
+                    echo \"---- ----\"
+                    df -h \"/data1-02\"
+
+                    echo "---- ----"
+                    df -h \"/data2-01\"
+                    echo "---- ----"
+                    df -h \"/data2-02\"
+                    "
+        done
+
+
+    >   ---- ---- ---- ----
+    >   [Stedigo][Wed 26 Dec 00:24:12 GMT 2018]
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vda3       6.8G  2.5G  3.9G  39% /
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdc         32G   31G  4.2M 100% /data1-01
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vde         64G   20G   43G  32% /data1-02
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdd         32G   31G  3.3M 100% /data2-01
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdf         64G   18G   45G  28% /data2-02
+    >   ---- ---- ---- ----
+    >   [Angece][Wed 26 Dec 00:24:12 GMT 2018]
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vda3       6.8G  2.5G  3.8G  39% /
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdc         32G   31G  3.7M 100% /data1-01
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vde         64G   21G   42G  34% /data1-02
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdd         32G   31G  4.1M 100% /data2-01
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdf         64G   18G   45G  28% /data2-02
+    >   ---- ---- ---- ----
+    >   [Edwalafia][Wed 26 Dec 00:24:13 GMT 2018]
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vda3       6.8G  2.5G  3.8G  40% /
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdc         32G   31G  5.9M 100% /data1-01
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vde         64G   19G   44G  30% /data1-02
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdd         32G   31G  3.4M 100% /data2-01
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdf         64G   19G   44G  30% /data2-02
+    >   ---- ---- ---- ----
+    >   [Onoza][Wed 26 Dec 00:24:14 GMT 2018]
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vda3       6.8G  2.5G  3.9G  39% /
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdc         32G   31G  4.7M 100% /data1-01
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vde         64G   18G   45G  28% /data1-02
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdd         32G   31G  4.6M 100% /data2-01
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdf         64G   20G   43G  32% /data2-02
+
+# -----------------------------------------------------
+# Login and tail the logs (separate terminals).
+#[user@trop03]
+
+    ssh Edwalafia '
+        docker logs -f stevedore_emily_1
+        '
+
+    >   [2018-12-25 23:41:12,505] INFO [GroupMetadataManager brokerId=3] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   [2018-12-25 23:51:12,505] INFO [GroupMetadataManager brokerId=3] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   [2018-12-26 00:01:12,505] INFO [GroupMetadataManager brokerId=3] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   [2018-12-26 00:11:12,505] INFO [GroupMetadataManager brokerId=3] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   [2018-12-26 00:21:12,505] INFO [GroupMetadataManager brokerId=3] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   [2018-12-26 00:31:12,505] INFO [GroupMetadataManager brokerId=3] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+
+    ssh Onoza '
+        docker logs -f stevedore_emily_1
+        '
+
+    >   [2018-12-25 23:49:45,472] INFO [GroupMetadataManager brokerId=4] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   [2018-12-25 23:59:45,472] INFO [GroupMetadataManager brokerId=4] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   [2018-12-26 00:09:45,472] INFO [GroupMetadataManager brokerId=4] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   [2018-12-26 00:19:45,472] INFO [GroupMetadataManager brokerId=4] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   [2018-12-26 00:29:45,472] INFO [GroupMetadataManager brokerId=4] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+
+    ssh Stedigo '
+        docker logs -f stevedore_emily_1
+        '
+
+    >   [2018-12-25 23:40:25,254] INFO [GroupMetadataManager brokerId=1] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   [2018-12-25 23:50:25,254] INFO [GroupMetadataManager brokerId=1] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   [2018-12-26 00:00:25,254] INFO [GroupMetadataManager brokerId=1] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   [2018-12-26 00:10:25,254] INFO [GroupMetadataManager brokerId=1] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   [2018-12-26 00:20:25,254] INFO [GroupMetadataManager brokerId=1] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   [2018-12-26 00:30:25,254] INFO [GroupMetadataManager brokerId=1] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+
+
+    ssh Angece '
+        docker logs -f stevedore_emily_1
+        '
+
+    >   [2018-12-26 00:37:09,553] TRACE [Controller id=2] Checking need to trigger auto leader balancing (kafka.controller.KafkaController)
+    >   [2018-12-26 00:37:09,554] DEBUG [Controller id=2] Preferred replicas by broker
+    >       Map(
+    >       2 -> Map(
+    >           ztf_20181220_programid1-6  -> Vector(2, 4, 1),
+    >           ztf_20181219_programid1-5  -> Vector(2, 3, 4),
+    >           ztf_20181205_programid1-7  -> Vector(2, 4, 1),
+    >           ztf_20181214_programid1-5  -> Vector(2, 4, 1),
+    >           ztf_20181210_programid1-1  -> Vector(2, 3, 4),
+    >           ztf_20181209_programid1-0  -> Vector(2, 1, 3),
+    >           ztf_20181217_programid1-7  -> Vector(2, 4, 1),
+    >           ztf_20181222_programid1-1  -> Vector(2, 4, 1),
+    >           ztf_20181213_programid1-3  -> Vector(2, 3, 4),
+    >           ztf_20181212_programid1-7  -> Vector(2, 4, 1),
+    >           ztf_20181220_programid1-14 -> Vector(2, 3, 4),
+    >           ztf_20181210_programid1-9  -> Vector(2, 1, 3),
+    >           ztf_20181219_programid1-13 -> Vector(2, 1, 3),
+    >           ztf_20181214_programid1-13 -> Vector(2, 3, 4),
+    >           ztf_20181224_programid1-7  -> Vector(2, 1, 3),
+    >           ztf_20181209_programid1-8  -> Vector(2, 4, 1),
+    >           ztf_20181205_programid1-15 -> Vector(2, 3, 4),
+    >           ztf_20181223_programid1-5  -> Vector(2, 4, 1),
+    >           ztf_20181222_programid1-9  -> Vector(2, 3, 4),
+    >           ztf_20181213_programid1-11 -> Vector(2, 1, 3),
+    >           ztf_20181212_programid1-15 -> Vector(2, 3, 4),
+    >           ztf_20181217_programid1-15 -> Vector(2, 3, 4),
+    >           ztf_20181221_programid1-7  -> Vector(2, 1, 3),
+    >           ztf_20181216_programid1-2  -> Vector(2, 3, 4),
+    >           ztf_20181215_programid1-6  -> Vector(2, 4, 1),
+    >           ztf_20181224_programid1-15 -> Vector(2, 4, 1),
+    >           ztf_20181223_programid1-13 -> Vector(2, 3, 4),
+    >           ztf_20181216_programid1-10 -> Vector(2, 1, 3),
+    >           ztf_20181215_programid1-14 -> Vector(2, 3, 4),
+    >           ztf_20181221_programid1-15 -> Vector(2, 4, 1),
+    >           ztf_20181205_programid1-3  -> Vector(2, 3, 4),
+    >           ztf_20181214_programid1-1  -> Vector(2, 3, 4),
+    >           ztf_20181219_programid1-1  -> Vector(2, 1, 3),
+    >           ztf_20181212_programid1-3  -> Vector(2, 3, 4),
+    >           ztf_20181217_programid1-3  -> Vector(2, 3, 4),
+    >           ztf_20181224_programid1-3  -> Vector(2, 4, 1),
+    >           ztf_20181220_programid1-10 -> Vector(2, 1, 3),
+    >           ztf_20181205_programid1-11 -> Vector(2, 1, 3),
+    >           ztf_20181214_programid1-9  -> Vector(2, 1, 3),
+    >           ztf_20181210_programid1-5  -> Vector(2, 4, 1),
+    >           ztf_20181219_programid1-9  -> Vector(2, 4, 1),
+    >           ztf_20181209_programid1-4  -> Vector(2, 3, 4),
+    >           ztf_20181217_programid1-11 -> Vector(2, 1, 3),
+    >           ztf_20181213_programid1-7  -> Vector(2, 4, 1),
+    >           ztf_20181222_programid1-5  -> Vector(2, 1, 3),
+    >        __confluent.support.metrics-0 -> Vector(2, 1, 3),
+    >           ztf_20181220_programid1-2  -> Vector(2, 3, 4),
+    >           ztf_20181212_programid1-11 -> Vector(2, 1, 3),
+    >           ztf_20181210_programid1-13 -> Vector(2, 3, 4),
+    >           ztf_20181215_programid1-2  -> Vector(2, 3, 4),
+    >           ztf_20181224_programid1-11 -> Vector(2, 3, 4),
+    >           ztf_20181221_programid1-3  -> Vector(2, 4, 1),
+    >           ztf_20181209_programid1-12 -> Vector(2, 1, 3),
+    >           ztf_20181222_programid1-13 -> Vector(2, 4, 1),
+    >           ztf_20181213_programid1-15 -> Vector(2, 3, 4),
+    >           ztf_20181223_programid1-9  -> Vector(2, 1, 3),
+    >           ztf_20181221_programid1-11 -> Vector(2, 3, 4),
+    >           ztf_20181216_programid1-6  -> Vector(2, 4, 1),
+    >           ztf_20181215_programid1-10 -> Vector(2, 1, 3),
+    >           ztf_20181223_programid1-1  -> Vector(2, 3, 4),
+    >           ztf_20181216_programid1-14 -> Vector(2, 3, 4)
+    >           ),
+    >       4 -> Map(
+    >           ztf_20181215_programid1-12 -> Vector(4, 1, 2),
+    >           ztf_20181223_programid1-3  -> Vector(4, 1, 2),
+    >           ztf_20181222_programid1-7  -> Vector(4, 3, 1),
+    >           ztf_20181217_programid1-13 -> Vector(4, 1, 2),
+    >           ztf_20181213_programid1-9  -> Vector(4, 3, 1),
+    >           ztf_20181215_programid1-4  -> Vector(4, 2, 3),
+    >           ztf_20181216_programid1-0  -> Vector(4, 1, 2),
+    >           ztf_20181221_programid1-5  -> Vector(4, 3, 1),
+    >           ztf_20181223_programid1-11 -> Vector(4, 3, 1),
+    >           ztf_20181214_programid1-7  -> Vector(4, 2, 3),
+    >           ztf_20181216_programid1-8  -> Vector(4, 3, 1),
+    >           ztf_20181221_programid1-13 -> Vector(4, 2, 3),
+    >           ztf_20181212_programid1-9  -> Vector(4, 3, 1),
+    >           ztf_20181220_programid1-0  -> Vector(4, 1, 2),
+    >           ztf_20181205_programid1-1  -> Vector(4, 1, 2),
+    >           ztf_20181210_programid1-11 -> Vector(4, 3, 1),
+    >           ztf_20181209_programid1-10 -> Vector(4, 2, 3),
+    >           ztf_20181214_programid1-15 -> Vector(4, 1, 2),
+    >           ztf_20181217_programid1-1  -> Vector(4, 1, 2),
+    >           ztf_20181219_programid1-15 -> Vector(4, 3, 1),
+    >           ztf_20181212_programid1-1  -> Vector(4, 1, 2),
+    >           ztf_20181222_programid1-11 -> Vector(4, 1, 2),
+    >           ztf_20181210_programid1-3  -> Vector(4, 1, 2),
+    >           ztf_20181205_programid1-9  -> Vector(4, 3, 1),
+    >           ztf_20181224_programid1-1  -> Vector(4, 2, 3),
+    >           ztf_20181220_programid1-8  -> Vector(4, 3, 1),
+    >           ztf_20181209_programid1-2  -> Vector(4, 3, 1),
+    >           ztf_20181219_programid1-7  -> Vector(4, 1, 2),
+    >           ztf_20181215_programid1-8  -> Vector(4, 3, 1),
+    >           ztf_20181217_programid1-9  -> Vector(4, 3, 1),
+    >           ztf_20181213_programid1-5  -> Vector(4, 2, 3),
+    >           ztf_20181222_programid1-3  -> Vector(4, 2, 3),
+    >           ztf_20181224_programid1-9  -> Vector(4, 1, 2),
+    >           ztf_20181221_programid1-1  -> Vector(4, 2, 3),
+    >           ztf_20181215_programid1-0  -> Vector(4, 1, 2),
+    >           ztf_20181213_programid1-13 -> Vector(4, 1, 2),
+    >           ztf_20181223_programid1-7  -> Vector(4, 2, 3),
+    >           ztf_20181221_programid1-9  -> Vector(4, 1, 2),
+    >           ztf_20181216_programid1-4  -> Vector(4, 2, 3),
+    >           ztf_20181223_programid1-15 -> Vector(4, 1, 2),
+    >           ztf_20181209_programid1-6  -> Vector(4, 1, 2),
+    >           ztf_20181214_programid1-11 -> Vector(4, 3, 1),
+    >           ztf_20181210_programid1-7  -> Vector(4, 2, 3),
+    >           ztf_20181205_programid1-13 -> Vector(4, 1, 2),
+    >           ztf_20181216_programid1-12 -> Vector(4, 1, 2),
+    >           ztf_20181205_programid1-5  -> Vector(4, 2, 3),
+    >           ztf_20181212_programid1-13 -> Vector(4, 1, 2),
+    >           ztf_20181214_programid1-3  -> Vector(4, 1, 2),
+    >           ztf_20181219_programid1-3  -> Vector(4, 3, 1),
+    >           ztf_20181220_programid1-4  -> Vector(4, 2, 3),
+    >           ztf_20181212_programid1-5  -> Vector(4, 2, 3),
+    >           ztf_20181209_programid1-14 -> Vector(4, 3, 1),
+    >           ztf_20181210_programid1-15 -> Vector(4, 1, 2),
+    >           ztf_20181213_programid1-1  -> Vector(4, 1, 2),
+    >           ztf_20181217_programid1-5  -> Vector(4, 2, 3),
+    >           ztf_20181224_programid1-13 -> Vector(4, 2, 3),
+    >           ztf_20181224_programid1-5  -> Vector(4, 3, 1),
+    >           ztf_20181219_programid1-11 -> Vector(4, 2, 3),
+    >           ztf_20181220_programid1-12 -> Vector(4, 1, 2),
+    >           ztf_20181222_programid1-15 -> Vector(4, 2, 3)
+    >           ),
+    >       1 -> Map(
+    >           ztf_20181215_programid1-1  -> Vector(1, 2, 3),
+    >           ztf_20181210_programid1-12 -> Vector(1, 2, 3),
+    >           ztf_20181209_programid1-11 -> Vector(1, 3, 4),
+    >           ztf_20181217_programid1-2  -> Vector(1, 2, 3),
+    >           ztf_20181224_programid1-10 -> Vector(1, 2, 3),
+    >           ztf_20181222_programid1-12 -> Vector(1, 3, 4),
+    >           ztf_20181220_programid1-9  -> Vector(1, 4, 2),
+    >           ztf_20181213_programid1-14 -> Vector(1, 2, 3),
+    >           ztf_20181224_programid1-2  -> Vector(1, 3, 4),
+    >           ztf_20181221_programid1-10 -> Vector(1, 2, 3),
+    >           ztf_20181213_programid1-6  -> Vector(1, 3, 4),
+    >           ztf_20181223_programid1-0  -> Vector(1, 2, 3),
+    >           ztf_20181215_programid1-9  -> Vector(1, 4, 2),
+    >           ztf_20181221_programid1-2  -> Vector(1, 3, 4),
+    >           ztf_20181216_programid1-13 -> Vector(1, 2, 3),
+    >           ztf_20181223_programid1-8  -> Vector(1, 4, 2),
+    >           ztf_20181216_programid1-5  -> Vector(1, 3, 4),
+    >           ztf_20181210_programid1-0  -> Vector(1, 2, 3),
+    >           ztf_20181205_programid1-6  -> Vector(1, 3, 4),
+    >           ztf_20181214_programid1-4  -> Vector(1, 3, 4),
+    >           ztf_20181217_programid1-6  -> Vector(1, 3, 4),
+    >           ztf_20181212_programid1-6  -> Vector(1, 3, 4),
+    >           ztf_20181224_programid1-6  -> Vector(1, 4, 2),
+    >           ztf_20181209_programid1-7  -> Vector(1, 2, 3),
+    >           ztf_20181220_programid1-13 -> Vector(1, 2, 3),
+    >           ztf_20181205_programid1-14 -> Vector(1, 2, 3),
+    >           ztf_20181214_programid1-12 -> Vector(1, 2, 3),
+    >           ztf_20181210_programid1-8  -> Vector(1, 4, 2),
+    >           ztf_20181219_programid1-12 -> Vector(1, 4, 2),
+    >           ztf_20181212_programid1-14 -> Vector(1, 2, 3),
+    >           ztf_20181217_programid1-14 -> Vector(1, 2, 3),
+    >           ztf_20181222_programid1-8  -> Vector(1, 2, 3),
+    >           ztf_20181220_programid1-5  -> Vector(1, 3, 4),
+    >           ztf_20181213_programid1-10 -> Vector(1, 4, 2),
+    >           ztf_20181219_programid1-4  -> Vector(1, 2, 3),
+    >           ztf_20181224_programid1-14 -> Vector(1, 3, 4),
+    >           ztf_20181215_programid1-5  -> Vector(1, 3, 4),
+    >           ztf_20181209_programid1-15 -> Vector(1, 4, 2),
+    >           ztf_20181213_programid1-2  -> Vector(1, 2, 3),
+    >           ztf_20181222_programid1-0  -> Vector(1, 3, 4),
+    >           ztf_20181223_programid1-12 -> Vector(1, 2, 3),
+    >           ztf_20181216_programid1-9  -> Vector(1, 4, 2),
+    >           ztf_20181215_programid1-13 -> Vector(1, 2, 3),
+    >           ztf_20181223_programid1-4  -> Vector(1, 3, 4),
+    >           ztf_20181221_programid1-14 -> Vector(1, 3, 4),
+    >           ztf_20181221_programid1-6  -> Vector(1, 4, 2),
+    >           ztf_20181214_programid1-0  -> Vector(1, 2, 3),
+    >           ztf_20181216_programid1-1  -> Vector(1, 2, 3),
+    >           ztf_20181212_programid1-2  -> Vector(1, 2, 3),
+    >           ztf_20181209_programid1-3  -> Vector(1, 4, 2),
+    >           ztf_20181205_programid1-10 -> Vector(1, 4, 2),
+    >           ztf_20181214_programid1-8  -> Vector(1, 4, 2),
+    >           ztf_20181210_programid1-4  -> Vector(1, 3, 4),
+    >           ztf_20181219_programid1-8  -> Vector(1, 3, 4),
+    >           ztf_20181222_programid1-4  -> Vector(1, 4, 2),
+    >           ztf_20181205_programid1-2  -> Vector(1, 2, 3),
+    >           ztf_20181217_programid1-10 -> Vector(1, 4, 2),
+    >           ztf_20181212_programid1-10 -> Vector(1, 4, 2),
+    >           ztf_20181219_programid1-0  -> Vector(1, 4, 2),
+    >           ztf_20181220_programid1-1  -> Vector(1, 2, 3)
+    >           ),
+    >       3 -> Map(
+    >           ztf_20181223_programid1-14 -> Vector(3, 4, 1),
+    >           ztf_20181216_programid1-11 -> Vector(3, 2, 4),
+    >           ztf_20181219_programid1-2  -> Vector(3, 2, 4),
+    >           ztf_20181214_programid1-2  -> Vector(3, 4, 1),
+    >           ztf_20181220_programid1-3  -> Vector(3, 4, 1),
+    >           ztf_20181205_programid1-4  -> Vector(3, 1, 2),
+    >           ztf_20181217_programid1-4  -> Vector(3, 1, 2),
+    >           ztf_20181213_programid1-0  -> Vector(3, 4, 1),
+    >           ztf_20181209_programid1-13 -> Vector(3, 2, 4),
+    >           ztf_20181212_programid1-4  -> Vector(3, 1, 2),
+    >           ztf_20181210_programid1-6  -> Vector(3, 1, 2),
+    >           ztf_20181219_programid1-10 -> Vector(3, 1, 2),
+    >           ztf_20181224_programid1-4  -> Vector(3, 2, 4),
+    >           ztf_20181209_programid1-5  -> Vector(3, 4, 1),
+    >           ztf_20181220_programid1-11 -> Vector(3, 2, 4),
+    >           ztf_20181205_programid1-12 -> Vector(3, 4, 1),
+    >           ztf_20181214_programid1-10 -> Vector(3, 2, 4),
+    >           ztf_20181223_programid1-2  -> Vector(3, 4, 1),
+    >           ztf_20181217_programid1-12 -> Vector(3, 4, 1),
+    >           ztf_20181212_programid1-12 -> Vector(3, 4, 1),
+    >           ztf_20181213_programid1-8  -> Vector(3, 2, 4),
+    >           ztf_20181222_programid1-6  -> Vector(3, 2, 4),
+    >           ztf_20181210_programid1-14 -> Vector(3, 4, 1),
+    >           ztf_20181215_programid1-3  -> Vector(3, 4, 1),
+    >           ztf_20181224_programid1-12 -> Vector(3, 1, 2),
+    >           ztf_20181221_programid1-4  -> Vector(3, 2, 4),
+    >           ztf_20181223_programid1-10 -> Vector(3, 2, 4),
+    >           ztf_20181222_programid1-14 -> Vector(3, 1, 2),
+    >           ztf_20181216_programid1-7  -> Vector(3, 1, 2),
+    >           ztf_20181221_programid1-12 -> Vector(3, 1, 2),
+    >           ztf_20181215_programid1-11 -> Vector(3, 2, 4),
+    >           ztf_20181205_programid1-0  -> Vector(3, 4, 1),
+    >           ztf_20181217_programid1-0  -> Vector(3, 4, 1),
+    >           ztf_20181216_programid1-15 -> Vector(3, 4, 1),
+    >           ztf_20181212_programid1-0  -> Vector(3, 4, 1),
+    >           ztf_20181214_programid1-14 -> Vector(3, 4, 1),
+    >           ztf_20181220_programid1-7  -> Vector(3, 1, 2),
+    >           ztf_20181210_programid1-2  -> Vector(3, 4, 1),
+    >           ztf_20181209_programid1-1  -> Vector(3, 2, 4),
+    >           ztf_20181219_programid1-6  -> Vector(3, 4, 1),
+    >           ztf_20181214_programid1-6  -> Vector(3, 1, 2),
+    >           ztf_20181224_programid1-0  -> Vector(3, 1, 2),
+    >           ztf_20181205_programid1-8  -> Vector(3, 2, 4),
+    >           ztf_20181212_programid1-8  -> Vector(3, 2, 4),
+    >           ztf_20181217_programid1-8  -> Vector(3, 2, 4),
+    >           ztf_20181222_programid1-2  -> Vector(3, 1, 2),
+    >           ztf_20181213_programid1-4  -> Vector(3, 1, 2),
+    >           ztf_20181210_programid1-10 -> Vector(3, 2, 4),
+    >           ztf_20181219_programid1-14 -> Vector(3, 2, 4),
+    >           ztf_20181221_programid1-0  -> Vector(3, 1, 2),
+    >           ztf_20181224_programid1-8  -> Vector(3, 4, 1),
+    >           ztf_20181209_programid1-9  -> Vector(3, 1, 2),
+    >           ztf_20181220_programid1-15 -> Vector(3, 4, 1),
+    >           ztf_20181222_programid1-10 -> Vector(3, 4, 1),
+    >           ztf_20181215_programid1-15 -> Vector(3, 4, 1),
+    >           ztf_20181223_programid1-6  -> Vector(3, 1, 2),
+    >           ztf_20181213_programid1-12 -> Vector(3, 4, 1),
+    >           ztf_20181216_programid1-3  -> Vector(3, 4, 1),
+    >           ztf_20181221_programid1-8  -> Vector(3, 4, 1),
+    >           ztf_20181215_programid1-7  -> Vector(3, 1, 2)
+    >           )
+    >       ) (kafka.controller.KafkaController)
+
+    >   [2018-12-26 00:37:09,554] DEBUG [Controller id=2] Topics not in preferred replica for broker 2 Map() (kafka.controller.KafkaController)
+    >   [2018-12-26 00:37:09,554] TRACE [Controller id=2] Leader imbalance ratio for broker 2 is 0.0 (kafka.controller.KafkaController)
+    >   [2018-12-26 00:37:09,554] DEBUG [Controller id=2] Topics not in preferred replica for broker 4 Map() (kafka.controller.KafkaController)
+    >   [2018-12-26 00:37:09,554] TRACE [Controller id=2] Leader imbalance ratio for broker 4 is 0.0 (kafka.controller.KafkaController)
+    >   [2018-12-26 00:37:09,554] DEBUG [Controller id=2] Topics not in preferred replica for broker 1 Map() (kafka.controller.KafkaController)
+    >   [2018-12-26 00:37:09,554] TRACE [Controller id=2] Leader imbalance ratio for broker 1 is 0.0 (kafka.controller.KafkaController)
+    >   [2018-12-26 00:37:09,554] DEBUG [Controller id=2] Topics not in preferred replica for broker 3 Map() (kafka.controller.KafkaController)
+    >   [2018-12-26 00:37:09,554] TRACE [Controller id=2] Leader imbalance ratio for broker 3 is 0.0 (kafka.controller.KafkaController)
+
+    #
+    # kafka-consumer-groups error message:
+    # Consumer group 'ztf-mirror.roe.ac.uk' does not exist.
+    #
+    # Disk space looks good.
+    # Kafka logs look good.
+    # Error message might be because upstream Zookeepers and/or Kafla were restarted ?
+    # Try running today's topic and see.
+
+
+# -----------------------------------------------------
+# Update the topic and start MirrorMaker on each node.
+#[user@trop03]
+
+    ztftopicid=ztf_20181226_programid1
+    ztftopicid=ztf_20181227_programid1
+
+    for vmname in ${mmnames[@]}
+        do
+            echo "---- ----"
+            echo "vmname [${vmname:?}]"
+            ssh \
+                ${scpopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                docker-compose \
+                    --file mirror.yml \
+                    down
+                sed -i \"
+                    s/^ztftopicid=.*/ztftopicid=${ztftopicid:?}/
+                    \" mirror.env
+                docker-compose \
+                    --file mirror.yml \
+                    up -d
+                "
+        done
+
+    >   ---- ----
+    >   vmname [Afoaviel]
+    >   Removing network stevedore_default
+    >   Network stevedore_default not found.
+    >   Creating network "stevedore_default" with the default driver
+    >   Creating stevedore_tina_1 ... done
+    >   ---- ----
+    >   vmname [Rusaldez]
+    >   Removing network stevedore_default
+    >   Network stevedore_default not found.
+    >   Creating network "stevedore_default" with the default driver
+    >   Creating stevedore_tina_1 ... done
+
+
+# -----------------------------------------------------
+# Check our client offsets in the ZTF broker.
+#[user@trop03]
+
+    devnode=Rusaldez
+
+    ztfconnect=public.alerts.ztf.uw.edu:9092
+    roegroupid=ztf-mirror.roe.ac.uk
+
+    date ; \
+    ssh \
+        ${sshopts[*]} \
+        ${sshuser:?}@${devnode:?} \
+        "
+        docker run --rm phymatopus/kafka-core \
+            bin/kafka-consumer-groups.sh \
+                --bootstrap-server "${ztfconnect:?}" \
+                --describe \
+                --group "${roegroupid:?}"
+         " \
+    | sort \
+    ; date
+
+
+    >   Wed 26 Dec 01:01:03 GMT 2018
+    >   Note: This will not show information about old Zookeeper-based consumers.
+    >   Wed 26 Dec 01:01:08 GMT 2018
+
+
+
+
+
+
+
+
+
+
+
+
+

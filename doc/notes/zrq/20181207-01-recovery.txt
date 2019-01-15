@@ -1,0 +1,521 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2018, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+        # -----------------------------------------------------
+        # Check whch nodes are reachable (this changes over time).
+        #[root@openstacker]
+
+            proxyip=172.16.49.217
+
+            for vmident in $(
+                openstack \
+                    server list \
+                    --format json \
+                | jq -r '.[] | .ID'
+                )
+                do
+                    getvminfo "${vmident:?}"
+                    echo "---- ----"
+                    echo "Ident [$vmident]"
+                    echo "Name  [$(getvmname)]"
+                    echo "ip192 [$(geteleanor192)]"
+                    echo "ip172 [$(geteleanor172)]"
+                    echo ""
+                    ssh ${sshopts[@]} \
+                        -o ProxyCommand="ssh ${sshopts[*]} -W %h:%p ${sshuser:?}@${proxyip:?}" \
+                        ${sshuser:?}@$(geteleanor192) \
+                            "
+                            hostname
+                            "
+                    echo ""
+                done
+
+
+            #
+            # Gateway node [172.16.49.217] is unavailable so all of them fail.
+            #
+
+            ---- ----
+            Ident [a00facb8-3289-4dd5-bf2f-200ecc87564b]
+            Name  [Raminiara-control-3]
+            ip192 [192.168.1.28]
+            ip172 [172.16.49.239]
+
+            ssh: connect to host 172.16.49.217 port 22: Connection timed out
+
+            ---- ----
+            Ident [c32e11f0-9d4f-49b0-bde5-a79306756a68]
+            Name  [Raminiara-mirror-3]
+            ip192 [192.168.1.25]
+            ip172 []
+
+            ssh: connect to host 172.16.49.217 port 22: Connection timed out
+            ssh_exchange_identification: Connection closed by remote host
+
+            ---- ----
+            Ident [e69f88ab-0da0-4faa-9aa7-ce1f71646dbf]
+            Name  [Raminiara-mirror-2]
+            ip192 [192.168.1.22]
+            ip172 []
+
+            ssh: connect to host 172.16.49.217 port 22: Connection timed out
+            ssh_exchange_identification: Connection closed by remote host
+
+            ---- ----
+            Ident [6883a92d-82e1-4635-8a36-2430597ade3f]
+            Name  [Raminiara-mirror-1]
+            ip192 [192.168.1.7]
+            ip172 []
+
+            ssh: connect to host 172.16.49.217 port 22: Connection timed out
+            ssh_exchange_identification: Connection closed by remote host
+
+            ---- ----
+            Ident [08aad6fe-3392-45f8-a49d-dc9aae314c7f]
+            Name  [Raminiara-mirror-0]
+            ip192 [192.168.1.9]
+            ip172 []
+
+            ssh: connect to host 172.16.49.217 port 22: Connection timed out
+
+            ---- ----
+            Ident [bb409e47-cf2c-4e64-aea6-e893e5d05100]
+            Name  [Raminiara-kafka-4]
+            ip192 [192.168.1.5]
+            ip172 [172.16.49.217]
+
+            ssh: connect to host 172.16.49.217 port 22: Connection timed out
+            ssh_exchange_identification: Connection closed by remote host
+
+            ---- ----
+            Ident [aa73a427-2e9f-413d-a37b-3eaf35799f00]
+            Name  [Raminiara-kafka-3]
+            ip192 [192.168.1.8]
+            ip172 [172.16.49.214]
+
+            ssh: connect to host 172.16.49.217 port 22: Connection timed out
+            ssh_exchange_identification: Connection closed by remote host
+
+            ---- ----
+            Ident [6f971e48-f760-43bf-ad98-c38a7b90c321]
+            Name  [Raminiara-kafka-2]
+            ip192 [192.168.1.15]
+            ip172 [172.16.49.12]
+
+            ssh: connect to host 172.16.49.217 port 22: Connection timed out
+
+            ---- ----
+            Ident [0824e436-6213-4893-8a67-40d152e7402c]
+            Name  [Raminiara-kafka-1]
+            ip192 [192.168.1.10]
+            ip172 [172.16.49.208]
+
+            ssh: connect to host 172.16.49.217 port 22: Connection timed out
+            ssh_exchange_identification: Connection closed by remote host
+
+            ---- ----
+            Ident [8cd2c6af-88b2-4cff-8c8a-81240bf63f70]
+            Name  [Raminiara-zookeeper-3]
+            ip192 [192.168.1.14]
+            ip172 []
+
+            ssh: connect to host 172.16.49.217 port 22: Connection timed out
+            ssh_exchange_identification: Connection closed by remote host
+
+            ---- ----
+            Ident [4bd50e51-ec0e-4d8d-9a2b-9af9185aefba]
+            Name  [Raminiara-zookeeper-2]
+            ip192 [192.168.1.16]
+            ip172 []
+
+            ssh: connect to host 172.16.49.217 port 22: Connection timed out
+            ssh_exchange_identification: Connection closed by remote host
+
+            ---- ----
+            Ident [39cbbdb1-4adb-439d-b9fe-71b8c48ec14b]
+            Name  [Raminiara-zookeeper-1]
+            ip192 [192.168.1.11]
+            ip172 []
+
+            ssh: connect to host 172.16.49.217 port 22: Connection timed out
+            ssh_exchange_identification: Connection closed by remote host
+
+
+        # -----------------------------------------------------
+        # Shutdown all of our nodes.
+        #[root@openstacker]
+
+            for vmident in $(
+                openstack \
+                    server list \
+                    --format json \
+                | jq -r '.[] | .ID'
+                )
+                do
+                    getvminfo "${vmident:?}"
+                    echo "---- ----"
+                    echo "Ident [$vmident]"
+                    echo "Name  [$(getvmname)]"
+                    echo "ip192 [$(geteleanor192)]"
+                    echo "ip172 [$(geteleanor172)]"
+                    echo ""
+
+                    openstack \
+                        server stop \
+                        "${vmident:?}"
+
+                done
+
+                ---- ----
+                Ident [a00facb8-3289-4dd5-bf2f-200ecc87564b]
+                Name  [Raminiara-control-3]
+                ip192 [192.168.1.28]
+                ip172 [172.16.49.239]
+
+                ---- ----
+                Ident [c32e11f0-9d4f-49b0-bde5-a79306756a68]
+                Name  [Raminiara-mirror-3]
+                ip192 [192.168.1.25]
+                ip172 []
+
+                ---- ----
+                Ident [e69f88ab-0da0-4faa-9aa7-ce1f71646dbf]
+                Name  [Raminiara-mirror-2]
+                ip192 [192.168.1.22]
+                ip172 []
+
+                ---- ----
+                Ident [6883a92d-82e1-4635-8a36-2430597ade3f]
+                Name  [Raminiara-mirror-1]
+                ip192 [192.168.1.7]
+                ip172 []
+
+                ---- ----
+                Ident [08aad6fe-3392-45f8-a49d-dc9aae314c7f]
+                Name  [Raminiara-mirror-0]
+                ip192 [192.168.1.9]
+                ip172 []
+
+                ---- ----
+                Ident [bb409e47-cf2c-4e64-aea6-e893e5d05100]
+                Name  [Raminiara-kafka-4]
+                ip192 [192.168.1.5]
+                ip172 [172.16.49.217]
+
+                ---- ----
+                Ident [aa73a427-2e9f-413d-a37b-3eaf35799f00]
+                Name  [Raminiara-kafka-3]
+                ip192 [192.168.1.8]
+                ip172 [172.16.49.214]
+
+                ---- ----
+                Ident [6f971e48-f760-43bf-ad98-c38a7b90c321]
+                Name  [Raminiara-kafka-2]
+                ip192 [192.168.1.15]
+                ip172 [172.16.49.12]
+
+                ---- ----
+                Ident [0824e436-6213-4893-8a67-40d152e7402c]
+                Name  [Raminiara-kafka-1]
+                ip192 [192.168.1.10]
+                ip172 [172.16.49.208]
+
+                ---- ----
+                Ident [8cd2c6af-88b2-4cff-8c8a-81240bf63f70]
+                Name  [Raminiara-zookeeper-3]
+                ip192 [192.168.1.14]
+                ip172 []
+
+                ---- ----
+                Ident [4bd50e51-ec0e-4d8d-9a2b-9af9185aefba]
+                Name  [Raminiara-zookeeper-2]
+                ip192 [192.168.1.16]
+                ip172 []
+
+                ---- ----
+                Ident [39cbbdb1-4adb-439d-b9fe-71b8c48ec14b]
+                Name  [Raminiara-zookeeper-1]
+                ip192 [192.168.1.11]
+                ip172 []
+
+
+        # -----------------------------------------------------
+        # Check the OpenStack status of our nodes.
+        #[root@openstacker]
+
+            for vmident in $(
+                openstack \
+                    server list \
+                    --format json \
+                | jq -r '.[] | .ID'
+                )
+                do
+                    getvminfo "${vmident:?}"
+                    echo ""
+                    echo "---- ----"
+                    echo "Ident [$vmident]"
+                    echo "Name  [$(getvmname)]"
+                    openstack \
+                        server show \
+                         --format json \
+                        "${vmident:?}" \
+                        | jq '{"addresses", "status", "OS-EXT-STS:vm_state", "OS-EXT-STS:power_state"}'
+                done
+
+                ---- ----
+                Ident [a00facb8-3289-4dd5-bf2f-200ecc87564b]
+                Name  [Raminiara-control-3]
+                {
+                  "addresses": "vm-network-UoE-internal=192.168.1.28, 172.16.49.239",
+                  "status": "SHUTOFF",
+                  "OS-EXT-STS:vm_state": "stopped",
+                  "OS-EXT-STS:power_state": "Shutdown"
+                }
+
+                ---- ----
+                Ident [c32e11f0-9d4f-49b0-bde5-a79306756a68]
+                Name  [Raminiara-mirror-3]
+                {
+                  "addresses": "vm-network-UoE-internal=192.168.1.25",
+                  "status": "SHUTOFF",
+                  "OS-EXT-STS:vm_state": "stopped",
+                  "OS-EXT-STS:power_state": "Shutdown"
+                }
+
+                ---- ----
+                Ident [e69f88ab-0da0-4faa-9aa7-ce1f71646dbf]
+                Name  [Raminiara-mirror-2]
+                {
+                  "addresses": "vm-network-UoE-internal=192.168.1.22",
+                  "status": "SHUTOFF",
+                  "OS-EXT-STS:vm_state": "stopped",
+                  "OS-EXT-STS:power_state": "Shutdown"
+                }
+
+                ---- ----
+                Ident [6883a92d-82e1-4635-8a36-2430597ade3f]
+                Name  [Raminiara-mirror-1]
+                {
+                  "addresses": "vm-network-UoE-internal=192.168.1.7",
+                  "status": "SHUTOFF",
+                  "OS-EXT-STS:vm_state": "stopped",
+                  "OS-EXT-STS:power_state": "Shutdown"
+                }
+
+                ---- ----
+                Ident [08aad6fe-3392-45f8-a49d-dc9aae314c7f]
+                Name  [Raminiara-mirror-0]
+                {
+                  "addresses": "vm-network-UoE-internal=192.168.1.9",
+                  "status": "ACTIVE",
+                  "OS-EXT-STS:vm_state": "active",
+                  "OS-EXT-STS:power_state": "Running"
+                }
+
+                ---- ----
+                Ident [bb409e47-cf2c-4e64-aea6-e893e5d05100]
+                Name  [Raminiara-kafka-4]
+                {
+                  "addresses": "vm-network-UoE-internal=192.168.1.5, 172.16.49.217",
+                  "status": "SHUTOFF",
+                  "OS-EXT-STS:vm_state": "stopped",
+                  "OS-EXT-STS:power_state": "Shutdown"
+                }
+
+                ---- ----
+                Ident [aa73a427-2e9f-413d-a37b-3eaf35799f00]
+                Name  [Raminiara-kafka-3]
+                {
+                  "addresses": "vm-network-UoE-internal=192.168.1.8, 172.16.49.214",
+                  "status": "SHUTOFF",
+                  "OS-EXT-STS:vm_state": "stopped",
+                  "OS-EXT-STS:power_state": "Shutdown"
+                }
+
+                ---- ----
+                Ident [6f971e48-f760-43bf-ad98-c38a7b90c321]
+                Name  [Raminiara-kafka-2]
+                {
+                  "addresses": "vm-network-UoE-internal=192.168.1.15, 172.16.49.12",
+                  "status": "SHUTOFF",
+                  "OS-EXT-STS:vm_state": "stopped",
+                  "OS-EXT-STS:power_state": "Shutdown"
+                }
+
+                ---- ----
+                Ident [0824e436-6213-4893-8a67-40d152e7402c]
+                Name  [Raminiara-kafka-1]
+                {
+                  "addresses": "vm-network-UoE-internal=192.168.1.10, 172.16.49.208",
+                  "status": "SHUTOFF",
+                  "OS-EXT-STS:vm_state": "stopped",
+                  "OS-EXT-STS:power_state": "Shutdown"
+                }
+
+                ---- ----
+                Ident [8cd2c6af-88b2-4cff-8c8a-81240bf63f70]
+                Name  [Raminiara-zookeeper-3]
+                {
+                  "addresses": "vm-network-UoE-internal=192.168.1.14",
+                  "status": "SHUTOFF",
+                  "OS-EXT-STS:vm_state": "stopped",
+                  "OS-EXT-STS:power_state": "Shutdown"
+                }
+
+                ---- ----
+                Ident [4bd50e51-ec0e-4d8d-9a2b-9af9185aefba]
+                Name  [Raminiara-zookeeper-2]
+                {
+                  "addresses": "vm-network-UoE-internal=192.168.1.16",
+                  "status": "SHUTOFF",
+                  "OS-EXT-STS:vm_state": "stopped",
+                  "OS-EXT-STS:power_state": "Shutdown"
+                }
+
+                ---- ----
+                Ident [39cbbdb1-4adb-439d-b9fe-71b8c48ec14b]
+                Name  [Raminiara-zookeeper-1]
+                {
+                  "addresses": "vm-network-UoE-internal=192.168.1.11",
+                  "status": "SHUTOFF",
+                  "OS-EXT-STS:vm_state": "stopped",
+                  "OS-EXT-STS:power_state": "Shutdown"
+                }
+
+
+        # -----------------------------------------------------
+        # One node remains 'stuck' ON.
+        #[root@openstacker]
+
+            ---- ----
+            Ident [08aad6fe-3392-45f8-a49d-dc9aae314c7f]
+            Name  [Raminiara-mirror-0]
+            {
+              "addresses": "vm-network-UoE-internal=192.168.1.9",
+              "status": "ACTIVE",
+              "OS-EXT-STS:vm_state": "active",
+              "OS-EXT-STS:power_state": "Running"
+            }
+
+        # -----------------------------------------------------
+        # Try shutting it down.
+        #[root@openstacker]
+
+            vmident='08aad6fe-3392-45f8-a49d-dc9aae314c7f'
+
+            openstack \
+                server stop \
+                "${vmident:?}"
+
+            >   Cannot 'stop' instance 08aad6fe-3392-45f8-a49d-dc9aae314c7f while it is in task_state powering-off (HTTP 409) (Request-ID: req-af908abb-0e0d-4191-a648-ec160a7715a6)
+
+        # -----------------------------------------------------
+        # Get the full status.
+        #[root@openstacker]
+
+            openstack \
+                server show \
+                 --format json \
+                "${vmident:?}" \
+                | jq '.'
+
+
+                {
+                  "OS-EXT-STS:task_state": "powering-off",
+                  "addresses": "vm-network-UoE-internal=192.168.1.9",
+                  "image": "fedora-27-docker-base-20180129 (407a5d09-cd97-455f-9bdb-4fb7f54dd4ff)",
+                  "OS-EXT-STS:vm_state": "active",
+                  "OS-SRV-USG:launched_at": "2018-06-19T02:13:23.000000",
+                  "flavor": "m1.small (2)",
+                  "id": "08aad6fe-3392-45f8-a49d-dc9aae314c7f",
+                  "security_groups": "name='default'",
+                  "volumes_attached": "",
+                  "user_id": "3d241b5fa2d0b3378901e08e86e10284dc9f9dae3732b99f71f809cf46ccb0d5",
+                  "OS-DCF:diskConfig": "MANUAL",
+                  "accessIPv4": "",
+                  "accessIPv6": "",
+                  "progress": 0,
+                  "OS-EXT-STS:power_state": "Running",
+                  "project_id": "fcef6dd450f64a1ab4ffa5a7234c4161",
+                  "config_drive": "",
+                  "status": "ACTIVE",
+                  "updated": "2018-12-07T04:00:55Z",
+                  "hostId": "a09e40d3aa8012de59ae2f160e3b49e5fc5ab6507f292f01dc28e01e",
+                  "OS-SRV-USG:terminated_at": null,
+                  "key_name": "dmr",
+                  "properties": "",
+                  "OS-EXT-AZ:availability_zone": "nova",
+                  "name": "Raminiara-mirror-0",
+                  "created": "2018-06-19T02:12:44Z"
+                }
+
+        # -----------------------------------------------------
+        # 6 hours later, still 'ACTIVE'.
+        #[root@openstacker]
+
+            openstack \
+                server show \
+                 --format json \
+                "${vmident:?}" \
+                | jq '.'
+
+
+                {
+                  "OS-EXT-STS:task_state": "powering-off",
+                  "addresses": "vm-network-UoE-internal=192.168.1.9",
+                  "image": "fedora-27-docker-base-20180129 (407a5d09-cd97-455f-9bdb-4fb7f54dd4ff)",
+                  "OS-EXT-STS:vm_state": "active",
+                  "OS-SRV-USG:launched_at": "2018-06-19T02:13:23.000000",
+                  "flavor": "m1.small (2)",
+                  "id": "08aad6fe-3392-45f8-a49d-dc9aae314c7f",
+                  "security_groups": "name='default'",
+                  "volumes_attached": "",
+                  "user_id": "3d241b5fa2d0b3378901e08e86e10284dc9f9dae3732b99f71f809cf46ccb0d5",
+                  "OS-DCF:diskConfig": "MANUAL",
+                  "accessIPv4": "",
+                  "accessIPv6": "",
+                  "progress": 0,
+                  "OS-EXT-STS:power_state": "Running",
+                  "project_id": "fcef6dd450f64a1ab4ffa5a7234c4161",
+                  "config_drive": "",
+                  "status": "ACTIVE",
+                  "updated": "2018-12-07T04:00:55Z",
+                  "hostId": "a09e40d3aa8012de59ae2f160e3b49e5fc5ab6507f292f01dc28e01e",
+                  "OS-SRV-USG:terminated_at": null,
+                  "key_name": "dmr",
+                  "properties": "",
+                  "OS-EXT-AZ:availability_zone": "nova",
+                  "name": "Raminiara-mirror-0",
+                  "created": "2018-06-19T02:12:44Z"
+                }
+
+        # -----------------------------------------------------
+        # Try shutting it down.
+        #[root@openstacker]
+
+            openstack \
+                server stop \
+                "${vmident:?}"
+
+            >   Cannot 'stop' instance 08aad6fe-3392-45f8-a49d-dc9aae314c7f while it is in task_state powering-off (HTTP 409) (Request-ID: req-e789dbe7-63bf-42b6-86e9-e37f67a82574)
+
+

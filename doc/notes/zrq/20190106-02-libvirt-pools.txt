@@ -1,0 +1,432 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+# -----------------------------------------------------
+# Update the settings files.
+#[user@trop04]
+
+    cat > "${HOME}/projects.settings" << 'EOF'
+
+PROJECTS_BASE="/var/local/projects/"
+
+EOF
+
+
+    cat > "${HOME}/libvirt.settings" << 'EOF'
+
+connection='qemu:///system'
+
+EOF
+
+
+    cat > "${HOME}/ischnura.settings" << 'EOF'
+
+        source "${HOME}/projects.settings"
+        source "${HOME}/libvirt.settings"
+
+        tempdir='/tmp'
+
+        basepool='base'
+        basepath='/var/lib/libvirt/images/base'
+
+        livepool='live'
+        livepath='/var/lib/libvirt/images/live'
+
+        initpool='init'
+        initpath='/var/lib/libvirt/images/init'
+
+        homepool='home'
+        homepath='/home/libvirt/images/home'
+
+        ischname='ischnura'
+        ischbase="${PROJECTS_BASE:?}/${ischname:?}"
+        ischcode="${ischbase:?}/github"
+
+        ischrepo='git@github.com:Zarquan/ischnura-kvm.git'
+
+EOF
+
+
+    cat > "${HOME}/heliodine.settings" << 'EOF'
+
+        source "${HOME}/projects.settings"
+
+        helioname='heliodines'
+        heliobase="${projectbase:?}/${helioname:?}"
+        heliocode="${heliobase:?}/git"
+
+        heliorepo='ssh://Zarquan@methionine:/var/local/projects/metagrid/heliodines/repo.git'
+
+        heliotype=tropo
+
+        targetcfg="${heliocode:?}/src/cfg/${heliotype:?}/$(hostname -s)"
+        commoncfg="${heliocode:?}/src/cfg/${heliotype:?}/common"
+
+EOF
+
+# -----------------------------------------------------
+# Check the available disc space.
+#[user@trop04]
+
+    df -h
+
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/sda2        92G  766M   87G   1% /
+    >   udev             10M     0   10M   0% /dev
+    >   tmpfs            26G  1.5G   24G   6% /run
+    >   tmpfs            64G     0   64G   0% /dev/shm
+    >   tmpfs           5.0M     0  5.0M   0% /run/lock
+    >   tmpfs            64G     0   64G   0% /sys/fs/cgroup
+    >   /dev/sda1       511M  132K  511M   1% /boot/efi
+    >   /dev/sda4       9.1G  3.0G  5.7G  35% /tmp
+    >   /dev/sda5        65G  3.7G   58G   7% /var
+    >   /dev/sda6        53G   52M   50G   1% /home
+    >   /dev/sdb1       3.6T   12G  3.4T   1% /data1
+    >   /dev/sdc1       3.6T   68M  3.4T   1% /data2
+    >   tmpfs            13G     0   13G   0% /run/user/1005
+
+
+    df -h | grep '^/dev/' | sort
+
+    >   /dev/sda1       511M  132K  511M   1% /boot/efi
+    >   /dev/sda2        92G  766M   87G   1% /
+    >   /dev/sda4       9.1G  3.0G  5.7G  35% /tmp
+    >   /dev/sda5        65G  3.7G   58G   7% /var
+    >   /dev/sda6        53G   52M   50G   1% /home
+    >   /dev/sdb1       3.6T   12G  3.4T   1% /data1
+    >   /dev/sdc1       3.6T   68M  3.4T   1% /data2
+
+
+# -----------------------------------------------------
+# Check the current pool configurations.
+#[user@trop04]
+
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        --connect ${connection:?} \
+        pool-list \
+            --all \
+            --details
+
+
+    >    Name     State    Autostart  Persistent   Capacity  Allocation  Available
+    >   ---------------------------------------------------------------------------
+    >    base     running  yes        yes         64.04 GiB    3.65 GiB  60.39 GiB
+    >    default  running  yes        yes         64.04 GiB    3.65 GiB  60.39 GiB
+    >    init     running  yes        yes         64.04 GiB    3.65 GiB  60.39 GiB
+    >    live     running  yes        yes         64.04 GiB    3.65 GiB  60.39 GiB
+
+# -----------------------------------------------------
+# List the pool paths.
+#[user@trop04]
+
+    for poolname in $(
+        virsh \
+            --quiet \
+            --connect ${connection:?} \
+            pool-list --all \
+          | sed '
+            s/[[:space:]]*\([^[:space:]]*\)[[:space:]]*\([^[:space:]]*\)[[:space:]]*\([^[:space:]]*\)/\1/
+            '
+        )
+        do
+            poolpath=$(
+                virsh \
+                    --connect ${connection:?} \
+                    pool-dumpxml \
+                        "${poolname:?}" \
+                  | xmlstarlet select -t -v '//target/path'
+                )
+            echo ""
+            echo "Name [${poolname}]"
+            echo "Path [${poolpath}]"
+        done
+
+    >   Name [base]
+    >   Path [/var/lib/libvirt/images/base]
+    >
+    >   Name [default]
+    >   Path [/var/lib/libvirt/images]
+    >
+    >   Name [init]
+    >   Path [/var/lib/libvirt/images/init]
+    >
+    >   Name [live]
+    >   Path [/var/lib/libvirt/images/live]
+
+
+
+# -----------------------------------------------------
+# Changes ...
+
+        Remove the 'default' pool.
+
+        Add a '/home' (53G) directory for libvirt and make that available as a pool
+
+            Name [home]
+            Path [/home/libvirt/images/home]
+
+        Add a '/data0' directory on '/' (92G), and make that available as a pool.
+
+            Name [data0]
+            Path [/data0/libvirt/images/data0]
+
+        Add a '/data1' (3.6T) directory for libvirt and make that available as a pool
+
+            Name [data1]
+            Path [/data1/libvirt/images/data1]
+
+        Add a '/data2' (3.6T) directory for libvirt and make that available as a pool
+
+            Name [data2]
+            Path [/data2/libvirt/images/data2]
+
+
+# -----------------------------------------------------
+# Shutdown any existing VMs.
+#[user@trop04]
+
+    source "${HOME}/libvirt.settings"
+
+    for vmname in $(
+        virsh \
+            --quiet \
+            --connect ${connection:?} \
+            list --all \
+          | sed '
+            s/[[:space:]]*\([^[:space:]]*\)[[:space:]]*\([^[:space:]]*\)[[:space:]]*\([^[:space:]]*\)/\2/
+            '
+        )
+        do
+            echo ""
+            echo "Stopping [${vmname}]"
+            virsh \
+                --quiet \
+                --connect ${connection:?} \
+                destroy \
+                    "${vmname}"
+
+            echo "Deleting [${vmname}]"
+            virsh \
+                --quiet \
+                --connect ${connection:?} \
+                undefine \
+                    "${vmname:?}" \
+                    --remove-all-storage
+
+        done
+
+
+# -----------------------------------------------------
+# Remove the 'default' pool.
+#[user@trop04]
+
+        poolname=default
+
+        virsh \
+            --connect ${connection:?} \
+            pool-destroy \
+                ${poolname:?}
+
+    >   Pool default destroyed
+
+
+        virsh \
+            --connect ${connection:?} \
+            pool-undefine \
+                ${poolname:?}
+
+    >   Pool default has been undefined
+
+
+# -----------------------------------------------------
+# Define the new pools we want to create.
+#[user@trop03]
+
+    unset pooldata
+    declare -A pooldata=(
+        [home]=/home/libvirt/images/home
+        [data0]=/data0/libvirt/images/data0
+        [data1]=/data1/libvirt/images/data1
+        [data2]=/data2/libvirt/images/data2
+        )
+
+    sudo ls
+
+    source "${HOME}/libvirt.settings"
+
+    for poolname in "${!pooldata[@]}"
+        do
+            poolpath=${pooldata[${poolname:?}]}
+            echo "Name [${poolname:?}]"
+            echo "Path [${poolpath:?}]"
+
+            sudo mkdir -p ${poolpath:?}
+
+            virsh \
+                --connect ${connection:?} \
+                pool-define-as \
+                    "${poolname:?}" \
+                    'dir' \
+                    --target "${poolpath}"
+
+        done
+
+    >   Name [home]
+    >   Path [/home/libvirt/images/home]
+    >   Pool home defined
+    >
+    >   Name [data0]
+    >   Path [/data0/libvirt/images/data0]
+    >   Pool data0 defined
+    >
+    >   Name [data1]
+    >   Path [/data1/libvirt/images/data1]
+    >   Pool data1 defined
+    >
+    >   Name [data2]
+    >   Path [/data2/libvirt/images/data2]
+    >   Pool data2 defined
+
+
+# -----------------------------------------------------
+# Initialise the new pools.
+#[user@trop03]
+
+    for poolname in "${!pooldata[@]}"
+        do
+
+            virsh \
+                --connect ${connection:?} \
+                pool-build \
+                    "${poolname:?}"
+
+            virsh \
+                --connect ${connection:?} \
+                pool-autostart \
+                    ${poolname:?}
+
+            virsh \
+                --connect ${connection:?} \
+                pool-start \
+                    ${poolname:?}
+
+        done
+
+    >   Pool home built
+    >
+    >   Pool home marked as autostarted
+    >
+    >   Pool home started
+    >
+    >   Pool data0 built
+    >
+    >   Pool data0 marked as autostarted
+    >
+    >   Pool data0 started
+    >
+    >   Pool data1 built
+    >
+    >   Pool data1 marked as autostarted
+    >
+    >   Pool data1 started
+    >
+    >   Pool data2 built
+    >
+    >   Pool data2 marked as autostarted
+    >
+    >   Pool data2 started
+
+
+# -----------------------------------------------------
+# List the current pools.
+#[user@trop04]
+
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        --connect ${connection:?} \
+        pool-list \
+            --all \
+            --details
+
+    >    Name   State    Autostart  Persistent   Capacity  Allocation  Available
+    >   -------------------------------------------------------------------------
+    >    base   running  yes        yes         64.04 GiB    3.65 GiB  60.39 GiB
+    >    data0  running  yes        yes         91.54 GiB  765.79 MiB  90.80 GiB
+    >    data1  running  yes        yes          3.58 TiB   11.18 GiB   3.57 TiB
+    >    data2  running  yes        yes          3.58 TiB   68.01 MiB   3.58 TiB
+    >    home   running  yes        yes         52.60 GiB   51.96 MiB  52.55 GiB
+    >    init   running  yes        yes         64.04 GiB    3.65 GiB  60.39 GiB
+    >    live   running  yes        yes         64.04 GiB    3.65 GiB  60.39 GiB
+
+
+# -----------------------------------------------------
+# List the pool paths.
+#[user@trop04]
+
+    for poolname in $(
+        virsh \
+            --quiet \
+            --connect ${connection:?} \
+            pool-list --all \
+          | sed '
+            s/[[:space:]]*\([^[:space:]]*\)[[:space:]]*\([^[:space:]]*\)[[:space:]]*\([^[:space:]]*\)/\1/
+            '
+        )
+        do
+            poolpath=$(
+                virsh \
+                    --connect ${connection:?} \
+                    pool-dumpxml \
+                        "${poolname:?}" \
+                  | xmlstarlet select -t -v '//target/path'
+                )
+            echo ""
+            echo "Name [${poolname}]"
+            echo "Path [${poolpath}]"
+        done
+
+    >   Name [base]
+    >   Path [/var/lib/libvirt/images/base]
+    >
+    >   Name [data0]
+    >   Path [/data0/libvirt/images/data0]
+    >
+    >   Name [data1]
+    >   Path [/data1/libvirt/images/data1]
+    >
+    >   Name [data2]
+    >   Path [/data2/libvirt/images/data2]
+    >
+    >   Name [home]
+    >   Path [/home/libvirt/images/home]
+    >
+    >   Name [init]
+    >   Path [/var/lib/libvirt/images/init]
+    >
+    >   Name [live]
+    >   Path [/var/lib/libvirt/images/live]
+
+
+

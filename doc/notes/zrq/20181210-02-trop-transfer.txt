@@ -1,0 +1,1300 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2018, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+# -----------------------------------------------------
+# Load our libvirt configuration.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+# -----------------------------------------------------
+# Configure our SSH settings.
+#[user@trop03]
+
+    sshuser=Stevedore
+    sshopts=(
+        '-A'
+        '-o LogLevel=ERROR'
+        '-o CheckHostIP=no'
+        '-o UserKnownHostsFile=/dev/null'
+        '-o StrictHostKeyChecking=no'
+        )
+
+    scpopts=(
+        '-o LogLevel=ERROR'
+        '-o CheckHostIP=no'
+        '-o UserKnownHostsFile=/dev/null'
+        '-o StrictHostKeyChecking=no'
+        )
+
+# -----------------------------------------------------
+# Assign our virtual machine names.
+#[user@trop03]
+
+    kfnames=(
+        Stedigo
+        Angece
+        Edwalafia
+        Onoza
+        )
+
+    zknames=(
+        Fosauri
+        Marpus
+        Byflame
+        )
+
+    mmnames=(
+        Afoaviel
+        Rusaldez
+        )
+
+# -----------------------------------------------------
+# Collect the IP addreses for our Zookeeper nodes.
+#[user@trop03]
+
+    unset zknodes
+    declare -A zknodes
+
+    for vmname in ${zknames[@]}
+        do
+            vmipv4=$(
+                virsh \
+                    --connect ${connection:?} \
+                        net-dumpxml \
+                            'default' \
+                | xmlstarlet \
+                    select \
+                        --template \
+                            --value-of "//host[@name=\"${vmname}\"]/@ip"
+                )
+            echo "vmname [${vmname}]"
+            echo "vmipv4 [${vmipv4}]"
+
+            zknodes[${vmname}]=${vmipv4}
+    done
+
+    >   vmname [Fosauri]
+    >   vmipv4 [192.168.203.21]
+    >   vmname [Marpus]
+    >   vmipv4 [192.168.203.22]
+    >   vmname [Byflame]
+    >   vmipv4 [192.168.203.23]
+
+    zktemp=${zknodes[*]}
+    zklist=${zktemp// /,}
+
+echo "
+zktemp [${zktemp}]
+zklist [${zklist}]
+"
+
+    >   zktemp [192.168.203.21 192.168.203.22 192.168.203.23]
+    >   zklist [192.168.203.21,192.168.203.22,192.168.203.23]
+
+# -----------------------------------------------------
+# Create our Kafka nodes.
+#[user@trop03]
+
+    createvm
+
+    >   INFO : Node name [Stedigo]
+    >   INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Disc name [Stedigo.qcow]
+    >   INFO : Disc size [8GiB]
+
+    createvm
+
+    >   INFO : Node name [Angece]
+    >   INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Disc name [Angece.qcow]
+    >   INFO : Disc size [8GiB]
+
+    createvm
+
+    >   INFO : Node name [Edwalafia]
+    >   INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Disc name [Edwalafia.qcow]
+    >   INFO : Disc size [8GiB]
+
+    createvm
+
+    >   INFO : Node name [Onoza]
+    >   INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Disc name [Onoza.qcow]
+    >   INFO : Disc size [8GiB]
+
+
+# -----------------------------------------------------
+# Collect the IP addreses of our Kafka nodes.
+#[user@trop03]
+
+    unset kfnodes
+    declare -A kfnodes
+
+    for vmname in ${kfnames[@]}
+        do
+            vmipv4=$(
+                virsh \
+                    --connect ${connection:?} \
+                        net-dumpxml \
+                            'default' \
+                | xmlstarlet \
+                    select \
+                        --template \
+                            --value-of "//host[@name=\"${vmname}\"]/@ip"
+                )
+            echo "vmname [${vmname}]"
+            echo "vmipv4 [${vmipv4}]"
+            kfnodes[${vmname}]=${vmipv4}
+        done
+
+
+    >   vmname [Stedigo]
+    >   vmipv4 [192.168.203.17]
+    >   vmname [Angece]
+    >   vmipv4 [192.168.203.18]
+    >   vmname [Edwalafia]
+    >   vmipv4 [192.168.203.19]
+    >   vmname [Onoza]
+    >   vmipv4 [192.168.203.20]
+
+# -----------------------------------------------------
+# Create our Kafka data volumes.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+    volsize=32G
+
+    volpools=(
+        data1
+        data2
+        )
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            echo "vmname [${vmname}]"
+            for volpool in ${volpools[@]}
+                do
+                    echo "----"
+                    volname=${vmname:?}-${volpool:?}-01.qcow
+                    echo "volname [${volname}]"
+                    virsh \
+                        --connect ${connection:?} \
+                        vol-create-as \
+                            ${volpool:?} \
+                            ${volname:?} \
+                            ${volsize} \
+                            --allocation 0 \
+                            --format qcow2
+                    virsh \
+                        --connect ${connection:?} \
+                        vol-info \
+                            --pool "${volpool:?}" \
+                            ${volname:?}
+                    virsh \
+                        --connect "${connection:?}" \
+                        vol-path \
+                            --pool "${volpool:?}" \
+                            "${volname:?}"
+                done
+        done
+
+    >   ---- ----
+    >   vmname [Stedigo]
+    >   ----
+    >   volname [Stedigo-data1-01.qcow]
+    >   Vol Stedigo-data1-01.qcow created
+    >
+    >   Name:           Stedigo-data1-01.qcow
+    >   Type:           file
+    >   Capacity:       32.00 GiB
+    >   Allocation:     196.00 KiB
+    >
+    >   /data1/libvirt/images/data1/Stedigo-data1-01.qcow
+    >
+    >   ----
+    >   volname [Stedigo-data2-01.qcow]
+    >   Vol Stedigo-data2-01.qcow created
+    >
+    >   Name:           Stedigo-data2-01.qcow
+    >   Type:           file
+    >   Capacity:       32.00 GiB
+    >   Allocation:     196.00 KiB
+    >
+    >   /data2/libvirt/images/data2/Stedigo-data2-01.qcow
+    >
+    >   ---- ----
+    >   vmname [Angece]
+    >   ----
+    >   volname [Angece-data1-01.qcow]
+    >   Vol Angece-data1-01.qcow created
+    >
+    >   Name:           Angece-data1-01.qcow
+    >   Type:           file
+    >   Capacity:       32.00 GiB
+    >   Allocation:     196.00 KiB
+    >
+    >   /data1/libvirt/images/data1/Angece-data1-01.qcow
+    >
+    >   ----
+    >   volname [Angece-data2-01.qcow]
+    >   Vol Angece-data2-01.qcow created
+    >
+    >   Name:           Angece-data2-01.qcow
+    >   Type:           file
+    >   Capacity:       32.00 GiB
+    >   Allocation:     196.00 KiB
+    >
+    >   /data2/libvirt/images/data2/Angece-data2-01.qcow
+    >
+    >   ---- ----
+    >   vmname [Edwalafia]
+    >   ----
+    >   volname [Edwalafia-data1-01.qcow]
+    >   Vol Edwalafia-data1-01.qcow created
+    >
+    >   Name:           Edwalafia-data1-01.qcow
+    >   Type:           file
+    >   Capacity:       32.00 GiB
+    >   Allocation:     196.00 KiB
+    >
+    >   /data1/libvirt/images/data1/Edwalafia-data1-01.qcow
+    >
+    >   ----
+    >   volname [Edwalafia-data2-01.qcow]
+    >   Vol Edwalafia-data2-01.qcow created
+    >
+    >   Name:           Edwalafia-data2-01.qcow
+    >   Type:           file
+    >   Capacity:       32.00 GiB
+    >   Allocation:     196.00 KiB
+    >
+    >   /data2/libvirt/images/data2/Edwalafia-data2-01.qcow
+    >
+    >   ---- ----
+    >   vmname [Onoza]
+    >   ----
+    >   volname [Onoza-data1-01.qcow]
+    >   Vol Onoza-data1-01.qcow created
+    >
+    >   Name:           Onoza-data1-01.qcow
+    >   Type:           file
+    >   Capacity:       32.00 GiB
+    >   Allocation:     196.00 KiB
+    >
+    >   /data1/libvirt/images/data1/Onoza-data1-01.qcow
+    >
+    >   ----
+    >   volname [Onoza-data2-01.qcow]
+    >   Vol Onoza-data2-01.qcow created
+    >
+    >   Name:           Onoza-data2-01.qcow
+    >   Type:           file
+    >   Capacity:       32.00 GiB
+    >   Allocation:     196.00 KiB
+    >
+    >   /data2/libvirt/images/data2/Onoza-data2-01.qcow
+    >
+
+
+# -----------------------------------------------------
+# Create lists of devices and mount points.
+#[user@trop03]
+
+    unset voldevs
+    declare -A voldevs=(
+        [data1]=vdc
+        [data2]=vdd
+        )
+
+    unset volmnts
+    declare -A volmnts=(
+        [data1]=/data1-01
+        [data2]=/data2-01
+        )
+
+# -----------------------------------------------------
+# Attach the volumes to the VMs.
+#[user@trop03]
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            echo "vmname [${vmname}]"
+            for volpool in ${volpools[@]}
+                do
+                    volname=${vmname:?}-${volpool:?}-01.qcow
+                    voldev=${voldevs[${volpool}]}
+                    echo "volname [${volname}]"
+                    echo "voldev  [${voldev}]"
+
+                    volpath=$(
+                        virsh \
+                            --connect "${connection:?}" \
+                            vol-path \
+                                --pool "${volpool:?}" \
+                                "${volname:?}"
+                        )
+
+                    echo "volpath [${volpath}]"
+
+                    virsh \
+                        --connect "${connection:?}" \
+                        attach-disk \
+                            ${vmname:?}   \
+                            ${volpath:?}  \
+                            ${voldev:?}   \
+                            --driver qemu  \
+                            --subdriver qcow2
+                done
+        done
+
+
+    >   ---- ----
+    >   vmname [Stedigo]
+    >   volname [Stedigo-data1-01.qcow]
+    >   voldev  [vdc]
+    >   volpath [/data1/libvirt/images/data1/Stedigo-data1-01.qcow]
+    >   Disk attached successfully
+    >
+    >   volname [Stedigo-data2-01.qcow]
+    >   voldev  [vdd]
+    >   volpath [/data2/libvirt/images/data2/Stedigo-data2-01.qcow]
+    >   Disk attached successfully
+    >
+    >   ---- ----
+    >   vmname [Angece]
+    >   volname [Angece-data1-01.qcow]
+    >   voldev  [vdc]
+    >   volpath [/data1/libvirt/images/data1/Angece-data1-01.qcow]
+    >   Disk attached successfully
+    >
+    >   volname [Angece-data2-01.qcow]
+    >   voldev  [vdd]
+    >   volpath [/data2/libvirt/images/data2/Angece-data2-01.qcow]
+    >   Disk attached successfully
+    >
+    >   ---- ----
+    >   vmname [Edwalafia]
+    >   volname [Edwalafia-data1-01.qcow]
+    >   voldev  [vdc]
+    >   volpath [/data1/libvirt/images/data1/Edwalafia-data1-01.qcow]
+    >   Disk attached successfully
+    >
+    >   volname [Edwalafia-data2-01.qcow]
+    >   voldev  [vdd]
+    >   volpath [/data2/libvirt/images/data2/Edwalafia-data2-01.qcow]
+    >   Disk attached successfully
+    >
+    >   ---- ----
+    >   vmname [Onoza]
+    >   volname [Onoza-data1-01.qcow]
+    >   voldev  [vdc]
+    >   volpath [/data1/libvirt/images/data1/Onoza-data1-01.qcow]
+    >   Disk attached successfully
+    >
+    >   volname [Onoza-data2-01.qcow]
+    >   voldev  [vdd]
+    >   volpath [/data2/libvirt/images/data2/Onoza-data2-01.qcow]
+    >   Disk attached successfully
+
+
+#---------------------------------------------------------------------
+# Create a script to mount a volume.
+#[user@virtual]
+
+cat > /tmp/volume-mount.sh << 'EOSH'
+
+echo "---- ----"
+echo "hostname [$(hostname)]"
+echo "devpath  [${devpath:?}]"
+echo "mntpath  [${mntpath:?}]"
+
+#---------------------------------------------------------------------
+# Create a filesystem on the new device.
+
+    sudo \
+        mkfs.btrfs \
+            --force \
+            ${devpath:?}
+
+#---------------------------------------------------------------------
+# Create our mount point.
+
+    sudo mkdir -p "${mntpath:?}"
+    sudo touch "${mntpath:?}/mount-failed"
+
+#---------------------------------------------------------------------
+# Add the volume to our FileSystemTABle.
+# https://www.howtoforge.com/reducing-disk-io-by-mounting-partitions-with-noatime
+
+    devuuid=$(
+        lsblk --noheadings --output UUID "${devpath:?}"
+        )
+
+sudo tee -a /etc/fstab << EOTAB
+UUID=${devuuid:?} ${mntpath:?}    btrfs    defaults,noatime    0  0
+EOTAB
+
+#---------------------------------------------------------------------
+# Mount the new volume.
+
+    sudo \
+        mount "${mntpath:?}"
+
+#---------------------------------------------------------------------
+# Check the new volume.
+
+    df -h "${mntpath:?}"
+    ls -l "${mntpath:?}"
+
+EOSH
+
+# -----------------------------------------------------
+# Login and mount each of the new volumes.
+#[user@trop03]
+
+    for vmname in ${kfnames[@]}
+        do
+            for volpool in ${volpools[@]}
+                do
+                    volname=${vmname:?}-${volpool:?}-01.qcow
+                    devpath=/dev/${voldevs[${volpool}]}
+                    mntpath=${volmnts[${volpool}]}
+                    echo "---- ----"
+                    echo "vmname  [${vmname}]"
+                    echo "volname [${volname}]"
+                    echo "devpath [${devpath}]"
+                    echo "mntpath [${mntpath}]"
+
+                    echo "
+                        export devpath=${devpath:?}
+                        export mntpath=${mntpath:?}
+                    " \
+                    | cat - /tmp/volume-mount.sh \
+                    | ssh \
+                        ${sshopts[*]} \
+                        ${sshuser:?}@${vmname:?}
+                done
+        done
+
+    >   ---- ----
+    >   vmname  [Stedigo]
+    >   volname [Stedigo-data1-01.qcow]
+    >   devpath [/dev/vdc]
+    >   mntpath [/data1-01]
+    >   ---- ----
+    >   hostname [Stedigo]
+    >   devpath  [/dev/vdc]
+    >   mntpath  [/data1-01]
+    >   btrfs-progs v4.17.1
+    >   See http://btrfs.wiki.kernel.org for more information.
+    >
+    >   Label:              (null)
+    >   UUID:               ed59c1c8-883a-4488-88ea-520a9ea77350
+    >   Node size:          16384
+    >   Sector size:        4096
+    >   Filesystem size:    32.00GiB
+    >   Block group profiles:
+    >     Data:             single            8.00MiB
+    >     Metadata:         DUP               1.00GiB
+    >     System:           DUP               8.00MiB
+    >   SSD detected:       no
+    >   Incompat features:  extref, skinny-metadata
+    >   Number of devices:  1
+    >   Devices:
+    >      ID        SIZE  PATH
+    >       1    32.00GiB  /dev/vdc
+    >
+    >   UUID=ed59c1c8-883a-4488-88ea-520a9ea77350 /data1-01    btrfs    defaults,noatime    0  0
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdc         32G   17M   30G   1% /data1-01
+    >   total 0
+    >   ---- ----
+    >   vmname  [Stedigo]
+    >   volname [Stedigo-data2-01.qcow]
+    >   devpath [/dev/vdd]
+    >   mntpath [/data2-01]
+    >   ---- ----
+    >   hostname [Stedigo]
+    >   devpath  [/dev/vdd]
+    >   mntpath  [/data2-01]
+    >   btrfs-progs v4.17.1
+    >   See http://btrfs.wiki.kernel.org for more information.
+    >
+    >   Label:              (null)
+    >   UUID:               b2598b9e-e396-4f77-9230-dc5c9d4091c8
+    >   Node size:          16384
+    >   Sector size:        4096
+    >   Filesystem size:    32.00GiB
+    >   Block group profiles:
+    >     Data:             single            8.00MiB
+    >     Metadata:         DUP               1.00GiB
+    >     System:           DUP               8.00MiB
+    >   SSD detected:       no
+    >   Incompat features:  extref, skinny-metadata
+    >   Number of devices:  1
+    >   Devices:
+    >      ID        SIZE  PATH
+    >       1    32.00GiB  /dev/vdd
+    >
+    >   UUID=b2598b9e-e396-4f77-9230-dc5c9d4091c8 /data2-01    btrfs    defaults,noatime    0  0
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdd         32G   17M   30G   1% /data2-01
+    >   total 0
+    >   ---- ----
+    >   vmname  [Angece]
+    >   volname [Angece-data1-01.qcow]
+    >   devpath [/dev/vdc]
+    >   mntpath [/data1-01]
+    >   ---- ----
+    >   hostname [Angece]
+    >   devpath  [/dev/vdc]
+    >   mntpath  [/data1-01]
+    >   btrfs-progs v4.17.1
+    >   See http://btrfs.wiki.kernel.org for more information.
+    >
+    >   Label:              (null)
+    >   UUID:               50feae1c-bef0-4252-8e3a-eea0f9d170e2
+    >   Node size:          16384
+    >   Sector size:        4096
+    >   Filesystem size:    32.00GiB
+    >   Block group profiles:
+    >     Data:             single            8.00MiB
+    >     Metadata:         DUP               1.00GiB
+    >     System:           DUP               8.00MiB
+    >   SSD detected:       no
+    >   Incompat features:  extref, skinny-metadata
+    >   Number of devices:  1
+    >   Devices:
+    >      ID        SIZE  PATH
+    >       1    32.00GiB  /dev/vdc
+    >
+    >   UUID=50feae1c-bef0-4252-8e3a-eea0f9d170e2 /data1-01    btrfs    defaults,noatime    0  0
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdc         32G   17M   30G   1% /data1-01
+    >   total 0
+    >   ---- ----
+    >   vmname  [Angece]
+    >   volname [Angece-data2-01.qcow]
+    >   devpath [/dev/vdd]
+    >   mntpath [/data2-01]
+    >   ---- ----
+    >   hostname [Angece]
+    >   devpath  [/dev/vdd]
+    >   mntpath  [/data2-01]
+    >   btrfs-progs v4.17.1
+    >   See http://btrfs.wiki.kernel.org for more information.
+    >
+    >   Label:              (null)
+    >   UUID:               36c83514-e392-4b6f-a13e-6ab4520a8874
+    >   Node size:          16384
+    >   Sector size:        4096
+    >   Filesystem size:    32.00GiB
+    >   Block group profiles:
+    >     Data:             single            8.00MiB
+    >     Metadata:         DUP               1.00GiB
+    >     System:           DUP               8.00MiB
+    >   SSD detected:       no
+    >   Incompat features:  extref, skinny-metadata
+    >   Number of devices:  1
+    >   Devices:
+    >      ID        SIZE  PATH
+    >       1    32.00GiB  /dev/vdd
+    >
+    >   UUID=36c83514-e392-4b6f-a13e-6ab4520a8874 /data2-01    btrfs    defaults,noatime    0  0
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdd         32G   17M   30G   1% /data2-01
+    >   total 0
+    >   ---- ----
+    >   vmname  [Edwalafia]
+    >   volname [Edwalafia-data1-01.qcow]
+    >   devpath [/dev/vdc]
+    >   mntpath [/data1-01]
+    >   ---- ----
+    >   hostname [Edwalafia]
+    >   devpath  [/dev/vdc]
+    >   mntpath  [/data1-01]
+    >   btrfs-progs v4.17.1
+    >   See http://btrfs.wiki.kernel.org for more information.
+    >
+    >   Label:              (null)
+    >   UUID:               23ab90ff-b63f-4536-8ae2-a963c0f46655
+    >   Node size:          16384
+    >   Sector size:        4096
+    >   Filesystem size:    32.00GiB
+    >   Block group profiles:
+    >     Data:             single            8.00MiB
+    >     Metadata:         DUP               1.00GiB
+    >     System:           DUP               8.00MiB
+    >   SSD detected:       no
+    >   Incompat features:  extref, skinny-metadata
+    >   Number of devices:  1
+    >   Devices:
+    >      ID        SIZE  PATH
+    >       1    32.00GiB  /dev/vdc
+    >
+    >   UUID=23ab90ff-b63f-4536-8ae2-a963c0f46655 /data1-01    btrfs    defaults,noatime    0  0
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdc         32G   17M   30G   1% /data1-01
+    >   total 0
+    >   ---- ----
+    >   vmname  [Edwalafia]
+    >   volname [Edwalafia-data2-01.qcow]
+    >   devpath [/dev/vdd]
+    >   mntpath [/data2-01]
+    >   ---- ----
+    >   hostname [Edwalafia]
+    >   devpath  [/dev/vdd]
+    >   mntpath  [/data2-01]
+    >   btrfs-progs v4.17.1
+    >   See http://btrfs.wiki.kernel.org for more information.
+    >
+    >   Label:              (null)
+    >   UUID:               4bdd314d-4f4f-4870-8d40-086b0ac13e77
+    >   Node size:          16384
+    >   Sector size:        4096
+    >   Filesystem size:    32.00GiB
+    >   Block group profiles:
+    >     Data:             single            8.00MiB
+    >     Metadata:         DUP               1.00GiB
+    >     System:           DUP               8.00MiB
+    >   SSD detected:       no
+    >   Incompat features:  extref, skinny-metadata
+    >   Number of devices:  1
+    >   Devices:
+    >      ID        SIZE  PATH
+    >       1    32.00GiB  /dev/vdd
+    >
+    >   UUID=4bdd314d-4f4f-4870-8d40-086b0ac13e77 /data2-01    btrfs    defaults,noatime    0  0
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdd         32G   17M   30G   1% /data2-01
+    >   total 0
+    >   ---- ----
+    >   vmname  [Onoza]
+    >   volname [Onoza-data1-01.qcow]
+    >   devpath [/dev/vdc]
+    >   mntpath [/data1-01]
+    >   ---- ----
+    >   hostname [Onoza]
+    >   devpath  [/dev/vdc]
+    >   mntpath  [/data1-01]
+    >   btrfs-progs v4.17.1
+    >   See http://btrfs.wiki.kernel.org for more information.
+    >
+    >   Label:              (null)
+    >   UUID:               c8101288-567d-4501-b07b-887271bde191
+    >   Node size:          16384
+    >   Sector size:        4096
+    >   Filesystem size:    32.00GiB
+    >   Block group profiles:
+    >     Data:             single            8.00MiB
+    >     Metadata:         DUP               1.00GiB
+    >     System:           DUP               8.00MiB
+    >   SSD detected:       no
+    >   Incompat features:  extref, skinny-metadata
+    >   Number of devices:  1
+    >   Devices:
+    >      ID        SIZE  PATH
+    >       1    32.00GiB  /dev/vdc
+    >
+    >   UUID=c8101288-567d-4501-b07b-887271bde191 /data1-01    btrfs    defaults,noatime    0  0
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdc         32G   17M   30G   1% /data1-01
+    >   total 0
+    >   ---- ----
+    >   vmname  [Onoza]
+    >   volname [Onoza-data2-01.qcow]
+    >   devpath [/dev/vdd]
+    >   mntpath [/data2-01]
+    >   ---- ----
+    >   hostname [Onoza]
+    >   devpath  [/dev/vdd]
+    >   mntpath  [/data2-01]
+    >   btrfs-progs v4.17.1
+    >   See http://btrfs.wiki.kernel.org for more information.
+    >
+    >   Label:              (null)
+    >   UUID:               26fda47f-cf3b-47af-a23e-80c4f911ee9b
+    >   Node size:          16384
+    >   Sector size:        4096
+    >   Filesystem size:    32.00GiB
+    >   Block group profiles:
+    >     Data:             single            8.00MiB
+    >     Metadata:         DUP               1.00GiB
+    >     System:           DUP               8.00MiB
+    >   SSD detected:       no
+    >   Incompat features:  extref, skinny-metadata
+    >   Number of devices:  1
+    >   Devices:
+    >      ID        SIZE  PATH
+    >       1    32.00GiB  /dev/vdd
+    >
+    >   UUID=26fda47f-cf3b-47af-a23e-80c4f911ee9b /data2-01    btrfs    defaults,noatime    0  0
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdd         32G   17M   30G   1% /data2-01
+    >   total 0
+
+# -----------------------------------------------------
+# Check our mounted volumes.
+#[user@trop03]
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            ssh \
+                ${scpopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                hostname
+
+                ls /data1-01/mount-failed
+                ls /data2-01/mount-failed
+
+                "
+        done
+
+
+# -----------------------------------------------------
+# Create our compose YAML file.
+#[user@trop03]
+
+cat > /tmp/kafka.yml << 'EOYML'
+
+version: "3.2"
+
+services:
+
+    emily:
+        image:
+            confluentinc/cp-kafka:4.1.1
+        ports:
+            - "9092:9092"
+            - "9093:9093"
+        environment:
+            - KAFKA_LISTENERS=LISTENER_BOB://0.0.0.0:9092,LISTENER_FRED://0.0.0.0:9093
+            - KAFKA_ADVERTISED_LISTENERS=LISTENER_BOB://${KAFKA_LISTENER_IP}:9092,LISTENER_FRED://localhost:9093
+            - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=LISTENER_BOB:PLAINTEXT,LISTENER_FRED:PLAINTEXT
+            - KAFKA_INTER_BROKER_LISTENER_NAME=LISTENER_BOB
+            - KAFKA_LOG_DIRS=${KAFKA_LOG_DIRS}
+            - KAFKA_BROKER_ID=${KAFKA_BROKER_ID}
+            - KAFKA_BROKER_RACK=${KAFKA_BROKER_RACK}
+            - KAFKA_ZOOKEEPER_CONNECT=${KAFKA_ZOOKEEPER_CONNECT}
+            - KAFKA_NUM_PARTITIONS=16
+            - KAFKA_DEFAULT_REPLICATION_FACTOR=3
+            - KAFKA_LOG_RETENTION_MS=-1
+            - KAFKA_LOG_RETENTION_BYTES=-1
+            - KAFKA_AUTO_CREATE_TOPICS_ENABLE=true
+            - KAFKA_MESSAGE_MAX_BYTES=10485760
+        volumes:
+            - type:   "bind"
+              source: "/data1-01"
+              target: "/data1-01"
+            - type:   "bind"
+              source: "/data2-01"
+              target: "/data2-01"
+
+EOYML
+
+# -----------------------------------------------------
+# Deploy our compose YAML file.
+#[user@trop03]
+
+    for vmname in ${!kfnodes[@]}
+        do
+            scp \
+                ${scpopts[*]} \
+                /tmp/kafka.yml \
+                ${sshuser:?}@${vmname:?}:kafka.yml
+        done
+
+# -----------------------------------------------------
+# Deploy our compose ENV file.
+#[user@trop03]
+
+    logtemp=${volmnts[*]}
+    loglist=${logtemp// /,}
+
+    for i in ${!kfnames[@]}
+        do
+            vmname=${kfnames[$i]:?}
+            vmipv4=${kfnodes[$vmname]:?}
+
+            echo "vmnum  [${i:?}]"
+            echo "vmname [${vmname:?}]"
+            echo "vmipv4 [${vmipv4:?}]"
+
+            ssh \
+                ${scpopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+cat > kafka.env << EOF
+KAFKA_LOG_DIRS=${loglist:?}
+KAFKA_BROKER_ID=$(($i+1))
+KAFKA_BROKER_RACK=$(($i+1))
+KAFKA_ZOOKEEPER_CONNECT=${zklist:?}
+KAFKA_LISTENER_IP=${vmipv4:?}
+EOF
+ln -sf kafka.env .env
+                "
+        done
+
+    >   vmnum  [0]
+    >   vmname [Stedigo]
+    >   vmipv4 [192.168.203.17]
+    >   vmnum  [1]
+    >   vmname [Angece]
+    >   vmipv4 [192.168.203.18]
+    >   vmnum  [2]
+    >   vmname [Edwalafia]
+    >   vmipv4 [192.168.203.19]
+    >   vmnum  [3]
+    >   vmname [Onoza]
+    >   vmipv4 [192.168.203.20]
+
+
+# -----------------------------------------------------
+# Check our compose ENV file.
+#[user@trop03]
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    hostname
+                    cat .env
+                    "
+        done
+
+
+    >   ---- ----
+    >   Stedigo
+    >   KAFKA_LOG_DIRS=/data1-01,/data2-01
+    >   KAFKA_BROKER_ID=1
+    >   KAFKA_BROKER_RACK=1
+    >   KAFKA_ZOOKEEPER_CONNECT=192.168.203.21,192.168.203.22,192.168.203.23
+    >   KAFKA_LISTENER_IP=192.168.203.17
+    >   ---- ----
+    >   Angece
+    >   KAFKA_LOG_DIRS=/data1-01,/data2-01
+    >   KAFKA_BROKER_ID=2
+    >   KAFKA_BROKER_RACK=2
+    >   KAFKA_ZOOKEEPER_CONNECT=192.168.203.21,192.168.203.22,192.168.203.23
+    >   KAFKA_LISTENER_IP=192.168.203.18
+    >   ---- ----
+    >   Edwalafia
+    >   KAFKA_LOG_DIRS=/data1-01,/data2-01
+    >   KAFKA_BROKER_ID=3
+    >   KAFKA_BROKER_RACK=3
+    >   KAFKA_ZOOKEEPER_CONNECT=192.168.203.21,192.168.203.22,192.168.203.23
+    >   KAFKA_LISTENER_IP=192.168.203.19
+    >   ---- ----
+    >   Onoza
+    >   KAFKA_LOG_DIRS=/data1-01,/data2-01
+    >   KAFKA_BROKER_ID=4
+    >   KAFKA_BROKER_RACK=4
+    >   KAFKA_ZOOKEEPER_CONNECT=192.168.203.21,192.168.203.22,192.168.203.23
+    >   KAFKA_LISTENER_IP=192.168.203.20
+
+
+# -----------------------------------------------------
+# Start Kafka on each node.
+#[user@trop03]
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            ssh \
+                ${scpopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                hostname
+
+                docker-compose \
+                    --file kafka.yml \
+                    down
+
+                sleep 5
+
+                docker-compose \
+                    --file kafka.yml \
+                    up -d
+                "
+        done
+
+# -----------------------------------------------------
+# Login and tail the logs (separate terminals).
+#[user@trop03]
+
+    ssh trop03
+        ssh Edwalafia
+        ssh Onoza
+        ssh Angece
+        ssh Stedigo
+
+            docker logs -f stevedore_emily_1
+
+
+# -----------------------------------------------------
+# BUG - the leading broker failes to contact itself
+#[user@virtual]
+
+
+    ip address
+
+    >   ....
+    >   2: ens3: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UP group default qlen 1000
+    >       link/ether 52:54:00:02:03:12 brd ff:ff:ff:ff:ff:ff
+    >       inet 192.168.203.18/24 brd 192.168.203.255 scope global dynamic noprefixroute ens3
+    >          valid_lft 3397sec preferred_lft 3397sec
+    >       inet6 fe80::5054:ff:fe02:312/64 scope link
+    >          valid_lft forever preferred_lft forever
+    >   ....
+
+
+    docker logs -f stevedore_emily_1
+
+        [2018-12-10 06:35:29,374] WARN [Producer clientId=producer-1] Connection to node 3 could not be established. Broker may not be available. (org.apache.kafka.clients.NetworkClient)
+
+
+
+    Initial guess was the routing tables weren't allowing it.
+    Kafka inside container trying to contact the VM public address.
+
+    Quick test using ssh works though
+
+    [user@virtual]
+
+        docker exec -it stevedore_emily_1 bash
+
+            [root@container]
+
+                ssh Stevedore@192.168.203.19
+
+                Stevedore@192.168.203.19's password:
+                Last login: Mon Dec 10 06:12:00 2018 from 192.168.203.1
+
+                [user@virtual]
+
+                    logout
+
+                Connection to 192.168.203.19 closed.
+
+            [root@container]
+
+
+# -----------------------------------------------------
+# Notes ...
+
+    Kafka Controller Election
+    https://jaceklaskowski.gitbooks.io/apache-kafka/kafka-controller-election.html
+
+    Demo: Kafka Controller Election
+    https://jaceklaskowski.gitbooks.io/apache-kafka/kafka-demo-controller-election.html
+
+    Kafka Listeners - Explained
+    https://github.com/rmoff/kafka-listeners
+
+    Kafka Listeners - Explained
+    https://rmoff.net/2018/08/02/kafka-listeners-explained/
+
+
+# -----------------------------------------------------
+# Test : Use ssh to replicate the connection back to self
+# https://hub.docker.com/r/rastasheep/ubuntu-sshd/
+#[user@virtual]
+
+cat > "${HOME}/ssh_test.yml" << 'EOYML'
+
+version: "3.2"
+
+services:
+
+    sshd:
+        image:
+            rastasheep/ubuntu-sshd:14.04
+        ports:
+            - "23:22"
+        expose:
+            - "22"
+
+EOYML
+
+    docker-compose \
+        --file "${HOME}/ssh_test.yml" \
+        down
+
+    docker-compose \
+        --file "${HOME}/ssh_test.yml" \
+        up -d
+
+
+    docker ps
+
+        CONTAINER ID        IMAGE                          COMMAND                  CREATED             STATUS              PORTS                    NAMES
+        a6997ef5ec9b        rastasheep/ubuntu-sshd:14.04   "/usr/sbin/sshd -D"      14 seconds ago      Up 13 seconds       0.0.0.0:23->22/tcp       dmr_sshd_1
+        364f9e07834e        confluentinc/cp-kafka:4.1.1    "/etc/confluent/dock…"   14 minutes ago      Up 14 minutes       0.0.0.0:9092->9092/tcp   stevedore_emily_1
+
+    ip address
+
+        2: ens3: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UP group default qlen 1000
+            link/ether 52:54:00:02:03:13 brd ff:ff:ff:ff:ff:ff
+            inet 192.168.203.19/24 brd 192.168.203.255 scope global dynamic noprefixroute ens3
+               valid_lft 3068sec preferred_lft 3068sec
+            inet6 fe80::5054:ff:fe02:313/64 scope link
+               valid_lft forever preferred_lft forever
+
+#
+# Connect from virtual machine into the container.
+#[user@virtual]
+
+    ssh -p 23 root@192.168.203.19
+
+        #
+        # Connect from the container to another virtual machine, using the virtual machine 192.168 address.
+        # This works, so general outbound ssh works.
+        #[root@container]
+
+            ssh -v root@192.168.203.20
+
+            >   Permission denied (publickey,gssapi-keyex,gssapi-with-mic).
+
+        #
+        # Connect from the container to the host virtual machine, using the virtual machine 192.168.203.19 address.
+        # This works, so the ip route from the container to the host virtual machine works.
+        #[root@container]
+
+            ssh -v Stevedore@192.168.203.19
+
+            >   ....
+            >   debug1: Connecting to 192.168.203.19 [192.168.203.19] port 22.
+            >   ....
+            >   Authenticated to 192.168.203.19 ([192.168.203.19]:22).
+            >   ....
+            >   Last login: Mon Dec 10 14:40:36 2018 from 192.168.203.1
+
+
+        #
+        # Connect from the container back into the container, using the virtual machine 192.168.203.19 address.
+        # This fails with 'No route to host', which suggesst the docker port mapping is the issue.
+        #[root@container]
+
+
+            #
+            # This is the one that we need to work.
+            #
+
+            ssh -v -p 23 root@192.168.203.19
+
+            >   OpenSSH_6.6.1, OpenSSL 1.0.1f 6 Jan 2014
+            >   debug1: Reading configuration data /etc/ssh/ssh_config
+            >   debug1: /etc/ssh/ssh_config line 19: Applying options for *
+            >   debug1: Connecting to 192.168.203.19 [192.168.203.19] port 23.
+            >   debug1: connect to address 192.168.203.19 port 23: No route to host
+            >   ssh: connect to host 192.168.203.19 port 23: No route to host
+
+        #
+        # Check the routing table inside the container.
+        # 192.168.203.19 goes out to the virtual machine via the 172.21.0.1 bridge.
+        #[root@container]
+
+            ip route get 192.168.203.19
+
+            >   192.168.203.19 via 172.21.0.1 dev eth0  src 172.21.0.2
+
+
+
+#
+# Check the ip routes on the virtual machine.
+#[user@virtual]
+
+    ip route list
+
+        default via 192.168.203.1 dev ens3 proto dhcp metric 100
+        172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown
+        172.19.0.0/16 dev br-fa4dc689865b proto kernel scope link src 172.19.0.1
+        172.21.0.0/16 dev br-a6fb8f6a29b7 proto kernel scope link src 172.21.0.1
+        192.168.203.0/24 dev ens3 proto kernel scope link src 192.168.203.19 metric 100
+
+
+#
+# Check the iptables rules on the virtual machine.
+#[user@virtual]
+
+    sudo iptables --list
+
+        Chain INPUT (policy ACCEPT)
+        target     prot opt source               destination
+        ACCEPT     all  --  anywhere             anywhere             ctstate RELATED,ESTABLISHED
+        ACCEPT     all  --  anywhere             anywhere
+        INPUT_direct  all  --  anywhere             anywhere
+        INPUT_ZONES_SOURCE  all  --  anywhere             anywhere
+        INPUT_ZONES  all  --  anywhere             anywhere
+        DROP       all  --  anywhere             anywhere             ctstate INVALID
+        REJECT     all  --  anywhere             anywhere             reject-with icmp-host-prohibited
+
+        Chain FORWARD (policy DROP)
+        target     prot opt source               destination
+        DOCKER-USER  all  --  anywhere             anywhere
+        DOCKER-ISOLATION-STAGE-1  all  --  anywhere             anywhere
+        ACCEPT     all  --  anywhere             anywhere             ctstate RELATED,ESTABLISHED
+        DOCKER     all  --  anywhere             anywhere
+        ACCEPT     all  --  anywhere             anywhere
+        ACCEPT     all  --  anywhere             anywhere
+        ACCEPT     all  --  anywhere             anywhere             ctstate RELATED,ESTABLISHED
+        DOCKER     all  --  anywhere             anywhere
+        ACCEPT     all  --  anywhere             anywhere
+        ACCEPT     all  --  anywhere             anywhere
+        ACCEPT     all  --  anywhere             anywhere             ctstate RELATED,ESTABLISHED
+        DOCKER     all  --  anywhere             anywhere
+        ACCEPT     all  --  anywhere             anywhere
+        ACCEPT     all  --  anywhere             anywhere
+        ACCEPT     all  --  anywhere             anywhere             ctstate RELATED,ESTABLISHED
+        ACCEPT     all  --  anywhere             anywhere
+        FORWARD_direct  all  --  anywhere             anywhere
+        FORWARD_IN_ZONES_SOURCE  all  --  anywhere             anywhere
+        FORWARD_IN_ZONES  all  --  anywhere             anywhere
+        FORWARD_OUT_ZONES_SOURCE  all  --  anywhere             anywhere
+        FORWARD_OUT_ZONES  all  --  anywhere             anywhere
+        DROP       all  --  anywhere             anywhere             ctstate INVALID
+        REJECT     all  --  anywhere             anywhere             reject-with icmp-host-prohibited
+
+        Chain OUTPUT (policy ACCEPT)
+        target     prot opt source               destination
+        OUTPUT_direct  all  --  anywhere             anywhere
+
+        Chain DOCKER (3 references)
+        target     prot opt source               destination
+        ACCEPT     tcp  --  anywhere             172.19.0.2           tcp dpt:XmlIpcRegSvc
+        ACCEPT     tcp  --  anywhere             172.21.0.2           tcp dpt:ssh
+
+        Chain DOCKER-ISOLATION-STAGE-1 (1 references)
+        target     prot opt source               destination
+        DOCKER-ISOLATION-STAGE-2  all  --  anywhere             anywhere
+        DOCKER-ISOLATION-STAGE-2  all  --  anywhere             anywhere
+        DOCKER-ISOLATION-STAGE-2  all  --  anywhere             anywhere
+        RETURN     all  --  anywhere             anywhere
+
+        Chain DOCKER-ISOLATION-STAGE-2 (3 references)
+        target     prot opt source               destination
+        DROP       all  --  anywhere             anywhere
+        DROP       all  --  anywhere             anywhere
+        DROP       all  --  anywhere             anywhere
+        RETURN     all  --  anywhere             anywhere
+
+        Chain DOCKER-USER (1 references)
+        target     prot opt source               destination
+        RETURN     all  --  anywhere             anywhere
+
+        Chain FORWARD_IN_ZONES (1 references)
+        target     prot opt source               destination
+        FWDI_public  all  --  anywhere             anywhere            [goto]
+        FWDI_public  all  --  anywhere             anywhere            [goto]
+
+        Chain FORWARD_IN_ZONES_SOURCE (1 references)
+        target     prot opt source               destination
+
+        Chain FORWARD_OUT_ZONES (1 references)
+        target     prot opt source               destination
+        FWDO_public  all  --  anywhere             anywhere            [goto]
+        FWDO_public  all  --  anywhere             anywhere            [goto]
+
+        Chain FORWARD_OUT_ZONES_SOURCE (1 references)
+        target     prot opt source               destination
+
+        Chain FORWARD_direct (1 references)
+        target     prot opt source               destination
+
+        Chain FWDI_public (2 references)
+        target     prot opt source               destination
+        FWDI_public_log  all  --  anywhere             anywhere
+        FWDI_public_deny  all  --  anywhere             anywhere
+        FWDI_public_allow  all  --  anywhere             anywhere
+        ACCEPT     icmp --  anywhere             anywhere
+
+        Chain FWDI_public_allow (1 references)
+        target     prot opt source               destination
+
+        Chain FWDI_public_deny (1 references)
+        target     prot opt source               destination
+
+        Chain FWDI_public_log (1 references)
+        target     prot opt source               destination
+
+        Chain FWDO_public (2 references)
+        target     prot opt source               destination
+        FWDO_public_log  all  --  anywhere             anywhere
+        FWDO_public_deny  all  --  anywhere             anywhere
+        FWDO_public_allow  all  --  anywhere             anywhere
+
+        Chain FWDO_public_allow (1 references)
+        target     prot opt source               destination
+
+        Chain FWDO_public_deny (1 references)
+        target     prot opt source               destination
+
+        Chain FWDO_public_log (1 references)
+        target     prot opt source               destination
+
+        Chain INPUT_ZONES (1 references)
+        target     prot opt source               destination
+        IN_public  all  --  anywhere             anywhere            [goto]
+        IN_public  all  --  anywhere             anywhere            [goto]
+
+        Chain INPUT_ZONES_SOURCE (1 references)
+        target     prot opt source               destination
+
+        Chain INPUT_direct (1 references)
+        target     prot opt source               destination
+
+        Chain IN_public (2 references)
+        target     prot opt source               destination
+        IN_public_log  all  --  anywhere             anywhere
+        IN_public_deny  all  --  anywhere             anywhere
+        IN_public_allow  all  --  anywhere             anywhere
+        ACCEPT     icmp --  anywhere             anywhere
+
+        Chain IN_public_allow (1 references)
+        target     prot opt source               destination
+        ACCEPT     tcp  --  anywhere             anywhere             tcp dpt:ssh ctstate NEW
+        ACCEPT     udp  --  anywhere             224.0.0.251          udp dpt:mdns ctstate NEW
+
+        Chain IN_public_deny (1 references)
+        target     prot opt source               destination
+
+        Chain IN_public_log (1 references)
+        target     prot opt source               destination
+
+        Chain OUTPUT_direct (1 references)
+        target     prot opt source               destination
+
+

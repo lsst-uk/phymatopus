@@ -1,0 +1,703 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+
+# -----------------------------------------------------
+# Check the current network configurations.
+#[user@trop04]
+
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        --connect ${connection:?} \
+        net-list \
+            --all
+
+    >    Name                 State      Autostart     Persistent
+    >   ----------------------------------------------------------
+    >    bridged              active     yes           yes
+    >    default              active     yes           yes
+
+
+# -----------------------------------------------------
+# Check the 'bridged' network configuration.
+#[user@trop04]
+
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        --connect ${connection:?} \
+        net-dumpxml \
+            'bridged'
+
+    >   <network ipv6='yes'>
+    >     <name>bridged</name>
+    >     <uuid>735529c7-05d8-45fb-85dc-b22943cd47b9</uuid>
+    >     <forward mode='bridge'/>
+    >     <bridge name='br0'/>
+    >   </network>
+
+
+# -----------------------------------------------------
+# Check the 'default' network configuration.
+#[user@trop04]
+
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        --connect ${connection:?} \
+        net-dumpxml \
+            'default'
+
+    >   <network ipv6='yes'>
+    >     <name>default</name>
+    >     <uuid>6a4c6476-edf1-4a4e-82f9-74b1b48ac894</uuid>
+    >     <forward mode='nat'>
+    >       <nat>
+    >         <port start='1024' end='65535'/>
+    >       </nat>
+    >     </forward>
+    >     <bridge name='virbr0' stp='off' delay='0'/>
+    >     <mac address='52:54:00:02:04:01'/>
+    >     <ip family='ipv4' address='192.168.204.1' netmask='255.255.255.0'>
+    >       <dhcp>
+    >         <range start='192.168.204.8' end='192.168.204.15'/>
+    >         <host mac='52:54:00:02:04:08' name='Wumar' ip='192.168.204.8'/>
+    >         <host mac='52:54:00:02:04:09' name='Larilaweth' ip='192.168.204.9'/>
+    >         <host mac='52:54:00:02:04:0A' name='Ror' ip='192.168.204.10'/>
+    >         <host mac='52:54:00:02:04:0B' name='Asterade' ip='192.168.204.11'/>
+    >         <host mac='52:54:00:02:04:0C' name='Ibedrinnon' ip='192.168.204.12'/>
+    >         <host mac='52:54:00:02:04:0D' name='Arigorith' ip='192.168.204.13'/>
+    >         <host mac='52:54:00:02:04:0E' name='Glydan' ip='192.168.204.14'/>
+    >         <host mac='52:54:00:02:04:0F' name='Clarith' ip='192.168.204.15'/>
+    >       </dhcp>
+    >     </ip>
+    >   </network>
+
+
+# -----------------------------------------------------
+# Try changing the forward mode from 'nat' to 'route'.
+# https://libvirt.org/formatnetwork.html#examplesRoute
+#[user@trop04]
+
+    tempxml=$(mktemp)
+    tempnew=$(mktemp)
+
+    #
+    # Stop (destroy) the active network.
+    virsh \
+        --connect ${connection:?} \
+        net-destroy \
+            'default'
+
+    #
+    # Get the network definition.
+    virsh \
+        --connect ${connection:?} \
+        net-dumpxml \
+            'default' \
+        | tee "${tempxml:?}"
+
+    #
+    # Check we can read the XML.
+    xmlstarlet format "${tempxml:?}"
+
+    #
+    # Change the forward mode.
+    xmlstarlet edit \
+         --delete 'network/forward/nat' \
+         --update 'network/forward/@mode' \
+         --value  'route' \
+         --insert 'network/forward' \
+         --type   'attr' \
+         --name   'dev'  \
+         --value  'br0'  \
+        "${tempxml:?}"   \
+        | tee "${tempnew:?}"
+
+
+    #
+    # Update the network definition.
+    virsh \
+        --connect ${connection:?} \
+        net-define \
+            "${tempnew:?}"
+
+    #
+    # Start the new network.
+    virsh \
+        --connect ${connection:?} \
+        net-start \
+            'default'
+
+    >   Network default defined from /tmp/tmp.HqpkkxDuBC
+    >
+    >   Network default started
+
+
+# -----------------------------------------------------
+# Create a new virtual machine.
+#[user@trop04]
+
+    createvm
+
+    >   INFO : Node name [Wumar]
+    >   INFO : Base name [fedora-28-docker-base-20180708.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-28-docker-base-20180708.qcow]
+    >   INFO : Disc name [Wumar.qcow]
+    >   INFO : Disc size [16GiB]
+    >
+    >   INFO : MAC  [52:54:00:02:04:08]
+    >   INFO : IPv4 [192.168.204.8]
+    >   INFO : IPv6 []
+
+# -----------------------------------------------------
+# Check we can login from our own host.
+#[user@trop04]
+
+    ssh -v Wumar '
+        hostname
+        '
+
+    >   debug1: Connecting to wumar [192.168.204.8] port 22.
+    >   debug1: Connection established.
+    >   ....
+    >   Authenticated to wumar ([192.168.204.8]:22).
+    >   ....
+    >   debug1: Sending command:
+    >           hostname
+    >
+    >   Wumar
+    >   ....
+
+    PASS : connection trop04->Wumar works
+
+# -----------------------------------------------------
+# See if we can login from trop03.
+#[user@trop03]
+
+    hostname
+    ssh -v Wumar \'
+        hostname
+        \'
+    hostname
+
+    >   trop03
+    >   ...
+    >   debug1: Connecting to wumar [192.168.204.8] port 22.
+    >   ....
+    >   ....
+    >   ....
+
+    FAIL : connection trop03->Wumar hangs
+
+# -----------------------------------------------------
+# Check the udev rules are in place ..
+#[user@trop04]
+
+    cat /etc/sysctl.d/98-bridge.conf
+
+    >   ###################################################################
+    >   # Netfilter bridge settings.
+    >   #
+    >   # http://wiki.libvirt.org/page/Net.bridge.bridge-nf-call_and_sysctl.conf
+    >   # http://ebtables.netfilter.org/misc/brnf-faq.html
+    >   # http://unix.stackexchange.com/questions/136918/why-does-my-firewall-iptables-interfere-in-my-bridge-brctl
+    >   # # http://manpages.ubuntu.com/manpages/zesty/man5/sysctl.d.5.html
+    >
+    >   net.bridge.bridge-nf-call-iptables  = 0
+    >   net.bridge.bridge-nf-call-arptables = 0
+    >   net.bridge.bridge-nf-call-ip6tables = 0
+    >
+    >   # Enable packet forwarding for IPv4
+    >   net.ipv4.ip_forward = 1
+    >
+    >   # Enable packet forwarding for IPv6
+    >   net.ipv6.conf.all.forwarding = 1
+
+    cat /etc/udev/rules.d/98-bridge.rules
+
+    >   # Load the net.bridge rules when the ip_tables module is loaded.
+    >   # http://manpages.ubuntu.com/manpages/zesty/man5/sysctl.d.5.html
+    >   #
+    >
+    >   ACTION=="add", SUBSYSTEM=="module", KERNEL=="ip_tables", RUN+="/sbin/sysctl --load /etc/sysctl.d/98-bridge.conf"
+    >
+
+    PASS : udev rules look good
+
+# -----------------------------------------------------
+# Check if forwarded packets are filtered by iptables ..
+#[user@trop04]
+
+    sudo sysctl 'net.bridge'
+
+    >   net.bridge.bridge-nf-call-arptables = 0
+    >   net.bridge.bridge-nf-call-ip6tables = 0
+    >   net.bridge.bridge-nf-call-iptables = 0
+    >   net.bridge.bridge-nf-filter-pppoe-tagged = 0
+    >   net.bridge.bridge-nf-filter-vlan-tagged = 0
+    >   net.bridge.bridge-nf-pass-vlan-input-dev = 0
+
+    PASS : call-iptables is set to 0 (false).
+
+# -----------------------------------------------------
+# Check the routing from the other host ..
+#[user@trop03]
+
+    ip route get 192.168.204.8
+
+    >   192.168.204.8 via 129.215.175.126 dev br0 src 129.215.175.98
+    >       cache
+
+    Ok - so we have a problem .. trop03 and rop04 don't have 192.168 addresses.
+    Can we route packets to/from the 192.168 virtual machines over the 129.215 network between the trop machines ?
+
+# -----------------------------------------------------
+# Check which machine has what address.
+#[user@trop03]
+
+    host trop03
+
+    >   trop03.roe.ac.uk has address 129.215.175.98
+
+    host trop04
+
+    >   trop04.roe.ac.uk has address 129.215.175.99
+
+host 129.215.175.126
+
+    >   126.175.215.129.in-addr.arpa domain name pointer vlan175.acf2.net.ed.ac.uk.
+
+
+# -----------------------------------------------------
+# Check the routing table on trop03 ..
+#[user@trop03]
+
+    ip route get 192.168.204.8
+
+    >   192.168.204.8 via 129.215.175.126 dev br0 src 129.215.175.98
+    >       cache
+
+    That says trop03 would route packets for wumar on trop04 via one of the ROE gateway machines vlan175.acf2.net.ed.ac.uk.
+    Which probably wouldn't work ....
+
+
+# -----------------------------------------------------
+# Would it work if we add an explicit route to trop03 and trop04 ..
+#[user@trop03]
+
+    sudo ip route add 192.168.204.0/24 via 129.215.175.99 dev br0
+
+
+#[user@trop03]
+
+    sudo ip route add 192.168.203.0/24 via 129.215.175.98 dev br0
+
+
+#[user@trop03]
+
+    ip route get 192.168.204.8
+
+    >   192.168.204.8 via 129.215.175.99 dev br0 src 129.215.175.98
+    >       cache
+
+
+# -----------------------------------------------------
+# See if we can login from trop03 to a VM on trop04.
+#[user@trop03]
+
+    hostname
+    ssh -v Wumar "
+        hostname
+        "
+    hostname
+
+    >   trop03
+    >   ....
+    >   debug1: Connecting to wumar [192.168.204.8] port 22.
+    >   debug1: Connection established.
+    >   ....
+    >   Authenticated to wumar ([192.168.204.8]:22).
+    >   ....
+    >   debug1: Sending command:
+    >               hostname
+    >
+    >   Wumar
+    >   ....
+    >   Transferred: sent 3652, received 3064 bytes, in 0.4 seconds
+    >   Bytes per second: sent 9666.8, received 8110.4
+    >   debug1: Exit status 0
+    >   trop03
+
+    PASS : connection trop03->Wumar works :-)
+
+
+# -----------------------------------------------------
+# See if we can login from a VM on trop03 to a VM on trop04.
+#[user@trop03]
+
+    hostname \
+    ; ssh -A Rusaldez '
+        hostname
+        ssh -A -v Wumar "
+            hostname
+            "
+        hostname
+        ' \
+    ; hostname
+
+    >   trop03
+    >   ....
+    >   Rusaldez
+    >   ....
+    >   debug1: Connecting to wumar [192.168.204.8] port 22.
+    >   debug1: Connection established.
+    >   ....
+    >   Authenticated to wumar ([192.168.204.8]:22).
+    >   ....
+    >   debug1: Sending command:
+    >               hostname
+    >
+    >   Wumar
+    >   ....
+    >   Transferred: sent 3592, received 3120 bytes, in 0.4 seconds
+    >   Bytes per second: sent 9539.5, received 8286.0
+    >   debug1: Exit status 0
+    >   Rusaldez
+    >   trop03
+
+    PASS : connection Rusaldez->Wumar works :-)
+
+
+# -----------------------------------------------------
+# See if we can login from a VM on trop04 to a VM on trop03.
+#[user@trop04]
+
+    hostname \
+    ; ssh -A Wumar '
+        hostname
+        ssh -A -v Rusaldez "
+            hostname
+            "
+        hostname
+        ' \
+    ; hostname
+
+    >   trop04
+    >   ....
+    >   Wumar
+    >   ....
+    >   debug1: Connecting to rusaldez [192.168.203.16] port 22.
+    >   debug1: connect to address 192.168.203.16 port 22: Connection refused
+    >   ssh: connect to host rusaldez port 22: Connection refused
+    >   Wumar
+    >   trop04
+
+    FAIL : connection Wumar->Rusaldez refused :-(
+
+
+# -----------------------------------------------------
+# Check if forwarded packets are filtered by iptables.
+#[user@trop03]
+
+sudo sysctl 'net.bridge'
+
+    >   sysctl: cannot stat /proc/sys/net/bridge: No such file or directory
+
+    FAIL : the kernel params are not set
+
+# -----------------------------------------------------
+# Check if udev rules are in place ...
+#[user@trop03]
+
+cat /etc/sysctl.d/98-bridge.conf
+
+    >   ###################################################################
+    >   # Netfilter bridge settings.
+    >   #
+    >   # http://wiki.libvirt.org/page/Net.bridge.bridge-nf-call_and_sysctl.conf
+    >   # http://ebtables.netfilter.org/misc/brnf-faq.html
+    >   # http://unix.stackexchange.com/questions/136918/why-does-my-firewall-iptables-interfere-in-my-bridge-brctl
+    >   net.bridge.bridge-nf-call-iptables  = 0
+    >   net.bridge.bridge-nf-call-arptables = 0
+    >   net.bridge.bridge-nf-call-ip6tables = 0
+    >
+    >   # Enable packet forwarding for IPv4
+    >   net.ipv4.ip_forward=1
+    >
+    >   # Enable packet forwarding for IPv6
+    >   #net.ipv6.conf.all.forwarding=1
+
+    cat /etc/udev/rules.d/98-bridge.rules
+
+    >   # Load the net.bridge rules when the br_netfilter module is loaded.
+    >   # http://manpages.ubuntu.com/manpages/zesty/man5/sysctl.d.5.html
+    >   #
+    >
+    >   ACTION=="add", SUBSYSTEM=="module", KERNEL=="ip_tables", RUN+="/sbin/sysctl --load /etc/sysctl.d/98-bridge.conf"
+    >   ACTION=="add", SUBSYSTEM=="module", KERNEL=="ip_tables", RUN+="/bin/sh -c 'echo == >> /tmp/udev-env.txt; date +%Y%m%d$H%M%S >> /tmp/udev-env.txt'"
+
+    HMMM udev rules look 'ok', but the extra line might be causeing problems
+
+# -----------------------------------------------------
+# Update the udev rules ...
+#[user@trop03]
+
+    sudo vi /etc/udev/rules.d/98-bridge.rules
+
+        ....
+        ACTION=="add", SUBSYSTEM=="module", KERNEL=="ip_tables", RUN+="/sbin/sysctl --load /etc/sysctl.d/98-bridge.conf"
+    -   ACTION=="add", SUBSYSTEM=="module", KERNEL=="ip_tables", RUN+="/bin/sh -c 'echo == >> /tmp/udev-env.txt; date +%Y%m%d$H%M%S >> /tmp/udev-env.txt'"
+
+# -----------------------------------------------------
+# Manually load the bridge settings ...
+#[user@trop03]
+
+    sudo /sbin/sysctl --load /etc/sysctl.d/98-bridge.conf
+
+    >   sysctl: cannot stat /proc/sys/net/bridge/bridge-nf-call-iptables: No such file or directory
+    >   sysctl: cannot stat /proc/sys/net/bridge/bridge-nf-call-arptables: No such file or directory
+    >   sysctl: cannot stat /proc/sys/net/bridge/bridge-nf-call-ip6tables: No such file or directory
+    >   net.ipv4.ip_forward = 1
+
+# -----------------------------------------------------
+# Google helps find a fix ...
+# https://github.com/rootsongjc/kubernetes-vagrant-centos-cluster/issues/12
+# http://zeeshanali.com/sysadmin/fixed-sysctl-cannot-stat-procsysnetbridgebridge-nf-call-iptables/
+# https://github.com/rak8s/rak8s/issues/13
+#[user@trop03]
+
+    sudo modprobe br_netfilter
+    sudo sysctl -p
+
+
+# -----------------------------------------------------
+# Manually load the bridge settings ...
+#[user@trop03]
+
+    sudo /sbin/sysctl --load /etc/sysctl.d/98-bridge.conf
+
+    >   net.bridge.bridge-nf-call-iptables = 0
+    >   net.bridge.bridge-nf-call-arptables = 0
+    >   net.bridge.bridge-nf-call-ip6tables = 0
+    >   net.ipv4.ip_forward = 1
+
+    PASS : works, but don't know _why_ we needed to load br_netfilter ?
+
+
+# -----------------------------------------------------
+# See if we can login from a VM on trop03 to a VM on trop04.
+#[user@trop03]
+
+    hostname \
+    ; ssh -A Rusaldez '
+        hostname
+        ssh -A -v Wumar "
+            hostname
+            "
+        hostname
+        ' \
+    ; hostname
+
+    >   trop03
+    >   ....
+    >   Rusaldez
+    >   ....
+    >   debug1: Connecting to wumar [192.168.204.8] port 22.
+    >   debug1: Connection established.
+    >   ....
+    >   Authenticated to wumar ([192.168.204.8]:22).
+    >   ....
+    >   debug1: Sending command:
+    >               hostname
+    >
+    >   Wumar
+    >   ....
+    >   Transferred: sent 3592, received 3120 bytes, in 0.4 seconds
+    >   Bytes per second: sent 9539.5, received 8286.0
+    >   debug1: Exit status 0
+    >   Rusaldez
+    >   trop03
+
+    PASS : connection Rusaldez->Wumar works :-)
+
+
+# -----------------------------------------------------
+# See if we can login from a VM on trop04 to a VM on trop03.
+#[user@trop04]
+
+    hostname \
+    ; ssh -A Wumar '
+        hostname
+        ssh -A -v Rusaldez "
+            hostname
+            "
+        hostname
+        ' \
+    ; hostname
+
+    >   trop04
+    >   ....
+    >   Wumar
+    >   ....
+    >   debug1: Connecting to rusaldez [192.168.203.16] port 22.
+    >   debug1: connect to address 192.168.203.16 port 22: Connection refused
+    >   ssh: connect to host rusaldez port 22: Connection refused
+    >   Wumar
+    >   trop04
+
+    FAIL : connection Wumar->Rusaldez refused :-(
+
+
+# -----------------------------------------------------
+# See if we can login from trop04 to a VM on trop03.
+#[user@trop04]
+
+    hostname \
+    ; ssh -A -v Rusaldez '
+        hostname
+        ' \
+    ; hostname
+
+    >   trop04
+    >   ....
+    >   debug1: Connecting to rusaldez [192.168.203.16] port 22.
+    >   debug1: connect to address 192.168.203.16 port 22: Connection refused
+    >   ssh: connect to host rusaldez port 22: Connection refused
+    >   trop04
+
+    FAIL : connection trop04->Rusaldez refused :-(
+
+
+# -----------------------------------------------------
+# Check we can still login from trop03 ...
+#[user@trop03]
+
+    hostname \
+    ; ssh -A -v Rusaldez '
+        hostname
+        ' \
+    ; hostname
+
+    >   trop03
+    >   ....
+    >   debug1: Connecting to rusaldez [192.168.203.16] port 22.
+    >   debug1: Connection established.
+    >   ....
+    >   Authenticated to rusaldez ([192.168.203.16]:22).
+    >   ....
+    >   debug1: Sending command:
+    >           hostname
+    >
+    >   Rusaldez
+    >   ....
+    >   Transferred: sent 3664, received 3064 bytes, in 0.3 seconds
+    >   Bytes per second: sent 10674.6, received 8926.6
+    >   debug1: Exit status 0
+    >   trop03
+
+    PASS : connection trop03->Rusaldez works :-)
+
+
+# -----------------------------------------------------
+# Tail the system log on trop03 while connecting from trop04 ..
+#[user@trop03]
+
+    sudo journalctl -f
+
+    >   -- Logs begin at Thu 2018-01-11 02:04:24 GMT. --
+    >   Jan 07 00:09:42 trop03 kernel: drop IN=br0 OUT= MAC=ff:ff:ff:ff:ff:ff:00:25:90:fd:42:8e:08:00 SRC=129.215.175.28 DST=255.255.255.255 LEN=68 TOS=0x00 PREC=0x00 TTL=64 ID=5407 DF PROTO=UDP SPT=45927 DPT=1947 LEN=48
+    >   Jan 07 00:09:57 trop03 kernel: drop IN=br0 OUT= MAC=ff:ff:ff:ff:ff:ff:52:54:00:1a:54:dd:08:00 SRC=129.215.175.17 DST=129.215.175.255 LEN=244 TOS=0x00 PREC=0x00 TTL=128 ID=12261 PROTO=UDP SPT=138 DPT=138 LEN=224
+    >   Jan 07 00:10:16 trop03 kernel: drop IN=br0 OUT= MAC=ff:ff:ff:ff:ff:ff:00:25:90:fd:42:8e:08:00 SRC=129.215.175.28 DST=255.255.255.255 LEN=68 TOS=0x00 PREC=0x00 TTL=64 ID=5408 DF PROTO=UDP SPT=45927 DPT=1947 LEN=48
+    >   Jan 07 00:10:28 trop03 kernel: drop IN=br0 OUT= MAC=01:00:5e:00:00:01:10:da:43:09:e4:c2:08:00 SRC=192.168.0.240 DST=224.0.0.1 LEN=36 TOS=0x00 PREC=0xE0 TTL=1 ID=55534 PROTO=ICMP TYPE=9 CODE=0
+    >   Jan 07 00:10:51 trop03 kernel: drop IN=br0 OUT= MAC=ff:ff:ff:ff:ff:ff:00:25:90:fd:42:8e:08:00 SRC=129.215.175.28 DST=255.255.255.255 LEN=68 TOS=0x00 PREC=0x00 TTL=64 ID=5409 DF PROTO=UDP SPT=45927 DPT=1947 LEN=48
+    >   Jan 07 00:11:25 trop03 kernel: drop IN=br0 OUT= MAC=ff:ff:ff:ff:ff:ff:00:25:90:fd:42:8e:08:00 SRC=129.215.175.28 DST=255.255.255.255 LEN=68 TOS=0x00 PREC=0x00 TTL=64 ID=5410 DF PROTO=UDP SPT=45927 DPT=1947 LEN=48
+    >   Jan 07 00:11:31 trop03 kernel: drop IN=br0 OUT= MAC=01:00:5e:00:00:01:10:da:43:09:e4:8e:08:00 SRC=192.168.0.239 DST=224.0.0.1 LEN=36 TOS=0x00 PREC=0xE0 TTL=1 ID=18942 PROTO=ICMP TYPE=9 CODE=0
+    >   Jan 07 00:12:00 trop03 kernel: drop IN=br0 OUT= MAC=ff:ff:ff:ff:ff:ff:00:25:90:fd:42:8e:08:00 SRC=129.215.175.28 DST=255.255.255.255 LEN=68 TOS=0x00 PREC=0x00 TTL=64 ID=5411 DF PROTO=UDP SPT=45927 DPT=1947 LEN=48
+    >   Jan 07 00:12:18 trop03 sudo[28744]:      dmr : TTY=pts/0 ; PWD=/home/dmr ; USER=root ; COMMAND=/bin/journalctl -f
+    >   Jan 07 00:12:18 trop03 sudo[28744]: pam_unix(sudo:session): session opened for user root by dmr(uid=0)
+    >   ....
+    >   Jan 07 00:12:34 trop03 kernel: drop IN=br0 OUT= MAC=ff:ff:ff:ff:ff:ff:00:25:90:fd:42:8e:08:00 SRC=129.215.175.28 DST=255.255.255.255 LEN=68 TOS=0x00 PREC=0x00 TTL=64 ID=5412 DF PROTO=UDP SPT=45927 DPT=1947 LEN=48
+    >   Jan 07 00:12:47 trop03 kernel: drop IN=br0 OUT= MAC=0c:c4:7a:35:11:76:3c:08:f6:21:6f:00:08:00 SRC=120.52.152.16 DST=129.215.175.98 LEN=40 TOS=0x00 PREC=0x00 TTL=239 ID=57193 PROTO=TCP SPT=58914 DPT=3260 WINDOW=1024 RES=0x00 SYN URGP=0
+    >   ....
+    >   Jan 07 00:13:09 trop03 kernel: drop IN=br0 OUT= MAC=ff:ff:ff:ff:ff:ff:00:25:90:fd:42:8e:08:00 SRC=129.215.175.28 DST=255.255.255.255 LEN=68 TOS=0x00 PREC=0x00 TTL=64 ID=5413 DF PROTO=UDP SPT=45927 DPT=1947 LEN=48
+    >   Jan 07 00:13:25 trop03 kernel: drop IN=br0 OUT= MAC=ff:ff:ff:ff:ff:ff:00:07:43:12:f0:d0:08:00 SRC=129.215.175.1 DST=129.215.175.255 LEN=229 TOS=0x00 PREC=0x00 TTL=128 ID=24381 PROTO=UDP SPT=138 DPT=138 LEN=209
+    >   Jan 07 00:13:43 trop03 kernel: drop IN=br0 OUT= MAC=ff:ff:ff:ff:ff:ff:00:25:90:fd:42:8e:08:00 SRC=129.215.175.28 DST=255.255.255.255 LEN=68 TOS=0x00 PREC=0x00 TTL=64 ID=5414 DF PROTO=UDP SPT=45927 DPT=1947 LEN=48
+
+    Evidence of some packetc being dropped .. but nothing from trop04 ..
+
+
+# -----------------------------------------------------
+# Check the 'default' network configuration on trop03.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        --connect ${connection:?} \
+        net-dumpxml \
+            'default'
+
+    >   <network connections='4' ipv6='yes'>
+    >     <name>default</name>
+    >     <uuid>31cb63d0-459d-4768-a489-9d17480a3d58</uuid>
+    >     <forward mode='nat'>
+    >       <nat>
+    >         <port start='1024' end='65535'/>
+    >       </nat>
+    >     </forward>
+    >     <bridge name='virbr0' stp='off' delay='0'/>
+    >     <mac address='52:54:00:02:03:01'/>
+    >     <ip family='ipv4' address='192.168.203.1' netmask='255.255.255.0'>
+    >       <dhcp>
+    >         <range start='192.168.203.8' end='192.168.203.23'/>
+    >         <host mac='52:54:00:02:03:08' name='Umiawyth' ip='192.168.203.8'/>
+    >         <host mac='52:54:00:02:03:09' name='Etalema' ip='192.168.203.9'/>
+    >         <host mac='52:54:00:02:03:0A' name='Greand' ip='192.168.203.10'/>
+    >         <host mac='52:54:00:02:03:0B' name='Nydiralle' ip='192.168.203.11'/>
+    >         <host mac='52:54:00:02:03:0C' name='Kedaekoth' ip='192.168.203.12'/>
+    >         <host mac='52:54:00:02:03:0D' name='Onelith' ip='192.168.203.13'/>
+    >         <host mac='52:54:00:02:03:0E' name='Elaleld' ip='192.168.203.14'/>
+    >         <host mac='52:54:00:02:03:0F' name='Afoaviel' ip='192.168.203.15'/>
+    >         <host mac='52:54:00:02:03:10' name='Rusaldez' ip='192.168.203.16'/>
+    >         <host mac='52:54:00:02:03:11' name='Stedigo' ip='192.168.203.17'/>
+    >         <host mac='52:54:00:02:03:12' name='Angece' ip='192.168.203.18'/>
+    >         <host mac='52:54:00:02:03:13' name='Edwalafia' ip='192.168.203.19'/>
+    >         <host mac='52:54:00:02:03:14' name='Onoza' ip='192.168.203.20'/>
+    >         <host mac='52:54:00:02:03:15' name='Fosauri' ip='192.168.203.21'/>
+    >         <host mac='52:54:00:02:03:16' name='Marpus' ip='192.168.203.22'/>
+    >         <host mac='52:54:00:02:03:17' name='Byflame' ip='192.168.203.23'/>
+    >       </dhcp>
+    >     </ip>
+    >   </network>
+
+    Ok, so we haven't updated the 'default' network on trop03 from 'nat' to 'route'.
+    If we do, then we will probably have to restart all of the virtual machines connected to that network.
+    Which means restarting all of the containers.
+
+    Just so we know.
+
+    Sigh.
+
+    Continued in next notes ..
+

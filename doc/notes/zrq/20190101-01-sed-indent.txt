@@ -1,0 +1,65 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+# -----------------------------------------------------
+# Text to mark a block that needs indenting.
+#[user@laptop]
+
+    --START--
+    --END--
+
+
+# -----------------------------------------------------
+# Grep to find files that need indenting.
+#[user@laptop]
+
+    grep -l -c '^--START--' doc/notes/zrq/*
+
+# -----------------------------------------------------
+# Sed script to indent results.
+#[user@laptop]
+
+    sedindent()
+        {
+        sed -i '
+            /^--START--/,/^--END--/ {
+                /^--START--/ d
+                /^--END--/  d
+                s/^\(.*\)/    >   \1/
+                }
+            ' "${1:?}"
+        }
+
+# -----------------------------------------------------
+# Indent results in files that need it.
+#[user@laptop]
+
+    for filepath in $(
+        grep -l -c '^--START--' doc/notes/zrq/*
+        )
+        do
+            echo "File [${filepath:?}]"
+            sedindent "${filepath:?}"
+        done
+
+
+

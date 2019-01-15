@@ -1,0 +1,423 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2018, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+
+
+# -----------------------------------------------------
+# Load our libvirt configuration.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+# -----------------------------------------------------
+# Configure our SSH settings.
+#[user@trop03]
+
+    sshuser=Stevedore
+    sshopts=(
+        '-A'
+        '-o LogLevel=ERROR'
+        '-o CheckHostIP=no'
+        '-o UserKnownHostsFile=/dev/null'
+        '-o StrictHostKeyChecking=no'
+        )
+
+    scpopts=(
+        '-o LogLevel=ERROR'
+        '-o CheckHostIP=no'
+        '-o UserKnownHostsFile=/dev/null'
+        '-o StrictHostKeyChecking=no'
+        )
+
+# -----------------------------------------------------
+# Assign our virtual machine names.
+#[user@trop03]
+
+    kfnames=(
+        Stedigo
+        Angece
+        Edwalafia
+        Onoza
+        )
+
+    zknames=(
+        Fosauri
+        Marpus
+        Byflame
+        )
+
+    mmnames=(
+        Afoaviel
+        Rusaldez
+        )
+
+# -----------------------------------------------------
+# Check containers on our Kafka nodes.
+#[user@trop03]
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    hostname
+                    docker ps -a
+                    "
+        done
+
+    >   ---- ----
+    >   Stedigo
+    >   CONTAINER ID        IMAGE                         COMMAND                  CREATED             STATUS              PORTS                              NAMES
+    >   528f5c8d6a84        confluentinc/cp-kafka:4.1.1   "/etc/confluent/dock…"   2 days ago          Up 2 days           0.0.0.0:9092-9093->9092-9093/tcp   stevedore_emily_1
+    >   ---- ----
+    >   Angece
+    >   CONTAINER ID        IMAGE                         COMMAND                  CREATED             STATUS              PORTS                              NAMES
+    >   54ab40521deb        confluentinc/cp-kafka:4.1.1   "/etc/confluent/dock…"   2 days ago          Up 2 days           0.0.0.0:9092-9093->9092-9093/tcp   stevedore_emily_1
+    >   ---- ----
+    >   Edwalafia
+    >   CONTAINER ID        IMAGE                         COMMAND                  CREATED             STATUS              PORTS                              NAMES
+    >   4af2d612c94e        confluentinc/cp-kafka:4.1.1   "/etc/confluent/dock…"   2 days ago          Up 2 days           0.0.0.0:9092-9093->9092-9093/tcp   stevedore_emily_1
+    >   ---- ----
+    >   Onoza
+    >   CONTAINER ID        IMAGE                         COMMAND                  CREATED             STATUS              PORTS                              NAMES
+    >   e02f40328809        confluentinc/cp-kafka:4.1.1   "/etc/confluent/dock…"   2 days ago          Up 2 days           0.0.0.0:9092-9093->9092-9093/tcp   stevedore_emily_1
+
+# -----------------------------------------------------
+# Check the disc space on our Kafka nodes.
+#[user@trop03]
+
+    for vmname in ${kfnames[@]}
+        do
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    echo \"---- ---- ---- ----\"
+                    echo \"[\$(hostname)][\$(date)]\"
+                    echo \"---- ----\"
+                    df -h /
+                    echo \"---- ----\"
+                    df -h \"/data1-01\"
+                    echo "---- ----"
+                    df -h \"/data2-01\"
+                    "
+        done
+
+
+    >   ---- ---- ---- ----
+    >   [Stedigo][Fri 14 Dec 12:20:23 GMT 2018]
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vda3       6.8G  2.4G  3.9G  39% /
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdc         32G   16G   15G  51% /data1-01
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdd         32G   16G   15G  51% /data2-01
+    >   ---- ---- ---- ----
+    >   [Angece][Fri 14 Dec 12:20:23 GMT 2018]
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vda3       6.8G  2.4G  3.9G  39% /
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdc         32G   16G   15G  51% /data1-01
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdd         32G   16G   15G  51% /data2-01
+    >   ---- ---- ---- ----
+    >   [Edwalafia][Fri 14 Dec 12:20:24 GMT 2018]
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vda3       6.8G  2.4G  3.9G  39% /
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdc         32G   16G   15G  51% /data1-01
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdd         32G   16G   15G  51% /data2-01
+    >   ---- ---- ---- ----
+    >   [Onoza][Fri 14 Dec 12:20:24 GMT 2018]
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vda3       6.8G  2.4G  3.9G  39% /
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdc         32G   16G   15G  51% /data1-01
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdd         32G   16G   15G  51% /data2-01
+
+
+# -----------------------------------------------------
+# Update the topic and restart MirrorMaker on each node.
+#[user@trop03]
+
+    ztftopicid=ztf_20181206_programid1
+    ztftopicid=ztf_20181207_programid1
+    ztftopicid=ztf_20181208_programid1
+    ztftopicid=ztf_20181209_programid1
+    ztftopicid=ztf_20181210_programid1
+    ztftopicid=ztf_20181211_programid1
+    ztftopicid=ztf_20181212_programid1
+    ztftopicid=ztf_20181213_programid1
+    ztftopicid=ztf_20181214_programid1
+    ztftopicid=ztf_20181215_programid1
+    ztftopicid=ztf_20181216_programid1
+    ztftopicid=ztf_20181217_programid1
+
+    for vmname in ${mmnames[@]}
+        do
+            echo "---- ----"
+            ssh \
+                ${scpopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                hostname
+                docker-compose \
+                    --file mirror.yml \
+                    down
+                sed -i \"
+                    s/^ztftopicid=.*/ztftopicid=${ztftopicid:?}/
+                    \" mirror.env
+                docker-compose \
+                    --file mirror.yml \
+                    up -d
+                "
+        done
+
+# -----------------------------------------------------
+# Check our client offsets in the ZTF broker.
+#[user@trop03]
+
+    devnode=Rusaldez
+
+    ztfconnect=public.alerts.ztf.uw.edu:9092
+    roegroupid=ztf-mirror.roe.ac.uk
+
+
+    date ; \
+    ssh \
+        ${sshopts[*]} \
+        ${sshuser:?}@${devnode:?} \
+        "
+        docker run --rm phymatopus/kafka-core \
+            bin/kafka-consumer-groups.sh \
+                --bootstrap-server "${ztfconnect:?}" \
+                --describe \
+                --group "${roegroupid:?}"
+         " \
+    | sort \
+    ; date
+
+
+    >   Fri 14 Dec 12:22:20 GMT 2018
+    >   TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                 HOST            CLIENT-ID
+    >   ztf_20181213_programid1 0          8655            8655            0               ztf-mirror.roe.ac.uk-0-568b72a6-eb71-4f30-8b0f-ef21637db53a /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181213_programid1 10         8655            8655            0               ztf-mirror.roe.ac.uk-1-5301cc1f-4576-433e-a580-f180634a5d23 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181213_programid1 11         8655            8655            0               ztf-mirror.roe.ac.uk-1-5e8ee629-530f-42f3-9af4-b7a5f93b2f70 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181213_programid1 12         8655            8655            0               ztf-mirror.roe.ac.uk-2-98112b70-33aa-4070-aeaa-206c91069d85 /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181213_programid1 13         8655            8655            0               ztf-mirror.roe.ac.uk-2-f06f2b5b-669c-43a3-8e93-5750c619486a /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181213_programid1 1          8655            8655            0               ztf-mirror.roe.ac.uk-0-f66d86f1-53cf-4532-9c17-65ef8ed2be80 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181213_programid1 2          8655            8655            0               ztf-mirror.roe.ac.uk-1-5301cc1f-4576-433e-a580-f180634a5d23 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181213_programid1 3          8654            8654            0               ztf-mirror.roe.ac.uk-1-5e8ee629-530f-42f3-9af4-b7a5f93b2f70 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181213_programid1 4          8655            8655            0               ztf-mirror.roe.ac.uk-2-98112b70-33aa-4070-aeaa-206c91069d85 /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181213_programid1 5          8655            8655            0               ztf-mirror.roe.ac.uk-2-f06f2b5b-669c-43a3-8e93-5750c619486a /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181213_programid1 6          8655            8655            0               ztf-mirror.roe.ac.uk-3-a95cbcb3-ab02-47b9-956d-378255ede726 /129.215.175.98 ztf-mirror.roe.ac.uk-3
+    >   ztf_20181213_programid1 7          8655            8655            0               ztf-mirror.roe.ac.uk-3-b4509c1f-226a-441e-bfda-f0ed91eb2ef1 /129.215.175.98 ztf-mirror.roe.ac.uk-3
+    >   ztf_20181213_programid1 8          8655            8655            0               ztf-mirror.roe.ac.uk-0-568b72a6-eb71-4f30-8b0f-ef21637db53a /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181213_programid1 9          8655            8655            0               ztf-mirror.roe.ac.uk-0-f66d86f1-53cf-4532-9c17-65ef8ed2be80 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   Fri 14 Dec 12:22:28 GMT 2018
+
+
+    >   Fri 14 Dec 12:23:15 GMT 2018
+    >   TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                 HOST            CLIENT-ID
+    >   ztf_20181213_programid1 0          8655            8655            0               -                                                           -               -
+    >   ztf_20181213_programid1 10         8655            8655            0               -                                                           -               -
+    >   ztf_20181213_programid1 11         8655            8655            0               -                                                           -               -
+    >   ztf_20181213_programid1 12         8655            8655            0               -                                                           -               -
+    >   ztf_20181213_programid1 13         8655            8655            0               -                                                           -               -
+    >   ztf_20181213_programid1 1          8655            8655            0               -                                                           -               -
+    >   ztf_20181213_programid1 2          8655            8655            0               -                                                           -               -
+    >   ztf_20181213_programid1 3          8654            8654            0               -                                                           -               -
+    >   ztf_20181213_programid1 4          8655            8655            0               -                                                           -               -
+    >   ztf_20181213_programid1 5          8655            8655            0               -                                                           -               -
+    >   ztf_20181213_programid1 6          8655            8655            0               -                                                           -               -
+    >   ztf_20181213_programid1 7          8655            8655            0               -                                                           -               -
+    >   ztf_20181213_programid1 8          8655            8655            0               -                                                           -               -
+    >   ztf_20181213_programid1 9          8655            8655            0               -                                                           -               -
+    >   ztf_20181214_programid1 0          -               16121           -               ztf-mirror.roe.ac.uk-0-2fb96a77-3411-48da-9227-7287e56873b9 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181214_programid1 10         -               16122           -               ztf-mirror.roe.ac.uk-1-4f171b09-3eb9-4595-92bb-761e99a74761 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181214_programid1 11         -               16121           -               ztf-mirror.roe.ac.uk-1-ddf3c5f8-14a4-4db9-bab7-cb7eb0046ced /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181214_programid1 1          -               16122           -               ztf-mirror.roe.ac.uk-0-7862e1de-8c2a-4a5b-b594-0d97630935b6 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181214_programid1 12         -               16121           -               ztf-mirror.roe.ac.uk-2-68fdbe6b-2e54-47a5-b0ee-13ad45edee54 /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181214_programid1 13         -               16121           -               ztf-mirror.roe.ac.uk-2-73d9a3b5-36ee-4e0d-ae01-fb4c688e2fce /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181214_programid1 2          -               16121           -               ztf-mirror.roe.ac.uk-1-4f171b09-3eb9-4595-92bb-761e99a74761 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181214_programid1 3          -               16121           -               ztf-mirror.roe.ac.uk-1-ddf3c5f8-14a4-4db9-bab7-cb7eb0046ced /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181214_programid1 4          -               16121           -               ztf-mirror.roe.ac.uk-2-68fdbe6b-2e54-47a5-b0ee-13ad45edee54 /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181214_programid1 5          -               16121           -               ztf-mirror.roe.ac.uk-2-73d9a3b5-36ee-4e0d-ae01-fb4c688e2fce /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181214_programid1 6          -               16121           -               ztf-mirror.roe.ac.uk-3-0c628ead-f83b-4bdd-805b-527bfddc4fa8 /129.215.175.98 ztf-mirror.roe.ac.uk-3
+    >   ztf_20181214_programid1 7          -               16121           -               ztf-mirror.roe.ac.uk-3-a1eeb827-5349-42e1-858c-7b0e325afd75 /129.215.175.98 ztf-mirror.roe.ac.uk-3
+    >   ztf_20181214_programid1 8          -               16121           -               ztf-mirror.roe.ac.uk-0-2fb96a77-3411-48da-9227-7287e56873b9 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181214_programid1 9          -               16121           -               ztf-mirror.roe.ac.uk-0-7862e1de-8c2a-4a5b-b594-0d97630935b6 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   Fri 14 Dec 12:23:25 GMT 2018
+
+
+    >   Fri 14 Dec 13:11:20 GMT 2018
+    >   TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                 HOST            CLIENT-ID
+    >   ztf_20181213_programid1 0          8655            8655            0               -                                                           -               -
+    >   ztf_20181213_programid1 10         8655            8655            0               -                                                           -               -
+    >   ztf_20181213_programid1 11         8655            8655            0               -                                                           -               -
+    >   ztf_20181213_programid1 12         8655            8655            0               -                                                           -               -
+    >   ztf_20181213_programid1 13         8655            8655            0               -                                                           -               -
+    >   ztf_20181213_programid1 1          8655            8655            0               -                                                           -               -
+    >   ztf_20181213_programid1 2          8655            8655            0               -                                                           -               -
+    >   ztf_20181213_programid1 3          8654            8654            0               -                                                           -               -
+    >   ztf_20181213_programid1 4          8655            8655            0               -                                                           -               -
+    >   ztf_20181213_programid1 5          8655            8655            0               -                                                           -               -
+    >   ztf_20181213_programid1 6          8655            8655            0               -                                                           -               -
+    >   ztf_20181213_programid1 7          8655            8655            0               -                                                           -               -
+    >   ztf_20181213_programid1 8          8655            8655            0               -                                                           -               -
+    >   ztf_20181213_programid1 9          8655            8655            0               -                                                           -               -
+    >   ztf_20181214_programid1 0          12643           16121           3478            ztf-mirror.roe.ac.uk-0-2fb96a77-3411-48da-9227-7287e56873b9 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181214_programid1 10         12635           16122           3487            ztf-mirror.roe.ac.uk-1-4f171b09-3eb9-4595-92bb-761e99a74761 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181214_programid1 11         12583           16121           3538            ztf-mirror.roe.ac.uk-1-ddf3c5f8-14a4-4db9-bab7-cb7eb0046ced /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181214_programid1 1          12589           16122           3533            ztf-mirror.roe.ac.uk-0-7862e1de-8c2a-4a5b-b594-0d97630935b6 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181214_programid1 12         12577           16121           3544            ztf-mirror.roe.ac.uk-2-68fdbe6b-2e54-47a5-b0ee-13ad45edee54 /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181214_programid1 13         12637           16121           3484            ztf-mirror.roe.ac.uk-2-73d9a3b5-36ee-4e0d-ae01-fb4c688e2fce /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181214_programid1 2          12613           16121           3508            ztf-mirror.roe.ac.uk-1-4f171b09-3eb9-4595-92bb-761e99a74761 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181214_programid1 3          12603           16121           3518            ztf-mirror.roe.ac.uk-1-ddf3c5f8-14a4-4db9-bab7-cb7eb0046ced /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181214_programid1 4          12583           16121           3538            ztf-mirror.roe.ac.uk-2-68fdbe6b-2e54-47a5-b0ee-13ad45edee54 /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181214_programid1 5          12635           16121           3486            ztf-mirror.roe.ac.uk-2-73d9a3b5-36ee-4e0d-ae01-fb4c688e2fce /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181214_programid1 6          16121           16121           0               ztf-mirror.roe.ac.uk-3-0c628ead-f83b-4bdd-805b-527bfddc4fa8 /129.215.175.98 ztf-mirror.roe.ac.uk-3
+    >   ztf_20181214_programid1 7          16121           16121           0               ztf-mirror.roe.ac.uk-3-a1eeb827-5349-42e1-858c-7b0e325afd75 /129.215.175.98 ztf-mirror.roe.ac.uk-3
+    >   ztf_20181214_programid1 8          12640           16121           3481            ztf-mirror.roe.ac.uk-0-2fb96a77-3411-48da-9227-7287e56873b9 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181214_programid1 9          12584           16121           3537            ztf-mirror.roe.ac.uk-0-7862e1de-8c2a-4a5b-b594-0d97630935b6 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   Fri 14 Dec 13:11:31 GMT 2018
+
+
+    >   Fri 14 Dec 13:47:29 GMT 2018
+    >   TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                 HOST            CLIENT-ID
+    >   ztf_20181214_programid1 0          16121           16121           0               ztf-mirror.roe.ac.uk-0-2fb96a77-3411-48da-9227-7287e56873b9 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181214_programid1 10         16122           16122           0               ztf-mirror.roe.ac.uk-1-4f171b09-3eb9-4595-92bb-761e99a74761 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181214_programid1 11         16121           16121           0               ztf-mirror.roe.ac.uk-1-ddf3c5f8-14a4-4db9-bab7-cb7eb0046ced /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181214_programid1 1          16122           16122           0               ztf-mirror.roe.ac.uk-0-7862e1de-8c2a-4a5b-b594-0d97630935b6 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181214_programid1 12         16121           16121           0               ztf-mirror.roe.ac.uk-2-68fdbe6b-2e54-47a5-b0ee-13ad45edee54 /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181214_programid1 13         16121           16121           0               ztf-mirror.roe.ac.uk-2-73d9a3b5-36ee-4e0d-ae01-fb4c688e2fce /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181214_programid1 2          16121           16121           0               ztf-mirror.roe.ac.uk-1-4f171b09-3eb9-4595-92bb-761e99a74761 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181214_programid1 3          16121           16121           0               ztf-mirror.roe.ac.uk-1-ddf3c5f8-14a4-4db9-bab7-cb7eb0046ced /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181214_programid1 4          16121           16121           0               ztf-mirror.roe.ac.uk-2-68fdbe6b-2e54-47a5-b0ee-13ad45edee54 /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181214_programid1 5          16121           16121           0               ztf-mirror.roe.ac.uk-2-73d9a3b5-36ee-4e0d-ae01-fb4c688e2fce /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181214_programid1 6          16121           16121           0               ztf-mirror.roe.ac.uk-3-0c628ead-f83b-4bdd-805b-527bfddc4fa8 /129.215.175.98 ztf-mirror.roe.ac.uk-3
+    >   ztf_20181214_programid1 7          16121           16121           0               ztf-mirror.roe.ac.uk-3-a1eeb827-5349-42e1-858c-7b0e325afd75 /129.215.175.98 ztf-mirror.roe.ac.uk-3
+    >   ztf_20181214_programid1 8          16121           16121           0               ztf-mirror.roe.ac.uk-0-2fb96a77-3411-48da-9227-7287e56873b9 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181214_programid1 9          16121           16121           0               ztf-mirror.roe.ac.uk-0-7862e1de-8c2a-4a5b-b594-0d97630935b6 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   Fri 14 Dec 13:47:37 GMT 2018
+
+
+    >   Fri 14 Dec 17:49:29 GMT 2018
+    >   TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                 HOST            CLIENT-ID
+    >   ztf_20181214_programid1 0          17035           17035           0               ztf-mirror.roe.ac.uk-0-2fb96a77-3411-48da-9227-7287e56873b9 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181214_programid1 10         17035           17035           0               ztf-mirror.roe.ac.uk-1-4f171b09-3eb9-4595-92bb-761e99a74761 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181214_programid1 11         17035           17035           0               ztf-mirror.roe.ac.uk-1-ddf3c5f8-14a4-4db9-bab7-cb7eb0046ced /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181214_programid1 1          17035           17035           0               ztf-mirror.roe.ac.uk-0-7862e1de-8c2a-4a5b-b594-0d97630935b6 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181214_programid1 12         17035           17035           0               ztf-mirror.roe.ac.uk-2-68fdbe6b-2e54-47a5-b0ee-13ad45edee54 /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181214_programid1 13         17035           17035           0               ztf-mirror.roe.ac.uk-2-73d9a3b5-36ee-4e0d-ae01-fb4c688e2fce /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181214_programid1 2          17035           17035           0               ztf-mirror.roe.ac.uk-1-4f171b09-3eb9-4595-92bb-761e99a74761 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181214_programid1 3          17035           17035           0               ztf-mirror.roe.ac.uk-1-ddf3c5f8-14a4-4db9-bab7-cb7eb0046ced /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181214_programid1 4          17035           17035           0               ztf-mirror.roe.ac.uk-2-68fdbe6b-2e54-47a5-b0ee-13ad45edee54 /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181214_programid1 5          17035           17035           0               ztf-mirror.roe.ac.uk-2-73d9a3b5-36ee-4e0d-ae01-fb4c688e2fce /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181214_programid1 6          17035           17035           0               ztf-mirror.roe.ac.uk-3-0c628ead-f83b-4bdd-805b-527bfddc4fa8 /129.215.175.98 ztf-mirror.roe.ac.uk-3
+    >   ztf_20181214_programid1 7          17035           17035           0               ztf-mirror.roe.ac.uk-3-a1eeb827-5349-42e1-858c-7b0e325afd75 /129.215.175.98 ztf-mirror.roe.ac.uk-3
+    >   ztf_20181214_programid1 8          17035           17035           0               ztf-mirror.roe.ac.uk-0-2fb96a77-3411-48da-9227-7287e56873b9 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181214_programid1 9          17035           17035           0               ztf-mirror.roe.ac.uk-0-7862e1de-8c2a-4a5b-b594-0d97630935b6 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   Fri 14 Dec 17:49:37 GMT 2018
+
+
+    >   Mon 17 Dec 01:56:03 GMT 2018
+    >   TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                 HOST            CLIENT-ID
+    >   ztf_20181216_programid1 0          9885            9885            0               -                                                           -               -
+    >   ztf_20181216_programid1 10         9886            9886            0               -                                                           -               -
+    >   ztf_20181216_programid1 11         9885            9885            0               -                                                           -               -
+    >   ztf_20181216_programid1 12         9885            9885            0               -                                                           -               -
+    >   ztf_20181216_programid1 13         9886            9886            0               -                                                           -               -
+    >   ztf_20181216_programid1 1          9886            9886            0               -                                                           -               -
+    >   ztf_20181216_programid1 2          9885            9885            0               -                                                           -               -
+    >   ztf_20181216_programid1 3          9885            9885            0               -                                                           -               -
+    >   ztf_20181216_programid1 4          9886            9886            0               -                                                           -               -
+    >   ztf_20181216_programid1 5          9886            9886            0               -                                                           -               -
+    >   ztf_20181216_programid1 6          9885            9885            0               -                                                           -               -
+    >   ztf_20181216_programid1 7          9886            9886            0               -                                                           -               -
+    >   ztf_20181216_programid1 8          9885            9885            0               -                                                           -               -
+    >   ztf_20181216_programid1 9          9885            9885            0               -                                                           -               -
+    >   ztf_20181217_programid1 0          -               0               -               ztf-mirror.roe.ac.uk-0-2b6129ae-7776-452d-95b5-00c7d33577d9 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181217_programid1 10         -               0               -               ztf-mirror.roe.ac.uk-1-7e28344c-3da7-4496-9bde-9f82d287589e /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181217_programid1 1          -               0               -               ztf-mirror.roe.ac.uk-0-e008cad2-458e-4807-88d7-b2f9bac8ea7a /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181217_programid1 11         -               0               -               ztf-mirror.roe.ac.uk-1-8bc20efe-b4fc-4840-b546-855cff892f3a /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181217_programid1 12         -               0               -               ztf-mirror.roe.ac.uk-2-23bdf8c5-6aae-461e-b77a-0667da0d516e /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181217_programid1 13         -               0               -               ztf-mirror.roe.ac.uk-2-bf34ba74-d821-487e-8e03-b94368ca578b /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181217_programid1 2          -               0               -               ztf-mirror.roe.ac.uk-1-7e28344c-3da7-4496-9bde-9f82d287589e /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181217_programid1 3          -               0               -               ztf-mirror.roe.ac.uk-1-8bc20efe-b4fc-4840-b546-855cff892f3a /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181217_programid1 4          -               0               -               ztf-mirror.roe.ac.uk-2-23bdf8c5-6aae-461e-b77a-0667da0d516e /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181217_programid1 5          -               0               -               ztf-mirror.roe.ac.uk-2-bf34ba74-d821-487e-8e03-b94368ca578b /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181217_programid1 6          -               0               -               ztf-mirror.roe.ac.uk-3-5ea9329a-503e-4870-90f8-b7effb2dce95 /129.215.175.98 ztf-mirror.roe.ac.uk-3
+    >   ztf_20181217_programid1 7          -               0               -               ztf-mirror.roe.ac.uk-3-d15594b8-30fa-4aaa-be5e-4507e642c7c9 /129.215.175.98 ztf-mirror.roe.ac.uk-3
+    >   ztf_20181217_programid1 8          -               0               -               ztf-mirror.roe.ac.uk-0-2b6129ae-7776-452d-95b5-00c7d33577d9 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181217_programid1 9          -               0               -               ztf-mirror.roe.ac.uk-0-e008cad2-458e-4807-88d7-b2f9bac8ea7a /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   Mon 17 Dec 01:56:13 GMT 2018
+
+
+-- START --
+Mon 17 Dec 02:35:08 GMT 2018
+ztf_20181216_programid1 0          9885            9885            0               -                                                           -               -
+ztf_20181216_programid1 10         9886            9886            0               -                                                           -               -
+ztf_20181216_programid1 11         9885            9885            0               -                                                           -               -
+ztf_20181216_programid1 12         9885            9885            0               -                                                           -               -
+ztf_20181216_programid1 13         9886            9886            0               -                                                           -               -
+ztf_20181216_programid1 1          9886            9886            0               -                                                           -               -
+ztf_20181216_programid1 2          9885            9885            0               -                                                           -               -
+ztf_20181216_programid1 3          9885            9885            0               -                                                           -               -
+ztf_20181216_programid1 4          9886            9886            0               -                                                           -               -
+ztf_20181216_programid1 5          9886            9886            0               -                                                           -               -
+ztf_20181216_programid1 6          9885            9885            0               -                                                           -               -
+ztf_20181216_programid1 7          9886            9886            0               -                                                           -               -
+ztf_20181216_programid1 8          9885            9885            0               -                                                           -               -
+ztf_20181216_programid1 9          9885            9885            0               -                                                           -               -
+ztf_20181217_programid1 0          345             353             8               ztf-mirror.roe.ac.uk-0-2b6129ae-7776-452d-95b5-00c7d33577d9 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+ztf_20181217_programid1 10         346             353             7               ztf-mirror.roe.ac.uk-1-7e28344c-3da7-4496-9bde-9f82d287589e /129.215.175.98 ztf-mirror.roe.ac.uk-1
+ztf_20181217_programid1 11         345             352             7               ztf-mirror.roe.ac.uk-1-8bc20efe-b4fc-4840-b546-855cff892f3a /129.215.175.98 ztf-mirror.roe.ac.uk-1
+ztf_20181217_programid1 12         345             353             8               ztf-mirror.roe.ac.uk-2-23bdf8c5-6aae-461e-b77a-0667da0d516e /129.215.175.98 ztf-mirror.roe.ac.uk-2
+ztf_20181217_programid1 13         345             352             7               ztf-mirror.roe.ac.uk-2-bf34ba74-d821-487e-8e03-b94368ca578b /129.215.175.98 ztf-mirror.roe.ac.uk-2
+ztf_20181217_programid1 1          344             352             8               ztf-mirror.roe.ac.uk-0-e008cad2-458e-4807-88d7-b2f9bac8ea7a /129.215.175.98 ztf-mirror.roe.ac.uk-0
+ztf_20181217_programid1 2          346             353             7               ztf-mirror.roe.ac.uk-1-7e28344c-3da7-4496-9bde-9f82d287589e /129.215.175.98 ztf-mirror.roe.ac.uk-1
+ztf_20181217_programid1 3          345             353             8               ztf-mirror.roe.ac.uk-1-8bc20efe-b4fc-4840-b546-855cff892f3a /129.215.175.98 ztf-mirror.roe.ac.uk-1
+ztf_20181217_programid1 4          345             352             7               ztf-mirror.roe.ac.uk-2-23bdf8c5-6aae-461e-b77a-0667da0d516e /129.215.175.98 ztf-mirror.roe.ac.uk-2
+ztf_20181217_programid1 5          346             353             7               ztf-mirror.roe.ac.uk-2-bf34ba74-d821-487e-8e03-b94368ca578b /129.215.175.98 ztf-mirror.roe.ac.uk-2
+ztf_20181217_programid1 6          345             353             8               ztf-mirror.roe.ac.uk-3-5ea9329a-503e-4870-90f8-b7effb2dce95 /129.215.175.98 ztf-mirror.roe.ac.uk-3
+ztf_20181217_programid1 7          345             352             7               ztf-mirror.roe.ac.uk-3-d15594b8-30fa-4aaa-be5e-4507e642c7c9 /129.215.175.98 ztf-mirror.roe.ac.uk-3
+ztf_20181217_programid1 8          345             353             8               ztf-mirror.roe.ac.uk-0-2b6129ae-7776-452d-95b5-00c7d33577d9 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+ztf_20181217_programid1 9          346             353             7               ztf-mirror.roe.ac.uk-0-e008cad2-458e-4807-88d7-b2f9bac8ea7a /129.215.175.98 ztf-mirror.roe.ac.uk-0
+Mon 17 Dec 02:35:18 GMT 2018
+

@@ -1,0 +1,99 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+    Docker multi-host networking overlays
+    https://www.singlestoneconsulting.com/-/media/files/docker-multi-host-networking-overlays-to-the-rescue.pdf?la=en
+
+    Docker Multihost Networking 'Hello World'
+    https://www.katacoda.com/courses/docker-production/multihost-networking
+
+    Multi-host networking with standalone swarms
+    https://docs.docker.com/network/overlay-standalone.swarm/#check-external-connectivity
+
+    Overlay networks
+    https://docs.docker.com/network/overlay/
+
+    Overlay network tutorial
+    https://docs.docker.com/network/network-tutorial-overlay/
+
+
+# -----------------------------------------------------
+# Test DNS lookup ..
+#[Stevedore@Umiawyth]
+
+    host trop03
+
+    >   trop03 has address 129.215.175.98
+
+
+    host Umiawyth
+
+    >   Umiawyth has address 192.168.210.129
+
+
+    host Umiawyth-net
+
+    >   Host Umiawyth-net not found: 3(NXDOMAIN)
+
+
+    ifconfig ens7 | sed -n 's/^ *inet \([^ ]*\).*/\1/p'
+
+    >   192.168.210.161
+
+
+    ifconfig ens3 | sed -n 's/^ *inet \([^ ]*\).*/\1/p'
+
+    >   192.168.210.129
+
+
+# -----------------------------------------------------
+# Start etcd container, with ports published through the VM.
+#[Stevedore@Umiawyth]
+
+    https://coreos.com/etcd/docs/latest/v2/docker_guide.html
+    https://www.fusonic.net/developers/2016/04/18/create-production-ready-cluster-with-multi-host-network-via-docker-swarm-tls-and-etcd-A-complete-step-by-step-tutorial/
+
+    https://stackoverflow.com/questions/36523936/cannot-setup-multi-host-docker-overlay-network-with-etcd
+
+    hostip=$()
+
+    docker run -d \
+        --volume /usr/share/ca-certificates/:/etc/ssl/certs \
+        -p 4001:4001 \
+        -p 2380:2380 \
+        -p 2379:2379 \
+        --name etcd \
+            quay.io/coreos/etcd:v2.3.8 \
+                -name etcd0 \
+                -advertise-client-urls http://${HostIP}:2379,http://${HostIP}:4001 \
+                -listen-client-urls http://0.0.0.0:2379,http://0.0.0.0:4001 \
+                -initial-advertise-peer-urls http://${HostIP}:2380 \
+                -listen-peer-urls http://0.0.0.0:2380 \
+                -initial-cluster-token etcd-cluster-1 \
+                -initial-cluster etcd0=http://${HostIP}:2380 \
+                -initial-cluster-state new
+
+
+
+
+
+

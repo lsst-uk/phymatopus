@@ -1,0 +1,86 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2018, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+    #
+    # Change one line .. and it seems to work (at least, the error message goes away).
+    # Looks like it fixes things ... but it doesn't :-(
+    #
+
+# -----------------------------------------------------
+# Update our compose YAML file.
+#[user@trop03]
+
+vi /tmp/kafka.yml
+
+    -       - KAFKA_INTER_BROKER_LISTENER_NAME=LISTENER_BOB
+    +       - KAFKA_INTER_BROKER_LISTENER_NAME=LISTENER_FRED
+
+# -----------------------------------------------------
+# Deploy our compose YAML file.
+#[user@trop03]
+
+    for vmname in ${!kfnodes[@]}
+        do
+            scp \
+                ${scpopts[*]} \
+                /tmp/kafka.yml \
+                ${sshuser:?}@${vmname:?}:kafka.yml
+        done
+
+# -----------------------------------------------------
+# Re-start Kafka on each node.
+#[user@trop03]
+
+    for vmname in ${!kfnodes[@]}
+        do
+            echo "---- ----"
+            ssh \
+                ${scpopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                hostname
+
+                docker-compose \
+                    --file kafka.yml \
+                    down
+
+                sleep 5
+
+                docker-compose \
+                    --file kafka.yml \
+                    up -d
+                "
+        done
+
+# -----------------------------------------------------
+# Login and tail the logs (separate terminals).
+#[user@trop03]
+
+    ssh trop03
+
+        ssh Edwalafia
+        ssh Onoza
+        ssh Angece
+        ssh Stedigo
+
+            docker logs -f stevedore_emily_1
+

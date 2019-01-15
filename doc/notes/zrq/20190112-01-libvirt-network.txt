@@ -1,0 +1,703 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+    # Copy config from trop03 to trop04
+    # Deply another virtual machine
+    # See if they can see each other ...
+
+# -----------------------------------------------------
+# Check the local config on trop04.
+#[user@trop04]
+
+    srcpath=/var/local/projects/ischnura/github/src/
+    datpath=${srcpath:?}/dat
+    cfgfile=${srcpath:?}/config
+
+    ls -1 "${srcpath}"
+
+    >   bin
+    >   config
+    >   dat
+    >   kickstart
+
+
+    ls -1 "${srcpath}/bin"
+
+    >   createvm
+    >   utils
+
+
+    ls -1 "${srcpath}/dat"
+
+    >   clone-template.xml
+    >   helio-machines.txt
+    >   helio-template.xml
+    >   metagrid-machines.txt
+    >   metagrid-template.xml
+    >   shepseskaf-machines.txt
+    >   shepseskaf-template.xml
+    >   tropo-machines.txt
+    >   tropo-template.xml
+
+# -----------------------------------------------------
+# Copy the updated files from trop03.
+#[user@trop04]
+
+    scp "trop03:${srcpath}/bin/tools" \
+        "${srcpath}/bin/tools"
+
+
+    mv "${srcpath}/bin/createvm" \
+       "${srcpath}/bin/createvm.bak"
+
+    scp "trop03:${srcpath}/bin/createvm" \
+        "${srcpath}/bin/createvm"
+
+
+    mv "${srcpath}/dat/tropo-template.xml" \
+       "${srcpath}/dat/tropo-template.bak"
+
+    scp "trop03:${srcpath}/dat/tropo-template.xml" \
+        "${srcpath}/dat/tropo-template.xml"
+
+
+    mv "${srcpath}/dat/tropo-machines.txt" \
+       "${srcpath}/dat/tropo-machines.bak"
+
+    scp "trop03:${srcpath}/dat/tropo-machines.txt" \
+        "${srcpath}/dat/tropo-machines.txt"
+
+
+# -----------------------------------------------------
+# Check the updated files from trop03.
+#[user@trop04]
+
+    ls -1 "${srcpath}/bin"
+
+    >   createvm
+    >   createvm.bak
+    >   tools
+    >   utils
+
+
+    ls -1 "${srcpath}/dat"
+
+    >   clone-template.xml
+    >   helio-machines.txt
+    >   helio-template.xml
+    >   metagrid-machines.txt
+    >   metagrid-template.xml
+    >   shepseskaf-machines.txt
+    >   shepseskaf-template.xml
+    >   tropo-machines.bak
+    >   tropo-machines.txt
+    >   tropo-template.bak
+    >   tropo-template.xml
+
+
+# -----------------------------------------------------
+# Check the template interfaces.
+#[user@trop04]
+
+    srcpath=/var/local/projects/ischnura/github/src/
+    datpath=${srcpath:?}/dat
+    cfgfile=${srcpath:?}/config
+    source "${cfgfile:?}"
+
+    xmlstarlet \
+        select \
+            --root \
+            --indent \
+            --template \
+            --copy-of "//interface" \
+        "${template:?}"
+
+    >   <xsl-select>
+    >     <interface type="network">
+    >         <mac address="##:##:##:##:##:##"/>
+    >         <source network="routed"/>
+    >         <target dev="vnet0"/>
+    >         <model type="virtio"/>
+    >         <alias name="net0"/>
+    >         <address type="pci" domain="0x0000" bus="0x00" slot="0x03" function="0x0"/>
+    >       </interface>
+    >     <interface type="network">
+    >         <mac address="##:##:##:##:##:##"/>
+    >         <source network="natted"/>
+    >         <target dev="vnet1"/>
+    >         <model type="virtio"/>
+    >         <alias name="net1"/>
+    >         <address type="pci" domain="0x0000" bus="0x00" slot="0x07" function="0x0"/>
+    >       </interface>
+    >   </xsl-select>
+
+
+# -----------------------------------------------------
+# List the existing libvirt networks.
+#[user@trop04]
+
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        --connect ${connection:?} \
+        net-list \
+            --all
+
+    >    Name                 State      Autostart     Persistent
+    >   ----------------------------------------------------------
+    >    bridged              active     yes           yes
+    >    default              active     yes           yes
+
+
+# -----------------------------------------------------
+# Delete the default network.
+#[user@trop04]
+
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        --connect ${connection:?} \
+        net-destroy \
+            default
+
+    >   Network default destroyed
+
+
+    virsh \
+        --connect ${connection:?} \
+        net-undefine \
+            default
+
+    >   Network default has been undefined
+
+
+# -----------------------------------------------------
+# Define the new routed network.
+#[user@trop04]
+
+    source "${HOME}/libvirt.settings"
+
+    srcpath=/var/local/projects/ischnura/github/src/
+    source "${srcpath:?}/bin/tools"
+
+    xmlfile=$(printrouted)
+
+    virsh \
+        --connect ${connection:?} \
+        net-define \
+            "${xmlfile:?}"
+
+    >   Network routed defined from /tmp/tmp.3mA9ZWuTsc
+
+
+# -----------------------------------------------------
+# Define the new natted network.
+#[user@trop04]
+
+    source "${HOME}/libvirt.settings"
+
+    srcpath=/var/local/projects/ischnura/github/src/
+    source "${srcpath:?}/bin/tools"
+
+    xmlfile=$(printnatted)
+
+    virsh \
+        --connect ${connection:?} \
+        net-define \
+            "${xmlfile:?}"
+
+    >   Network natted defined from /tmp/tmp.mZmilwE4wU
+
+
+# -----------------------------------------------------
+# Configure the new networks to start on boot.
+#[user@trop04]
+
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        --connect ${connection:?} \
+        net-autostart \
+            'routed'
+
+    >   Network routed marked as autostarted
+
+    virsh \
+        --connect ${connection:?} \
+        net-autostart \
+            'natted'
+
+    >   Network natted marked as autostarted
+
+
+# -----------------------------------------------------
+# Start the new networks.
+#[user@trop04]
+
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        --connect ${connection:?} \
+        net-start \
+            'routed'
+
+    >   Network routed started
+
+    virsh \
+        --connect ${connection:?} \
+        net-start \
+            'natted'
+
+    >   Network natted started
+
+
+# -----------------------------------------------------
+# List the networks.
+#[user@trop04]
+
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        --connect ${connection:?} \
+        net-list \
+            --all
+
+    >    Name                 State      Autostart     Persistent
+    >   ----------------------------------------------------------
+    >    bridged              active     yes           yes
+    >    natted               active     yes           yes
+    >    routed               active     yes           yes
+
+
+# -----------------------------------------------------
+# Add the additional names to /etc/hosts.
+#[user@trop04]
+
+    #
+    # TODO work out a better way to do tis.
+    #
+
+    sudo cp /etc/hosts /etc/hosts.bak
+
+    sudo vi /etc/hosts
+
+    printhosts
+
+    >   /tmp/tmp.FbIFt6ZlRq
+
+    sudo -s
+        cat  /tmp/tmp.FbIFt6ZlRq >> /etc/hosts
+        exit
+
+# -----------------------------------------------------
+# Add the additional routes (wait and see if we need this).
+#[user@trop04]
+
+    cat $(printroutes)
+
+    >   sudo ip route add 192.168.210.0/27 via 129.215.175.96 dev br0
+    >   sudo ip route add 192.168.210.64/27 via 129.215.175.97 dev br0
+    >   sudo ip route add 192.168.210.128/27 via 129.215.175.98 dev br0
+
+    ** Don't add these until we know we need them **
+
+# -----------------------------------------------------
+# List the existing virtual machines.
+#[user@trop04]
+
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        --connect ${connection:?} \
+        list \
+            --all
+
+    >    Id    Name                           State
+    >   ----------------------------------------------------
+    >    9     Wumar                          running
+
+
+# -----------------------------------------------------
+# Delete the existing virtual machines.
+#[user@trop04]
+
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        --connect ${connection:?} \
+        destroy \
+            'Wumar'
+
+    >   Domain Wumar destroyed
+
+
+    virsh \
+        --connect ${connection:?} \
+        undefine \
+            'Wumar'
+
+    >   Domain Wumar has been undefined
+
+
+# -----------------------------------------------------
+# Create a new virtual machne.
+#[user@trop04]
+
+    createvm
+
+    >   INFO : Base pool  [base]
+    >   INFO : Live pool  [live]
+    >   INFO : Connection [qemu:///system]
+    >
+    >   INFO : Data path  [/var/local/projects/ischnura/github/src/dat]
+    >
+    >   INFO : Machines   [/var/local/projects/ischnura/github/src/dat/tropo-machines.txt]
+    >   INFO : Template   [/var/local/projects/ischnura/github/src/dat/tropo-template.xml]
+    >
+    >   ....
+    >   ....
+    >
+    >   INFO : Node name [Wumar]
+    >   INFO : Base name [fedora-28-docker-base-20180708.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-28-docker-base-20180708.qcow]
+    >   INFO : Disc name [Wumar.qcow]
+    >   INFO : Disc size [16GiB]
+    >
+    >   INFO : node [0]
+    >   INFO : MAC  [52:54:0:0:D2:C1]
+    >   INFO : IPv4 [192.168.210.193]
+    >   INFO : MAC  [52:54:0:0:D2:E1]
+    >   INFO : IPv4 [192.168.210.225]
+    >
+    >   ....
+    >   ....
+    >
+    >   Domain Wumar started
+
+# -----------------------------------------------------
+# Check the virtual machine interfaces.
+#[user@trop04]
+
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        --connect ${connection:?} \
+        dumpxml \
+            'Wumar' \
+    | xmlstarlet \
+        select \
+            --root \
+            --indent \
+            --template \
+                --copy-of '//interface'
+
+    >   <xsl-select>
+    >     <interface type="network">
+    >         <mac address="52:54:00:00:d2:c1"/>
+    >         <source network="routed"/>
+    >         <target dev="vnet0"/>
+    >         <model type="virtio"/>
+    >         <alias name="net0"/>
+    >         <address type="pci" domain="0x0000" bus="0x00" slot="0x03" function="0x0"/>
+    >       </interface>
+    >     <interface type="network">
+    >         <mac address="52:54:00:00:d2:e1"/>
+    >         <source network="natted"/>
+    >         <target dev="vnet1"/>
+    >         <model type="virtio"/>
+    >         <alias name="net1"/>
+    >         <address type="pci" domain="0x0000" bus="0x00" slot="0x07" function="0x0"/>
+    >       </interface>
+    >   </xsl-select>
+
+
+# -----------------------------------------------------
+# Check we can login from the physical host.
+#[user@trop04]
+
+    ssh -v Wumar
+
+    >   ....
+    >   debug1: Connecting to wumar [192.168.210.193] port 22.
+    >   debug1: Connection established.
+    >   ....
+    >   Authenticated to wumar ([192.168.210.193]:22).
+    >   ....
+    >   debug1: Sending environment.
+    >   debug1: Sending env LANG = en_GB.UTF-8
+
+
+# -----------------------------------------------------
+# Check the network routes.
+#[Stevedore@Wumar]
+
+    ip route show
+
+    >   default via 192.168.210.222 dev ens3 proto dhcp metric 100
+    >   default via 192.168.210.254 dev ens7 proto dhcp metric 101
+    >   172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown
+    >   192.168.210.192/27 dev ens3 proto kernel scope link src 192.168.210.193 metric 100
+    >   192.168.210.224/27 dev ens7 proto kernel scope link src 192.168.210.225 metric 101
+
+
+# -----------------------------------------------------
+# Deleted the second default.
+#[Stevedore@Wumar]
+
+    sudo ip route del default via 192.168.210.222 dev ens3
+
+
+# -----------------------------------------------------
+# Prevent the default route being added back.
+#[Stevedore@Wumar]
+
+    sudo vi /etc/sysconfig/network
+
+    +   GATEWAY=192.168.210.254
+    +   GATEWAYDEV=ens7
+
+    sudo vi /etc/sysconfig/network-scripts/ifcfg-ens3
+
+    +   DEFROUTE=no
+
+    sudo vi /etc/sysconfig/network-scripts/ifcfg-ens7
+
+    +   DEFROUTE=yes
+
+
+# -----------------------------------------------------
+# Check we can see external resources.
+#[Stevedore@Wumar]
+
+    curl --head 'http://data.metagrid.co.uk/robots.txt'
+
+    >   HTTP/1.1 200 OK
+    >   Date: Sat, 12 Jan 2019 07:24:15 GMT
+    >   Server: Apache/2.2.15 (CentOS)
+    >   Last-Modified: Mon, 30 Mar 2015 14:18:06 GMT
+    >   ETag: "1e981d-392-5128226968380"
+    >   Accept-Ranges: bytes
+    >   Content-Length: 914
+    >   Connection: close
+    >   Content-Type: text/plain; charset=UTF-8
+
+    PASS - external access works :-)
+
+# -----------------------------------------------------
+# Check we can see our physical host.
+#[Stevedore@Wumar]
+
+    ssh -v dmr@trop04.roe.ac.uk \
+        '
+        hostname
+        '
+
+    >   ....
+    >   debug1: Connecting to trop04.roe.ac.uk [129.215.175.99] port 22.
+    >   -
+
+    FAIL - connection times out
+
+
+# -----------------------------------------------------
+# Check we can see another physical host.
+#[Stevedore@Wumar]
+
+    ssh -v dmr@trop03.roe.ac.uk \
+        '
+        hostname
+        '
+
+    >   ....
+    >   debug1: Connecting to trop03.roe.ac.uk [129.215.175.98] port 22.
+    >   debug1: Connection established.
+    >   ....
+    >   Authenticated to trop03.roe.ac.uk ([129.215.175.98]:22).
+    >   ....
+    >   debug1: Sending environment.
+    >   debug1: Sending env LANG = en_GB.UTF-8
+    >   debug1: Sending command:
+    >           hostname
+    >
+    >   trop03
+    >   ....
+    >   Transferred: sent 3432, received 2856 bytes, in 0.1 seconds
+    >   Bytes per second: sent 58388.7, received 48589.2
+    >   debug1: Exit status 0
+
+    PASS - connection to a different host works
+
+
+# -----------------------------------------------------
+# See if we can connect to a virtual machine on another host.
+#[Stevedore@Wumar]
+
+    ssh -v Umiawyth \
+        '
+        hostname
+        '
+
+    >   ....
+    >   debug1: Connecting to umiawyth [192.168.203.8] port 22.
+    >   -
+
+    FAIL - connection times out
+
+# -----------------------------------------------------
+# List the current routes.
+#[Stevedore@Wumar]
+
+    ip route show
+
+    >   default via 192.168.210.254 dev ens7 proto dhcp metric 101
+    >   172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown
+    >   192.168.210.192/27 dev ens3 proto kernel scope link src 192.168.210.193 metric 100
+    >   192.168.210.224/27 dev ens7 proto kernel scope link src 192.168.210.225 metric 101
+
+
+# -----------------------------------------------------
+# Add the new routes.
+#[Stevedore@Wumar]
+
+    sudo ip route add 192.168.210.0/27   via 192.168.210.222 dev ens3
+    sudo ip route add 192.168.210.64/27  via 192.168.210.222 dev ens3
+    sudo ip route add 192.168.210.128/27 via 192.168.210.222 dev ens3
+   #sudo ip route add 192.168.210.192/27 via 192.168.210.222 dev ens3 # -- don't change our own
+
+# -----------------------------------------------------
+# List the current routes.
+#[Stevedore@Wumar]
+
+    ip route show
+
+    >   default via 192.168.210.254 dev ens7 proto dhcp metric 101
+    >   172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown
+    >   192.168.210.0/27 via 192.168.210.222 dev ens3
+    >   192.168.210.64/27 via 192.168.210.222 dev ens3
+    >   192.168.210.128/27 via 192.168.210.222 dev ens3
+    >   192.168.210.192/27 dev ens3 proto kernel scope link src 192.168.210.193 metric 100
+    >   192.168.210.224/27 dev ens7 proto kernel scope link src 192.168.210.225 metric 101
+
+
+# -----------------------------------------------------
+# See if we can connect to a virtual machine on another host.
+#[Stevedore@Wumar]
+
+    ssh -v Umiawyth \
+        '
+        hostname
+        '
+
+    >   ....
+    >   debug1: Connecting to umiawyth [192.168.210.129] port 22.
+    >   -
+
+    FAIL - connection times out
+
+
+# -----------------------------------------------------
+# Add the routes to trop03.
+#[user@trop03]
+
+    cat $(printroutes)
+
+    >   sudo ip route add 192.168.210.0/27 via 129.215.175.96 dev br0
+    >   sudo ip route add 192.168.210.64/27 via 129.215.175.97 dev br0
+    >   sudo ip route add 192.168.210.192/27 via 129.215.175.99 dev br0
+
+
+# -----------------------------------------------------
+# Add the routes to trop04.
+#[user@trop04]
+
+    cat $(printroutes)
+
+    >   sudo ip route add 192.168.210.0/27 via 129.215.175.96 dev br0
+    >   sudo ip route add 192.168.210.64/27 via 129.215.175.97 dev br0
+    >   sudo ip route add 192.168.210.128/27 via 129.215.175.98 dev br0
+
+
+# -----------------------------------------------------
+# See if we can connect to a virtual machine on a different physical host.
+#[Stevedore@Wumar]
+
+    ssh -v Umiawyth \
+        '
+        hostname
+        '
+
+    >   ....
+    >   debug1: Connecting to umiawyth [192.168.210.129] port 22.
+    >   debug1: Connection established.
+    >   ....
+    >   Authenticated to umiawyth ([192.168.210.129]:22).
+    >   ....
+    >   debug1: Sending environment.
+    >   debug1: Sending env LANG = en_GB.UTF-8
+    >   debug1: Sending command:
+    >           hostname
+    >
+    >   Umiawyth
+    >   ....
+    >   Transferred: sent 3448, received 3120 bytes, in 0.3 seconds
+    >   Bytes per second: sent 9885.1, received 8944.8
+    >   debug1: Exit status 0
+
+    PASS Connection to a virtual machine on a different physical host works :-D
+
+
+# -----------------------------------------------------
+# See if we can connect to a virtual machine on a different physical host.
+#[Stevedore@Umiawyth]
+
+    ssh -v Wumar \
+        '
+        hostname
+        '
+
+    >   ....
+    >   debug1: Connecting to wumar [192.168.210.193] port 22.
+    >   debug1: Connection established.
+    >   ....
+    >   Authenticated to wumar ([192.168.210.193]:22).
+    >   ....
+    >   debug1: Sending environment.
+    >   debug1: Sending env LANG = en_GB.UTF-8
+    >   debug1: Sending command:
+    >           hostname
+    >
+    >   Wumar
+    >   ....
+    >   Transferred: sent 3504, received 3120 bytes, in 0.2 seconds
+    >   Bytes per second: sent 23043.8, received 20518.5
+    >   debug1: Exit status 0
+
+    PASS Connection to a virtual machine on a different physical host works :-D
+
+
+
+    Everything seemed to work ... for about 20min, then lost connection to the VMs.
+    Local ADSL glitch or the ROE network detecting rouge packets on the wrong LAN ?
+
+
+
+

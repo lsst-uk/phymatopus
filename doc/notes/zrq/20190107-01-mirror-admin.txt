@@ -1,0 +1,345 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+# -----------------------------------------------------
+# Load our libvirt configuration.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+# -----------------------------------------------------
+# Configure our SSH settings.
+#[user@trop03]
+
+    sshuser=Stevedore
+    sshopts=(
+        '-A'
+        '-o LogLevel=ERROR'
+        '-o CheckHostIP=no'
+        '-o UserKnownHostsFile=/dev/null'
+        '-o StrictHostKeyChecking=no'
+        )
+
+    scpopts=(
+        '-o LogLevel=ERROR'
+        '-o CheckHostIP=no'
+        '-o UserKnownHostsFile=/dev/null'
+        '-o StrictHostKeyChecking=no'
+        )
+
+# -----------------------------------------------------
+# Assign our virtual machine names.
+#[user@trop03]
+
+    kfnames=(
+        Stedigo
+        Angece
+        Edwalafia
+        Onoza
+        )
+
+    zknames=(
+        Fosauri
+        Marpus
+        Byflame
+        )
+
+    mmnames=(
+        Afoaviel
+        Rusaldez
+        )
+
+# -----------------------------------------------------
+# Check our client offsets in the ZTF broker.
+#[user@trop03]
+
+    devnode=Rusaldez
+
+    ztfconnect=public.alerts.ztf.uw.edu:9092
+    roegroupid=ztf-mirror.roe.ac.uk
+
+    date ; \
+    ssh \
+        ${sshopts[*]} \
+        ${sshuser:?}@${devnode:?} \
+        "
+        docker run --rm phymatopus/kafka-core \
+            bin/kafka-consumer-groups.sh \
+                --bootstrap-server "${ztfconnect:?}" \
+                --describe \
+                --group "${roegroupid:?}"
+         " \
+    | sort \
+    ; date
+
+    >   Mon  7 Jan 23:50:21 GMT 2019
+    >   Error: Executing consumer group command failed due to The consumer group command timed out while waiting for group to initialize:
+    >   Mon  7 Jan 23:50:34 GMT 2019
+
+    # Not a problem - we don't have any MirrorMaker clients running at the moment.
+
+
+# -----------------------------------------------------
+# Check the containers on each Kafka node.
+#[user@trop03]
+
+    for vmname in ${kfnames[@]}
+        do
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    echo \"---- ---- ---- ----\"
+                    echo \"[\$(hostname)][\$(date)]\"
+                    echo \"---- ----\"
+
+                    docker ps -a
+
+                    "
+        done
+
+    >   ---- ---- ---- ----
+    >   [Stedigo][Mon  7 Jan 23:52:17 GMT 2019]
+    >   ---- ----
+    >   CONTAINER ID        IMAGE                         COMMAND                  CREATED             STATUS              PORTS                              NAMES
+    >   cd4f0a1d987b        confluentinc/cp-kafka:4.1.1   "/etc/confluent/dock…"   2 weeks ago         Up 2 hours          0.0.0.0:9092-9093->9092-9093/tcp   stevedore_emily_1
+    >   ---- ---- ---- ----
+    >   [Angece][Mon  7 Jan 23:52:18 GMT 2019]
+    >   ---- ----
+    >   CONTAINER ID        IMAGE                         COMMAND                  CREATED             STATUS              PORTS                              NAMES
+    >   c656d5adb6d2        confluentinc/cp-kafka:4.1.1   "/etc/confluent/dock…"   2 weeks ago         Up 2 hours          0.0.0.0:9092-9093->9092-9093/tcp   stevedore_emily_1
+    >   ---- ---- ---- ----
+    >   [Edwalafia][Mon  7 Jan 23:52:19 GMT 2019]
+    >   ---- ----
+    >   CONTAINER ID        IMAGE                         COMMAND                  CREATED             STATUS              PORTS                              NAMES
+    >   7fba134176e8        confluentinc/cp-kafka:4.1.1   "/etc/confluent/dock…"   2 weeks ago         Up 9 hours          0.0.0.0:9092-9093->9092-9093/tcp   stevedore_emily_1
+    >   ---- ---- ---- ----
+    >   [Onoza][Mon  7 Jan 23:52:20 GMT 2019]
+    >   ---- ----
+    >   CONTAINER ID        IMAGE                         COMMAND                  CREATED             STATUS              PORTS                              NAMES
+    >   8fa6618128e2        confluentinc/cp-kafka:4.1.1   "/etc/confluent/dock…"   2 weeks ago         Up 2 hours          0.0.0.0:9092-9093->9092-9093/tcp   stevedore_emily_1
+
+
+# -----------------------------------------------------
+# Check the disc space on each Kafka node.
+#[user@trop03]
+
+    for vmname in ${kfnames[@]}
+        do
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    echo \"---- ---- ---- ----\"
+                    echo \"[\$(hostname)][\$(date)]\"
+                    echo \"---- ----\"
+
+                    df -h /
+                    echo \"---- ----\"
+                    df -h \"/data1-01\"
+                    echo \"---- ----\"
+                    df -h \"/data1-02\"
+
+                    echo "---- ----"
+                    df -h \"/data2-01\"
+                    echo "---- ----"
+                    df -h \"/data2-02\"
+                    "
+        done
+
+    >   ---- ---- ---- ----
+    >   [Stedigo][Mon  7 Jan 23:52:39 GMT 2019]
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vda3       6.8G  2.5G  3.8G  40% /
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdc         32G   31G  4.2M 100% /data1-01
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdd         64G   50G   13G  80% /data1-02
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vde         32G   31G  3.2M 100% /data2-01
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdf         64G   47G   16G  75% /data2-02
+    >   ---- ---- ---- ----
+    >   [Angece][Mon  7 Jan 23:52:40 GMT 2019]
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vda3       6.8G  2.7G  3.7G  42% /
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdc         32G   31G  3.6M 100% /data1-01
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdd         64G   51G   12G  82% /data1-02
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vde         32G   31G  4.0M 100% /data2-01
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdf         64G   46G   17G  74% /data2-02
+    >   ---- ---- ---- ----
+    >   [Edwalafia][Mon  7 Jan 23:52:40 GMT 2019]
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vda3       6.8G  2.6G  3.7G  41% /
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdc         32G   31G  5.9M 100% /data1-01
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdd         64G   48G   15G  77% /data1-02
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vde         32G   31G  3.5M 100% /data2-01
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdf         64G   47G   16G  76% /data2-02
+    >   ---- ---- ---- ----
+    >   [Onoza][Mon  7 Jan 23:52:40 GMT 2019]
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vda3       6.8G  2.5G  3.8G  40% /
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdc         32G   31G  4.5M 100% /data1-01
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdd         64G   46G   17G  74% /data1-02
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vde         32G   31G  4.6M 100% /data2-01
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdf         64G   49G   14G  79% /data2-02
+
+    # 80% used ... we will need to add more space in the next day or so.
+
+
+# -----------------------------------------------------
+# Update the topic and restart MirrorMaker on each node.
+#[user@trop03]
+
+    ztftopicid=ztf_20190101_programid1
+    ztftopicid=ztf_20190102_programid1
+    ztftopicid=ztf_20190103_programid1
+    ztftopicid=ztf_20190104_programid1
+    ztftopicid=ztf_20190105_programid1
+    ztftopicid=ztf_20190106_programid1
+    ztftopicid=ztf_20190107_programid1
+
+    for vmname in ${mmnames[@]}
+        do
+            echo "---- ----"
+            echo "vmname [${vmname:?}]"
+            ssh \
+                ${scpopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                docker-compose \
+                    --file mirror.yml \
+                    down
+                sed -i \"
+                    s/^ztftopicid=.*/ztftopicid=${ztftopicid:?}/
+                    \" mirror.env
+                docker-compose \
+                    --file mirror.yml \
+                    up -d
+                "
+        done
+
+    >   ---- ----
+    >   vmname [Afoaviel]
+    >   Removing stevedore_tina_1 ... done
+    >   Removing network stevedore_default
+    >   Creating network "stevedore_default" with the default driver
+    >   Creating stevedore_tina_1 ... done
+    >   ---- ----
+    >   vmname [Rusaldez]
+    >   Removing stevedore_tina_1 ... done
+    >   Removing network stevedore_default
+    >   Creating network "stevedore_default" with the default driver
+    >   Creating stevedore_tina_1 ... done
+
+
+# -----------------------------------------------------
+# Check our client offsets in the ZTF broker.
+#[user@trop03]
+
+    devnode=Rusaldez
+
+    ztfconnect=public.alerts.ztf.uw.edu:9092
+    roegroupid=ztf-mirror.roe.ac.uk
+
+    offsetcheck()
+        {
+        date ; \
+        ssh \
+            ${sshopts[*]} \
+            ${sshuser:?}@${devnode:?} \
+            "
+            docker run --rm phymatopus/kafka-core \
+                bin/kafka-consumer-groups.sh \
+                    --bootstrap-server "${ztfconnect:?}" \
+                    --describe \
+                    --group "${roegroupid:?}"
+             " \
+        | sort \
+        ; date
+        }
+
+    offsetcheck
+
+    >   Mon  7 Jan 23:54:38 GMT 2019
+    >   Error: Executing consumer group command failed due to The consumer group command timed out while waiting for group to initialize:
+    >   Mon  7 Jan 23:54:49 GMT 2019
+
+    Ok, perhaps this is an issue ...
+    So .. because they now have internal 192 addresses, and are not aggregated by a NAT layer, the Kafka and MirrorMaker nodes can't reach anything outside the local 192 network.
+
+    <rant>
+
+        Duh
+
+        That would be a normal step in the discovery process ... IF we hadn't taken two days to get here.
+
+        Ok, so we need both.
+        The routed 192 address space spanning the trop machines, and a NAT translated space that can reach the outside world.
+
+        $%^&*Y(^%$ !!!!!!
+
+        Use Amazon, DigitalOcean, RackSpace or Linode and everything automatically gets public IPv4 and IPv6 addresses.
+
+        *everything*
+
+        No problems, no issues not translation layers, not fake floating addresses.
+
+        *everything*
+
+        I have spent (wasted) soooo much time working around these network issues.
+
+    </rant>
+
+

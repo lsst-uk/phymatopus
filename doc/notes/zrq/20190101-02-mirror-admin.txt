@@ -1,0 +1,1109 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+# -----------------------------------------------------
+# Load our libvirt configuration.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+# -----------------------------------------------------
+# Configure our SSH settings.
+#[user@trop03]
+
+    sshuser=Stevedore
+    sshopts=(
+        '-A'
+        '-o LogLevel=ERROR'
+        '-o CheckHostIP=no'
+        '-o UserKnownHostsFile=/dev/null'
+        '-o StrictHostKeyChecking=no'
+        )
+
+    scpopts=(
+        '-o LogLevel=ERROR'
+        '-o CheckHostIP=no'
+        '-o UserKnownHostsFile=/dev/null'
+        '-o StrictHostKeyChecking=no'
+        )
+
+# -----------------------------------------------------
+# Assign our virtual machine names.
+#[user@trop03]
+
+    kfnames=(
+        Stedigo
+        Angece
+        Edwalafia
+        Onoza
+        )
+
+    zknames=(
+        Fosauri
+        Marpus
+        Byflame
+        )
+
+    mmnames=(
+        Afoaviel
+        Rusaldez
+        )
+
+# -----------------------------------------------------
+# Check our client offsets in the ZTF broker.
+#[user@trop03]
+
+    devnode=Rusaldez
+
+    ztfconnect=public.alerts.ztf.uw.edu:9092
+    roegroupid=ztf-mirror.roe.ac.uk
+
+    date ; \
+    ssh \
+        ${sshopts[*]} \
+        ${sshuser:?}@${devnode:?} \
+        "
+        docker run --rm phymatopus/kafka-core \
+            bin/kafka-consumer-groups.sh \
+                --bootstrap-server "${ztfconnect:?}" \
+                --describe \
+                --group "${roegroupid:?}"
+         " \
+    | sort \
+    ; date
+
+    >   Tue  1 Jan 14:51:01 GMT 2019
+    >   Tue  1 Jan 14:51:07 GMT 2019
+
+# -----------------------------------------------------
+# Check the containers on each Kafka node.
+#[user@trop03]
+
+    for vmname in ${kfnames[@]}
+        do
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    echo \"---- ---- ---- ----\"
+                    echo \"[\$(hostname)][\$(date)]\"
+                    echo \"---- ----\"
+
+                    docker ps -a
+
+                    "
+        done
+
+    >   ---- ---- ---- ----
+    >   [Stedigo][Tue  1 Jan 14:52:13 GMT 2019]
+    >   ---- ----
+    >   CONTAINER ID        IMAGE                         COMMAND                  CREATED             STATUS              PORTS                              NAMES
+    >   cd4f0a1d987b        confluentinc/cp-kafka:4.1.1   "/etc/confluent/dock…"   8 days ago          Up 8 days           0.0.0.0:9092-9093->9092-9093/tcp   stevedore_emily_1
+    >   ---- ---- ---- ----
+    >   [Angece][Tue  1 Jan 14:52:13 GMT 2019]
+    >   ---- ----
+    >   CONTAINER ID        IMAGE                         COMMAND                  CREATED             STATUS              PORTS                              NAMES
+    >   c656d5adb6d2        confluentinc/cp-kafka:4.1.1   "/etc/confluent/dock…"   8 days ago          Up 8 days           0.0.0.0:9092-9093->9092-9093/tcp   stevedore_emily_1
+    >   ---- ---- ---- ----
+    >   [Edwalafia][Tue  1 Jan 14:52:14 GMT 2019]
+    >   ---- ----
+    >   CONTAINER ID        IMAGE                         COMMAND                  CREATED             STATUS              PORTS                              NAMES
+    >   7fba134176e8        confluentinc/cp-kafka:4.1.1   "/etc/confluent/dock…"   8 days ago          Up 8 days           0.0.0.0:9092-9093->9092-9093/tcp   stevedore_emily_1
+    >   ---- ---- ---- ----
+    >   [Onoza][Tue  1 Jan 14:52:15 GMT 2019]
+    >   ---- ----
+    >   CONTAINER ID        IMAGE                         COMMAND                  CREATED             STATUS              PORTS                              NAMES
+    >   8fa6618128e2        confluentinc/cp-kafka:4.1.1   "/etc/confluent/dock…"   8 days ago          Up 8 days           0.0.0.0:9092-9093->9092-9093/tcp   stevedore_emily_1
+
+
+# -----------------------------------------------------
+# Check the disc space on each Kafka node.
+#[user@trop03]
+
+    for vmname in ${kfnames[@]}
+        do
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    echo \"---- ---- ---- ----\"
+                    echo \"[\$(hostname)][\$(date)]\"
+                    echo \"---- ----\"
+
+                    df -h /
+                    echo \"---- ----\"
+                    df -h \"/data1-01\"
+                    echo \"---- ----\"
+                    df -h \"/data1-02\"
+
+                    echo "---- ----"
+                    df -h \"/data2-01\"
+                    echo "---- ----"
+                    df -h \"/data2-02\"
+                    "
+        done
+
+    >   ---- ---- ---- ----
+    >   [Stedigo][Tue  1 Jan 14:52:35 GMT 2019]
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vda3       6.8G  2.5G  3.8G  40% /
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdc         32G   31G  4.2M 100% /data1-01
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vde         64G   20G   43G  32% /data1-02
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdd         32G   31G  3.3M 100% /data2-01
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdf         64G   18G   45G  28% /data2-02
+    >   ---- ---- ---- ----
+    >   [Angece][Tue  1 Jan 14:52:35 GMT 2019]
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vda3       6.8G  2.5G  3.8G  40% /
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdc         32G   31G  3.7M 100% /data1-01
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vde         64G   21G   42G  34% /data1-02
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdd         32G   31G  4.1M 100% /data2-01
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdf         64G   18G   45G  28% /data2-02
+    >   ---- ---- ---- ----
+    >   [Edwalafia][Tue  1 Jan 14:52:36 GMT 2019]
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vda3       6.8G  2.5G  3.8G  40% /
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdc         32G   31G  5.9M 100% /data1-01
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vde         64G   19G   44G  30% /data1-02
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdd         32G   31G  3.4M 100% /data2-01
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdf         64G   19G   44G  30% /data2-02
+    >   ---- ---- ---- ----
+    >   [Onoza][Tue  1 Jan 14:52:37 GMT 2019]
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vda3       6.8G  2.5G  3.8G  40% /
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdc         32G   31G  4.7M 100% /data1-01
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vde         64G   18G   45G  28% /data1-02
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdd         32G   31G  4.6M 100% /data2-01
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdf         64G   20G   43G  32% /data2-02
+
+
+# -----------------------------------------------------
+# Login and tail the logs (separate terminals).
+#[user@trop03]
+
+    ssh Edwalafia '
+        docker logs -f stevedore_emily_1
+        '
+
+    >   [2019-01-01 14:21:12,505] INFO [GroupMetadataManager brokerId=3] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   [2019-01-01 14:31:12,505] INFO [GroupMetadataManager brokerId=3] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   [2019-01-01 14:41:12,505] INFO [GroupMetadataManager brokerId=3] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   [2019-01-01 14:51:12,505] INFO [GroupMetadataManager brokerId=3] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+
+    >   [2019-01-01 14:56:41,958] INFO Updated PartitionLeaderEpoch. New: {epoch:0, offset:0}, Current: {epoch:-1, offset:-1} for Partition: ztf_20181228_programid1-11.
+        Cache now contains 0 entries. (kafka.server.epoch.LeaderEpochFileCache)
+    >   [2019-01-01 14:56:42,032] INFO Updated PartitionLeaderEpoch. New: {epoch:0, offset:0}, Current: {epoch:-1, offset:-1} for Partition: ztf_20181228_programid1-6.
+        Cache now contains 0 entries. (kafka.server.epoch.LeaderEpochFileCache)
+    >   [2019-01-01 14:56:42,080] INFO Updated PartitionLeaderEpoch. New: {epoch:0, offset:0}, Current: {epoch:-1, offset:-1} for Partition: ztf_20181228_programid1-12.
+        Cache now contains 0 entries. (kafka.server.epoch.LeaderEpochFileCache)
+    >   [2019-01-01 14:56:42,143] INFO Updated PartitionLeaderEpoch. New: {epoch:0, offset:0}, Current: {epoch:-1, offset:-1} for Partition: ztf_20181228_programid1-7.
+        Cache now contains 0 entries. (kafka.server.epoch.LeaderEpochFileCache)
+
+
+    ssh Onoza '
+        docker logs -f stevedore_emily_1
+        '
+
+    >   [2019-01-01 14:19:45,472] INFO [GroupMetadataManager brokerId=4] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   [2019-01-01 14:29:45,472] INFO [GroupMetadataManager brokerId=4] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   [2019-01-01 14:39:45,472] INFO [GroupMetadataManager brokerId=4] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   [2019-01-01 14:49:45,472] INFO [GroupMetadataManager brokerId=4] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+
+    >   [2019-01-01 14:56:41,930] INFO Updated PartitionLeaderEpoch. New: {epoch:0, offset:0}, Current: {epoch:-1, offset:-1} for Partition: ztf_20181228_programid1-12.
+        Cache now contains 0 entries. (kafka.server.epoch.LeaderEpochFileCache)
+    >   [2019-01-01 14:56:42,100] INFO Updated PartitionLeaderEpoch. New: {epoch:0, offset:0}, Current: {epoch:-1, offset:-1} for Partition: ztf_20181228_programid1-6.
+        Cache now contains 0 entries. (kafka.server.epoch.LeaderEpochFileCache)
+    >   [2019-01-01 14:56:42,187] INFO Updated PartitionLeaderEpoch. New: {epoch:0, offset:0}, Current: {epoch:-1, offset:-1} for Partition: ztf_20181228_programid1-1.
+        Cache now contains 0 entries. (kafka.server.epoch.LeaderEpochFileCache)
+    >   [2019-01-01 14:56:42,281] INFO Updated PartitionLeaderEpoch. New: {epoch:0, offset:0}, Current: {epoch:-1, offset:-1} for Partition: ztf_20181228_programid1-7.
+        Cache now contains 0 entries. (kafka.server.epoch.LeaderEpochFileCache)
+
+
+    ssh Stedigo '
+        docker logs -f stevedore_emily_1
+        '
+
+    >   [2019-01-01 14:20:25,254] INFO [GroupMetadataManager brokerId=1] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   [2019-01-01 14:30:25,254] INFO [GroupMetadataManager brokerId=1] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   [2019-01-01 14:40:25,254] INFO [GroupMetadataManager brokerId=1] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   [2019-01-01 14:50:25,254] INFO [GroupMetadataManager brokerId=1] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+
+    >   [2019-01-01 14:56:42,009] INFO Updated PartitionLeaderEpoch. New: {epoch:0, offset:0}, Current: {epoch:-1, offset:-1} for Partition: ztf_20181228_programid1-12.
+        Cache now contains 0 entries. (kafka.server.epoch.LeaderEpochFileCache)
+    >   [2019-01-01 14:56:42,124] INFO Updated PartitionLeaderEpoch. New: {epoch:0, offset:0}, Current: {epoch:-1, offset:-1} for Partition: ztf_20181228_programid1-10.
+        Cache now contains 0 entries. (kafka.server.epoch.LeaderEpochFileCache)
+    >   [2019-01-01 14:56:42,148] INFO Updated PartitionLeaderEpoch. New: {epoch:0, offset:0}, Current: {epoch:-1, offset:-1} for Partition: ztf_20181228_programid1-11.
+        Cache now contains 0 entries. (kafka.server.epoch.LeaderEpochFileCache)
+    >   [2019-01-01 14:56:42,285] INFO Updated PartitionLeaderEpoch. New: {epoch:0, offset:0}, Current: {epoch:-1, offset:-1} for Partition: ztf_20181228_programid1-7.
+        Cache now contains 0 entries. (kafka.server.epoch.LeaderEpochFileCache)
+
+
+    ssh Angece '
+        docker logs -f stevedore_emily_1
+        '
+
+    >   [2019-01-01 14:52:13,628] TRACE [Controller id=2] Leader imbalance ratio for broker 4 is 0.0 (kafka.controller.KafkaController)
+    >   [2019-01-01 14:52:13,628] DEBUG [Controller id=2] Topics not in preferred replica for broker 1 Map() (kafka.controller.KafkaController)
+    >   [2019-01-01 14:52:13,628] TRACE [Controller id=2] Leader imbalance ratio for broker 1 is 0.0 (kafka.controller.KafkaController)
+    >   [2019-01-01 14:52:13,628] DEBUG [Controller id=2] Topics not in preferred replica for broker 3 Map() (kafka.controller.KafkaController)
+    >   [2019-01-01 14:52:13,628] TRACE [Controller id=2] Leader imbalance ratio for broker 3 is 0.0 (kafka.controller.KafkaController)
+
+    >   [2019-01-01 14:56:41,509] INFO Updated PartitionLeaderEpoch. New: {epoch:0, offset:0}, Current: {epoch:-1, offset:-1} for Partition: ztf_20181228_programid1-14.
+        Cache now contains 0 entries. (kafka.server.epoch.LeaderEpochFileCache)
+    >   [2019-01-01 14:56:41,556] INFO Updated PartitionLeaderEpoch. New: {epoch:0, offset:0}, Current: {epoch:-1, offset:-1} for Partition: ztf_20181228_programid1-13.
+        Cache now contains 0 entries. (kafka.server.epoch.LeaderEpochFileCache)
+    >   [2019-01-01 14:56:41,597] INFO Updated PartitionLeaderEpoch. New: {epoch:0, offset:0}, Current: {epoch:-1, offset:-1} for Partition: ztf_20181228_programid1-2.
+        Cache now contains 0 entries. (kafka.server.epoch.LeaderEpochFileCache)
+    >   [2019-01-01 14:56:41,648] INFO Updated PartitionLeaderEpoch. New: {epoch:0, offset:0}, Current: {epoch:-1, offset:-1} for Partition: ztf_20181228_programid1-3.
+        Cache now contains 0 entries. (kafka.server.epoch.LeaderEpochFileCache)
+    >   [2019-01-01 14:56:41,707] INFO Updated PartitionLeaderEpoch. New: {epoch:0, offset:0}, Current: {epoch:-1, offset:-1} for Partition: ztf_20181228_programid1-5.
+        Cache now contains 0 entries. (kafka.server.epoch.LeaderEpochFileCache)
+    >   [2019-01-01 14:56:41,713] INFO Updated PartitionLeaderEpoch. New: {epoch:0, offset:0}, Current: {epoch:-1, offset:-1} for Partition: ztf_20181228_programid1-10.
+        Cache now contains 0 entries. (kafka.server.epoch.LeaderEpochFileCache)
+    >   [2019-01-01 14:56:41,846] INFO Updated PartitionLeaderEpoch. New: {epoch:0, offset:0}, Current: {epoch:-1, offset:-1} for Partition: ztf_20181228_programid1-15.
+        Cache now contains 0 entries. (kafka.server.epoch.LeaderEpochFileCache)
+    >   [2019-01-01 14:56:41,864] INFO Updated PartitionLeaderEpoch. New: {epoch:0, offset:0}, Current: {epoch:-1, offset:-1} for Partition: ztf_20181228_programid1-8.
+        Cache now contains 0 entries. (kafka.server.epoch.LeaderEpochFileCache)
+    >   [2019-01-01 14:56:41,871] INFO Updated PartitionLeaderEpoch. New: {epoch:0, offset:0}, Current: {epoch:-1, offset:-1} for Partition: ztf_20181228_programid1-6.
+        Cache now contains 0 entries. (kafka.server.epoch.LeaderEpochFileCache)
+    >   [2019-01-01 14:56:41,939] INFO Updated PartitionLeaderEpoch. New: {epoch:0, offset:0}, Current: {epoch:-1, offset:-1} for Partition: ztf_20181228_programid1-4.
+        Cache now contains 0 entries. (kafka.server.epoch.LeaderEpochFileCache)
+    >   [2019-01-01 14:56:42,145] INFO Updated PartitionLeaderEpoch. New: {epoch:0, offset:0}, Current: {epoch:-1, offset:-1} for Partition: ztf_20181228_programid1-11.
+        Cache now contains 0 entries. (kafka.server.epoch.LeaderEpochFileCache)
+    >   [2019-01-01 14:56:42,187] INFO Updated PartitionLeaderEpoch. New: {epoch:0, offset:0}, Current: {epoch:-1, offset:-1} for Partition: ztf_20181228_programid1-1.
+        Cache now contains 0 entries. (kafka.server.epoch.LeaderEpochFileCache)
+    >   [2019-01-01 14:57:13,629] TRACE [Controller id=2] Checking need to trigger auto leader balancing (kafka.controller.KafkaController)
+    >   [2019-01-01 14:57:13,630] DEBUG [Controller id=2] Preferred replicas by broker
+    >       Map(
+    >           2 -> Map(
+    >               ....
+    >               ztf_20181223_programid1-1 -> Vector(2, 3, 4),
+    >               ztf_20181223_programid1-5 -> Vector(2, 4, 1),
+    >               ztf_20181223_programid1-9 -> Vector(2, 1, 3),
+    >               ztf_20181223_programid1-13 -> Vector(2, 3, 4),
+    >               ....
+    >               ztf_20181224_programid1-3 -> Vector(2, 4, 1),
+    >               ztf_20181224_programid1-7 -> Vector(2, 1, 3),
+    >               ztf_20181224_programid1-11 -> Vector(2, 3, 4),
+    >               ztf_20181224_programid1-15 -> Vector(2, 4, 1),
+    >               ....
+    >               ztf_20181228_programid1-2 -> Vector(2, 1, 3),
+    >               ztf_20181228_programid1-6 -> Vector(2, 3, 4),
+    >               ztf_20181228_programid1-10 -> Vector(2, 4, 1),
+    >               ztf_20181228_programid1-14 -> Vector(2, 1, 3),
+    >               ....
+    >               ),
+    >           4 -> Map(
+    >               ....
+    >               ztf_20181223_programid1-3 -> Vector(4, 1, 2),
+    >               ztf_20181223_programid1-7 -> Vector(4, 2, 3),
+    >               ztf_20181223_programid1-11 -> Vector(4, 3, 1),
+    >               ztf_20181223_programid1-15 -> Vector(4, 1, 2),
+    >               ....
+    >               ztf_20181224_programid1-1 -> Vector(4, 2, 3),
+    >               ztf_20181224_programid1-5 -> Vector(4, 3, 1),
+    >               ztf_20181224_programid1-9 -> Vector(4, 1, 2),
+    >               ztf_20181224_programid1-13 -> Vector(4, 2, 3),
+    >               ....
+    >               ztf_20181228_programid1-0 -> Vector(4, 3, 1),
+    >               ztf_20181228_programid1-4 -> Vector(4, 1, 2),
+    >               ztf_20181228_programid1-8 -> Vector(4, 2, 3),
+    >               ztf_20181228_programid1-12 -> Vector(4, 3, 1),
+    >               ....
+    >               ),
+    >           1 -> Map(
+    >               ....
+    >               ztf_20181223_programid1-0 -> Vector(1, 2, 3),
+    >               ztf_20181223_programid1-4 -> Vector(1, 3, 4),
+    >               ztf_20181223_programid1-8 -> Vector(1, 4, 2),
+    >               ztf_20181223_programid1-12 -> Vector(1, 2, 3),
+    >               ....
+    >               ztf_20181224_programid1-2 -> Vector(1, 3, 4),
+    >               ztf_20181224_programid1-6 -> Vector(1, 4, 2),
+    >               ztf_20181224_programid1-10 -> Vector(1, 2, 3),
+    >               ztf_20181224_programid1-14 -> Vector(1, 3, 4),
+    >               ....
+    >               ztf_20181228_programid1-1 -> Vector(1, 4, 2),
+    >               ztf_20181228_programid1-5 -> Vector(1, 2, 3),
+    >               ztf_20181228_programid1-9 -> Vector(1, 3, 4),
+    >               ztf_20181228_programid1-13 -> Vector(1, 4, 2),
+    >               ....
+    >               ),
+    >           3 -> Map(
+    >               ztf_20181223_programid1-2 -> Vector(3, 4, 1),
+    >               ztf_20181223_programid1-6 -> Vector(3, 1, 2),
+    >               ztf_20181223_programid1-10 -> Vector(3, 2, 4),
+    >               ztf_20181223_programid1-14 -> Vector(3, 4, 1),
+    >               ....
+    >               ztf_20181224_programid1-0 -> Vector(3, 1, 2),
+    >               ztf_20181224_programid1-4 -> Vector(3, 2, 4),
+    >               ztf_20181224_programid1-8 -> Vector(3, 4, 1),
+    >               ztf_20181224_programid1-12 -> Vector(3, 1, 2),
+    >               ....
+    >               ztf_20181228_programid1-3 -> Vector(3, 2, 4),
+    >               ztf_20181228_programid1-7 -> Vector(3, 4, 1),
+    >               ztf_20181228_programid1-11 -> Vector(3, 1, 2),
+    >               ztf_20181228_programid1-15 -> Vector(3, 2, 4),
+    >               ....
+    >               )
+    >           ) (kafka.controller.KafkaController)
+    >   [2019-01-01 14:57:13,630] DEBUG [Controller id=2] Topics not in preferred replica for broker 2 Map() (kafka.controller.KafkaController)
+    >   [2019-01-01 14:57:13,630] TRACE [Controller id=2] Leader imbalance ratio for broker 2 is 0.0 (kafka.controller.KafkaController)
+    >   [2019-01-01 14:57:13,630] DEBUG [Controller id=2] Topics not in preferred replica for broker 4 Map() (kafka.controller.KafkaController)
+    >   [2019-01-01 14:57:13,630] TRACE [Controller id=2] Leader imbalance ratio for broker 4 is 0.0 (kafka.controller.KafkaController)
+    >   [2019-01-01 14:57:13,630] DEBUG [Controller id=2] Topics not in preferred replica for broker 1 Map() (kafka.controller.KafkaController)
+    >   [2019-01-01 14:57:13,630] TRACE [Controller id=2] Leader imbalance ratio for broker 1 is 0.0 (kafka.controller.KafkaController)
+    >   [2019-01-01 14:57:13,630] DEBUG [Controller id=2] Topics not in preferred replica for broker 3 Map() (kafka.controller.KafkaController)
+    >   [2019-01-01 14:57:13,630] TRACE [Controller id=2] Leader imbalance ratio for broker 3 is 0.0 (kafka.controller.KafkaController)
+
+
+# -----------------------------------------------------
+# Update the topic and start MirrorMaker on each node.
+#[user@trop03]
+
+    ztftopicid=ztf_20181226_programid1
+    ztftopicid=ztf_20181227_programid1
+    ztftopicid=ztf_20181228_programid1
+    ztftopicid=ztf_20181229_programid1
+    ztftopicid=ztf_20181230_programid1
+    ztftopicid=ztf_20181231_programid1
+
+    ztftopicid=ztf_20190101_programid1
+    ztftopicid=ztf_20190102_programid1
+
+    for vmname in ${mmnames[@]}
+        do
+            echo "---- ----"
+            echo "vmname [${vmname:?}]"
+            ssh \
+                ${scpopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                docker-compose \
+                    --file mirror.yml \
+                    down
+                sed -i \"
+                    s/^ztftopicid=.*/ztftopicid=${ztftopicid:?}/
+                    \" mirror.env
+                docker-compose \
+                    --file mirror.yml \
+                    up -d
+                "
+        done
+
+    >   ---- ----
+    >   vmname [Afoaviel]
+    >   Stopping stevedore_tina_1 ... done
+    >   Removing stevedore_tina_1 ... done
+    >   Removing network stevedore_default
+    >   Creating network "stevedore_default" with the default driver
+    >   Creating stevedore_tina_1 ... done
+    >   ---- ----
+    >   vmname [Rusaldez]
+    >   Stopping stevedore_tina_1 ... done
+    >   Removing stevedore_tina_1 ... done
+    >   Removing network stevedore_default
+    >   Creating network "stevedore_default" with the default driver
+    >   Creating stevedore_tina_1 ... done
+
+
+# -----------------------------------------------------
+# Check our client offsets in the ZTF broker.
+#[user@trop03]
+
+    devnode=Rusaldez
+
+    ztfconnect=public.alerts.ztf.uw.edu:9092
+    roegroupid=ztf-mirror.roe.ac.uk
+
+    offsetcheck()
+        {
+        date ; \
+        ssh \
+            ${sshopts[*]} \
+            ${sshuser:?}@${devnode:?} \
+            "
+            docker run --rm phymatopus/kafka-core \
+                bin/kafka-consumer-groups.sh \
+                    --bootstrap-server "${ztfconnect:?}" \
+                    --describe \
+                    --group "${roegroupid:?}"
+             " \
+        | sort \
+        ; date
+        }
+
+    offsetcheck
+
+    >   Tue  1 Jan 15:13:52 GMT 2019
+    >   TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                 HOST            CLIENT-ID
+    >   ztf_20181228_programid1 0          4138            12839           8701            ztf-mirror.roe.ac.uk-0-0cb63288-43a8-4bb4-8c04-d13e3254b430 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181228_programid1 10         4134            12839           8705            ztf-mirror.roe.ac.uk-1-6b80e2ba-7896-475a-aa2e-b0672baea795 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181228_programid1 11         4202            12839           8637            ztf-mirror.roe.ac.uk-1-e74ec8a6-606c-4b6f-b6f0-4cb2ef3f8047 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181228_programid1 12         4177            12839           8662            ztf-mirror.roe.ac.uk-2-dab3691c-1c99-4d4f-974a-35a899387cc0 /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181228_programid1 13         4133            12840           8707            ztf-mirror.roe.ac.uk-2-f023779b-4384-4827-8786-a974b8f04fb5 /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181228_programid1 1          4299            12839           8540            ztf-mirror.roe.ac.uk-0-397e1327-5724-458c-b91d-930fec37230b /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181228_programid1 2          4129            12840           8711            ztf-mirror.roe.ac.uk-1-6b80e2ba-7896-475a-aa2e-b0672baea795 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181228_programid1 3          4203            12839           8636            ztf-mirror.roe.ac.uk-1-e74ec8a6-606c-4b6f-b6f0-4cb2ef3f8047 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181228_programid1 4          4192            12840           8648            ztf-mirror.roe.ac.uk-2-dab3691c-1c99-4d4f-974a-35a899387cc0 /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181228_programid1 5          4137            12840           8703            ztf-mirror.roe.ac.uk-2-f023779b-4384-4827-8786-a974b8f04fb5 /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181228_programid1 6          8017            12839           4822            ztf-mirror.roe.ac.uk-3-6462215b-065a-429b-a6a8-a33a08572ef9 /129.215.175.98 ztf-mirror.roe.ac.uk-3
+    >   ztf_20181228_programid1 7          8403            12839           4436            ztf-mirror.roe.ac.uk-3-9ebf716f-e028-49f2-bbb6-1be83d632c5b /129.215.175.98 ztf-mirror.roe.ac.uk-3
+    >   ztf_20181228_programid1 8          4137            12839           8702            ztf-mirror.roe.ac.uk-0-0cb63288-43a8-4bb4-8c04-d13e3254b430 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181228_programid1 9          4308            12839           8531            ztf-mirror.roe.ac.uk-0-397e1327-5724-458c-b91d-930fec37230b /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   Tue  1 Jan 15:14:00 GMT 2019
+
+    >   Tue  1 Jan 15:27:12 GMT 2019
+    >   Note: This will not show information about old Zookeeper-based consumers.
+    >
+    >   TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                 HOST            CLIENT-ID
+    >   ztf_20181228_programid1 0          7601            12839           5238            ztf-mirror.roe.ac.uk-0-0cb63288-43a8-4bb4-8c04-d13e3254b430 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181228_programid1 10         7562            12839           5277            ztf-mirror.roe.ac.uk-1-6b80e2ba-7896-475a-aa2e-b0672baea795 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181228_programid1 11         7640            12839           5199            ztf-mirror.roe.ac.uk-1-e74ec8a6-606c-4b6f-b6f0-4cb2ef3f8047 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181228_programid1 12         7615            12839           5224            ztf-mirror.roe.ac.uk-2-dab3691c-1c99-4d4f-974a-35a899387cc0 /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181228_programid1 13         7608            12840           5232            ztf-mirror.roe.ac.uk-2-f023779b-4384-4827-8786-a974b8f04fb5 /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181228_programid1 1          7659            12839           5180            ztf-mirror.roe.ac.uk-0-397e1327-5724-458c-b91d-930fec37230b /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181228_programid1 2          7548            12840           5292            ztf-mirror.roe.ac.uk-1-6b80e2ba-7896-475a-aa2e-b0672baea795 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181228_programid1 3          7646            12839           5193            ztf-mirror.roe.ac.uk-1-e74ec8a6-606c-4b6f-b6f0-4cb2ef3f8047 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181228_programid1 4          7637            12840           5203            ztf-mirror.roe.ac.uk-2-dab3691c-1c99-4d4f-974a-35a899387cc0 /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181228_programid1 5          7598            12840           5242            ztf-mirror.roe.ac.uk-2-f023779b-4384-4827-8786-a974b8f04fb5 /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181228_programid1 6          12839           12839           0               ztf-mirror.roe.ac.uk-3-6462215b-065a-429b-a6a8-a33a08572ef9 /129.215.175.98 ztf-mirror.roe.ac.uk-3
+    >   ztf_20181228_programid1 7          12839           12839           0               ztf-mirror.roe.ac.uk-3-9ebf716f-e028-49f2-bbb6-1be83d632c5b /129.215.175.98 ztf-mirror.roe.ac.uk-3
+    >   ztf_20181228_programid1 8          7592            12839           5247            ztf-mirror.roe.ac.uk-0-0cb63288-43a8-4bb4-8c04-d13e3254b430 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181228_programid1 9          7675            12839           5164            ztf-mirror.roe.ac.uk-0-397e1327-5724-458c-b91d-930fec37230b /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   Tue  1 Jan 15:27:20 GMT 2019
+
+    >   Tue  1 Jan 15:49:36 GMT 2019
+    >   Note: This will not show information about old Zookeeper-based consumers.
+    >
+    >   TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                 HOST            CLIENT-ID
+    >   ztf_20181228_programid1 0          12839           12839           0               ztf-mirror.roe.ac.uk-0-0cb63288-43a8-4bb4-8c04-d13e3254b430 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181228_programid1 10         12839           12839           0               ztf-mirror.roe.ac.uk-1-6b80e2ba-7896-475a-aa2e-b0672baea795 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181228_programid1 11         12839           12839           0               ztf-mirror.roe.ac.uk-1-e74ec8a6-606c-4b6f-b6f0-4cb2ef3f8047 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181228_programid1 1          12839           12839           0               ztf-mirror.roe.ac.uk-0-397e1327-5724-458c-b91d-930fec37230b /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181228_programid1 12         12839           12839           0               ztf-mirror.roe.ac.uk-2-dab3691c-1c99-4d4f-974a-35a899387cc0 /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181228_programid1 13         12840           12840           0               ztf-mirror.roe.ac.uk-2-f023779b-4384-4827-8786-a974b8f04fb5 /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181228_programid1 2          12840           12840           0               ztf-mirror.roe.ac.uk-1-6b80e2ba-7896-475a-aa2e-b0672baea795 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181228_programid1 3          12839           12839           0               ztf-mirror.roe.ac.uk-1-e74ec8a6-606c-4b6f-b6f0-4cb2ef3f8047 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181228_programid1 4          12840           12840           0               ztf-mirror.roe.ac.uk-2-dab3691c-1c99-4d4f-974a-35a899387cc0 /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181228_programid1 5          12840           12840           0               ztf-mirror.roe.ac.uk-2-f023779b-4384-4827-8786-a974b8f04fb5 /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181228_programid1 6          12839           12839           0               ztf-mirror.roe.ac.uk-3-6462215b-065a-429b-a6a8-a33a08572ef9 /129.215.175.98 ztf-mirror.roe.ac.uk-3
+    >   ztf_20181228_programid1 7          12839           12839           0               ztf-mirror.roe.ac.uk-3-9ebf716f-e028-49f2-bbb6-1be83d632c5b /129.215.175.98 ztf-mirror.roe.ac.uk-3
+    >   ztf_20181228_programid1 8          12839           12839           0               ztf-mirror.roe.ac.uk-0-0cb63288-43a8-4bb4-8c04-d13e3254b430 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181228_programid1 9          12839           12839           0               ztf-mirror.roe.ac.uk-0-397e1327-5724-458c-b91d-930fec37230b /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   Tue  1 Jan 15:49:43 GMT 2019
+
+    >   Tue  1 Jan 15:53:09 GMT 2019
+    >   TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                 HOST            CLIENT-ID
+    >   ztf_20181228_programid1 0          12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 10         12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 11         12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 1          12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 12         12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 13         12840           12840           0               -                                                           -               -
+    >   ztf_20181228_programid1 2          12840           12840           0               -                                                           -               -
+    >   ztf_20181228_programid1 3          12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 4          12840           12840           0               -                                                           -               -
+    >   ztf_20181228_programid1 5          12840           12840           0               -                                                           -               -
+    >   ztf_20181228_programid1 6          12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 7          12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 8          12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 9          12839           12839           0               -                                                           -               -
+    >   ztf_20181229_programid1 0          433             10664           10231           ztf-mirror.roe.ac.uk-0-11a0072c-3342-4854-87fa-6dfd68961c50 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181229_programid1 10         476             10664           10188           ztf-mirror.roe.ac.uk-1-261c637c-ccb7-4504-a9f0-f9c52f4db2bc /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181229_programid1 11         432             10664           10232           ztf-mirror.roe.ac.uk-1-975185e1-d6bb-4078-9297-4f7549392af0 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181229_programid1 12         453             10663           10210           ztf-mirror.roe.ac.uk-2-22f7ade0-16f4-4853-90f6-621434a365fe /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181229_programid1 13         472             10664           10192           ztf-mirror.roe.ac.uk-2-6c1d747c-7861-4432-8a8f-931a3f431c12 /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181229_programid1 1          474             10664           10190           ztf-mirror.roe.ac.uk-0-f0a363b9-89fa-4005-a9e6-01b6014e977a /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181229_programid1 2          475             10664           10189           ztf-mirror.roe.ac.uk-1-261c637c-ccb7-4504-a9f0-f9c52f4db2bc /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181229_programid1 3          430             10663           10233           ztf-mirror.roe.ac.uk-1-975185e1-d6bb-4078-9297-4f7549392af0 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181229_programid1 4          455             10664           10209           ztf-mirror.roe.ac.uk-2-22f7ade0-16f4-4853-90f6-621434a365fe /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181229_programid1 5          478             10664           10186           ztf-mirror.roe.ac.uk-2-6c1d747c-7861-4432-8a8f-931a3f431c12 /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181229_programid1 6          936             10664           9728            ztf-mirror.roe.ac.uk-3-01671e02-c17f-4525-8968-45a8311be368 /129.215.175.98 ztf-mirror.roe.ac.uk-3
+    >   ztf_20181229_programid1 7          852             10664           9812            ztf-mirror.roe.ac.uk-3-28b7ebf5-a6dc-4a0c-9f76-f2f1f555d788 /129.215.175.98 ztf-mirror.roe.ac.uk-3
+    >   ztf_20181229_programid1 8          433             10664           10231           ztf-mirror.roe.ac.uk-0-11a0072c-3342-4854-87fa-6dfd68961c50 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181229_programid1 9          478             10663           10185           ztf-mirror.roe.ac.uk-0-f0a363b9-89fa-4005-a9e6-01b6014e977a /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   Tue  1 Jan 15:53:19 GMT 2019
+
+    >   Tue  1 Jan 16:05:41 GMT 2019
+    >   TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                 HOST            CLIENT-ID
+    >   ztf_20181228_programid1 0          12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 10         12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 11         12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 1          12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 12         12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 13         12840           12840           0               -                                                           -               -
+    >   ztf_20181228_programid1 2          12840           12840           0               -                                                           -               -
+    >   ztf_20181228_programid1 3          12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 4          12840           12840           0               -                                                           -               -
+    >   ztf_20181228_programid1 5          12840           12840           0               -                                                           -               -
+    >   ztf_20181228_programid1 6          12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 7          12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 8          12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 9          12839           12839           0               -                                                           -               -
+    >   ztf_20181229_programid1 0          3812            10664           6852            ztf-mirror.roe.ac.uk-0-11a0072c-3342-4854-87fa-6dfd68961c50 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181229_programid1 10         3898            10664           6766            ztf-mirror.roe.ac.uk-1-261c637c-ccb7-4504-a9f0-f9c52f4db2bc /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181229_programid1 11         3851            10664           6813            ztf-mirror.roe.ac.uk-1-975185e1-d6bb-4078-9297-4f7549392af0 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181229_programid1 12         3875            10663           6788            ztf-mirror.roe.ac.uk-2-22f7ade0-16f4-4853-90f6-621434a365fe /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181229_programid1 13         3895            10664           6769            ztf-mirror.roe.ac.uk-2-6c1d747c-7861-4432-8a8f-931a3f431c12 /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181229_programid1 1          3894            10664           6770            ztf-mirror.roe.ac.uk-0-f0a363b9-89fa-4005-a9e6-01b6014e977a /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181229_programid1 2          3896            10664           6768            ztf-mirror.roe.ac.uk-1-261c637c-ccb7-4504-a9f0-f9c52f4db2bc /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181229_programid1 3          3857            10663           6806            ztf-mirror.roe.ac.uk-1-975185e1-d6bb-4078-9297-4f7549392af0 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181229_programid1 4          3878            10664           6786            ztf-mirror.roe.ac.uk-2-22f7ade0-16f4-4853-90f6-621434a365fe /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181229_programid1 5          3900            10664           6764            ztf-mirror.roe.ac.uk-2-6c1d747c-7861-4432-8a8f-931a3f431c12 /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181229_programid1 6          7578            10664           3086            ztf-mirror.roe.ac.uk-3-01671e02-c17f-4525-8968-45a8311be368 /129.215.175.98 ztf-mirror.roe.ac.uk-3
+    >   ztf_20181229_programid1 7          7511            10664           3153            ztf-mirror.roe.ac.uk-3-28b7ebf5-a6dc-4a0c-9f76-f2f1f555d788 /129.215.175.98 ztf-mirror.roe.ac.uk-3
+    >   ztf_20181229_programid1 8          3812            10664           6852            ztf-mirror.roe.ac.uk-0-11a0072c-3342-4854-87fa-6dfd68961c50 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181229_programid1 9          3900            10663           6763            ztf-mirror.roe.ac.uk-0-f0a363b9-89fa-4005-a9e6-01b6014e977a /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   Tue  1 Jan 16:05:51 GMT 2019
+
+    >   Tue  1 Jan 16:26:38 GMT 2019
+    >   Note: This will not show information about old Zookeeper-based consumers.
+    >
+    >   TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                 HOST            CLIENT-ID
+    >   ztf_20181228_programid1 0          12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 10         12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 11         12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 1          12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 12         12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 13         12840           12840           0               -                                                           -               -
+    >   ztf_20181228_programid1 2          12840           12840           0               -                                                           -               -
+    >   ztf_20181228_programid1 3          12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 4          12840           12840           0               -                                                           -               -
+    >   ztf_20181228_programid1 5          12840           12840           0               -                                                           -               -
+    >   ztf_20181228_programid1 6          12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 7          12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 8          12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 9          12839           12839           0               -                                                           -               -
+    >   ztf_20181229_programid1 0          9127            10664           1537            ztf-mirror.roe.ac.uk-0-11a0072c-3342-4854-87fa-6dfd68961c50 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181229_programid1 10         9233            10664           1431            ztf-mirror.roe.ac.uk-1-261c637c-ccb7-4504-a9f0-f9c52f4db2bc /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181229_programid1 11         9188            10664           1476            ztf-mirror.roe.ac.uk-1-975185e1-d6bb-4078-9297-4f7549392af0 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181229_programid1 12         9182            10663           1481            ztf-mirror.roe.ac.uk-2-22f7ade0-16f4-4853-90f6-621434a365fe /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181229_programid1 13         9233            10664           1431            ztf-mirror.roe.ac.uk-2-6c1d747c-7861-4432-8a8f-931a3f431c12 /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181229_programid1 1          9202            10664           1462            ztf-mirror.roe.ac.uk-0-f0a363b9-89fa-4005-a9e6-01b6014e977a /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181229_programid1 2          9230            10664           1434            ztf-mirror.roe.ac.uk-1-261c637c-ccb7-4504-a9f0-f9c52f4db2bc /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181229_programid1 3          9196            10663           1467            ztf-mirror.roe.ac.uk-1-975185e1-d6bb-4078-9297-4f7549392af0 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181229_programid1 4          9190            10664           1474            ztf-mirror.roe.ac.uk-2-22f7ade0-16f4-4853-90f6-621434a365fe /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181229_programid1 5          9234            10664           1430            ztf-mirror.roe.ac.uk-2-6c1d747c-7861-4432-8a8f-931a3f431c12 /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181229_programid1 6          10664           10664           0               ztf-mirror.roe.ac.uk-3-01671e02-c17f-4525-8968-45a8311be368 /129.215.175.98 ztf-mirror.roe.ac.uk-3
+    >   ztf_20181229_programid1 7          10664           10664           0               ztf-mirror.roe.ac.uk-3-28b7ebf5-a6dc-4a0c-9f76-f2f1f555d788 /129.215.175.98 ztf-mirror.roe.ac.uk-3
+    >   ztf_20181229_programid1 8          9125            10664           1539            ztf-mirror.roe.ac.uk-0-11a0072c-3342-4854-87fa-6dfd68961c50 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181229_programid1 9          9211            10663           1452            ztf-mirror.roe.ac.uk-0-f0a363b9-89fa-4005-a9e6-01b6014e977a /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   Tue  1 Jan 16:26:48 GMT 2019
+
+    >   Tue  1 Jan 16:44:17 GMT 2019
+    >   TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                 HOST            CLIENT-ID
+    >   ztf_20181228_programid1 0          12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 10         12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 11         12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 1          12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 12         12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 13         12840           12840           0               -                                                           -               -
+    >   ztf_20181228_programid1 2          12840           12840           0               -                                                           -               -
+    >   ztf_20181228_programid1 3          12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 4          12840           12840           0               -                                                           -               -
+    >   ztf_20181228_programid1 5          12840           12840           0               -                                                           -               -
+    >   ztf_20181228_programid1 6          12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 7          12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 8          12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 9          12839           12839           0               -                                                           -               -
+    >   ztf_20181229_programid1 0          10664           10664           0               ztf-mirror.roe.ac.uk-0-11a0072c-3342-4854-87fa-6dfd68961c50 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181229_programid1 10         10664           10664           0               ztf-mirror.roe.ac.uk-1-261c637c-ccb7-4504-a9f0-f9c52f4db2bc /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181229_programid1 1          10664           10664           0               ztf-mirror.roe.ac.uk-0-f0a363b9-89fa-4005-a9e6-01b6014e977a /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181229_programid1 11         10664           10664           0               ztf-mirror.roe.ac.uk-1-975185e1-d6bb-4078-9297-4f7549392af0 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181229_programid1 12         10663           10663           0               ztf-mirror.roe.ac.uk-2-22f7ade0-16f4-4853-90f6-621434a365fe /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181229_programid1 13         10664           10664           0               ztf-mirror.roe.ac.uk-2-6c1d747c-7861-4432-8a8f-931a3f431c12 /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181229_programid1 2          10664           10664           0               ztf-mirror.roe.ac.uk-1-261c637c-ccb7-4504-a9f0-f9c52f4db2bc /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181229_programid1 3          10663           10663           0               ztf-mirror.roe.ac.uk-1-975185e1-d6bb-4078-9297-4f7549392af0 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181229_programid1 4          10664           10664           0               ztf-mirror.roe.ac.uk-2-22f7ade0-16f4-4853-90f6-621434a365fe /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181229_programid1 5          10664           10664           0               ztf-mirror.roe.ac.uk-2-6c1d747c-7861-4432-8a8f-931a3f431c12 /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181229_programid1 6          10664           10664           0               ztf-mirror.roe.ac.uk-3-01671e02-c17f-4525-8968-45a8311be368 /129.215.175.98 ztf-mirror.roe.ac.uk-3
+    >   ztf_20181229_programid1 7          10664           10664           0               ztf-mirror.roe.ac.uk-3-28b7ebf5-a6dc-4a0c-9f76-f2f1f555d788 /129.215.175.98 ztf-mirror.roe.ac.uk-3
+    >   ztf_20181229_programid1 8          10664           10664           0               ztf-mirror.roe.ac.uk-0-11a0072c-3342-4854-87fa-6dfd68961c50 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181229_programid1 9          10663           10663           0               ztf-mirror.roe.ac.uk-0-f0a363b9-89fa-4005-a9e6-01b6014e977a /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   Tue  1 Jan 16:44:27 GMT 2019
+
+    >   Tue  1 Jan 17:02:41 GMT 2019
+    >   TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                 HOST            CLIENT-ID
+    >   ztf_20181228_programid1 0          12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 10         12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 11         12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 1          12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 12         12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 13         12840           12840           0               -                                                           -               -
+    >   ztf_20181228_programid1 2          12840           12840           0               -                                                           -               -
+    >   ztf_20181228_programid1 3          12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 4          12840           12840           0               -                                                           -               -
+    >   ztf_20181228_programid1 5          12840           12840           0               -                                                           -               -
+    >   ztf_20181228_programid1 6          12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 7          12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 8          12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 9          12839           12839           0               -                                                           -               -
+    >   ztf_20181229_programid1 0          10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 10         10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 1          10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 11         10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 12         10663           10663           0               -                                                           -               -
+    >   ztf_20181229_programid1 13         10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 2          10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 3          10663           10663           0               -                                                           -               -
+    >   ztf_20181229_programid1 4          10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 5          10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 6          10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 7          10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 8          10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 9          10663           10663           0               -                                                           -               -
+    >   ztf_20181230_programid1 0          4141            12614           8473            ztf-mirror.roe.ac.uk-0-97e01c49-fee5-4fa4-bd8c-cf31de0296b6 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181230_programid1 10         4210            12613           8403            ztf-mirror.roe.ac.uk-1-31d6b334-efa1-431d-843e-6a01feec4896 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181230_programid1 11         4186            12614           8428            ztf-mirror.roe.ac.uk-1-3efd4702-9df9-44f8-bd43-367601829ab6 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181230_programid1 12         4187            12614           8427            ztf-mirror.roe.ac.uk-2-77d8c414-5df1-4250-8f92-6ce53e203b08 /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181230_programid1 13         4236            12614           8378            ztf-mirror.roe.ac.uk-2-be32b62e-90f8-4372-9aa6-c99062bdd90c /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181230_programid1 1          4246            12614           8368            ztf-mirror.roe.ac.uk-0-c12b9313-8365-4fee-bbf3-3efef407306e /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181230_programid1 2          4210            12614           8404            ztf-mirror.roe.ac.uk-1-31d6b334-efa1-431d-843e-6a01feec4896 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181230_programid1 3          4187            12614           8427            ztf-mirror.roe.ac.uk-1-3efd4702-9df9-44f8-bd43-367601829ab6 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181230_programid1 4          4180            12614           8434            ztf-mirror.roe.ac.uk-2-77d8c414-5df1-4250-8f92-6ce53e203b08 /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181230_programid1 5          4256            12614           8358            ztf-mirror.roe.ac.uk-2-be32b62e-90f8-4372-9aa6-c99062bdd90c /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181230_programid1 6          8181            12614           4433            ztf-mirror.roe.ac.uk-3-44f0315d-1614-4a19-bcad-f2c1c9985974 /129.215.175.98 ztf-mirror.roe.ac.uk-3
+    >   ztf_20181230_programid1 7          8641            12613           3972            ztf-mirror.roe.ac.uk-3-540cddab-043e-4c7f-b0a6-4b6198c4c4bb /129.215.175.98 ztf-mirror.roe.ac.uk-3
+    >   ztf_20181230_programid1 8          4148            12614           8466            ztf-mirror.roe.ac.uk-0-97e01c49-fee5-4fa4-bd8c-cf31de0296b6 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181230_programid1 9          4253            12614           8361            ztf-mirror.roe.ac.uk-0-c12b9313-8365-4fee-bbf3-3efef407306e /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   Tue  1 Jan 17:02:53 GMT 2019
+
+    >   Wed  2 Jan 00:13:25 GMT 2019
+    >   TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                 HOST            CLIENT-ID
+    >   ztf_20181228_programid1 0          12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 10         12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 11         12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 1          12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 12         12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 13         12840           12840           0               -                                                           -               -
+    >   ztf_20181228_programid1 2          12840           12840           0               -                                                           -               -
+    >   ztf_20181228_programid1 3          12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 4          12840           12840           0               -                                                           -               -
+    >   ztf_20181228_programid1 5          12840           12840           0               -                                                           -               -
+    >   ztf_20181228_programid1 6          12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 7          12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 8          12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 9          12839           12839           0               -                                                           -               -
+    >   ztf_20181229_programid1 0          10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 10         10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 1          10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 11         10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 12         10663           10663           0               -                                                           -               -
+    >   ztf_20181229_programid1 13         10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 2          10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 3          10663           10663           0               -                                                           -               -
+    >   ztf_20181229_programid1 4          10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 5          10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 6          10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 7          10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 8          10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 9          10663           10663           0               -                                                           -               -
+    >   ztf_20181230_programid1 0          12614           12614           0               ztf-mirror.roe.ac.uk-0-97e01c49-fee5-4fa4-bd8c-cf31de0296b6 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181230_programid1 10         12613           12613           0               ztf-mirror.roe.ac.uk-1-31d6b334-efa1-431d-843e-6a01feec4896 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181230_programid1 11         12614           12614           0               ztf-mirror.roe.ac.uk-1-3efd4702-9df9-44f8-bd43-367601829ab6 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181230_programid1 1          12614           12614           0               ztf-mirror.roe.ac.uk-0-c12b9313-8365-4fee-bbf3-3efef407306e /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181230_programid1 12         12614           12614           0               ztf-mirror.roe.ac.uk-2-77d8c414-5df1-4250-8f92-6ce53e203b08 /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181230_programid1 13         12614           12614           0               ztf-mirror.roe.ac.uk-2-be32b62e-90f8-4372-9aa6-c99062bdd90c /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181230_programid1 2          12614           12614           0               ztf-mirror.roe.ac.uk-1-31d6b334-efa1-431d-843e-6a01feec4896 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181230_programid1 3          12614           12614           0               ztf-mirror.roe.ac.uk-1-3efd4702-9df9-44f8-bd43-367601829ab6 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181230_programid1 4          12614           12614           0               ztf-mirror.roe.ac.uk-2-77d8c414-5df1-4250-8f92-6ce53e203b08 /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181230_programid1 5          12614           12614           0               ztf-mirror.roe.ac.uk-2-be32b62e-90f8-4372-9aa6-c99062bdd90c /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181230_programid1 6          12614           12614           0               ztf-mirror.roe.ac.uk-3-44f0315d-1614-4a19-bcad-f2c1c9985974 /129.215.175.98 ztf-mirror.roe.ac.uk-3
+    >   ztf_20181230_programid1 7          12613           12613           0               ztf-mirror.roe.ac.uk-3-540cddab-043e-4c7f-b0a6-4b6198c4c4bb /129.215.175.98 ztf-mirror.roe.ac.uk-3
+    >   ztf_20181230_programid1 8          12614           12614           0               ztf-mirror.roe.ac.uk-0-97e01c49-fee5-4fa4-bd8c-cf31de0296b6 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181230_programid1 9          12614           12614           0               ztf-mirror.roe.ac.uk-0-c12b9313-8365-4fee-bbf3-3efef407306e /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   Wed  2 Jan 00:13:37 GMT 2019
+
+    >   Wed  2 Jan 00:21:21 GMT 2019
+    >   TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                 HOST            CLIENT-ID
+    >   ztf_20181228_programid1 0          12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 10         12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 11         12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 1          12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 12         12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 13         12840           12840           0               -                                                           -               -
+    >   ztf_20181228_programid1 2          12840           12840           0               -                                                           -               -
+    >   ztf_20181228_programid1 3          12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 4          12840           12840           0               -                                                           -               -
+    >   ztf_20181228_programid1 5          12840           12840           0               -                                                           -               -
+    >   ztf_20181228_programid1 6          12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 7          12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 8          12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 9          12839           12839           0               -                                                           -               -
+    >   ztf_20181229_programid1 0          10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 10         10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 1          10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 11         10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 12         10663           10663           0               -                                                           -               -
+    >   ztf_20181229_programid1 13         10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 2          10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 3          10663           10663           0               -                                                           -               -
+    >   ztf_20181229_programid1 4          10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 5          10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 6          10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 7          10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 8          10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 9          10663           10663           0               -                                                           -               -
+    >   ztf_20181230_programid1 0          12614           12614           0               -                                                           -               -
+    >   ztf_20181230_programid1 10         12613           12613           0               -                                                           -               -
+    >   ztf_20181230_programid1 11         12614           12614           0               -                                                           -               -
+    >   ztf_20181230_programid1 1          12614           12614           0               -                                                           -               -
+    >   ztf_20181230_programid1 12         12614           12614           0               -                                                           -               -
+    >   ztf_20181230_programid1 13         12614           12614           0               -                                                           -               -
+    >   ztf_20181230_programid1 2          12614           12614           0               -                                                           -               -
+    >   ztf_20181230_programid1 3          12614           12614           0               -                                                           -               -
+    >   ztf_20181230_programid1 4          12614           12614           0               -                                                           -               -
+    >   ztf_20181230_programid1 5          12614           12614           0               -                                                           -               -
+    >   ztf_20181230_programid1 6          12614           12614           0               -                                                           -               -
+    >   ztf_20181230_programid1 7          12613           12613           0               -                                                           -               -
+    >   ztf_20181230_programid1 8          12614           12614           0               -                                                           -               -
+    >   ztf_20181230_programid1 9          12614           12614           0               -                                                           -               -
+    >   ztf_20181231_programid1 0          -               6289            -               ztf-mirror.roe.ac.uk-0-388bc09b-76c0-4f88-8fb4-f37514b9d389 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181231_programid1 10         -               6289            -               ztf-mirror.roe.ac.uk-1-8876f8e1-b5e6-4e56-ba8a-481db6bb0f8d /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181231_programid1 11         -               6288            -               ztf-mirror.roe.ac.uk-1-f6fd0c06-6af6-47e9-8965-ca810cdb1f1b /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181231_programid1 12         -               6289            -               ztf-mirror.roe.ac.uk-2-4b85ed6a-656f-48cd-8087-b27df6b8fc5f /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181231_programid1 13         -               6288            -               ztf-mirror.roe.ac.uk-2-c86c11b0-91fb-4ef6-8cea-76c6c0e85751 /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181231_programid1 1          -               6289            -               ztf-mirror.roe.ac.uk-0-d24ef7cc-1539-49e8-b8e2-c05850853d62 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181231_programid1 2          -               6288            -               ztf-mirror.roe.ac.uk-1-8876f8e1-b5e6-4e56-ba8a-481db6bb0f8d /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181231_programid1 3          -               6289            -               ztf-mirror.roe.ac.uk-1-f6fd0c06-6af6-47e9-8965-ca810cdb1f1b /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181231_programid1 4          -               6288            -               ztf-mirror.roe.ac.uk-2-4b85ed6a-656f-48cd-8087-b27df6b8fc5f /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181231_programid1 5          -               6288            -               ztf-mirror.roe.ac.uk-2-c86c11b0-91fb-4ef6-8cea-76c6c0e85751 /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181231_programid1 6          -               6289            -               ztf-mirror.roe.ac.uk-3-23f17e99-a0f6-4439-a8a0-c21ffe2ef3cf /129.215.175.98 ztf-mirror.roe.ac.uk-3
+    >   ztf_20181231_programid1 7          -               6289            -               ztf-mirror.roe.ac.uk-3-6955f264-d677-4927-b63c-622e1fc262e3 /129.215.175.98 ztf-mirror.roe.ac.uk-3
+    >   ztf_20181231_programid1 8          -               6289            -               ztf-mirror.roe.ac.uk-0-388bc09b-76c0-4f88-8fb4-f37514b9d389 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181231_programid1 9          -               6289            -               ztf-mirror.roe.ac.uk-0-d24ef7cc-1539-49e8-b8e2-c05850853d62 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   Wed  2 Jan 00:21:36 GMT 2019
+
+    >   Wed  2 Jan 00:33:34 GMT 2019
+    >   TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                 HOST            CLIENT-ID
+    >   ztf_20181228_programid1 0          12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 10         12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 11         12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 1          12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 12         12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 13         12840           12840           0               -                                                           -               -
+    >   ztf_20181228_programid1 2          12840           12840           0               -                                                           -               -
+    >   ztf_20181228_programid1 3          12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 4          12840           12840           0               -                                                           -               -
+    >   ztf_20181228_programid1 5          12840           12840           0               -                                                           -               -
+    >   ztf_20181228_programid1 6          12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 7          12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 8          12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 9          12839           12839           0               -                                                           -               -
+    >   ztf_20181229_programid1 0          10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 10         10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 1          10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 11         10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 12         10663           10663           0               -                                                           -               -
+    >   ztf_20181229_programid1 13         10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 2          10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 3          10663           10663           0               -                                                           -               -
+    >   ztf_20181229_programid1 4          10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 5          10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 6          10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 7          10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 8          10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 9          10663           10663           0               -                                                           -               -
+    >   ztf_20181230_programid1 0          12614           12614           0               -                                                           -               -
+    >   ztf_20181230_programid1 10         12613           12613           0               -                                                           -               -
+    >   ztf_20181230_programid1 11         12614           12614           0               -                                                           -               -
+    >   ztf_20181230_programid1 1          12614           12614           0               -                                                           -               -
+    >   ztf_20181230_programid1 12         12614           12614           0               -                                                           -               -
+    >   ztf_20181230_programid1 13         12614           12614           0               -                                                           -               -
+    >   ztf_20181230_programid1 2          12614           12614           0               -                                                           -               -
+    >   ztf_20181230_programid1 3          12614           12614           0               -                                                           -               -
+    >   ztf_20181230_programid1 4          12614           12614           0               -                                                           -               -
+    >   ztf_20181230_programid1 5          12614           12614           0               -                                                           -               -
+    >   ztf_20181230_programid1 6          12614           12614           0               -                                                           -               -
+    >   ztf_20181230_programid1 7          12613           12613           0               -                                                           -               -
+    >   ztf_20181230_programid1 8          12614           12614           0               -                                                           -               -
+    >   ztf_20181230_programid1 9          12614           12614           0               -                                                           -               -
+    >   ztf_20181231_programid1 0          3047            6289            3242            ztf-mirror.roe.ac.uk-0-388bc09b-76c0-4f88-8fb4-f37514b9d389 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181231_programid1 10         3112            6289            3177            ztf-mirror.roe.ac.uk-1-8876f8e1-b5e6-4e56-ba8a-481db6bb0f8d /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181231_programid1 11         3066            6288            3222            ztf-mirror.roe.ac.uk-1-f6fd0c06-6af6-47e9-8965-ca810cdb1f1b /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181231_programid1 12         3085            6289            3204            ztf-mirror.roe.ac.uk-2-4b85ed6a-656f-48cd-8087-b27df6b8fc5f /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181231_programid1 1          3086            6289            3203            ztf-mirror.roe.ac.uk-0-d24ef7cc-1539-49e8-b8e2-c05850853d62 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181231_programid1 13         3104            6288            3184            ztf-mirror.roe.ac.uk-2-c86c11b0-91fb-4ef6-8cea-76c6c0e85751 /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181231_programid1 2          3106            6288            3182            ztf-mirror.roe.ac.uk-1-8876f8e1-b5e6-4e56-ba8a-481db6bb0f8d /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181231_programid1 3          3057            6289            3232            ztf-mirror.roe.ac.uk-1-f6fd0c06-6af6-47e9-8965-ca810cdb1f1b /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181231_programid1 4          3091            6288            3197            ztf-mirror.roe.ac.uk-2-4b85ed6a-656f-48cd-8087-b27df6b8fc5f /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181231_programid1 5          3106            6288            3182            ztf-mirror.roe.ac.uk-2-c86c11b0-91fb-4ef6-8cea-76c6c0e85751 /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181231_programid1 6          5975            6289            314             ztf-mirror.roe.ac.uk-3-23f17e99-a0f6-4439-a8a0-c21ffe2ef3cf /129.215.175.98 ztf-mirror.roe.ac.uk-3
+    >   ztf_20181231_programid1 7          6023            6289            266             ztf-mirror.roe.ac.uk-3-6955f264-d677-4927-b63c-622e1fc262e3 /129.215.175.98 ztf-mirror.roe.ac.uk-3
+    >   ztf_20181231_programid1 8          3039            6289            3250            ztf-mirror.roe.ac.uk-0-388bc09b-76c0-4f88-8fb4-f37514b9d389 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181231_programid1 9          3083            6289            3206            ztf-mirror.roe.ac.uk-0-d24ef7cc-1539-49e8-b8e2-c05850853d62 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   Wed  2 Jan 00:33:49 GMT 2019
+
+    >   Wed  2 Jan 00:52:53 GMT 2019
+    >   TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                 HOST            CLIENT-ID
+    >   ztf_20181228_programid1 0          12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 10         12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 11         12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 1          12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 12         12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 13         12840           12840           0               -                                                           -               -
+    >   ztf_20181228_programid1 2          12840           12840           0               -                                                           -               -
+    >   ztf_20181228_programid1 3          12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 4          12840           12840           0               -                                                           -               -
+    >   ztf_20181228_programid1 5          12840           12840           0               -                                                           -               -
+    >   ztf_20181228_programid1 6          12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 7          12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 8          12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 9          12839           12839           0               -                                                           -               -
+    >   ztf_20181229_programid1 0          10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 10         10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 1          10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 11         10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 12         10663           10663           0               -                                                           -               -
+    >   ztf_20181229_programid1 13         10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 2          10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 3          10663           10663           0               -                                                           -               -
+    >   ztf_20181229_programid1 4          10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 5          10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 6          10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 7          10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 8          10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 9          10663           10663           0               -                                                           -               -
+    >   ztf_20181230_programid1 0          12614           12614           0               -                                                           -               -
+    >   ztf_20181230_programid1 10         12613           12613           0               -                                                           -               -
+    >   ztf_20181230_programid1 11         12614           12614           0               -                                                           -               -
+    >   ztf_20181230_programid1 1          12614           12614           0               -                                                           -               -
+    >   ztf_20181230_programid1 12         12614           12614           0               -                                                           -               -
+    >   ztf_20181230_programid1 13         12614           12614           0               -                                                           -               -
+    >   ztf_20181230_programid1 2          12614           12614           0               -                                                           -               -
+    >   ztf_20181230_programid1 3          12614           12614           0               -                                                           -               -
+    >   ztf_20181230_programid1 4          12614           12614           0               -                                                           -               -
+    >   ztf_20181230_programid1 5          12614           12614           0               -                                                           -               -
+    >   ztf_20181230_programid1 6          12614           12614           0               -                                                           -               -
+    >   ztf_20181230_programid1 7          12613           12613           0               -                                                           -               -
+    >   ztf_20181230_programid1 8          12614           12614           0               -                                                           -               -
+    >   ztf_20181230_programid1 9          12614           12614           0               -                                                           -               -
+    >   ztf_20181231_programid1 0          6289            6289            0               ztf-mirror.roe.ac.uk-0-388bc09b-76c0-4f88-8fb4-f37514b9d389 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181231_programid1 10         6289            6289            0               ztf-mirror.roe.ac.uk-1-8876f8e1-b5e6-4e56-ba8a-481db6bb0f8d /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181231_programid1 11         6288            6288            0               ztf-mirror.roe.ac.uk-1-f6fd0c06-6af6-47e9-8965-ca810cdb1f1b /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181231_programid1 12         6289            6289            0               ztf-mirror.roe.ac.uk-2-4b85ed6a-656f-48cd-8087-b27df6b8fc5f /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181231_programid1 13         6288            6288            0               ztf-mirror.roe.ac.uk-2-c86c11b0-91fb-4ef6-8cea-76c6c0e85751 /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181231_programid1 1          6289            6289            0               ztf-mirror.roe.ac.uk-0-d24ef7cc-1539-49e8-b8e2-c05850853d62 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181231_programid1 2          6288            6288            0               ztf-mirror.roe.ac.uk-1-8876f8e1-b5e6-4e56-ba8a-481db6bb0f8d /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181231_programid1 3          6289            6289            0               ztf-mirror.roe.ac.uk-1-f6fd0c06-6af6-47e9-8965-ca810cdb1f1b /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20181231_programid1 4          6288            6288            0               ztf-mirror.roe.ac.uk-2-4b85ed6a-656f-48cd-8087-b27df6b8fc5f /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181231_programid1 5          6288            6288            0               ztf-mirror.roe.ac.uk-2-c86c11b0-91fb-4ef6-8cea-76c6c0e85751 /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20181231_programid1 6          6289            6289            0               ztf-mirror.roe.ac.uk-3-23f17e99-a0f6-4439-a8a0-c21ffe2ef3cf /129.215.175.98 ztf-mirror.roe.ac.uk-3
+    >   ztf_20181231_programid1 7          6289            6289            0               ztf-mirror.roe.ac.uk-3-6955f264-d677-4927-b63c-622e1fc262e3 /129.215.175.98 ztf-mirror.roe.ac.uk-3
+    >   ztf_20181231_programid1 8          6289            6289            0               ztf-mirror.roe.ac.uk-0-388bc09b-76c0-4f88-8fb4-f37514b9d389 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20181231_programid1 9          6289            6289            0               ztf-mirror.roe.ac.uk-0-d24ef7cc-1539-49e8-b8e2-c05850853d62 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   Wed  2 Jan 00:53:08 GMT 2019
+
+    >   Wed  2 Jan 01:00:20 GMT 2019
+    >   TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                 HOST            CLIENT-ID
+    >   ztf_20181228_programid1 0          12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 10         12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 11         12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 1          12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 12         12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 13         12840           12840           0               -                                                           -               -
+    >   ztf_20181228_programid1 2          12840           12840           0               -                                                           -               -
+    >   ztf_20181228_programid1 3          12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 4          12840           12840           0               -                                                           -               -
+    >   ztf_20181228_programid1 5          12840           12840           0               -                                                           -               -
+    >   ztf_20181228_programid1 6          12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 7          12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 8          12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 9          12839           12839           0               -                                                           -               -
+    >   ztf_20181229_programid1 0          10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 10         10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 1          10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 11         10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 12         10663           10663           0               -                                                           -               -
+    >   ztf_20181229_programid1 13         10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 2          10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 3          10663           10663           0               -                                                           -               -
+    >   ztf_20181229_programid1 4          10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 5          10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 6          10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 7          10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 8          10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 9          10663           10663           0               -                                                           -               -
+    >   ztf_20181230_programid1 0          12614           12614           0               -                                                           -               -
+    >   ztf_20181230_programid1 10         12613           12613           0               -                                                           -               -
+    >   ztf_20181230_programid1 11         12614           12614           0               -                                                           -               -
+    >   ztf_20181230_programid1 1          12614           12614           0               -                                                           -               -
+    >   ztf_20181230_programid1 12         12614           12614           0               -                                                           -               -
+    >   ztf_20181230_programid1 13         12614           12614           0               -                                                           -               -
+    >   ztf_20181230_programid1 2          12614           12614           0               -                                                           -               -
+    >   ztf_20181230_programid1 3          12614           12614           0               -                                                           -               -
+    >   ztf_20181230_programid1 4          12614           12614           0               -                                                           -               -
+    >   ztf_20181230_programid1 5          12614           12614           0               -                                                           -               -
+    >   ztf_20181230_programid1 6          12614           12614           0               -                                                           -               -
+    >   ztf_20181230_programid1 7          12613           12613           0               -                                                           -               -
+    >   ztf_20181230_programid1 8          12614           12614           0               -                                                           -               -
+    >   ztf_20181230_programid1 9          12614           12614           0               -                                                           -               -
+    >   ztf_20181231_programid1 0          6289            6289            0               -                                                           -               -
+    >   ztf_20181231_programid1 10         6289            6289            0               -                                                           -               -
+    >   ztf_20181231_programid1 11         6288            6288            0               -                                                           -               -
+    >   ztf_20181231_programid1 12         6289            6289            0               -                                                           -               -
+    >   ztf_20181231_programid1 13         6288            6288            0               -                                                           -               -
+    >   ztf_20181231_programid1 1          6289            6289            0               -                                                           -               -
+    >   ztf_20181231_programid1 2          6288            6288            0               -                                                           -               -
+    >   ztf_20181231_programid1 3          6289            6289            0               -                                                           -               -
+    >   ztf_20181231_programid1 4          6288            6288            0               -                                                           -               -
+    >   ztf_20181231_programid1 5          6288            6288            0               -                                                           -               -
+    >   ztf_20181231_programid1 6          6289            6289            0               -                                                           -               -
+    >   ztf_20181231_programid1 7          6289            6289            0               -                                                           -               -
+    >   ztf_20181231_programid1 8          6289            6289            0               -                                                           -               -
+    >   ztf_20181231_programid1 9          6289            6289            0               -                                                           -               -
+    >   ztf_20190101_programid1 0          -               0               -               ztf-mirror.roe.ac.uk-0-0fd31035-d150-456d-83ea-79a35de05a34 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20190101_programid1 10         -               0               -               ztf-mirror.roe.ac.uk-1-3f73496d-4151-468e-a4e3-db37875be846 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20190101_programid1 1          -               0               -               ztf-mirror.roe.ac.uk-0-37c2f7dd-0749-46ce-a42f-0bbdf9272493 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20190101_programid1 11         -               0               -               ztf-mirror.roe.ac.uk-1-8882426f-2397-4cf9-a93c-f7e58835ab27 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20190101_programid1 12         -               0               -               ztf-mirror.roe.ac.uk-2-6beaa02a-9890-4a63-b6ba-b7b73f4c1c1e /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20190101_programid1 13         -               0               -               ztf-mirror.roe.ac.uk-2-7bdc75c2-9ba8-4ebf-8e64-9ca8282fc963 /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20190101_programid1 2          -               0               -               ztf-mirror.roe.ac.uk-1-3f73496d-4151-468e-a4e3-db37875be846 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20190101_programid1 3          -               0               -               ztf-mirror.roe.ac.uk-1-8882426f-2397-4cf9-a93c-f7e58835ab27 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20190101_programid1 4          -               0               -               ztf-mirror.roe.ac.uk-2-6beaa02a-9890-4a63-b6ba-b7b73f4c1c1e /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20190101_programid1 5          -               0               -               ztf-mirror.roe.ac.uk-2-7bdc75c2-9ba8-4ebf-8e64-9ca8282fc963 /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20190101_programid1 6          -               0               -               ztf-mirror.roe.ac.uk-3-681789c6-c790-4b58-a822-700aa30a741b /129.215.175.98 ztf-mirror.roe.ac.uk-3
+    >   ztf_20190101_programid1 7          -               0               -               ztf-mirror.roe.ac.uk-3-bf3f2c38-ca42-4946-8067-743c494836db /129.215.175.98 ztf-mirror.roe.ac.uk-3
+    >   ztf_20190101_programid1 8          -               0               -               ztf-mirror.roe.ac.uk-0-0fd31035-d150-456d-83ea-79a35de05a34 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20190101_programid1 9          -               0               -               ztf-mirror.roe.ac.uk-0-37c2f7dd-0749-46ce-a42f-0bbdf9272493 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   Wed  2 Jan 01:00:37 GMT 2019
+
+    >   Wed  2 Jan 01:05:19 GMT 2019
+    >   Note: This will not show information about old Zookeeper-based consumers.
+    >
+    >   TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                 HOST            CLIENT-ID
+    >   ztf_20181228_programid1 0          12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 10         12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 11         12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 1          12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 12         12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 13         12840           12840           0               -                                                           -               -
+    >   ztf_20181228_programid1 2          12840           12840           0               -                                                           -               -
+    >   ztf_20181228_programid1 3          12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 4          12840           12840           0               -                                                           -               -
+    >   ztf_20181228_programid1 5          12840           12840           0               -                                                           -               -
+    >   ztf_20181228_programid1 6          12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 7          12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 8          12839           12839           0               -                                                           -               -
+    >   ztf_20181228_programid1 9          12839           12839           0               -                                                           -               -
+    >   ztf_20181229_programid1 0          10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 10         10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 1          10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 11         10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 12         10663           10663           0               -                                                           -               -
+    >   ztf_20181229_programid1 13         10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 2          10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 3          10663           10663           0               -                                                           -               -
+    >   ztf_20181229_programid1 4          10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 5          10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 6          10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 7          10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 8          10664           10664           0               -                                                           -               -
+    >   ztf_20181229_programid1 9          10663           10663           0               -                                                           -               -
+    >   ztf_20181230_programid1 0          12614           12614           0               -                                                           -               -
+    >   ztf_20181230_programid1 10         12613           12613           0               -                                                           -               -
+    >   ztf_20181230_programid1 11         12614           12614           0               -                                                           -               -
+    >   ztf_20181230_programid1 1          12614           12614           0               -                                                           -               -
+    >   ztf_20181230_programid1 12         12614           12614           0               -                                                           -               -
+    >   ztf_20181230_programid1 13         12614           12614           0               -                                                           -               -
+    >   ztf_20181230_programid1 2          12614           12614           0               -                                                           -               -
+    >   ztf_20181230_programid1 3          12614           12614           0               -                                                           -               -
+    >   ztf_20181230_programid1 4          12614           12614           0               -                                                           -               -
+    >   ztf_20181230_programid1 5          12614           12614           0               -                                                           -               -
+    >   ztf_20181230_programid1 6          12614           12614           0               -                                                           -               -
+    >   ztf_20181230_programid1 7          12613           12613           0               -                                                           -               -
+    >   ztf_20181230_programid1 8          12614           12614           0               -                                                           -               -
+    >   ztf_20181230_programid1 9          12614           12614           0               -                                                           -               -
+    >   ztf_20181231_programid1 0          6289            6289            0               -                                                           -               -
+    >   ztf_20181231_programid1 10         6289            6289            0               -                                                           -               -
+    >   ztf_20181231_programid1 11         6288            6288            0               -                                                           -               -
+    >   ztf_20181231_programid1 12         6289            6289            0               -                                                           -               -
+    >   ztf_20181231_programid1 13         6288            6288            0               -                                                           -               -
+    >   ztf_20181231_programid1 1          6289            6289            0               -                                                           -               -
+    >   ztf_20181231_programid1 2          6288            6288            0               -                                                           -               -
+    >   ztf_20181231_programid1 3          6289            6289            0               -                                                           -               -
+    >   ztf_20181231_programid1 4          6288            6288            0               -                                                           -               -
+    >   ztf_20181231_programid1 5          6288            6288            0               -                                                           -               -
+    >   ztf_20181231_programid1 6          6289            6289            0               -                                                           -               -
+    >   ztf_20181231_programid1 7          6289            6289            0               -                                                           -               -
+    >   ztf_20181231_programid1 8          6289            6289            0               -                                                           -               -
+    >   ztf_20181231_programid1 9          6289            6289            0               -                                                           -               -
+    >   ztf_20190102_programid1 0          -               0               -               ztf-mirror.roe.ac.uk-0-17ded4b6-e882-49d5-ab38-3bb8937e9f4d /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20190102_programid1 10         -               0               -               ztf-mirror.roe.ac.uk-1-28bce701-4f9d-4afe-96e3-2a9c343f2cb3 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20190102_programid1 1          -               0               -               ztf-mirror.roe.ac.uk-0-88ca0109-134e-4898-a21b-ee0ceabb9d4f /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20190102_programid1 11         -               0               -               ztf-mirror.roe.ac.uk-1-e8ded120-3cfb-4404-bcfc-fb808b9108d1 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20190102_programid1 12         -               0               -               ztf-mirror.roe.ac.uk-2-37c513de-0880-4c1b-a7cd-a512fa6f843a /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20190102_programid1 13         -               0               -               ztf-mirror.roe.ac.uk-2-bc2d0bb5-23fd-437f-bea6-82e424095b3f /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20190102_programid1 2          -               0               -               ztf-mirror.roe.ac.uk-1-28bce701-4f9d-4afe-96e3-2a9c343f2cb3 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20190102_programid1 3          -               0               -               ztf-mirror.roe.ac.uk-1-e8ded120-3cfb-4404-bcfc-fb808b9108d1 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20190102_programid1 4          -               0               -               ztf-mirror.roe.ac.uk-2-37c513de-0880-4c1b-a7cd-a512fa6f843a /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20190102_programid1 5          -               0               -               ztf-mirror.roe.ac.uk-2-bc2d0bb5-23fd-437f-bea6-82e424095b3f /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20190102_programid1 6          -               0               -               ztf-mirror.roe.ac.uk-3-bf14da33-13ef-4080-8aef-319fba3c1893 /129.215.175.98 ztf-mirror.roe.ac.uk-3
+    >   ztf_20190102_programid1 7          -               0               -               ztf-mirror.roe.ac.uk-3-e1c345ab-1d08-4bc0-9f65-1eb202cdef9f /129.215.175.98 ztf-mirror.roe.ac.uk-3
+    >   ztf_20190102_programid1 8          -               0               -               ztf-mirror.roe.ac.uk-0-17ded4b6-e882-49d5-ab38-3bb8937e9f4d /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20190102_programid1 9          -               0               -               ztf-mirror.roe.ac.uk-0-88ca0109-134e-4898-a21b-ee0ceabb9d4f /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   Wed  2 Jan 01:05:36 GMT 2019
+
+
+
+
+
+
+
+

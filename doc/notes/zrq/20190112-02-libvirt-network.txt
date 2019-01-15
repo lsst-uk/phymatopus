@@ -1,0 +1,544 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+# -----------------------------------------------------
+# Configure our SSH settings.
+#[user@trop03]
+
+    sshuser=Stevedore
+    sshopts=(
+        '-A'
+        '-o LogLevel=ERROR'
+        '-o CheckHostIP=no'
+        '-o UserKnownHostsFile=/dev/null'
+        '-o StrictHostKeyChecking=no'
+        )
+
+    scpopts=(
+        '-o LogLevel=ERROR'
+        '-o CheckHostIP=no'
+        '-o UserKnownHostsFile=/dev/null'
+        '-o StrictHostKeyChecking=no'
+        )
+
+# -----------------------------------------------------
+# List the ip routes on physical host trop03.
+#[user@trop03]
+
+    ip route show
+
+    >   default via 129.215.175.126 dev br0 onlink
+    >   129.215.175.0/24 dev br0 proto kernel scope link src 129.215.175.98
+    >   192.168.210.0/27 via 129.215.175.96 dev br0
+    >   192.168.210.64/27 via 129.215.175.97 dev br0
+    >   192.168.210.128/27 dev virbr0 proto kernel scope link src 192.168.210.158
+    >   192.168.210.160/27 dev virbr1 proto kernel scope link src 192.168.210.190
+    >   192.168.210.192/27 via 129.215.175.99 dev br0
+
+
+# -----------------------------------------------------
+# List the ip routes on physical host trop04.
+#[user@trop04]
+
+    ip route show
+
+    >   default via 129.215.175.126 dev br0
+    >   129.215.175.0/24 dev br0  proto kernel  scope link  src 129.215.175.99
+    >   192.168.203.0/24 via 129.215.175.98 dev br0
+    >   192.168.210.0/27 via 129.215.175.96 dev br0
+    >   192.168.210.64/27 via 129.215.175.97 dev br0
+    >   192.168.210.128/27 via 129.215.175.98 dev br0
+    >   192.168.210.192/27 dev virbr0  proto kernel  scope link  src 192.168.210.222
+    >   192.168.210.224/27 dev virbr1  proto kernel  scope link  src 192.168.210.254
+
+
+# -----------------------------------------------------
+# Remove a route left over from a previous experiment.
+#[user@trop04]
+
+    sudo ip route del 192.168.203.0/24 via 129.215.175.98 dev br0
+
+# -----------------------------------------------------
+# List the virtual networks on trop03.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        --connect ${connection:?} \
+        net-list \
+            --all
+
+    >    Name                 State      Autostart     Persistent
+    >   ----------------------------------------------------------
+    >    bridged              active     no            no
+    >    natted               active     yes           yes
+    >    routed               active     yes           yes
+
+
+# -----------------------------------------------------
+# List the details for the bridged network on trop03.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        --connect ${connection:?} \
+        net-dumpxml \
+            bridged
+
+    >   <network ipv6='yes'>
+    >     <name>bridged</name>
+    >     <uuid>e2c945f3-eb3e-4020-befa-c752e8b11de7</uuid>
+    >     <forward mode='bridge'/>
+    >     <bridge name='br0'/>
+    >   </network>
+
+
+# -----------------------------------------------------
+# List the details for the routed network on trop03.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        --connect ${connection:?} \
+        net-dumpxml \
+            routed
+
+    >   <network connections='1' ipv6='yes'>
+    >     <name>routed</name>
+    >     <uuid>df7a8a1f-3d82-4aa1-92a3-731ee8c25d79</uuid>
+    >     <forward mode='route'/>
+    >     <bridge name='virbr0' stp='off' delay='0'/>
+    >     <mac address='52:54:00:00:d2:9e'/>
+    >     <ip family='ipv4' address='192.168.210.158' netmask='255.255.255.224'>
+    >       <dhcp>
+    >         <range start='192.168.210.129' end='192.168.210.156'/>
+    >         <host mac='52:54:0:0:D2:81' name='Umiawyth' ip='192.168.210.129'/>
+    >         <host mac='52:54:0:0:D2:82' name='Etalema' ip='192.168.210.130'/>
+    >         <host mac='52:54:0:0:D2:83' name='Greand' ip='192.168.210.131'/>
+    >         <host mac='52:54:0:0:D2:84' name='Nydiralle' ip='192.168.210.132'/>
+    >         <host mac='52:54:0:0:D2:85' name='Kedaekoth' ip='192.168.210.133'/>
+    >         <host mac='52:54:0:0:D2:86' name='Onelith' ip='192.168.210.134'/>
+    >         <host mac='52:54:0:0:D2:87' name='Elaleld' ip='192.168.210.135'/>
+    >         <host mac='52:54:0:0:D2:88' name='Afoaviel' ip='192.168.210.136'/>
+    >         <host mac='52:54:0:0:D2:89' name='Rusaldez' ip='192.168.210.137'/>
+    >         <host mac='52:54:0:0:D2:8A' name='Stedigo' ip='192.168.210.138'/>
+    >         <host mac='52:54:0:0:D2:8B' name='Angece' ip='192.168.210.139'/>
+    >         <host mac='52:54:0:0:D2:8C' name='Edwalafia' ip='192.168.210.140'/>
+    >         <host mac='52:54:0:0:D2:8D' name='Onoza' ip='192.168.210.141'/>
+    >         <host mac='52:54:0:0:D2:8E' name='Fosauri' ip='192.168.210.142'/>
+    >         <host mac='52:54:0:0:D2:8F' name='Marpus' ip='192.168.210.143'/>
+    >         <host mac='52:54:0:0:D2:90' name='Byflame' ip='192.168.210.144'/>
+    >         <host mac='52:54:0:0:D2:91' name='Grerat' ip='192.168.210.145'/>
+    >         <host mac='52:54:0:0:D2:92' name='Jeralenia' ip='192.168.210.146'/>
+    >         <host mac='52:54:0:0:D2:93' name='Dwardoa' ip='192.168.210.147'/>
+    >         <host mac='52:54:0:0:D2:94' name='Larohac' ip='192.168.210.148'/>
+    >         <host mac='52:54:0:0:D2:95' name='Kaaeclya' ip='192.168.210.149'/>
+    >         <host mac='52:54:0:0:D2:96' name='Elirannor' ip='192.168.210.150'/>
+    >         <host mac='52:54:0:0:D2:97' name='Jeroaveth' ip='192.168.210.151'/>
+    >         <host mac='52:54:0:0:D2:98' name='Rorekon' ip='192.168.210.152'/>
+    >         <host mac='52:54:0:0:D2:99' name='Astalenna' ip='192.168.210.153'/>
+    >         <host mac='52:54:0:0:D2:9A' name='Afib' ip='192.168.210.154'/>
+    >         <host mac='52:54:0:0:D2:9B' name='Lotholia' ip='192.168.210.155'/>
+    >         <host mac='52:54:0:0:D2:9C' name='Astilamos' ip='192.168.210.156'/>
+    >       </dhcp>
+    >     </ip>
+    >   </network>
+
+
+# -----------------------------------------------------
+# List the details for the natted network on trop03.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        --connect ${connection:?} \
+        net-dumpxml \
+            natted
+
+    >   <network connections='1' ipv6='yes'>
+    >     <name>natted</name>
+    >     <uuid>daccf157-54eb-43fc-95a2-6b6f2ba72c35</uuid>
+    >     <forward mode='nat'>
+    >       <nat>
+    >         <port start='1024' end='65535'/>
+    >       </nat>
+    >     </forward>
+    >     <bridge name='virbr1' stp='off' delay='0'/>
+    >     <mac address='52:54:00:00:d2:be'/>
+    >     <ip family='ipv4' address='192.168.210.190' netmask='255.255.255.224'>
+    >       <dhcp>
+    >         <range start='192.168.210.161' end='192.168.210.188'/>
+    >         <host mac='52:54:0:0:D2:A1' name='Umiawyth-nat' ip='192.168.210.161'/>
+    >         <host mac='52:54:0:0:D2:A2' name='Etalema-nat' ip='192.168.210.162'/>
+    >         <host mac='52:54:0:0:D2:A3' name='Greand-nat' ip='192.168.210.163'/>
+    >         <host mac='52:54:0:0:D2:A4' name='Nydiralle-nat' ip='192.168.210.164'/>
+    >         <host mac='52:54:0:0:D2:A5' name='Kedaekoth-nat' ip='192.168.210.165'/>
+    >         <host mac='52:54:0:0:D2:A6' name='Onelith-nat' ip='192.168.210.166'/>
+    >         <host mac='52:54:0:0:D2:A7' name='Elaleld-nat' ip='192.168.210.167'/>
+    >         <host mac='52:54:0:0:D2:A8' name='Afoaviel-nat' ip='192.168.210.168'/>
+    >         <host mac='52:54:0:0:D2:A9' name='Rusaldez-nat' ip='192.168.210.169'/>
+    >         <host mac='52:54:0:0:D2:AA' name='Stedigo-nat' ip='192.168.210.170'/>
+    >         <host mac='52:54:0:0:D2:AB' name='Angece-nat' ip='192.168.210.171'/>
+    >         <host mac='52:54:0:0:D2:AC' name='Edwalafia-nat' ip='192.168.210.172'/>
+    >         <host mac='52:54:0:0:D2:AD' name='Onoza-nat' ip='192.168.210.173'/>
+    >         <host mac='52:54:0:0:D2:AE' name='Fosauri-nat' ip='192.168.210.174'/>
+    >         <host mac='52:54:0:0:D2:AF' name='Marpus-nat' ip='192.168.210.175'/>
+    >         <host mac='52:54:0:0:D2:B0' name='Byflame-nat' ip='192.168.210.176'/>
+    >         <host mac='52:54:0:0:D2:B1' name='Grerat-nat' ip='192.168.210.177'/>
+    >         <host mac='52:54:0:0:D2:B2' name='Jeralenia-nat' ip='192.168.210.178'/>
+    >         <host mac='52:54:0:0:D2:B3' name='Dwardoa-nat' ip='192.168.210.179'/>
+    >         <host mac='52:54:0:0:D2:B4' name='Larohac-nat' ip='192.168.210.180'/>
+    >         <host mac='52:54:0:0:D2:B5' name='Kaaeclya-nat' ip='192.168.210.181'/>
+    >         <host mac='52:54:0:0:D2:B6' name='Elirannor-nat' ip='192.168.210.182'/>
+    >         <host mac='52:54:0:0:D2:B7' name='Jeroaveth-nat' ip='192.168.210.183'/>
+    >         <host mac='52:54:0:0:D2:B8' name='Rorekon-nat' ip='192.168.210.184'/>
+    >         <host mac='52:54:0:0:D2:B9' name='Astalenna-nat' ip='192.168.210.185'/>
+    >         <host mac='52:54:0:0:D2:BA' name='Afib-nat' ip='192.168.210.186'/>
+    >         <host mac='52:54:0:0:D2:BB' name='Lotholia-nat' ip='192.168.210.187'/>
+    >         <host mac='52:54:0:0:D2:BC' name='Astilamos-nat' ip='192.168.210.188'/>
+    >       </dhcp>
+    >     </ip>
+    >   </network>
+
+
+# -----------------------------------------------------
+# List the virtual machines on trop03.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        --connect ${connection:?} \
+        list \
+            --all
+
+    >    Id    Name                           State
+    >   ----------------------------------------------------
+    >    69    Umiawyth                       running
+    >    -     Afoaviel                       shut off
+    >    -     Angece                         shut off
+    >    -     Byflame                        shut off
+    >    -     Edwalafia                      shut off
+    >    -     Fosauri                        shut off
+    >    -     Onoza                          shut off
+    >    -     Rusaldez                       shut off
+    >    -     Stedigo                        shut off
+
+
+# -----------------------------------------------------
+# List the network interfaces on Umiawyth (VM on trop03).
+#[user@trop03]
+
+    vmname=Umiawyth
+
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        --connect ${connection:?} \
+        dumpxml \
+            "${vmname:?}" \
+    | xmlstarlet \
+        select \
+            --root \
+            --indent \
+            --template \
+                --copy-of '//interface'
+
+    >   <xsl-select>
+    >     <interface type="network">
+    >         <mac address="52:54:00:00:d2:81"/>
+    >         <source network="routed" bridge="virbr0"/>
+    >         <target dev="vnet0"/>
+    >         <model type="virtio"/>
+    >         <alias name="net0"/>
+    >         <address type="pci" domain="0x0000" bus="0x00" slot="0x03" function="0x0"/>
+    >       </interface>
+    >     <interface type="network">
+    >         <mac address="52:54:00:00:d2:a1"/>
+    >         <source network="natted" bridge="virbr1"/>
+    >         <target dev="vnet1"/>
+    >         <model type="virtio"/>
+    >         <alias name="net1"/>
+    >         <address type="pci" domain="0x0000" bus="0x00" slot="0x07" function="0x0"/>
+    >       </interface>
+    >   </xsl-select>
+
+
+# -----------------------------------------------------
+# SSH from the physical host to Umiawyth (VM on trop03).
+#[user@trop03]
+
+    vmname=Umiawyth
+
+    ssh ${sshopts[*]} \
+        "${sshuser:?}@${vmname:?}"
+
+    >   Last login: Sat Jan 12 08:16:19 2019 from 192.168.210.158
+
+# -----------------------------------------------------
+# List the ip routes on Umiawyth (VM on trop03).
+#[Stevedore@Umiawyth]
+
+    sudo ip route show
+
+    >   default via 192.168.210.158 dev ens3 proto dhcp metric 100
+    >   default via 192.168.210.190 dev ens7 proto dhcp metric 101
+    >   172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown
+    >   192.168.210.0/27 via 192.168.210.158 dev ens3
+    >   192.168.210.64/27 via 192.168.210.158 dev ens3
+    >   192.168.210.128/27 dev ens3 scope link
+    >   192.168.210.128/27 dev ens3 proto kernel scope link src 192.168.210.129 metric 100
+    >   192.168.210.160/27 dev ens7 proto kernel scope link src 192.168.210.161 metric 101
+    >   192.168.210.192/27 via 192.168.210.158 dev ens3
+
+    ** Two default routes :-(
+
+# -----------------------------------------------------
+# List the network interfaces on Umiawyth (VM on trop03).
+#[Stevedore@Umiawyth]
+
+    sudo ifconfig -a
+
+    >   docker0: flags=4099<UP,BROADCAST,MULTICAST>  mtu 1500
+    >       inet 172.17.0.1  netmask 255.255.0.0  broadcast 172.17.255.255
+    >       ether 02:42:d5:0f:a4:cc  txqueuelen 0  (Ethernet)
+    >       RX packets 0  bytes 0 (0.0 B)
+    >       RX errors 0  dropped 0  overruns 0  frame 0
+    >       TX packets 0  bytes 0 (0.0 B)
+    >       TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+    >   
+    >   ens3: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+    >       inet 192.168.210.129  netmask 255.255.255.224  broadcast 192.168.210.159
+    >       inet6 fe80::5054:ff:fe00:d281  prefixlen 64  scopeid 0x20<link>
+    >       ether 52:54:00:00:d2:81  txqueuelen 1000  (Ethernet)
+    >       RX packets 13894  bytes 1544711 (1.4 MiB)
+    >       RX errors 0  dropped 0  overruns 0  frame 0
+    >       TX packets 13136  bytes 2449994 (2.3 MiB)
+    >       TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+    >   
+    >   ens7: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+    >       inet 192.168.210.161  netmask 255.255.255.224  broadcast 192.168.210.191
+    >       inet6 fe80::6903:393f:c1c7:3cf3  prefixlen 64  scopeid 0x20<link>
+    >       ether 52:54:00:00:d2:a1  txqueuelen 1000  (Ethernet)
+    >       RX packets 520  bytes 140647 (137.3 KiB)
+    >       RX errors 0  dropped 0  overruns 0  frame 0
+    >       TX packets 512  bytes 74326 (72.5 KiB)
+    >       TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+    >   
+    >   lo: flags=73<UP,LOOPBACK,RUNNING>  mtu 65536
+    >       inet 127.0.0.1  netmask 255.0.0.0
+    >       inet6 ::1  prefixlen 128  scopeid 0x10<host>
+    >       loop  txqueuelen 1000  (Local Loopback)
+    >       RX packets 4  bytes 254 (254.0 B)
+    >       RX errors 0  dropped 0  overruns 0  frame 0
+    >       TX packets 4  bytes 254 (254.0 B)
+    >       TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+
+# -----------------------------------------------------
+# List the network config on Umiawyth (VM on trop03).
+#[Stevedore@Umiawyth]
+
+    cat /etc/sysconfig/network
+
+    >   NOZEROCONF=yes
+    >   
+    >   # Created by cloud-init on instance boot automatically, do not edit.
+    >   #
+    >   NETWORKING=yes
+    >   
+    >   GATEWAY=192.168.210.190
+    >   GATEWAYDEV=ens7
+
+
+    cat /etc/sysconfig/network-scripts/ifcfg-ens3
+
+    >   # Created by cloud-init on instance boot automatically, do not edit.
+    >   #
+    >   BOOTPROTO=dhcp
+    >   DEVICE=ens3
+    >   HWADDR=52:54:00:00:d2:81
+    >   ONBOOT=yes
+    >   TYPE=Ethernet
+    >   USERCTL=no
+    >   DEFROUTE=no
+
+
+    cat /etc/sysconfig/network-scripts/ifcfg-ens7
+
+    >   DEFROUTE=yes
+
+
+# -----------------------------------------------------
+# Update the network config for ens7 on Umiawyth (VM on trop03).
+#[Stevedore@Umiawyth]
+
+    sudo vi /etc/sysconfig/network-scripts/ifcfg-ens7
+
+    +   BOOTPROTO=dhcp
+    +   DEVICE=ens7
+    +   HWADDR=52:54:00:00:d2:a1
+    +   ONBOOT=yes
+    +   TYPE=Ethernet
+    +   USERCTL=no
+        DEFROUTE=yes
+
+
+# -----------------------------------------------------
+# Stop and start interface ens3 on Umiawyth (VM on trop03).
+#[Stevedore@Umiawyth]
+
+    sudo ip link set ens3 down ; sleep 10 ; sudo ip link set ens3 up
+
+
+# -----------------------------------------------------
+# Stop and start interface ens7 on Umiawyth (VM on trop03).
+#[Stevedore@Umiawyth]
+
+    sudo ip link set ens7 down ; sleep 10 ; sudo ip link set ens7 up
+
+
+# -----------------------------------------------------
+# List the ip routes on Umiawyth (VM on trop03).
+#[Stevedore@Umiawyth]
+
+    sudo ip route show
+
+    >   default via 192.168.210.158 dev ens3 proto dhcp metric 102
+    >   default via 192.168.210.190 dev ens7 proto dhcp metric 103
+    >   172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown
+    >   192.168.210.128/27 dev ens3 proto kernel scope link src 192.168.210.129 metric 102
+    >   192.168.210.160/27 dev ens7 proto kernel scope link src 192.168.210.161 metric 103
+
+    ** Two default routes :-(
+
+# -----------------------------------------------------
+# Add the static routes to the config for ens3 on Umiawyth (VM on trop03).
+# https://docs.fedoraproject.org/en-US/Fedora/22/html/Networking_Guide/sec-Configuring_Static_Routes_in_ifcfg_files.html
+#[Stevedore@Umiawyth]
+
+    sudo vi /etc/sysconfig/network-scripts/route-ens3
+
+    +   192.168.210.0/27   via 192.168.210.158 dev ens3
+    +   192.168.210.64/27  via 192.168.210.158 dev ens3
+    +   192.168.210.192/27 via 192.168.210.158 dev ens3
+
+    -- I think I missed this step, so no staitc routes added.
+
+# -----------------------------------------------------
+# Reboot Umiawyth (VM on trop03).
+#[Stevedore@Umiawyth]
+
+    sudo reboot
+
+    >   Connection to umiawyth closed by remote host.
+    >   Connection to umiawyth closed.
+
+
+# -----------------------------------------------------
+# SSH from the physical host to Umiawyth (VM on trop03).
+#[user@trop03]
+
+    vmname=Umiawyth
+
+    ssh ${sshopts[*]} \
+        "${sshuser:?}@${vmname:?}"
+
+    >   Last login: Sat Jan 12 23:56:20 2019 from 192.168.210.158
+
+# -----------------------------------------------------
+# List the ip routes on Umiawyth (VM on trop03).
+#[Stevedore@Umiawyth]
+
+    sudo ip route show
+
+    >   default via 192.168.210.190 dev ens7 proto dhcp metric 100
+    >   172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown
+    >   192.168.210.128/27 dev ens3 proto kernel scope link src 192.168.210.129 metric 101
+    >   192.168.210.160/27 dev ens7 proto kernel scope link src 192.168.210.161 metric 100
+
+    Ok, default route problem has gone.
+    Static routes are not persistent.
+
+# -----------------------------------------------------
+# Check the static routes in the interface config for ens3.
+# https://docs.fedoraproject.org/en-US/Fedora/22/html/Networking_Guide/sec-Configuring_Static_Routes_in_ifcfg_files.html
+#[Stevedore@Umiawyth]
+
+    cat /etc/sysconfig/network-scripts/route-ens3
+
+    >   cat: /etc/sysconfig/network-scripts/route-ens3: No such file or directory
+
+# -----------------------------------------------------
+# Add the static routes to the config for ens3 on Umiawyth (VM on trop03).
+# https://docs.fedoraproject.org/en-US/Fedora/22/html/Networking_Guide/sec-Configuring_Static_Routes_in_ifcfg_files.html
+#[Stevedore@Umiawyth]
+
+    sudo vi /etc/sysconfig/network-scripts/route-ens3
+
+    +   192.168.210.0/27   via 192.168.210.158 dev ens3
+    +   192.168.210.64/27  via 192.168.210.158 dev ens3
+    +   192.168.210.192/27 via 192.168.210.158 dev ens3
+
+
+# -----------------------------------------------------
+# Reboot Umiawyth (VM on trop03).
+#[Stevedore@Umiawyth]
+
+    sudo reboot
+
+    >   Connection to umiawyth closed by remote host.
+    >   Connection to umiawyth closed.
+
+
+# -----------------------------------------------------
+# SSH from the physical host to Umiawyth (VM on trop03).
+#[user@trop03]
+
+    vmname=Umiawyth
+
+    ssh ${sshopts[*]} \
+        "${sshuser:?}@${vmname:?}"
+
+    >   Last login: Sun Jan 13 00:53:05 2019 from 192.168.210.158
+
+# -----------------------------------------------------
+# List the ip routes on Umiawyth (VM on trop03).
+#[Stevedore@Umiawyth]
+
+    sudo ip route show
+
+    >   default via 192.168.210.190 dev ens7 proto dhcp metric 100
+    >   172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown
+    >   192.168.210.0/27 via 192.168.210.158 dev ens3 proto static metric 101
+    >   192.168.210.64/27 via 192.168.210.158 dev ens3 proto static metric 101
+    >   192.168.210.128/27 dev ens3 proto kernel scope link src 192.168.210.129 metric 101
+    >   192.168.210.160/27 dev ens7 proto kernel scope link src 192.168.210.161 metric 100
+    >   192.168.210.192/27 via 192.168.210.158 dev ens3 proto static metric 101
+
+    YAY - only one default route.
+    YAY - static routes are persitent over reboot
+
+

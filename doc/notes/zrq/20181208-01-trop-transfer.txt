@@ -1,0 +1,523 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2018, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+
+    Add options for cores, memory and disc to the createvm script ?
+    Manually adjust the VM allocations after they are created.
+
+    4 x Kafka nodes
+         4 cores
+        8G memory
+        8G disc
+
+         2 x 500G volume
+
+    2 x Mirror nodes
+         4 cores
+        8G memory
+        8G disc
+
+    3 x Zookeeper nodes
+         1 cores
+        8G memory
+        8G disc
+
+    (4*4)+(2*4)+(3*1) =  27 cores
+    (4*8)+(2*8)+(3*8) = 72G memory
+    (4*8)+(2*8)+(3*8) = 72G disc
+    (4*2*0.5) = 4T data
+
+# -----------------------------------------------------
+# Check the avaiable disk space.
+# https://stackoverflow.com/a/22281855
+#[user@trop03]
+
+    df -h | awk 'NR < 2 {print $0; next}{print $0 | "sort"}'
+
+        Filesystem      Size  Used Avail Use% Mounted on
+        /dev/sda1       511M  132K  511M   1% /boot/efi
+        /dev/sda2        92G  1.6G   86G   2% /
+        /dev/sda4       9.1G  2.8G  5.8G  33% /tmp
+        /dev/sda5        65G  4.4G   57G   8% /var
+        /dev/sda6        53G  4.2G   46G   9% /home
+        /dev/sdb1       3.6T  8.9G  3.4T   1% /data1
+        /dev/sdc1       3.6T  2.6T  867G  76% /data2
+        tmpfs            13G     0   13G   0% /run/user/1005
+        tmpfs            13G  1.3G   12G  10% /run
+        tmpfs           5.0M     0  5.0M   0% /run/lock
+        tmpfs            63G     0   63G   0% /dev/shm
+        tmpfs            63G     0   63G   0% /sys/fs/cgroup
+        udev             63G     0   63G   0% /dev
+
+    #
+    # If we allocate each machine an 8G disc, we need 72G of space.
+    # We only have 57G free on '/var', but we have 92G on '/'.
+    # Need to relocate the live volume pool to /libvirt/storage
+    #
+
+    #
+    # Also create data1 and data2 volume pools.
+    #
+
+# -----------------------------------------------------
+# List the existing VMs.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        --connect ${connection:?} \
+        list --all
+
+
+         Id    Name                           State
+        ----------------------------------------------------
+         107   Etalema                        running
+         108   Greand                         running
+         109   Umiawyth                       running
+
+# -----------------------------------------------------
+# Shutdown the existing VMs.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+    for vmname in $(
+        virsh \
+            --quiet \
+            --connect ${connection:?} \
+            list --all \
+          | sed '
+            s/[[:space:]]*\([^[:space:]]*\)[[:space:]]*\([^[:space:]]*\)[[:space:]]*\([^[:space:]]*\)/\2/
+            '
+        )
+        do
+            echo ""
+            echo "Stopping [${vmname}]"
+            virsh \
+                --quiet \
+                --connect ${connection:?} \
+                destroy \
+                    "${vmname}"
+
+            echo "Deleting [${vmname}]"
+            virsh \
+                --quiet \
+                --connect ${connection:?} \
+                undefine \
+                    "${vmname:?}" \
+                    --remove-all-storage
+
+        done
+
+
+        Stopping [Etalema]
+        Deleting [Etalema]
+
+        Stopping [Greand]
+        Deleting [Greand]
+
+        Stopping [Umiawyth]
+        Deleting [Umiawyth]
+
+# -----------------------------------------------------
+# List the pools.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        --connect ${connection:?} \
+        pool-list \
+            --all \
+            --details
+
+
+         Name          State    Autostart  Persistent   Capacity  Allocation  Available
+        --------------------------------------------------------------------------------
+         base          running  yes        yes         64.04 GiB    4.35 GiB  59.70 GiB
+         boot-scratch  running  yes        yes         64.04 GiB    4.35 GiB  59.70 GiB
+         data          running  yes        yes          3.58 TiB    8.89 GiB   3.57 TiB
+         default       running  yes        yes         64.04 GiB    4.35 GiB  59.70 GiB
+         init          running  yes        yes         64.04 GiB    4.35 GiB  59.70 GiB
+         live          running  yes        yes          3.58 TiB   68.02 MiB   3.58 TiB
+
+# -----------------------------------------------------
+# List the pool paths.
+#[user@trop03]
+
+    for poolname in $(
+        virsh \
+            --quiet \
+            --connect ${connection:?} \
+            pool-list --all \
+          | sed '
+            s/[[:space:]]*\([^[:space:]]*\)[[:space:]]*\([^[:space:]]*\)[[:space:]]*\([^[:space:]]*\)/\1/
+            '
+        )
+        do
+            poolpath=$(
+                virsh \
+                    --connect ${connection:?} \
+                    pool-dumpxml \
+                        "${poolname:?}" \
+                  | xmlstarlet select -t -v '//target/path'
+                )
+            echo ""
+            echo "Name [${poolname}]"
+            echo "Path [${poolpath}]"
+        done
+
+
+        Name [base]
+        Path [/var/lib/libvirt/images/base]
+
+        Name [boot-scratch]
+        Path [/var/lib/libvirt/boot]
+
+        Name [data]
+        Path [/data1/libvirt/images/data]
+
+        Name [default]
+        Path [/var/lib/libvirt/images]
+
+        Name [init]
+        Path [/var/lib/libvirt/images/init]
+
+        Name [live]
+        Path [/data1/libvirt/images/live]
+
+# -----------------------------------------------------
+# Delete the pools we want to move.
+#[user@trop03]
+
+    oldpools=(
+        boot-scratch
+        init
+        live
+        data
+        )
+
+    for poolname in ${oldpools[@]}
+        do
+            echo "Autostart pool [${poolname}]"
+            virsh \
+                --connect ${connection:?} \
+                pool-autostart \
+                    --disable \
+                    ${poolname:?}
+            echo "Destroying pool [${poolname}]"
+            virsh \
+                --connect ${connection:?} \
+                pool-destroy \
+                    ${poolname:?}
+            echo "Deleting pool [${poolname}]"
+            virsh \
+                --connect ${connection:?} \
+                pool-delete \
+                    ${poolname:?}
+            echo "Undefining pool [${poolname}]"
+            virsh \
+                --connect ${connection:?} \
+                pool-undefine \
+                    ${poolname:?}
+        done
+
+
+        Autostart pool [boot-scratch]
+        Pool boot-scratch unmarked as autostarted
+        Destroying pool [boot-scratch]
+        Pool boot-scratch destroyed
+        Deleting pool [boot-scratch]
+        Pool boot-scratch deleted
+        Pool boot-scratch has been undefined
+
+        Autostart pool [init]
+        Pool init unmarked as autostarted
+        Destroying pool [init]
+        Pool init destroyed
+        Deleting pool [init]
+        Pool init deleted
+        Pool init has been undefined
+
+        Autostart pool [live]
+        Pool live unmarked as autostarted
+        Destroying pool [live]
+        Pool live destroyed
+        Deleting pool [live]
+        Pool live deleted
+        Pool live has been undefined
+
+        Autostart pool [data]
+        Pool data unmarked as autostarted
+        Destroying pool [data]
+        Pool data destroyed
+        Deleting pool [data]
+        Pool data deleted
+        Pool data has been undefined
+
+
+# -----------------------------------------------------
+# Define the new pools.
+#[user@trop03]
+
+    unset pooldata
+    declare -A pooldata=(
+        [init]=/libvirt/images/init
+        [live]=/libvirt/images/live
+        [data1]=/data1/libvirt/images/data1
+        [data2]=/data2/libvirt/images/data2
+        )
+
+    source "${HOME}/libvirt.settings"
+
+    for poolname in "${!pooldata[@]}"
+        do
+            poolpath=${pooldata[${poolname:?}]}
+            echo "Name [${poolname:?}]"
+            echo "Path [${poolpath:?}]"
+
+            sudo mkdir -p ${poolpath:?}
+
+            virsh \
+                --connect ${connection:?} \
+                pool-define-as \
+                    "${poolname:?}" \
+                    'dir' \
+                    --target "${poolpath}"
+
+        done
+
+        Name [init]
+        Path [/libvirt/images/init]
+        Pool init defined
+
+        Name [data1]
+        Path [/data1/libvirt/images/data1]
+        Pool data1 defined
+
+        Name [data2]
+        Path [/data2/libvirt/images/data2]
+        Pool data2 defined
+
+        Name [live]
+        Path [/libvirt/images/live]
+        Pool live defined
+
+# -----------------------------------------------------
+# Initialise the new pools.
+#[user@trop03]
+
+    for poolname in "${!pooldata[@]}"
+        do
+
+            virsh \
+                --connect ${connection:?} \
+                pool-build \
+                    "${poolname:?}"
+
+            virsh \
+                --connect ${connection:?} \
+                pool-autostart \
+                    ${poolname:?}
+
+            virsh \
+                --connect ${connection:?} \
+                pool-start \
+                    ${poolname:?}
+
+        done
+
+
+        Pool init built
+        Pool init marked as autostarted
+        Pool init started
+
+        Pool data1 built
+        Pool data1 marked as autostarted
+        Pool data1 started
+
+        Pool data2 built
+        Pool data2 marked as autostarted
+        Pool data2 started
+
+        Pool live built
+        Pool live marked as autostarted
+        Pool live started
+
+
+
+# -----------------------------------------------------
+# List the pools.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        --connect ${connection:?} \
+        pool-list \
+            --all \
+            --details
+
+
+         Name     State    Autostart  Persistent   Capacity  Allocation  Available
+        ---------------------------------------------------------------------------
+         base     running  yes        yes         64.04 GiB    4.35 GiB  59.70 GiB
+         data1    running  yes        yes          3.58 TiB   68.01 MiB   3.58 TiB
+         data2    running  yes        yes          3.58 TiB    2.55 TiB   1.03 TiB
+         default  running  no         yes         64.04 GiB    4.35 GiB  59.70 GiB
+         init     running  yes        yes         91.54 GiB    1.58 GiB  89.96 GiB
+         live     running  yes        yes         91.54 GiB    1.58 GiB  89.96 GiB
+
+
+# -----------------------------------------------------
+# List the pool paths.
+#[user@trop03]
+
+    for poolname in $(
+        virsh \
+            --quiet \
+            --connect ${connection:?} \
+            pool-list --all \
+          | sed '
+            s/[[:space:]]*\([^[:space:]]*\)[[:space:]]*\([^[:space:]]*\)[[:space:]]*\([^[:space:]]*\)/\1/
+            '
+        )
+        do
+            poolpath=$(
+                virsh \
+                    --connect ${connection:?} \
+                    pool-dumpxml \
+                        "${poolname:?}" \
+                  | xmlstarlet select -t -v '//target/path'
+                )
+            echo ""
+            echo "Name [${poolname}]"
+            echo "Path [${poolpath}]"
+        done
+
+
+        Name [base]
+        Path [/var/lib/libvirt/images/base]
+
+        Name [data1]
+        Path [/data1/libvirt/images/data1]
+
+        Name [data2]
+        Path [/data2/libvirt/images/data2]
+
+        Name [default]
+        Path [/var/lib/libvirt/images]
+
+        Name [init]
+        Path [/libvirt/images/init]
+
+        Name [live]
+        Path [/libvirt/images/live]
+
+# -----------------------------------------------------
+# Create a test VM.
+#[user@trop03]
+
+    createvm
+
+        INFO : Base pool  [base]
+        INFO : Live pool  [live]
+        INFO : Connection [qemu:///system]
+
+        INFO : Data path  [/var/local/projects/ischnura/github/src/dat]
+
+        INFO : Machines   [/var/local/projects/ischnura/github/src/dat/tropo-machines.txt]
+        INFO : Template   [/var/local/projects/ischnura/github/src/dat/tropo-template.xml]
+
+        [1] Umiawyth
+        [2] Etalema
+        [3] Greand
+        [4] Nydiralle
+        [5] Kedaekoth
+        [6] Onelith
+        [7] Elaleld
+        [8] Afoaviel
+        Select machine name (1) 1
+
+        [1] fedora-28-8G-docker-base-20181016.qcow
+        [2] fedora-28-32G-docker-base-20181016.qcow
+        [3] fedora-28-16G-docker-base-20181016.qcow
+        Select base image (1) 1
+
+        INFO : Node name [Umiawyth]
+        INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+        INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+        INFO : Disc name [Umiawyth.qcow]
+        INFO : Disc size [8GiB]
+
+        INFO : MAC  [52:54:00:02:03:08]
+        INFO : IPv4 [192.168.203.8]
+        INFO : IPv6 []
+
+        Create virtual machine (Y/n)
+
+        Creating new volume [Umiawyth.qcow]
+        Name:           Umiawyth.qcow
+        Type:           file
+        Capacity:       8.00 GiB
+        Allocation:     196.00 KiB
+
+        Creating new virtual machine [Umiawyth]
+        Starting new virtual machine [Umiawyth]
+
+# -----------------------------------------------------
+# Test our test VM.
+#[user@trop03]
+
+    ssh Umiawyth
+
+        cat /etc/redhat-release
+
+        >   Fedora release 28 (Twenty Eight)
+
+        uname -n
+
+        >   Umiawyth
+
+        uname -r
+
+        >   4.18.13-200.fc28.x86_64
+
+        docker run --rm -i -t fedora bash
+
+            cat /etc/redhat-release
+
+            >   Fedora release 29 (Twenty Nine)
+
+            uname -n
+
+            >   3b018149e7c2
+
+            uname -r
+
+            >   4.18.13-200.fc28.x86_64
+
+            exit
+        exit
+
+

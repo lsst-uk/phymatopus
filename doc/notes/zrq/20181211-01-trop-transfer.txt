@@ -1,0 +1,487 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2018, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+# -----------------------------------------------------
+# Load our libvirt configuration.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+# -----------------------------------------------------
+# Configure our SSH settings.
+#[user@trop03]
+
+    sshuser=Stevedore
+    sshopts=(
+        '-A'
+        '-o LogLevel=ERROR'
+        '-o CheckHostIP=no'
+        '-o UserKnownHostsFile=/dev/null'
+        '-o StrictHostKeyChecking=no'
+        )
+
+    scpopts=(
+        '-o LogLevel=ERROR'
+        '-o CheckHostIP=no'
+        '-o UserKnownHostsFile=/dev/null'
+        '-o StrictHostKeyChecking=no'
+        )
+
+# -----------------------------------------------------
+# Assign our virtual machine names.
+#[user@trop03]
+
+    kfnames=(
+        Stedigo
+        Angece
+        Edwalafia
+        Onoza
+        )
+
+    zknames=(
+        Fosauri
+        Marpus
+        Byflame
+        )
+
+    mmnames=(
+        Afoaviel
+        Rusaldez
+        )
+
+# -----------------------------------------------------
+# Create our MirrorMaker nodes.
+#[user@trop03]
+
+    createvm
+
+    >   INFO : Node name [Afoaviel]
+    >   INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Disc name [Afoaviel.qcow]
+    >   INFO : Disc size [8GiB]
+    >
+    >   INFO : MAC  [52:54:00:02:03:0F]
+    >   INFO : IPv4 [192.168.203.15]
+
+    createvm
+
+    >   INFO : Node name [Rusaldez]
+    >   INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Disc name [Rusaldez.qcow]
+    >   INFO : Disc size [8GiB]
+    >
+    >   INFO : MAC  [52:54:00:02:03:10]
+    >   INFO : IPv4 [192.168.203.16]
+
+# -----------------------------------------------------
+# Update the number of cores on our MirrorMaker nodes.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+    for vmname in ${mmnames[@]}
+        do
+            virsh \
+                --connect ${connection:?} \
+                    setvcpus \
+                    ${vmname:?} \
+                    2 \
+                    --maximum \
+                    --config
+        done
+
+# -----------------------------------------------------
+# Shutdown and restart each of our MirrorMaker nodes.
+#[user@trop03]
+
+    for vmname in ${mmnames[@]}
+        do
+            virsh \
+                --connect ${connection:?} \
+                    shutdown \
+                    ${vmname:?}
+        done
+
+    sleep 30
+
+    for vmname in ${mmnames[@]}
+        do
+            virsh \
+                --connect ${connection:?} \
+                    start \
+                    ${vmname:?}
+        done
+
+    >   Domain Afoaviel is being shutdown
+    >   Domain Rusaldez is being shutdown
+    >
+    >   Domain Afoaviel started
+    >   Domain Rusaldez started
+
+# -----------------------------------------------------
+# Check the number of cores on our Zookeeper nodes.
+#[user@trop03]
+
+    for vmname in ${mmnames[@]}
+        do
+            virsh \
+                --quiet \
+                --connect ${connection:?} \
+                    dumpxml \
+                        "${vmname}" \
+            | xmlstarlet \
+                select \
+                    --root \
+                    --indent \
+                    --template \
+                        --copy-of '//domain/name' \
+                        --copy-of '//domain/vcpu'
+
+        done
+
+    >   <xsl-select>
+    >     <name>Afoaviel</name>
+    >     <vcpu placement="static">2</vcpu>
+    >   </xsl-select>
+    >   <xsl-select>
+    >     <name>Rusaldez</name>
+    >     <vcpu placement="static">2</vcpu>
+    >   </xsl-select>
+
+# -----------------------------------------------------
+# Collect the IP addreses of our Kafka nodes.
+#[user@trop03]
+
+    unset kfnodes
+    declare -A kfnodes
+
+    for vmname in ${kfnames[@]}
+        do
+            vmipv4=$(
+                virsh \
+                    --connect ${connection:?} \
+                        net-dumpxml \
+                            'default' \
+                | xmlstarlet \
+                    select \
+                        --template \
+                            --value-of "//host[@name=\"${vmname}\"]/@ip"
+                )
+            echo "vmname [${vmname}]"
+            echo "vmipv4 [${vmipv4}]"
+            kfnodes[${vmname}]=${vmipv4}
+        done
+
+    >   vmname [Stedigo]
+    >   vmipv4 [192.168.203.17]
+    >   vmname [Angece]
+    >   vmipv4 [192.168.203.18]
+    >   vmname [Edwalafia]
+    >   vmipv4 [192.168.203.19]
+    >   vmname [Onoza]
+    >   vmipv4 [192.168.203.20]
+
+    kftemp=${kfnodes[*]}
+    kflist=${kftemp// /:9092,}
+
+# -----------------------------------------------------
+# Create our Kafka connection strings.
+#[user@trop03]
+
+    roetemp=${kfnodes[*]}
+
+    ztftopicid=ztf_20181203_programid1
+    ztfconnect=public.alerts.ztf.uw.edu:9092
+    roeconnect=${roetemp// /:9092,}:9092
+    roegroupid=ztf-mirror.roe.ac.uk
+
+    echo "
+---- ----
+ztftopicid [${ztftopicid:?}]
+ztfconnect [${ztfconnect:?}]
+roeconnect [${roeconnect:?}]
+roegroupid [${roegroupid:?}]
+---- ----
+"
+
+    >   ---- ----
+    >   ztftopicid [ztf_20181203_programid1]
+    >   ztfconnect [public.alerts.ztf.uw.edu:9092]
+    >   roeconnect [192.168.203.19:9092,192.168.203.20:9092,192.168.203.18:9092,192.168.203.17:9092]
+    >   roegroupid [ztf-mirror.roe.ac.uk]
+    >   ---- ----
+
+# -----------------------------------------------------
+# Create our Docker Compose mirror.yml compose file.
+#[user@trop03]
+
+cat > /tmp/mirror.yml << 'EOYML'
+
+version: "3.2"
+
+services:
+
+    tina:
+        image:
+            phymatopus/kafka-core
+        volumes:
+            - ${HOME}/producer.config:/etc/mirror/producer.config
+            - ${HOME}/consumer.config:/etc/mirror/consumer.config
+        environment:
+                KAFKA_HEAP_OPTS: -Xmx1G
+        command: [
+             "bin/kafka-mirror-maker.sh",
+             "--num.streams",
+             "${numstreams}",
+             "--consumer.config",
+             "/etc/mirror/consumer.config",
+             "--producer.config",
+             "/etc/mirror/producer.config",
+             "--whitelist",
+             "${ztftopicid}"
+             ]
+EOYML
+
+# -----------------------------------------------------
+# Deploy our Docker Compose mirror.yml compose file.
+#[user@trop03]
+
+    for vmname in ${mmnames[@]}
+        do
+            scp \
+                ${scpopts[*]} \
+                /tmp/mirror.yml \
+                ${sshuser:?}@${vmname:?}:mirror.yml
+        done
+
+    >   mirror.yml  100%  705     1.4MB/s   00:00
+    >   mirror.yml  100%  705     1.4MB/s   00:00
+
+# -----------------------------------------------------
+# Create our Kafka consumer.config file.
+#[user@trop03]
+
+cat > /tmp/consumer.config << EOCFG
+
+group.id=${roegroup:?}
+bootstrap.servers=${ztfconnect:?}
+security.protocol=PLAINTEXT
+
+auto.offset.reset=earliest
+exclude.internal.topics=true
+
+#
+# From zads-terraform
+# https://github.com/dirac-institute/zads-terraform/blob/master/provisioning/broker/config/consumer.properties
+partition.assignment.strategy=org.apache.kafka.clients.consumer.RoundRobinAssignor
+session.timeout.ms=60000
+
+EOCFG
+
+# -----------------------------------------------------
+# Deploy our Kafka consumer.config file.
+#[user@trop03]
+
+    for vmname in ${mmnames[@]}
+        do
+            scp \
+                ${scpopts[*]} \
+                /tmp/consumer.config \
+                ${sshuser:?}@${vmname:?}:consumer.config
+        done
+
+    >   consumer.config     100%  409   745.9KB/s   00:00
+    >   consumer.config     100%  409   646.7KB/s   00:00
+
+# -----------------------------------------------------
+# Create our Kafka producer.config file.
+#[user@trop03]
+
+cat > /tmp/producer.config << EOCFG
+
+bootstrap.servers=${roeconnect:?}
+security.protocol=PLAINTEXT
+
+acks=all
+
+EOCFG
+
+# -----------------------------------------------------
+# Deploy our Kafka producer.config file.
+#[user@trop03]
+
+    for vmname in ${mmnames[@]}
+        do
+            scp \
+                ${scpopts[*]} \
+                /tmp/producer.config \
+                ${sshuser:?}@${vmname:?}:producer.config
+        done
+
+    >   producer.config     100%  133   234.4KB/s   00:00
+    >   producer.config     100%  133   270.8KB/s   00:00
+
+# -----------------------------------------------------
+# Create our Docker Compose mirror.env config file.
+#[user@trop03]
+
+cat > /tmp/mirror.env << EOCFG
+
+numstreams=4
+ztftopicid=${ztftopicid}
+
+EOCFG
+
+# -----------------------------------------------------
+# Deploy our Docker Compose mirror.env file.
+#[user@trop03]
+
+    for vmname in ${mmnames[@]}
+        do
+            scp \
+                ${scpopts[*]} \
+                /tmp/mirror.env \
+                ${sshuser:?}@${vmname:?}:mirror.env
+        done
+
+    >   mirror.env      100%  208   341.5KB/s   00:00
+    >   mirror.env      100%  208   423.7KB/s   00:00
+
+# -----------------------------------------------------
+# Link our Docker Compose mirror.env file.
+#[user@trop03]
+
+    for vmname in ${mmnames[@]}
+        do
+            ssh \
+                ${scpopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                ln -sf mirror.env .env
+                "
+        done
+
+# -----------------------------------------------------
+# Check our deployed config files.
+#[user@trop03]
+
+    for vmname in ${mmnames[@]}
+        do
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    echo '---- ----'
+                    hostname
+                    ls -al .env
+                    echo '----'
+                    cat mirror.env
+                    echo '----'
+                    cat mirror.yml
+                    echo '----'
+                    cat consumer.config
+                    echo '----'
+                    cat producer.config
+                    "
+        done
+
+
+        ....
+        ....
+
+# -----------------------------------------------------
+# Start MirrorMaker on each node.
+#[user@trop03]
+
+    for vmname in ${mmnames[@]}
+        do
+            echo "---- ----"
+            ssh \
+                ${scpopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                hostname
+                docker-compose \
+                    --file mirror.yml \
+                    up -d
+                "
+        done
+
+# -----------------------------------------------------
+# Login and tail the logs (separate terminals).
+#[user@trop03]
+
+    ssh trop03
+        ssh Afoaviel
+        ssh Rusaldez
+
+            docker logs -f stevedore_tina_1
+
+
+
+
+# -----------------------------------------------------
+# Update the topic and restart MirrorMaker on each node.
+#[user@trop03]
+
+    ztftopicid=ztf_20181205_programid1
+
+    for vmname in ${mmnames[@]}
+        do
+            echo "---- ----"
+            ssh \
+                ${scpopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                hostname
+                docker-compose \
+                    --file mirror.yml \
+                    down
+                sed -i \"
+                    s/^ztftopicid=.*/ztftopicid=${ztftopicid:?}/
+                    \" mirror.env
+                docker-compose \
+                    --file mirror.yml \
+                    up -d
+                "
+        done
+
+# -----------------------------------------------------
+# Stop MirrorMaker on each node.
+#[user@trop03]
+
+    for vmname in ${mmnames[@]}
+        do
+            echo "---- ----"
+            ssh \
+                ${scpopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                hostname
+                docker-compose \
+                    --file mirror.yml \
+                    down
+                "
+        done
+

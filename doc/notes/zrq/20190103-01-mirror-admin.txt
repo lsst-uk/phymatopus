@@ -1,0 +1,351 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+# -----------------------------------------------------
+# Load our libvirt configuration.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+# -----------------------------------------------------
+# Configure our SSH settings.
+#[user@trop03]
+
+    sshuser=Stevedore
+    sshopts=(
+        '-A'
+        '-o LogLevel=ERROR'
+        '-o CheckHostIP=no'
+        '-o UserKnownHostsFile=/dev/null'
+        '-o StrictHostKeyChecking=no'
+        )
+
+    scpopts=(
+        '-o LogLevel=ERROR'
+        '-o CheckHostIP=no'
+        '-o UserKnownHostsFile=/dev/null'
+        '-o StrictHostKeyChecking=no'
+        )
+
+# -----------------------------------------------------
+# Assign our virtual machine names.
+#[user@trop03]
+
+    kfnames=(
+        Stedigo
+        Angece
+        Edwalafia
+        Onoza
+        )
+
+    zknames=(
+        Fosauri
+        Marpus
+        Byflame
+        )
+
+    mmnames=(
+        Afoaviel
+        Rusaldez
+        )
+
+# -----------------------------------------------------
+# Check our client offsets in the ZTF broker.
+#[user@trop03]
+
+    devnode=Rusaldez
+
+    ztfconnect=public.alerts.ztf.uw.edu:9092
+    roegroupid=ztf-mirror.roe.ac.uk
+
+    date ; \
+    ssh \
+        ${sshopts[*]} \
+        ${sshuser:?}@${devnode:?} \
+        "
+        docker run --rm phymatopus/kafka-core \
+            bin/kafka-consumer-groups.sh \
+                --bootstrap-server "${ztfconnect:?}" \
+                --describe \
+                --group "${roegroupid:?}"
+         " \
+    | sort \
+    ; date
+
+    >   Thu  3 Jan 13:43:13 GMT 2019
+    >   Note: This will not show information about old Zookeeper-based consumers.
+    >   Thu  3 Jan 13:43:19 GMT 2019
+
+# -----------------------------------------------------
+# Check the containers on each Kafka node.
+#[user@trop03]
+
+    for vmname in ${kfnames[@]}
+        do
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    echo \"---- ---- ---- ----\"
+                    echo \"[\$(hostname)][\$(date)]\"
+                    echo \"---- ----\"
+
+                    docker ps -a
+
+                    "
+        done
+
+    >   ---- ---- ---- ----
+    >   [Stedigo][Thu  3 Jan 13:45:24 GMT 2019]
+    >   ---- ----
+    >   CONTAINER ID        IMAGE                         COMMAND                  CREATED             STATUS              PORTS                              NAMES
+    >   cd4f0a1d987b        confluentinc/cp-kafka:4.1.1   "/etc/confluent/dock…"   10 days ago         Up 10 days          0.0.0.0:9092-9093->9092-9093/tcp   stevedore_emily_1
+    >   ---- ---- ---- ----
+    >   [Angece][Thu  3 Jan 13:45:25 GMT 2019]
+    >   ---- ----
+    >   CONTAINER ID        IMAGE                         COMMAND                  CREATED             STATUS              PORTS                              NAMES
+    >   c656d5adb6d2        confluentinc/cp-kafka:4.1.1   "/etc/confluent/dock…"   10 days ago         Up 10 days          0.0.0.0:9092-9093->9092-9093/tcp   stevedore_emily_1
+    >   ---- ---- ---- ----
+    >   [Edwalafia][Thu  3 Jan 13:45:26 GMT 2019]
+    >   ---- ----
+    >   CONTAINER ID        IMAGE                         COMMAND                  CREATED             STATUS              PORTS                              NAMES
+    >   7fba134176e8        confluentinc/cp-kafka:4.1.1   "/etc/confluent/dock…"   10 days ago         Up 10 days          0.0.0.0:9092-9093->9092-9093/tcp   stevedore_emily_1
+    >   ---- ---- ---- ----
+    >   [Onoza][Thu  3 Jan 13:45:27 GMT 2019]
+    >   ---- ----
+    >   CONTAINER ID        IMAGE                         COMMAND                  CREATED             STATUS              PORTS                              NAMES
+    >   8fa6618128e2        confluentinc/cp-kafka:4.1.1   "/etc/confluent/dock…"   10 days ago         Up 10 days          0.0.0.0:9092-9093->9092-9093/tcp   stevedore_emily_1
+
+
+# -----------------------------------------------------
+# Check the disc space on each Kafka node.
+#[user@trop03]
+
+    for vmname in ${kfnames[@]}
+        do
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    echo \"---- ---- ---- ----\"
+                    echo \"[\$(hostname)][\$(date)]\"
+                    echo \"---- ----\"
+
+                    df -h /
+                    echo \"---- ----\"
+                    df -h \"/data1-01\"
+                    echo \"---- ----\"
+                    df -h \"/data1-02\"
+
+                    echo "---- ----"
+                    df -h \"/data2-01\"
+                    echo "---- ----"
+                    df -h \"/data2-02\"
+                    "
+        done
+
+    >   ---- ---- ---- ----
+    >   [Stedigo][Thu  3 Jan 13:45:52 GMT 2019]
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vda3       6.8G  2.5G  3.8G  40% /
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdc         32G   31G   12K 100% /data1-01
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vde         64G   33G   30G  54% /data1-02
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdd         32G   31G   20K 100% /data2-01
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdf         64G   31G   32G  50% /data2-02
+    >   ---- ---- ---- ----
+    >   [Angece][Thu  3 Jan 13:45:52 GMT 2019]
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vda3       6.8G  2.6G  3.8G  41% /
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdc         32G   31G   12K 100% /data1-01
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vde         64G   35G   28G  56% /data1-02
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdd         32G   31G   12K 100% /data2-01
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdf         64G   31G   32G  50% /data2-02
+    >   ---- ---- ---- ----
+    >   [Edwalafia][Thu  3 Jan 13:45:53 GMT 2019]
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vda3       6.8G  2.5G  3.8G  40% /
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdc         32G   31G   32K 100% /data1-01
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vde         64G   32G   31G  52% /data1-02
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdd         32G   31G  4.0K 100% /data2-01
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdf         64G   32G   31G  52% /data2-02
+    >   ---- ---- ---- ----
+    >   [Onoza][Thu  3 Jan 13:45:53 GMT 2019]
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vda3       6.8G  2.5G  3.8G  40% /
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdc         32G   31G   12K 100% /data1-01
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vde         64G   31G   32G  50% /data1-02
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdd         32G   31G   20K 100% /data2-01
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdf         64G   33G   30G  54% /data2-02
+
+
+# -----------------------------------------------------
+# Update the topic and restart MirrorMaker on each node.
+#[user@trop03]
+
+    ztftopicid=ztf_20190101_programid1
+    ztftopicid=ztf_20190102_programid1
+    ztftopicid=ztf_20190103_programid1
+    ztftopicid=ztf_20190104_programid1
+    ztftopicid=ztf_20190105_programid1
+    ztftopicid=ztf_20190106_programid1
+
+    for vmname in ${mmnames[@]}
+        do
+            echo "---- ----"
+            echo "vmname [${vmname:?}]"
+            ssh \
+                ${scpopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                docker-compose \
+                    --file mirror.yml \
+                    down
+                sed -i \"
+                    s/^ztftopicid=.*/ztftopicid=${ztftopicid:?}/
+                    \" mirror.env
+                docker-compose \
+                    --file mirror.yml \
+                    up -d
+                "
+        done
+
+    >   ---- ----
+    >   vmname [Afoaviel]
+    >   Stopping stevedore_tina_1 ... done
+    >   Removing stevedore_tina_1 ... done
+    >   Removing network stevedore_default
+    >   Creating network "stevedore_default" with the default driver
+    >   Creating stevedore_tina_1 ... done
+    >   ---- ----
+    >   vmname [Rusaldez]
+    >   Stopping stevedore_tina_1 ... done
+    >   Removing stevedore_tina_1 ... done
+    >   Removing network stevedore_default
+    >   Creating network "stevedore_default" with the default driver
+    >   Creating stevedore_tina_1 ... done
+
+
+# -----------------------------------------------------
+# Check our client offsets in the ZTF broker.
+#[user@trop03]
+
+    devnode=Rusaldez
+
+    ztfconnect=public.alerts.ztf.uw.edu:9092
+    roegroupid=ztf-mirror.roe.ac.uk
+
+    offsetcheck()
+        {
+        date ; \
+        ssh \
+            ${sshopts[*]} \
+            ${sshuser:?}@${devnode:?} \
+            "
+            docker run --rm phymatopus/kafka-core \
+                bin/kafka-consumer-groups.sh \
+                    --bootstrap-server "${ztfconnect:?}" \
+                    --describe \
+                    --group "${roegroupid:?}"
+             " \
+        | sort \
+        ; date
+        }
+
+    offsetcheck
+
+    >   Thu  3 Jan 13:50:24 GMT 2019
+    >   TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                 HOST            CLIENT-ID
+    >   ztf_20190103_programid1 0          495             10368           9873            ztf-mirror.roe.ac.uk-0-7fc2f557-cddd-449c-98d4-8b35d8d9a3f1 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20190103_programid1 10         450             10369           9919            ztf-mirror.roe.ac.uk-1-e766f4c8-9fe0-4132-81cc-6c73e3e4abff /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20190103_programid1 11         496             10368           9872            ztf-mirror.roe.ac.uk-1-fc7d105d-6e29-4bcd-a7a7-252bddf033c9 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20190103_programid1 12         496             10369           9873            ztf-mirror.roe.ac.uk-2-1b2b7790-fe30-4aa0-a17e-ca611f3135fa /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20190103_programid1 13         453             10369           9916            ztf-mirror.roe.ac.uk-2-854305ed-5ad6-4929-986e-f28f6b1de1d6 /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20190103_programid1 1          454             10369           9915            ztf-mirror.roe.ac.uk-0-9c74ab7d-8b51-483a-9eb0-187d037a3128 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20190103_programid1 2          451             10369           9918            ztf-mirror.roe.ac.uk-1-e766f4c8-9fe0-4132-81cc-6c73e3e4abff /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20190103_programid1 3          494             10369           9875            ztf-mirror.roe.ac.uk-1-fc7d105d-6e29-4bcd-a7a7-252bddf033c9 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20190103_programid1 4          494             10369           9875            ztf-mirror.roe.ac.uk-2-1b2b7790-fe30-4aa0-a17e-ca611f3135fa /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20190103_programid1 5          453             10369           9916            ztf-mirror.roe.ac.uk-2-854305ed-5ad6-4929-986e-f28f6b1de1d6 /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20190103_programid1 6          906             10369           9463            ztf-mirror.roe.ac.uk-3-5316ecbe-6b15-45e7-8e19-d800b6bcf968 /129.215.175.98 ztf-mirror.roe.ac.uk-3
+    >   ztf_20190103_programid1 7          965             10369           9404            ztf-mirror.roe.ac.uk-3-a7c759b2-6593-41ea-8a0f-e4480de531d5 /129.215.175.98 ztf-mirror.roe.ac.uk-3
+    >   ztf_20190103_programid1 8          496             10368           9872            ztf-mirror.roe.ac.uk-0-7fc2f557-cddd-449c-98d4-8b35d8d9a3f1 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20190103_programid1 9          453             10369           9916            ztf-mirror.roe.ac.uk-0-9c74ab7d-8b51-483a-9eb0-187d037a3128 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   Thu  3 Jan 13:50:32 GMT 2019
+
+
+    >   Sat  5 Jan 01:59:53 GMT 2019
+    >   TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                 HOST            CLIENT-ID
+    >   ztf_20190104_programid1 0          505             15601           15096           ztf-mirror.roe.ac.uk-0-0d7935e2-4084-438c-85bc-9c0d04791129 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20190104_programid1 10         505             15602           15097           ztf-mirror.roe.ac.uk-1-96b4c926-2a3e-4114-966f-22b5939bd4d4 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20190104_programid1 11         468             15601           15133           ztf-mirror.roe.ac.uk-1-9eff7eb7-bd4c-4bb1-ac1d-061ae316a02d /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20190104_programid1 12         508             15602           15094           ztf-mirror.roe.ac.uk-2-6f8a11d0-01a8-4547-acc3-75b0d0daff97 /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20190104_programid1 13         463             15602           15139           ztf-mirror.roe.ac.uk-2-e074559a-24a9-41aa-89be-1db6aedb5313 /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20190104_programid1 1          463             15602           15139           ztf-mirror.roe.ac.uk-0-518da34d-1a7b-442c-afc0-e3c040ff72ba /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20190104_programid1 2          507             15602           15095           ztf-mirror.roe.ac.uk-1-96b4c926-2a3e-4114-966f-22b5939bd4d4 /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20190104_programid1 3          462             15601           15139           ztf-mirror.roe.ac.uk-1-9eff7eb7-bd4c-4bb1-ac1d-061ae316a02d /129.215.175.98 ztf-mirror.roe.ac.uk-1
+    >   ztf_20190104_programid1 4          507             15602           15095           ztf-mirror.roe.ac.uk-2-6f8a11d0-01a8-4547-acc3-75b0d0daff97 /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20190104_programid1 5          465             15602           15137           ztf-mirror.roe.ac.uk-2-e074559a-24a9-41aa-89be-1db6aedb5313 /129.215.175.98 ztf-mirror.roe.ac.uk-2
+    >   ztf_20190104_programid1 6          908             15601           14693           ztf-mirror.roe.ac.uk-3-685f1888-8368-4bf3-a894-0431336005ec /129.215.175.98 ztf-mirror.roe.ac.uk-3
+    >   ztf_20190104_programid1 7          969             15602           14633           ztf-mirror.roe.ac.uk-3-d8f4f2d7-6d36-479f-8e65-feadba9b3715 /129.215.175.98 ztf-mirror.roe.ac.uk-3
+    >   ztf_20190104_programid1 8          504             15601           15097           ztf-mirror.roe.ac.uk-0-0d7935e2-4084-438c-85bc-9c0d04791129 /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   ztf_20190104_programid1 9          462             15602           15140           ztf-mirror.roe.ac.uk-0-518da34d-1a7b-442c-afc0-e3c040ff72ba /129.215.175.98 ztf-mirror.roe.ac.uk-0
+    >   Sat  5 Jan 02:00:01 GMT 2019
+
+    TODO - add a controller node
+    TODO - add a cron update
+    TODO - add a cron monitor
+
