@@ -24,15 +24,19 @@
     doc/notes/zrq/20181210-01-trop-transfer.txt
 
 # -----------------------------------------------------
-# Create our Zookeeper nodes.
-# TODO scriptable createvm
+# Our Zookeeper nodes.
 #[user@trop03]
 
-    zknames=(
+    zknodes=(
         Fosauri
         Marpus
         Byflame
         )
+
+# -----------------------------------------------------
+# Create our Zookeeper nodes.
+# TODO scriptable createvm
+#[user@trop03]
 
     createvm
 
@@ -91,7 +95,7 @@ INFO : IPv4 [192.168.210.176]
 
     source "${HOME}/libvirt.settings"
 
-    for vmname in ${zknames[@]}
+    for vmname in ${zknodes[@]}
         do
             virsh \
                 --connect ${connection:?} \
@@ -106,7 +110,7 @@ INFO : IPv4 [192.168.210.176]
 # Shutdown and restart each of our Zookeeper nodes.
 #[user@trop03]
 
-    for vmname in ${zknames[@]}
+    for vmname in ${zknodes[@]}
         do
             virsh \
                 --connect ${connection:?} \
@@ -116,7 +120,7 @@ INFO : IPv4 [192.168.210.176]
 
     sleep 30
 
-    for vmname in ${zknames[@]}
+    for vmname in ${zknodes[@]}
         do
             virsh \
                 --connect ${connection:?} \
@@ -141,7 +145,7 @@ Domain Byflame started
 # Check the number of cores on our Zookeeper nodes.
 #[user@trop03]
 
-    for vmname in ${zknames[@]}
+    for vmname in ${zknodes[@]}
         do
             virsh \
                 --quiet \
@@ -163,6 +167,88 @@ Marpus    2
 Byflame   2
 --END--
 
+# -----------------------------------------------------
+# Build a list of lists of zookeeper addresses.
+# Each instance gets a lits of the other server names,
+# with it's own address set to 0.0.0.0 to make this
+# instance listen on all interfaces.
+#[user@trop03]
+
+    unset zkservers
+    declare -a zkservers=()
+
+    for i in {0..2}
+    do
+
+        delim=''
+        ports=':2888:3888'
+        servers=''
+
+        for j in {0..2}
+        do
+
+
+            if [[ $i -eq $j ]]
+            then
+                server="0.0.0.0"
+            else
+                server="${zknodes[${j}]}"
+            fi
+            servers=${servers}${delim}${server}${ports}
+            delim=';'
+            j=$(($j + 1))
+        done
+        zkservers+=(${servers})
+    done
+
+    for i in {0..2}
+    do
+        echo "list[${i}] [${zkservers[${i}]}]"
+    done
+
+
+# -----------------------------------------------------
+# Create our compose YAML file.
+#[user@trop03]
+
+cat > /tmp/zookeeper.yml << 'EOYML'
+
+version: '3'
+
+networks:
+    zookeeper:
+
+volumes:
+    zklog:
+    zkdata:
+
+services:
+
+    courtney:
+        image:
+            confluentinc/cp-zookeeper:4.1.1
+        ports:
+            - "2181:2181"
+            - "2888:2888"
+            - "3888:3888"
+        environment:
+            - ZOOKEEPER_SERVER_ID=${ZOOKEEPER_SERVER_ID}
+            - ZOOKEEPER_SERVERS=${ZOOKEEPER_SERVERS}
+            - ZOOKEEPER_TICK_TIME=2000
+            - ZOOKEEPER_INIT_LIMIT=5
+            - ZOOKEEPER_SYNC_LIMIT=2
+            - ZOOKEEPER_CLIENT_PORT=2181
+            - ZOOKEEPER_CLIENT_PORT_ADDRESS=0.0.0.0
+        volumes:
+            - "zklog:/var/lib/zookeeper/log"
+            - "zkdata:/var/lib/zookeeper/data"
+        networks:
+            - zookeeper
+
+EOYML
 
 
 
+
+
+"${HOME}/ssh-options"
