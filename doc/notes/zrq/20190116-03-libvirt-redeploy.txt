@@ -1,0 +1,168 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+    TODO - install Zookeeper ..
+    doc/notes/zrq/20181210-01-trop-transfer.txt
+
+# -----------------------------------------------------
+# Create our Zookeeper nodes.
+# TODO scriptable createvm
+#[user@trop03]
+
+    zknames=(
+        Fosauri
+        Marpus
+        Byflame
+        )
+
+    createvm
+
+--START--
+INFO : Node name [Fosauri]
+INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+INFO : Disc name [Fosauri.qcow]
+INFO : Disc size [8GiB]
+
+INFO : node [13]
+INFO : MAC  [52:54:0:0:D2:8E]
+INFO : IPv4 [192.168.210.142]
+INFO : MAC  [52:54:0:0:D2:AE]
+INFO : IPv4 [192.168.210.174]
+--END--
+
+
+    createvm
+
+--START--
+INFO : Node name [Marpus]
+INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+INFO : Disc name [Marpus.qcow]
+INFO : Disc size [8GiB]
+
+INFO : node [14]
+INFO : MAC  [52:54:0:0:D2:8F]
+INFO : IPv4 [192.168.210.143]
+INFO : MAC  [52:54:0:0:D2:AF]
+INFO : IPv4 [192.168.210.175]
+--END--
+
+
+    createvm
+
+--START--
+INFO : Node name [Byflame]
+INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+INFO : Disc name [Byflame.qcow]
+INFO : Disc size [8GiB]
+
+INFO : node [15]
+INFO : MAC  [52:54:0:0:D2:90]
+INFO : IPv4 [192.168.210.144]
+INFO : MAC  [52:54:0:0:D2:B0]
+INFO : IPv4 [192.168.210.176]
+--END--
+
+
+# -----------------------------------------------------
+# Update the number of cores on our Zookeeper nodes.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+    for vmname in ${zknames[@]}
+        do
+            virsh \
+                --connect ${connection:?} \
+                    setvcpus \
+                    ${vmname:?} \
+                    2 \
+                    --maximum \
+                    --config
+        done
+
+# -----------------------------------------------------
+# Shutdown and restart each of our Zookeeper nodes.
+#[user@trop03]
+
+    for vmname in ${zknames[@]}
+        do
+            virsh \
+                --connect ${connection:?} \
+                    shutdown \
+                    ${vmname:?}
+        done
+
+    sleep 30
+
+    for vmname in ${zknames[@]}
+        do
+            virsh \
+                --connect ${connection:?} \
+                    start \
+                    ${vmname:?}
+        done
+
+--START--
+Domain Fosauri is being shutdown
+Domain Marpus is being shutdown
+Domain Byflame is being shutdown
+--END--
+
+--START--
+Domain Fosauri started
+Domain Marpus started
+Domain Byflame started
+--END--
+
+
+# -----------------------------------------------------
+# Check the number of cores on our Zookeeper nodes.
+#[user@trop03]
+
+    for vmname in ${zknames[@]}
+        do
+            virsh \
+                --quiet \
+                --connect ${connection:?} \
+                    dumpxml \
+                        "${vmname}" \
+            | xmlstarlet \
+                select \
+                    --text \
+                    --template \
+                        --output "$(printf '%-10s' ${vmname})" \
+                        --value-of "domain/vcpu" \
+                        --nl
+        done
+
+--START--
+Fosauri   2
+Marpus    2
+Byflame   2
+--END--
+
+
+
+

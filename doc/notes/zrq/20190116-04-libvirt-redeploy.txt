@@ -1,0 +1,458 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+    TODO Install Kafka ...
+    doc/notes/zrq/20181210-02-trop-transfer.txt
+    doc/notes/zrq/20181210-03-trop-transfer.txt
+    doc/notes/zrq/20181211-02-trop-transfer.txt
+
+    Fixed
+    doc/notes/zrq/20181211-03-trop-transfer.txt
+
+
+# -----------------------------------------------------
+# Create a new set of Kafka nodes.
+# TODO scriptable createvm
+#[user@trop03]
+
+    kfnames=(
+        Stedigo
+        Angece
+        Edwalafia
+        Onoza
+        )
+
+    createvm
+
+--START--
+INFO : Node name [Stedigo]
+INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+INFO : Disc name [Stedigo.qcow]
+INFO : Disc size [8GiB]
+
+INFO : node [9]
+INFO : MAC  [52:54:0:0:D2:8A]
+INFO : IPv4 [192.168.210.138]
+INFO : MAC  [52:54:0:0:D2:AA]
+INFO : IPv4 [192.168.210.170]
+--END--
+
+
+    createvm
+
+--START--
+INFO : Node name [Angece]
+INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+INFO : Disc name [Angece.qcow]
+INFO : Disc size [8GiB]
+
+INFO : node [10]
+INFO : MAC  [52:54:0:0:D2:8B]
+INFO : IPv4 [192.168.210.139]
+INFO : MAC  [52:54:0:0:D2:AB]
+INFO : IPv4 [192.168.210.171]
+--END--
+
+
+    createvm
+
+--START--
+INFO : Node name [Edwalafia]
+INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+INFO : Disc name [Edwalafia.qcow]
+INFO : Disc size [8GiB]
+
+INFO : node [11]
+INFO : MAC  [52:54:0:0:D2:8C]
+INFO : IPv4 [192.168.210.140]
+INFO : MAC  [52:54:0:0:D2:AC]
+INFO : IPv4 [192.168.210.172]
+--END--
+
+
+    createvm
+
+--START--
+INFO : Node name [Onoza]
+INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+INFO : Disc name [Onoza.qcow]
+INFO : Disc size [8GiB]
+
+INFO : node [12]
+INFO : MAC  [52:54:0:0:D2:8D]
+INFO : IPv4 [192.168.210.141]
+INFO : MAC  [52:54:0:0:D2:AD]
+INFO : IPv4 [192.168.210.173]
+--END--
+
+
+# -----------------------------------------------------
+# Attach the existing data volumes to each Kafka node.
+#[user@trop03]
+
+    while read line
+    do
+        vmname=$(echo "${line}" | awk '{print $1}')
+        target=$(echo "${line}" | awk '{print $2}')
+        source=$(echo "${line}" | awk '{print $3}')
+        echo "[${vmname}][${target}][${source}]"
+
+        virsh \
+            --connect "${connection:?}" \
+            attach-disk \
+                ${vmname:?}   \
+                ${source:?}  \
+                ${target:?}   \
+                --subdriver qcow2 \
+                --driver qemu  \
+                --config
+
+    done < "${tmpfile}"
+
+--START--
+[Stedigo][vdc][/data1/libvirt/images/data1/Stedigo-data1-01.qcow]
+Disk attached successfully
+
+[Stedigo][vdd][/data2/libvirt/images/data2/Stedigo-data2-01.qcow]
+Disk attached successfully
+
+[Stedigo][vde][/data1/libvirt/images/data1/Stedigo-data1-02.qcow]
+Disk attached successfully
+
+[Stedigo][vdf][/data2/libvirt/images/data2/Stedigo-data2-02.qcow]
+Disk attached successfully
+
+[Angece][vdc][/data1/libvirt/images/data1/Angece-data1-01.qcow]
+Disk attached successfully
+
+[Angece][vdd][/data2/libvirt/images/data2/Angece-data2-01.qcow]
+Disk attached successfully
+
+[Angece][vde][/data1/libvirt/images/data1/Angece-data1-02.qcow]
+Disk attached successfully
+
+[Angece][vdf][/data2/libvirt/images/data2/Angece-data2-02.qcow]
+Disk attached successfully
+
+[Edwalafia][vdc][/data1/libvirt/images/data1/Edwalafia-data1-01.qcow]
+Disk attached successfully
+
+[Edwalafia][vdd][/data2/libvirt/images/data2/Edwalafia-data2-01.qcow]
+Disk attached successfully
+
+[Edwalafia][vde][/data1/libvirt/images/data1/Edwalafia-data1-02.qcow]
+Disk attached successfully
+
+[Edwalafia][vdf][/data2/libvirt/images/data2/Edwalafia-data2-02.qcow]
+Disk attached successfully
+
+[Onoza][vdc][/data1/libvirt/images/data1/Onoza-data1-01.qcow]
+Disk attached successfully
+
+[Onoza][vdd][/data2/libvirt/images/data2/Onoza-data2-01.qcow]
+Disk attached successfully
+
+[Onoza][vde][/data1/libvirt/images/data1/Onoza-data1-02.qcow]
+Disk attached successfully
+
+[Onoza][vdf][/data2/libvirt/images/data2/Onoza-data2-02.qcow]
+Disk attached successfully
+--END--
+
+
+# -----------------------------------------------------
+# Create extra data volumes for each Kafka node.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+    volnum=03
+    volsize=256G
+
+    unset volpools
+    declare -a volpools=(
+        data1
+        data2
+        )
+
+    unset targets
+    declare -A targets=(
+        [data1]=vdg
+        [data2]=vdh
+        )
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            echo "vmname [${vmname}]"
+            for volpool in ${volpools[@]}
+                do
+                    volname=${vmname}-${volpool}-${volnum}.qcow
+                    target=${targets[${volpool}]}
+                    echo "create [${vmname}][${target}][${volname}]"
+
+                    virsh \
+                        --connect "${connection:?}" \
+                        vol-create-as \
+                            "${volpool}" \
+                            "${volname}" \
+                            "${volsize}" \
+                            --allocation 0 \
+                            --format qcow2
+
+                    virsh \
+                        --connect "${connection:?}" \
+                        vol-info \
+                            --pool "${volpool:?}" \
+                            "${volname:?}"
+
+                    volpath=$(
+                        virsh \
+                            --connect "${connection:?}" \
+                            vol-path \
+                                --pool "${volpool:?}" \
+                                "${volname:?}"
+                        )
+
+                    echo "attach [${vmname}][${target}][${volpath}]"
+
+                    virsh \
+                        --connect "${connection:?}" \
+                        attach-disk \
+                            "${vmname:?}"  \
+                            "${volpath:?}" \
+                            "${target:?}"  \
+                            --subdriver qcow2 \
+                            --driver qemu  \
+                            --config
+                done
+        done
+
+--START--
+---- ----
+vmname [Stedigo]
+create [Stedigo][vdg][Stedigo-data1-03.qcow]
+Vol Stedigo-data1-03.qcow created
+
+Name:           Stedigo-data1-03.qcow
+Type:           file
+Capacity:       256.00 GiB
+Allocation:     196.00 KiB
+
+attach [Stedigo][vdg][/data1/libvirt/images/data1/Stedigo-data1-03.qcow]
+Disk attached successfully
+
+create [Stedigo][vdh][Stedigo-data2-03.qcow]
+Vol Stedigo-data2-03.qcow created
+
+Name:           Stedigo-data2-03.qcow
+Type:           file
+Capacity:       256.00 GiB
+Allocation:     196.00 KiB
+
+attach [Stedigo][vdh][/data2/libvirt/images/data2/Stedigo-data2-03.qcow]
+Disk attached successfully
+
+---- ----
+vmname [Angece]
+create [Angece][vdg][Angece-data1-03.qcow]
+Vol Angece-data1-03.qcow created
+
+Name:           Angece-data1-03.qcow
+Type:           file
+Capacity:       256.00 GiB
+Allocation:     196.00 KiB
+
+attach [Angece][vdg][/data1/libvirt/images/data1/Angece-data1-03.qcow]
+Disk attached successfully
+
+create [Angece][vdh][Angece-data2-03.qcow]
+Vol Angece-data2-03.qcow created
+
+Name:           Angece-data2-03.qcow
+Type:           file
+Capacity:       256.00 GiB
+Allocation:     196.00 KiB
+
+attach [Angece][vdh][/data2/libvirt/images/data2/Angece-data2-03.qcow]
+Disk attached successfully
+
+---- ----
+vmname [Edwalafia]
+create [Edwalafia][vdg][Edwalafia-data1-03.qcow]
+Vol Edwalafia-data1-03.qcow created
+
+Name:           Edwalafia-data1-03.qcow
+Type:           file
+Capacity:       256.00 GiB
+Allocation:     196.00 KiB
+
+attach [Edwalafia][vdg][/data1/libvirt/images/data1/Edwalafia-data1-03.qcow]
+Disk attached successfully
+
+create [Edwalafia][vdh][Edwalafia-data2-03.qcow]
+Vol Edwalafia-data2-03.qcow created
+
+Name:           Edwalafia-data2-03.qcow
+Type:           file
+Capacity:       256.00 GiB
+Allocation:     196.00 KiB
+
+attach [Edwalafia][vdh][/data2/libvirt/images/data2/Edwalafia-data2-03.qcow]
+Disk attached successfully
+
+---- ----
+vmname [Onoza]
+create [Onoza][vdg][Onoza-data1-03.qcow]
+Vol Onoza-data1-03.qcow created
+
+Name:           Onoza-data1-03.qcow
+Type:           file
+Capacity:       256.00 GiB
+Allocation:     196.00 KiB
+
+attach [Onoza][vdg][/data1/libvirt/images/data1/Onoza-data1-03.qcow]
+Disk attached successfully
+
+create [Onoza][vdh][Onoza-data2-03.qcow]
+Vol Onoza-data2-03.qcow created
+
+Name:           Onoza-data2-03.qcow
+Type:           file
+Capacity:       256.00 GiB
+Allocation:     196.00 KiB
+
+attach [Onoza][vdh][/data2/libvirt/images/data2/Onoza-data2-03.qcow]
+Disk attached successfully
+--END--
+
+
+# -----------------------------------------------------
+# Restart the kafka nodes.
+
+    for vmname in ${kfnames[@]}
+        do
+            virsh \
+                --connect "${connection:?}" \
+                shutdown \
+                    "${vmname}"
+        done
+
+    sleep 60
+
+    for vmname in ${kfnames[@]}
+        do
+            virsh \
+                --connect "${connection:?}" \
+                start \
+                    "${vmname}"
+        done
+
+--START--
+Domain Stedigo is being shutdown
+Domain Angece is being shutdown
+Domain Edwalafia is being shutdown
+Domain Onoza is being shutdown
+--END--
+
+--START--
+Domain Stedigo started
+Domain Angece started
+Domain Edwalafia started
+Domain Onoza started
+--END--
+
+
+# -----------------------------------------------------
+# List the volumes on each Kafka node.
+# http://xmlstar.sourceforge.net/doc/UG/ch04.html
+# https://sourceforge.net/p/xmlstar/discussion/226076/thread/d5eca10f/#56b4
+#[user@trop03]
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "$(printf '+ %56s +' '')" | sed 's/ /-/g'
+            echo "$(printf '| %-56s |' 'Node ['${vmname:?}']')"
+            virsh \
+                --connect "${connection:?}" \
+                dumpxml \
+                    "${vmname}" \
+            | xmlstarlet \
+                select \
+                    --text \
+                    --template \
+                        --match '//disk' \
+                        --sort  'A:T:-' 'target/@dev' \
+                        --value-of "concat('| ', target/@dev, ' | ', str:align(source/@file, str:padding(50, ' '), 'left'), ' |')" \
+                        --nl
+        done \
+    ; echo "$(printf '+ %56s +' '')" | sed 's/ /-/g'
+
+--START--
++----------------------------------------------------------+
+| Node [Stedigo]                                           |
+| vda | /var/lib/libvirt/images/live/Stedigo.qcow          |
+| vdb | /var/lib/libvirt/images/init/Stedigo.iso           |
+| vdc | /data1/libvirt/images/data1/Stedigo-data1-01.qcow  |
+| vdd | /data2/libvirt/images/data2/Stedigo-data2-01.qcow  |
+| vde | /data1/libvirt/images/data1/Stedigo-data1-02.qcow  |
+| vdf | /data2/libvirt/images/data2/Stedigo-data2-02.qcow  |
+| vdg | /data1/libvirt/images/data1/Stedigo-data1-03.qcow  |
+| vdh | /data2/libvirt/images/data2/Stedigo-data2-03.qcow  |
++----------------------------------------------------------+
+| Node [Angece]                                            |
+| vda | /var/lib/libvirt/images/live/Angece.qcow           |
+| vdb | /var/lib/libvirt/images/init/Angece.iso            |
+| vdc | /data1/libvirt/images/data1/Angece-data1-01.qcow   |
+| vdd | /data2/libvirt/images/data2/Angece-data2-01.qcow   |
+| vde | /data1/libvirt/images/data1/Angece-data1-02.qcow   |
+| vdf | /data2/libvirt/images/data2/Angece-data2-02.qcow   |
+| vdg | /data1/libvirt/images/data1/Angece-data1-03.qcow   |
+| vdh | /data2/libvirt/images/data2/Angece-data2-03.qcow   |
++----------------------------------------------------------+
+| Node [Edwalafia]                                         |
+| vda | /var/lib/libvirt/images/live/Edwalafia.qcow        |
+| vdb | /var/lib/libvirt/images/init/Edwalafia.iso         |
+| vdc | /data1/libvirt/images/data1/Edwalafia-data1-01.qco |
+| vdd | /data2/libvirt/images/data2/Edwalafia-data2-01.qco |
+| vde | /data1/libvirt/images/data1/Edwalafia-data1-02.qco |
+| vdf | /data2/libvirt/images/data2/Edwalafia-data2-02.qco |
+| vdg | /data1/libvirt/images/data1/Edwalafia-data1-03.qco |
+| vdh | /data2/libvirt/images/data2/Edwalafia-data2-03.qco |
++----------------------------------------------------------+
+| Node [Onoza]                                             |
+| vda | /var/lib/libvirt/images/live/Onoza.qcow            |
+| vdb | /var/lib/libvirt/images/init/Onoza.iso             |
+| vdc | /data1/libvirt/images/data1/Onoza-data1-01.qcow    |
+| vdd | /data2/libvirt/images/data2/Onoza-data2-01.qcow    |
+| vde | /data1/libvirt/images/data1/Onoza-data1-02.qcow    |
+| vdf | /data2/libvirt/images/data2/Onoza-data2-02.qcow    |
+| vdg | /data1/libvirt/images/data1/Onoza-data1-03.qcow    |
+| vdh | /data2/libvirt/images/data2/Onoza-data2-03.qcow    |
++----------------------------------------------------------+
+--END--
+
+
