@@ -27,7 +27,7 @@
 # Our Zookeeper nodes.
 #[user@trop03]
 
-    zknodes=(
+    zknames=(
         Fosauri
         Marpus
         Byflame
@@ -95,7 +95,7 @@ INFO : IPv4 [192.168.210.176]
 
     source "${HOME}/libvirt.settings"
 
-    for vmname in ${zknodes[@]}
+    for vmname in ${zknames[@]}
         do
             virsh \
                 --connect ${connection:?} \
@@ -110,7 +110,7 @@ INFO : IPv4 [192.168.210.176]
 # Shutdown and restart each of our Zookeeper nodes.
 #[user@trop03]
 
-    for vmname in ${zknodes[@]}
+    for vmname in ${zknames[@]}
         do
             virsh \
                 --connect ${connection:?} \
@@ -120,7 +120,7 @@ INFO : IPv4 [192.168.210.176]
 
     sleep 30
 
-    for vmname in ${zknodes[@]}
+    for vmname in ${zknames[@]}
         do
             virsh \
                 --connect ${connection:?} \
@@ -145,7 +145,7 @@ Domain Byflame started
 # Check the number of cores on our Zookeeper nodes.
 #[user@trop03]
 
-    for vmname in ${zknodes[@]}
+    for vmname in ${zknames[@]}
         do
             virsh \
                 --quiet \
@@ -192,7 +192,7 @@ Byflame   2
             then
                 server="0.0.0.0"
             else
-                server="${zknodes[${j}]}"
+                server="${zknames[${j}]}"
             fi
             servers=${servers}${delim}${server}${ports}
             delim=';'
@@ -246,6 +246,18 @@ services:
             - zookeeper
 
 EOYML
+
+# -----------------------------------------------------
+# Deploy our compose YAML file to each node.
+#[user@trop03]
+
+    for vmname in ${zknames[@]}
+        do
+            scp \
+                ${scpopts[*]} \
+                /tmp/zookeeper.yml \
+                ${sshuser:?}@${vmname:?}:zookeeper.yml
+        done
 
 
 
