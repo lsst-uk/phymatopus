@@ -25,18 +25,242 @@
     doc/notes/zrq/20181211-01-trop-transfer.txt
     TODO Update topic ...
 
+    ** testing the new network config - deploy MirroMaker nodes on trop04 **
+    -- move the back to trop03 later --
 
 # -----------------------------------------------------
-# Create a new set of Mirror nodes.
-#[user@trop03]
+# Our MirrorMaker nodes.
+#[user@trop04]
+
+    mmnames=(
+        Moemond
+        Iberidia
+        )
+
+# -----------------------------------------------------
+# Create our MirrorMaker nodes.
+# TODO scriptable createvm
+#[user@trop04]
+
+    createvm
+
+--START--
+--END--
 
 
+    createvm
+
+--START--
+--END--
 
 
 # -----------------------------------------------------
-# Update the Mirror topic.
-#[user@trop03]
+# Update the number of cores on our MirrorMaker nodes.
+#[user@trop04]
+
+    source "${HOME}/libvirt.settings"
+
+    for vmname in ${mmnames[@]}
+        do
+            virsh \
+                --connect ${connection:?} \
+                    setvcpus \
+                    ${vmname:?} \
+                    2 \
+                    --maximum \
+                    --config
+        done
 
 
+# -----------------------------------------------------
+# Check we can login to each node.
+#[user@trop04]
+
+    source "${HOME}/libvirt.settings"
+
+    for vmname in ${mmnames[@]}
+        do
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    date
+                    hostname
+                    "
+        done
+
+--START--
+--END--
+
+
+# -----------------------------------------------------
+# Create a shell script to fix the network on a node.
+#[user@trop04]
+
+    cat > /tmp/netfix.sh << 'EOF'
+
+ens3mac=$(
+    ifconfig ens3 \
+    | sed -n '
+        s/^[[:space:]]*ether[[:space:]]\([^[:space:]]*\)[[:space:]].*$/\1/p
+        '
+    )
+
+ens7mac=$(
+    ifconfig ens7 \
+    | sed -n '
+        s/^[[:space:]]*ether[[:space:]]\([^[:space:]]*\)[[:space:]].*$/\1/p
+        '
+    )
+
+pushd /etc/sysconfig
+
+    cat >> network << EONET
+
+# Gateway for trop03
+# GATEWAY=192.168.210.190
+# Gateway for trop04
+GATEWAY=192.168.210.254
+
+GATEWAYDEV=ens7
+
+EONET
+
+pushd /etc/sysconfig/network-scripts
+
+    cat > ifcfg-ens3 << EONS3
+BOOTPROTO=dhcp
+DEVICE=ens3
+HWADDR=${ens3mac:?}
+ONBOOT=yes
+TYPE=Ethernet
+USERCTL=no
+DEFROUTE=no
+EONS3
+
+    cat > ifcfg-ens7 << EONS7
+BOOTPROTO=dhcp
+DEVICE=ens7
+HWADDR=${ens7mac:?}
+ONBOOT=yes
+TYPE=Ethernet
+USERCTL=no
+DEFROUTE=yes
+EONS7
+
+    # Routes for trop01-04 nodes
+    cat > route-ens3 << EONS3
+192.168.210.0/27   via 192.168.210.158 dev ens3
+192.168.210.64/27  via 192.168.210.158 dev ens3
+192.168.210.128/27 via 192.168.210.158 dev ens3
+192.168.210.192/27 via 192.168.210.158 dev ens3
+EONS3
+
+popd
+EOF
+
+
+# -----------------------------------------------------
+# Deploy and run the netfix script on each node.
+#[user@trop04]
+
+    source "${HOME}/ssh-options"
+
+    for vmname in ${mmnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            scp \
+                ${scpopts[*]} \
+                /tmp/netfix.sh \
+                ${sshuser:?}@${vmname:?}:/tmp/netfix.sh
+
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    date
+                    hostname
+                    chmod a+x '/tmp/netfix.sh'
+                    sudo -s   '/tmp/netfix.sh'
+                    "
+        done
+
+
+--START--
+--END--
+
+
+# -----------------------------------------------------
+# Shutdown and restart each of our MirrorMaker nodes.
+#[user@trop04]
+
+    source "${HOME}/libvirt.settings"
+
+    for vmname in ${mmnames[@]}
+        do
+            virsh \
+                --connect ${connection:?} \
+                    shutdown \
+                    ${vmname:?}
+        done
+
+    sleep 30
+
+    for vmname in ${mmnames[@]}
+        do
+            virsh \
+                --connect ${connection:?} \
+                    start \
+                    ${vmname:?}
+        done
+
+--START--
+--END--
+
+
+# -----------------------------------------------------
+# Check the number of cores on our MirrorMaker nodes.
+#[user@trop04]
+
+    for vmname in ${mmnames[@]}
+        do
+            virsh \
+                --quiet \
+                --connect ${connection:?} \
+                    dumpxml \
+                        "${vmname}" \
+            | xmlstarlet \
+                select \
+                    --text \
+                    --template \
+                        --output "$(printf '%-10s' ${vmname})" \
+                        --value-of "domain/vcpu" \
+                        --nl
+        done
+
+--START--
+--END--
+
+
+# -----------------------------------------------------
+# Check the ip routes on each or our MirrorMaker nodes.
+#[user@trop04]
+
+    for vmname in ${mmnames[@]}
+        do
+            echo "---- ----"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                hostname
+                date
+                sudo ip route list
+                "
+        done
+
+--START--
+--END--
 
 
