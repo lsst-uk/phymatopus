@@ -1,0 +1,240 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+# -----------------------------------------------------
+# Check the static routes.
+#[Stevedore@Umiawyth]
+
+    ip route show
+
+    >   default via 192.168.210.190 dev ens7 proto dhcp metric 100
+    >   172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown
+    >   
+    >   192.168.210.0/27 via 192.168.210.158 dev ens3
+    >   192.168.210.0/27 via 192.168.210.158 dev ens3 proto static metric 101
+    >   
+    >   192.168.210.64/27 via 192.168.210.158 dev ens3
+    >   192.168.210.64/27 via 192.168.210.158 dev ens3 proto static metric 101
+    >   
+    >   192.168.210.128/27 dev ens3 proto kernel scope link src 192.168.210.129 metric 101
+    >   192.168.210.160/27 dev ens7 proto kernel scope link src 192.168.210.161 metric 100
+    >   
+    >   192.168.210.192/27 via 192.168.210.158 dev ens3
+    >   192.168.210.192/27 via 192.168.210.158 dev ens3 proto static metric 101
+
+    Looks like 'lots' ....
+    Several duplicates, not sure where they came from.
+
+
+# -----------------------------------------------------
+# Check if we can login to the other VM.
+#[Stevedore@Umiawyth]
+
+    ssh -v Stevedore@Wumar \
+        '
+        date
+        hostname
+        '
+
+    >   ....
+    >   debug1: Connecting to wumar [192.168.210.193] port 22.
+    >   debug1: Connection established.
+    >   ....
+    >   Authenticated to wumar ([192.168.210.193]:22).
+    >   ....
+    >   debug1: Sending command:
+    >           date
+    >           hostname
+    >   
+    >   Wed 16 Jan 19:39:35 GMT 2019
+    >   Wumar
+    >   ....
+    >   Transferred: sent 3504, received 3172 bytes, in 0.4 seconds
+    >   Bytes per second: sent 9167.3, received 8298.7
+    >   debug1: Exit status 0
+
+    Looking good ....
+
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+# Check the static routes.
+#[Stevedore@Wumar]
+
+    ip route show
+
+    >   default via 192.168.210.254 dev ens7 proto dhcp metric 100
+    >   172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown
+    >   192.168.210.0/27 via 192.168.210.222 dev ens3
+    >   192.168.210.64/27 via 192.168.210.222 dev ens3
+    >   192.168.210.128/27 via 192.168.210.222 dev ens3
+    >   192.168.210.192/27 dev ens3 proto kernel scope link src 192.168.210.193 metric 101
+    >   192.168.210.224/27 dev ens7 proto kernel scope link src 192.168.210.225 metric 100
+
+    Looking good ....
+
+
+# -----------------------------------------------------
+# Check if we can login to the other VM.
+#[Stevedore@Wumar]
+
+    ssh -v Stevedore@Umiawyth \
+        '
+        date
+        hostname
+        '
+
+    >   ....
+    >   debug1: Connecting to umiawyth [192.168.210.129] port 22.
+    >   debug1: Connection established.
+    >   ....
+    >   Authenticated to umiawyth ([192.168.210.129]:22).
+    >   ....
+    >   debug1: Sending command:
+    >           date
+    >           hostname
+    >   
+    >   Wed 16 Jan 19:41:37 GMT 2019
+    >   Umiawyth
+    >   ....
+    >   Transferred: sent 3448, received 3172 bytes, in 0.4 seconds
+    >   Bytes per second: sent 9340.3, received 8592.7
+    >   debug1: Exit status 0
+
+    Looking good ....
+
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+# Check the settings survive a reboot.
+#[Stevedore@Umiawyth]
+
+    sudo reboot
+
+    >   Connection to umiawyth closed.
+
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+# Check the settings survive a reboot.
+#[Stevedore@Wumar]
+
+    sudo reboot
+
+    >   Connection to wumar closed.
+
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+# Check the static routes.
+#[Stevedore@Umiawyth]
+
+    ip route show
+
+    >   default via 192.168.210.190 dev ens7 proto dhcp metric 100
+    >   172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown
+    >   192.168.210.0/27 via 192.168.210.158 dev ens3 proto static metric 101
+    >   192.168.210.64/27 via 192.168.210.158 dev ens3 proto static metric 101
+    >   192.168.210.128/27 dev ens3 proto kernel scope link src 192.168.210.129 metric 101
+    >   192.168.210.160/27 dev ens7 proto kernel scope link src 192.168.210.161 metric 100
+    >   192.168.210.192/27 via 192.168.210.158 dev ens3 proto static metric 101
+
+    Looking good ....
+    Lost the duplicates, not sure where they came from.
+
+
+# -----------------------------------------------------
+# Check if we can login to the other VM.
+#[Stevedore@Umiawyth]
+
+    ssh -v Stevedore@Wumar \
+        '
+        date
+        hostname
+        '
+
+    >   ....
+    >   debug1: Connecting to wumar [192.168.210.193] port 22.
+    >   ....
+    >   Authenticated to wumar ([192.168.210.193]:22).
+    >   ....
+    >   debug1: Sending command:
+    >           date
+    >           hostname
+    >   
+    >   Wed 16 Jan 19:46:52 GMT 2019
+    >   Wumar
+    >   ....
+    >   Transferred: sent 3504, received 3172 bytes, in 0.2 seconds
+    >   Bytes per second: sent 21813.6, received 19746.8
+    >   debug1: Exit status 0
+
+    Looking good ....
+
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+# Check the static routes.
+#[Stevedore@Wumar]
+
+    ip route show
+
+    >   default via 192.168.210.254 dev ens7 proto dhcp metric 100
+    >   172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown
+    >   192.168.210.0/27 via 192.168.210.222 dev ens3 proto static metric 101
+    >   192.168.210.64/27 via 192.168.210.222 dev ens3 proto static metric 101
+    >   192.168.210.128/27 via 192.168.210.222 dev ens3 proto static metric 101
+    >   192.168.210.192/27 dev ens3 proto kernel scope link src 192.168.210.193 metric 101
+    >   192.168.210.224/27 dev ens7 proto kernel scope link src 192.168.210.225 metric 100
+
+    Looking good ....
+
+
+# -----------------------------------------------------
+# Check if we can login to the other VM.
+#[Stevedore@Wumar]
+
+    ssh -v Stevedore@Umiawyth \
+        '
+        date
+        hostname
+        '
+
+    >   ....
+    >   debug1: Connecting to umiawyth [192.168.210.129] port 22.
+    >   ....
+    >   Authenticated to umiawyth ([192.168.210.129]:22).
+    >   ....
+    >   debug1: Sending command:
+    >           date
+    >           hostname
+    >   
+    >   Wed 16 Jan 19:47:49 GMT 2019
+    >   Umiawyth
+    >   ....
+    >   Transferred: sent 3448, received 3172 bytes, in 0.2 seconds
+    >   Bytes per second: sent 21636.2, received 19904.3
+    >   debug1: Exit status 0
+
+    Looking good ....
+
+

@@ -1,0 +1,1838 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+    TODO Install Kafka ...
+    doc/notes/zrq/20181210-02-trop-transfer.txt
+    doc/notes/zrq/20181210-03-trop-transfer.txt
+    doc/notes/zrq/20181211-02-trop-transfer.txt
+    doc/notes/zrq/20181211-03-trop-transfer.txt
+
+# -----------------------------------------------------
+# Our Kafka nodes.
+#[user@trop03]
+
+    kfnames=(
+        Stedigo
+        Angece
+        Edwalafia
+        Onoza
+        )
+
+
+# -----------------------------------------------------
+# Create our Kafka nodes.
+# TODO scriptable createvm
+#[user@trop03]
+
+    createvm
+
+    >   INFO : Node name [Stedigo]
+    >   INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Disc name [Stedigo.qcow]
+    >   INFO : Disc size [8GiB]
+    >
+    >   INFO : node [9]
+    >   INFO : MAC  [52:54:0:0:D2:8A]
+    >   INFO : IPv4 [192.168.210.138]
+    >   INFO : MAC  [52:54:0:0:D2:AA]
+    >   INFO : IPv4 [192.168.210.170]
+
+
+    createvm
+
+    >   INFO : Node name [Angece]
+    >   INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Disc name [Angece.qcow]
+    >   INFO : Disc size [8GiB]
+    >
+    >   INFO : node [10]
+    >   INFO : MAC  [52:54:0:0:D2:8B]
+    >   INFO : IPv4 [192.168.210.139]
+    >   INFO : MAC  [52:54:0:0:D2:AB]
+    >   INFO : IPv4 [192.168.210.171]
+
+
+    createvm
+
+    >   INFO : Node name [Edwalafia]
+    >   INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Disc name [Edwalafia.qcow]
+    >   INFO : Disc size [8GiB]
+    >
+    >   INFO : node [11]
+    >   INFO : MAC  [52:54:0:0:D2:8C]
+    >   INFO : IPv4 [192.168.210.140]
+    >   INFO : MAC  [52:54:0:0:D2:AC]
+    >   INFO : IPv4 [192.168.210.172]
+
+
+    createvm
+
+    >   INFO : Node name [Onoza]
+    >   INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Disc name [Onoza.qcow]
+    >   INFO : Disc size [8GiB]
+    >
+    >   INFO : node [12]
+    >   INFO : MAC  [52:54:0:0:D2:8D]
+    >   INFO : IPv4 [192.168.210.141]
+    >   INFO : MAC  [52:54:0:0:D2:AD]
+    >   INFO : IPv4 [192.168.210.173]
+
+
+# -----------------------------------------------------
+# Attach the existing data volumes to each Kafka node.
+#[user@trop03]
+
+    while read line
+    do
+        vmname=$(echo "${line}" | awk '{print $1}')
+        target=$(echo "${line}" | awk '{print $2}')
+        source=$(echo "${line}" | awk '{print $3}')
+        echo "[${vmname}][${target}][${source}]"
+
+        virsh \
+            --connect "${connection:?}" \
+            attach-disk \
+                ${vmname:?}   \
+                ${source:?}  \
+                ${target:?}   \
+                --subdriver qcow2 \
+                --driver qemu  \
+                --config
+
+    done < "${tmpfile}"
+
+    >   [Stedigo][vdc][/data1/libvirt/images/data1/Stedigo-data1-01.qcow]
+    >   Disk attached successfully
+    >
+    >   [Stedigo][vdd][/data2/libvirt/images/data2/Stedigo-data2-01.qcow]
+    >   Disk attached successfully
+    >
+    >   [Stedigo][vde][/data1/libvirt/images/data1/Stedigo-data1-02.qcow]
+    >   Disk attached successfully
+    >
+    >   [Stedigo][vdf][/data2/libvirt/images/data2/Stedigo-data2-02.qcow]
+    >   Disk attached successfully
+    >
+    >   [Angece][vdc][/data1/libvirt/images/data1/Angece-data1-01.qcow]
+    >   Disk attached successfully
+    >
+    >   [Angece][vdd][/data2/libvirt/images/data2/Angece-data2-01.qcow]
+    >   Disk attached successfully
+    >
+    >   [Angece][vde][/data1/libvirt/images/data1/Angece-data1-02.qcow]
+    >   Disk attached successfully
+    >
+    >   [Angece][vdf][/data2/libvirt/images/data2/Angece-data2-02.qcow]
+    >   Disk attached successfully
+    >
+    >   [Edwalafia][vdc][/data1/libvirt/images/data1/Edwalafia-data1-01.qcow]
+    >   Disk attached successfully
+    >
+    >   [Edwalafia][vdd][/data2/libvirt/images/data2/Edwalafia-data2-01.qcow]
+    >   Disk attached successfully
+    >
+    >   [Edwalafia][vde][/data1/libvirt/images/data1/Edwalafia-data1-02.qcow]
+    >   Disk attached successfully
+    >
+    >   [Edwalafia][vdf][/data2/libvirt/images/data2/Edwalafia-data2-02.qcow]
+    >   Disk attached successfully
+    >
+    >   [Onoza][vdc][/data1/libvirt/images/data1/Onoza-data1-01.qcow]
+    >   Disk attached successfully
+    >
+    >   [Onoza][vdd][/data2/libvirt/images/data2/Onoza-data2-01.qcow]
+    >   Disk attached successfully
+    >
+    >   [Onoza][vde][/data1/libvirt/images/data1/Onoza-data1-02.qcow]
+    >   Disk attached successfully
+    >
+    >   [Onoza][vdf][/data2/libvirt/images/data2/Onoza-data2-02.qcow]
+    >   Disk attached successfully
+
+
+# -----------------------------------------------------
+# Create extra data volumes for each Kafka node.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+    volnum=03
+    volsize=256G
+
+    unset volpools
+    declare -a volpools=(
+        data1
+        data2
+        )
+
+    unset targets
+    declare -A targets=(
+        [data1]=vdg
+        [data2]=vdh
+        )
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            echo "vmname [${vmname}]"
+            for volpool in ${volpools[@]}
+                do
+                    volname=${vmname}-${volpool}-${volnum}.qcow
+                    target=${targets[${volpool}]}
+                    echo "create [${vmname}][${target}][${volname}]"
+
+                    virsh \
+                        --connect "${connection:?}" \
+                        vol-create-as \
+                            "${volpool}" \
+                            "${volname}" \
+                            "${volsize}" \
+                            --allocation 0 \
+                            --format qcow2
+
+                    virsh \
+                        --connect "${connection:?}" \
+                        vol-info \
+                            --pool "${volpool:?}" \
+                            "${volname:?}"
+
+                    volpath=$(
+                        virsh \
+                            --connect "${connection:?}" \
+                            vol-path \
+                                --pool "${volpool:?}" \
+                                "${volname:?}"
+                        )
+
+                    echo "attach [${vmname}][${target}][${volpath}]"
+
+                    virsh \
+                        --connect "${connection:?}" \
+                        attach-disk \
+                            "${vmname:?}"  \
+                            "${volpath:?}" \
+                            "${target:?}"  \
+                            --subdriver qcow2 \
+                            --driver qemu  \
+                            --config
+                done
+        done
+
+    >   ---- ----
+    >   vmname [Stedigo]
+    >   create [Stedigo][vdg][Stedigo-data1-03.qcow]
+    >   Vol Stedigo-data1-03.qcow created
+    >
+    >   Name:           Stedigo-data1-03.qcow
+    >   Type:           file
+    >   Capacity:       256.00 GiB
+    >   Allocation:     196.00 KiB
+    >
+    >   attach [Stedigo][vdg][/data1/libvirt/images/data1/Stedigo-data1-03.qcow]
+    >   Disk attached successfully
+    >
+    >   create [Stedigo][vdh][Stedigo-data2-03.qcow]
+    >   Vol Stedigo-data2-03.qcow created
+    >
+    >   Name:           Stedigo-data2-03.qcow
+    >   Type:           file
+    >   Capacity:       256.00 GiB
+    >   Allocation:     196.00 KiB
+    >
+    >   attach [Stedigo][vdh][/data2/libvirt/images/data2/Stedigo-data2-03.qcow]
+    >   Disk attached successfully
+    >
+    >   ---- ----
+    >   vmname [Angece]
+    >   create [Angece][vdg][Angece-data1-03.qcow]
+    >   Vol Angece-data1-03.qcow created
+    >
+    >   Name:           Angece-data1-03.qcow
+    >   Type:           file
+    >   Capacity:       256.00 GiB
+    >   Allocation:     196.00 KiB
+    >
+    >   attach [Angece][vdg][/data1/libvirt/images/data1/Angece-data1-03.qcow]
+    >   Disk attached successfully
+    >
+    >   create [Angece][vdh][Angece-data2-03.qcow]
+    >   Vol Angece-data2-03.qcow created
+    >
+    >   Name:           Angece-data2-03.qcow
+    >   Type:           file
+    >   Capacity:       256.00 GiB
+    >   Allocation:     196.00 KiB
+    >
+    >   attach [Angece][vdh][/data2/libvirt/images/data2/Angece-data2-03.qcow]
+    >   Disk attached successfully
+    >
+    >   ---- ----
+    >   vmname [Edwalafia]
+    >   create [Edwalafia][vdg][Edwalafia-data1-03.qcow]
+    >   Vol Edwalafia-data1-03.qcow created
+    >
+    >   Name:           Edwalafia-data1-03.qcow
+    >   Type:           file
+    >   Capacity:       256.00 GiB
+    >   Allocation:     196.00 KiB
+    >
+    >   attach [Edwalafia][vdg][/data1/libvirt/images/data1/Edwalafia-data1-03.qcow]
+    >   Disk attached successfully
+    >
+    >   create [Edwalafia][vdh][Edwalafia-data2-03.qcow]
+    >   Vol Edwalafia-data2-03.qcow created
+    >
+    >   Name:           Edwalafia-data2-03.qcow
+    >   Type:           file
+    >   Capacity:       256.00 GiB
+    >   Allocation:     196.00 KiB
+    >
+    >   attach [Edwalafia][vdh][/data2/libvirt/images/data2/Edwalafia-data2-03.qcow]
+    >   Disk attached successfully
+    >
+    >   ---- ----
+    >   vmname [Onoza]
+    >   create [Onoza][vdg][Onoza-data1-03.qcow]
+    >   Vol Onoza-data1-03.qcow created
+    >
+    >   Name:           Onoza-data1-03.qcow
+    >   Type:           file
+    >   Capacity:       256.00 GiB
+    >   Allocation:     196.00 KiB
+    >
+    >   attach [Onoza][vdg][/data1/libvirt/images/data1/Onoza-data1-03.qcow]
+    >   Disk attached successfully
+    >
+    >   create [Onoza][vdh][Onoza-data2-03.qcow]
+    >   Vol Onoza-data2-03.qcow created
+    >
+    >   Name:           Onoza-data2-03.qcow
+    >   Type:           file
+    >   Capacity:       256.00 GiB
+    >   Allocation:     196.00 KiB
+    >
+    >   attach [Onoza][vdh][/data2/libvirt/images/data2/Onoza-data2-03.qcow]
+    >   Disk attached successfully
+
+
+# -----------------------------------------------------
+# Restart the kafka nodes.
+
+    for vmname in ${kfnames[@]}
+        do
+            virsh \
+                --connect "${connection:?}" \
+                shutdown \
+                    "${vmname}"
+        done
+
+    sleep 60
+
+    for vmname in ${kfnames[@]}
+        do
+            virsh \
+                --connect "${connection:?}" \
+                start \
+                    "${vmname}"
+        done
+
+    >   Domain Stedigo is being shutdown
+    >   Domain Angece is being shutdown
+    >   Domain Edwalafia is being shutdown
+    >   Domain Onoza is being shutdown
+
+    >   Domain Stedigo started
+    >   Domain Angece started
+    >   Domain Edwalafia started
+    >   Domain Onoza started
+
+
+# -----------------------------------------------------
+# List the volumes on each Kafka node.
+# http://xmlstar.sourceforge.net/doc/UG/ch04.html
+# https://sourceforge.net/p/xmlstar/discussion/226076/thread/d5eca10f/#56b4
+#[user@trop03]
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "$(printf '+ %56s +' '')" | sed 's/ /-/g'
+            echo "$(printf '| %-56s |' 'Node ['${vmname:?}']')"
+            virsh \
+                --connect "${connection:?}" \
+                dumpxml \
+                    "${vmname}" \
+            | xmlstarlet \
+                select \
+                    --text \
+                    --template \
+                        --match '//disk' \
+                        --sort  'A:T:-' 'target/@dev' \
+                        --value-of "concat('| ', target/@dev, ' | ', str:align(source/@file, str:padding(50, ' '), 'left'), ' |')" \
+                        --nl
+        done \
+    ; echo "$(printf '+ %56s +' '')" | sed 's/ /-/g'
+
+    >   +----------------------------------------------------------+
+    >   | Node [Stedigo]                                           |
+    >   | vda | /var/lib/libvirt/images/live/Stedigo.qcow          |
+    >   | vdb | /var/lib/libvirt/images/init/Stedigo.iso           |
+    >   | vdc | /data1/libvirt/images/data1/Stedigo-data1-01.qcow  |
+    >   | vdd | /data2/libvirt/images/data2/Stedigo-data2-01.qcow  |
+    >   | vde | /data1/libvirt/images/data1/Stedigo-data1-02.qcow  |
+    >   | vdf | /data2/libvirt/images/data2/Stedigo-data2-02.qcow  |
+    >   | vdg | /data1/libvirt/images/data1/Stedigo-data1-03.qcow  |
+    >   | vdh | /data2/libvirt/images/data2/Stedigo-data2-03.qcow  |
+    >   +----------------------------------------------------------+
+    >   | Node [Angece]                                            |
+    >   | vda | /var/lib/libvirt/images/live/Angece.qcow           |
+    >   | vdb | /var/lib/libvirt/images/init/Angece.iso            |
+    >   | vdc | /data1/libvirt/images/data1/Angece-data1-01.qcow   |
+    >   | vdd | /data2/libvirt/images/data2/Angece-data2-01.qcow   |
+    >   | vde | /data1/libvirt/images/data1/Angece-data1-02.qcow   |
+    >   | vdf | /data2/libvirt/images/data2/Angece-data2-02.qcow   |
+    >   | vdg | /data1/libvirt/images/data1/Angece-data1-03.qcow   |
+    >   | vdh | /data2/libvirt/images/data2/Angece-data2-03.qcow   |
+    >   +----------------------------------------------------------+
+    >   | Node [Edwalafia]                                         |
+    >   | vda | /var/lib/libvirt/images/live/Edwalafia.qcow        |
+    >   | vdb | /var/lib/libvirt/images/init/Edwalafia.iso         |
+    >   | vdc | /data1/libvirt/images/data1/Edwalafia-data1-01.qco |
+    >   | vdd | /data2/libvirt/images/data2/Edwalafia-data2-01.qco |
+    >   | vde | /data1/libvirt/images/data1/Edwalafia-data1-02.qco |
+    >   | vdf | /data2/libvirt/images/data2/Edwalafia-data2-02.qco |
+    >   | vdg | /data1/libvirt/images/data1/Edwalafia-data1-03.qco |
+    >   | vdh | /data2/libvirt/images/data2/Edwalafia-data2-03.qco |
+    >   +----------------------------------------------------------+
+    >   | Node [Onoza]                                             |
+    >   | vda | /var/lib/libvirt/images/live/Onoza.qcow            |
+    >   | vdb | /var/lib/libvirt/images/init/Onoza.iso             |
+    >   | vdc | /data1/libvirt/images/data1/Onoza-data1-01.qcow    |
+    >   | vdd | /data2/libvirt/images/data2/Onoza-data2-01.qcow    |
+    >   | vde | /data1/libvirt/images/data1/Onoza-data1-02.qcow    |
+    >   | vdf | /data2/libvirt/images/data2/Onoza-data2-02.qcow    |
+    >   | vdg | /data1/libvirt/images/data1/Onoza-data1-03.qcow    |
+    >   | vdh | /data2/libvirt/images/data2/Onoza-data2-03.qcow    |
+    >   +----------------------------------------------------------+
+
+
+# -----------------------------------------------------
+# Deploy and run the netfix script on each node.
+# doc/notes/zrq/20190116-03-libvirt-redeploy.txt
+#[user@trop03]
+
+    source "${HOME}/ssh-options"
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            scp \
+                ${scpopts[*]} \
+                /tmp/netfix.sh \
+                ${sshuser:?}@${vmname:?}:/tmp/netfix.sh
+
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    date
+                    hostname
+                    chmod a+x '/tmp/netfix.sh'
+                    sudo -s   '/tmp/netfix.sh'
+                    "
+        done
+
+    >   ---- ----
+    >   Node [Stedigo]
+    >   netfix.sh   100%  966     1.6MB/s   00:00
+    >   Thu 17 Jan 23:50:12 GMT 2019
+    >   Stedigo
+    >   /etc/sysconfig /home/Stevedore
+    >   /etc/sysconfig/network-scripts /etc/sysconfig /home/Stevedore
+    >   /etc/sysconfig /home/Stevedore
+    >   ---- ----
+    >   Node [Angece]
+    >   netfix.sh   100%  966     1.7MB/s   00:00
+    >   Thu 17 Jan 23:50:14 GMT 2019
+    >   Angece
+    >   /etc/sysconfig /home/Stevedore
+    >   /etc/sysconfig/network-scripts /etc/sysconfig /home/Stevedore
+    >   /etc/sysconfig /home/Stevedore
+    >   ---- ----
+    >   Node [Edwalafia]
+    >   netfix.sh   100%  966     1.0MB/s   00:00
+    >   Thu 17 Jan 23:50:15 GMT 2019
+    >   Edwalafia
+    >   /etc/sysconfig /home/Stevedore
+    >   /etc/sysconfig/network-scripts /etc/sysconfig /home/Stevedore
+    >   /etc/sysconfig /home/Stevedore
+    >   ---- ----
+    >   Node [Onoza]
+    >   netfix.sh   100%  966     1.9MB/s   00:00
+    >   Thu 17 Jan 23:50:16 GMT 2019
+    >   Onoza
+    >   /etc/sysconfig /home/Stevedore
+    >   /etc/sysconfig/network-scripts /etc/sysconfig /home/Stevedore
+    >   /etc/sysconfig /home/Stevedore
+
+
+# -----------------------------------------------------
+# Shutdown and restart each of our Kafka nodes.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+    for vmname in ${kfnames[@]}
+        do
+            virsh \
+                --connect ${connection:?} \
+                    shutdown \
+                    ${vmname:?}
+        done
+
+    sleep 30
+
+    for vmname in ${kfnames[@]}
+        do
+            virsh \
+                --connect ${connection:?} \
+                    start \
+                    ${vmname:?}
+        done
+
+    >   Domain Stedigo is being shutdown
+    >   Domain Angece is being shutdown
+    >   Domain Edwalafia is being shutdown
+    >   Domain Onoza is being shutdown
+
+    >   Domain Stedigo started
+    >   Domain Angece started
+    >   Domain Edwalafia started
+    >   Domain Onoza started
+
+
+# -----------------------------------------------------
+# Check the number of cores on our Kafka nodes.
+#[user@trop03]
+
+    for vmname in ${kfnames[@]}
+        do
+            virsh \
+                --quiet \
+                --connect ${connection:?} \
+                    dumpxml \
+                        "${vmname}" \
+            | xmlstarlet \
+                select \
+                    --text \
+                    --template \
+                        --output "$(printf '%-10s' ${vmname})" \
+                        --value-of "domain/vcpu" \
+                        --nl
+        done
+
+    >   Stedigo   4
+    >   Angece    4
+    >   Edwalafia 4
+    >   Onoza     4
+
+
+# -----------------------------------------------------
+# Check the ip routes on each node.
+#[user@trop03]
+
+    for vmname in ${kfnames[@]}
+        do
+            echo ""
+            echo "Node [${vmname:?}]"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                hostname
+                date
+                sudo ip route list
+                "
+        done
+
+    >   Node [Stedigo]
+    >   Stedigo
+    >   Thu 17 Jan 23:52:47 GMT 2019
+    >   default via 192.168.210.190 dev ens7 proto dhcp metric 100
+    >   172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown
+    >   192.168.210.0/27 via 192.168.210.158 dev ens3 proto static metric 101
+    >   192.168.210.64/27 via 192.168.210.158 dev ens3 proto static metric 101
+    >   192.168.210.128/27 dev ens3 proto kernel scope link src 192.168.210.138 metric 101
+    >   192.168.210.128/27 via 192.168.210.158 dev ens3 proto static metric 101
+    >   192.168.210.160/27 dev ens7 proto kernel scope link src 192.168.210.170 metric 100
+    >   192.168.210.192/27 via 192.168.210.158 dev ens3 proto static metric 101
+    >
+    >   Node [Angece]
+    >   Angece
+    >   Thu 17 Jan 23:52:48 GMT 2019
+    >   default via 192.168.210.190 dev ens7 proto dhcp metric 100
+    >   172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown
+    >   192.168.210.0/27 via 192.168.210.158 dev ens3 proto static metric 101
+    >   192.168.210.64/27 via 192.168.210.158 dev ens3 proto static metric 101
+    >   192.168.210.128/27 dev ens3 proto kernel scope link src 192.168.210.139 metric 101
+    >   192.168.210.128/27 via 192.168.210.158 dev ens3 proto static metric 101
+    >   192.168.210.160/27 dev ens7 proto kernel scope link src 192.168.210.171 metric 100
+    >   192.168.210.192/27 via 192.168.210.158 dev ens3 proto static metric 101
+    >
+    >   Node [Edwalafia]
+    >   Edwalafia
+    >   Thu 17 Jan 23:52:49 GMT 2019
+    >   default via 192.168.210.190 dev ens7 proto dhcp metric 100
+    >   172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown
+    >   192.168.210.0/27 via 192.168.210.158 dev ens3 proto static metric 101
+    >   192.168.210.64/27 via 192.168.210.158 dev ens3 proto static metric 101
+    >   192.168.210.128/27 dev ens3 proto kernel scope link src 192.168.210.140 metric 101
+    >   192.168.210.128/27 via 192.168.210.158 dev ens3 proto static metric 101
+    >   192.168.210.160/27 dev ens7 proto kernel scope link src 192.168.210.172 metric 100
+    >   192.168.210.192/27 via 192.168.210.158 dev ens3 proto static metric 101
+    >
+    >   Node [Onoza]
+    >   Onoza
+    >   Thu 17 Jan 23:52:49 GMT 2019
+    >   default via 192.168.210.190 dev ens7 proto dhcp metric 100
+    >   172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown
+    >   192.168.210.0/27 via 192.168.210.158 dev ens3 proto static metric 101
+    >   192.168.210.64/27 via 192.168.210.158 dev ens3 proto static metric 101
+    >   192.168.210.128/27 dev ens3 proto kernel scope link src 192.168.210.141 metric 101
+    >   192.168.210.128/27 via 192.168.210.158 dev ens3 proto static metric 101
+    >   192.168.210.160/27 dev ens7 proto kernel scope link src 192.168.210.173 metric 100
+    >   192.168.210.192/27 via 192.168.210.158 dev ens3 proto static metric 101
+
+
+#---------------------------------------------------------------------
+# Create a script to mount a volume.
+#[user@trop03]
+
+cat > '/tmp/volume-mount.sh' << 'EOSH'
+
+echo "---- ----"
+echo "hostname [$(hostname)]"
+echo "devpath  [${devpath:?}]"
+echo "mntpath  [${mntpath:?}]"
+echo "---- ----"
+
+#---------------------------------------------------------------------
+# Check if the new device has a filesystem.
+
+    sudo btrfs filesystem show "${devpath:?}" > /dev/null 2>&1
+    fscheck=$?
+
+#---------------------------------------------------------------------
+# Create a filesystem on the new device.
+
+    if [ ${fscheck} == 1 ]
+    then
+        echo "Creating btrfs filesystem [${devpath:?}]"
+        sudo \
+            mkfs.btrfs \
+                ${devpath:?}
+    else
+        echo "Found existing filesystem [${devpath:?}]"
+    fi
+
+#---------------------------------------------------------------------
+# Create our mount point.
+
+    echo "Creating mount point [${mntpath:?}]"
+    sudo mkdir -p "${mntpath:?}"
+    sudo touch "${mntpath:?}/mount-failed"
+
+#---------------------------------------------------------------------
+# Add the volume to our FileSystemTABle.
+# https://www.howtoforge.com/reducing-disk-io-by-mounting-partitions-with-noatime
+
+    devuuid=$(
+        lsblk --noheadings --output UUID "${devpath:?}"
+        )
+
+    echo "Registering filesystem [${mntpath:?}]"
+    sudo tee -a /etc/fstab << EOTAB
+UUID=${devuuid:?} ${mntpath:?}    btrfs    defaults,noatime    0  0
+EOTAB
+
+#---------------------------------------------------------------------
+# Mount the new volume.
+
+    sudo \
+        mount "${mntpath:?}"
+
+#---------------------------------------------------------------------
+# Check the new volume.
+
+    echo "Checking data space [${mntpath:?}]"
+    df -h "${mntpath:?}"
+
+EOSH
+
+# -----------------------------------------------------
+# Login and mount each of the data volumes.
+# https://www.linuxquestions.org/questions/linux-newbie-8/awk-special-character-as-delimiter-4175613862/
+#[user@trop03]
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "-------- -------- -------- --------"
+            echo "Node [${vmname:?}]"
+            tmpfile=$(mktemp)
+            virsh \
+                --connect "${connection:?}" \
+                dumpxml \
+                    "${vmname}" \
+            | xmlstarlet \
+                select \
+                    --text \
+                    --template \
+                        --match '//disk[starts-with(source/@file, "/data")]' \
+                        --sort  'A:T:-' 'target/@dev' \
+                        --output "${vmname}," \
+                        --value-of "concat(target/@dev, ',', source/@file)" \
+                        --nl \
+            > "${tmpfile}"
+
+            for line in $(cat "${tmpfile}")
+                do
+                    volpath=$(echo "${line}" | awk -F ',' '{print $3}')
+                    devname=$(echo "${line}" | awk -F ',' '{print $2}')
+                    devpath=/dev/${devname}
+                    mntpath=$(
+                        basename --suffix '.qcow' "${volpath}" \
+                        | sed '
+                            s/\([[:alnum:]]*\)-\([[:alnum:]]*\)-\([[:alnum:]]*\)/\/\2-\3/
+                            '
+                        )
+
+                    echo ""
+                    echo "[${devpath}][${mntpath}]"
+
+                    ssh ${sshopts[*]} \
+                        ${sshuser:?}@${vmname:?} \
+                            "
+                            export devpath=${devpath:?}
+                            export mntpath=${mntpath:?}
+                            date
+                            hostname
+                            echo "[\${devpath}][\${mntpath}]"
+
+                            $(cat /tmp/volume-mount.sh)
+                            "
+                done
+        done
+
+    >   -------- -------- -------- --------
+    >   Node [Stedigo]
+    >
+    >   [/dev/vdc][/data1-01]
+    >   Fri 18 Jan 02:31:48 GMT 2019
+    >   Stedigo
+    >   [/dev/vdc][/data1-01]
+    >   ---- ----
+    >   hostname [Stedigo]
+    >   devpath  [/dev/vdc]
+    >   mntpath  [/data1-01]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vdc]
+    >   Creating mount point [/data1-01]
+    >   Registering filesystem [/data1-01]
+    >   UUID=6ddcb70c-2004-4c5b-ad8f-ec89313ca292 /data1-01    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data1-01]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdc         32G   17M   30G   1% /data1-01
+    >
+    >   [/dev/vdd][/data2-01]
+    >   Fri 18 Jan 02:31:49 GMT 2019
+    >   Stedigo
+    >   [/dev/vdd][/data2-01]
+    >   ---- ----
+    >   hostname [Stedigo]
+    >   devpath  [/dev/vdd]
+    >   mntpath  [/data2-01]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vdd]
+    >   Creating mount point [/data2-01]
+    >   Registering filesystem [/data2-01]
+    >   UUID=b2598b9e-e396-4f77-9230-dc5c9d4091c8 /data2-01    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data2-01]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdd         32G   31G  3.2M 100% /data2-01
+    >
+    >   [/dev/vde][/data1-02]
+    >   Fri 18 Jan 02:31:50 GMT 2019
+    >   Stedigo
+    >   [/dev/vde][/data1-02]
+    >   ---- ----
+    >   hostname [Stedigo]
+    >   devpath  [/dev/vde]
+    >   mntpath  [/data1-02]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vde]
+    >   Creating mount point [/data1-02]
+    >   Registering filesystem [/data1-02]
+    >   UUID=55e5fcb2-c24a-4a21-8914-7843ac5596a9 /data1-02    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data1-02]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vde         64G   50G   13G  80% /data1-02
+    >
+    >   [/dev/vdf][/data2-02]
+    >   Fri 18 Jan 02:31:51 GMT 2019
+    >   Stedigo
+    >   [/dev/vdf][/data2-02]
+    >   ---- ----
+    >   hostname [Stedigo]
+    >   devpath  [/dev/vdf]
+    >   mntpath  [/data2-02]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vdf]
+    >   Creating mount point [/data2-02]
+    >   Registering filesystem [/data2-02]
+    >   UUID=b4d70a33-7af9-4762-b2a3-9c0c8c587bf4 /data2-02    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data2-02]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdf         64G   47G   16G  75% /data2-02
+    >
+    >   [/dev/vdg][/data1-03]
+    >   Fri 18 Jan 02:31:52 GMT 2019
+    >   Stedigo
+    >   [/dev/vdg][/data1-03]
+    >   ---- ----
+    >   hostname [Stedigo]
+    >   devpath  [/dev/vdg]
+    >   mntpath  [/data1-03]
+    >   ---- ----
+    >   Creating btrfs filesystem [/dev/vdg]
+    >   btrfs-progs v4.17.1
+    >   See http://btrfs.wiki.kernel.org for more information.
+    >
+    >   Label:              (null)
+    >   UUID:               632eb538-ccda-4588-adaa-9d103863d0a4
+    >   Node size:          16384
+    >   Sector size:        4096
+    >   Filesystem size:    256.00GiB
+    >   Block group profiles:
+    >     Data:             single            8.00MiB
+    >     Metadata:         DUP               1.00GiB
+    >     System:           DUP               8.00MiB
+    >   SSD detected:       no
+    >   Incompat features:  extref, skinny-metadata
+    >   Number of devices:  1
+    >   Devices:
+    >      ID        SIZE  PATH
+    >       1   256.00GiB  /dev/vdg
+    >
+    >   Creating mount point [/data1-03]
+    >   Registering filesystem [/data1-03]
+    >   UUID=632eb538-ccda-4588-adaa-9d103863d0a4 /data1-03    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data1-03]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdg        256G   17M  254G   1% /data1-03
+    >
+    >   [/dev/vdh][/data2-03]
+    >   Fri 18 Jan 02:31:53 GMT 2019
+    >   Stedigo
+    >   [/dev/vdh][/data2-03]
+    >   ---- ----
+    >   hostname [Stedigo]
+    >   devpath  [/dev/vdh]
+    >   mntpath  [/data2-03]
+    >   ---- ----
+    >   Creating btrfs filesystem [/dev/vdh]
+    >   btrfs-progs v4.17.1
+    >   See http://btrfs.wiki.kernel.org for more information.
+    >
+    >   Label:              (null)
+    >   UUID:               8fddf0be-bd58-4007-9541-8126b0c3d63d
+    >   Node size:          16384
+    >   Sector size:        4096
+    >   Filesystem size:    256.00GiB
+    >   Block group profiles:
+    >     Data:             single            8.00MiB
+    >     Metadata:         DUP               1.00GiB
+    >     System:           DUP               8.00MiB
+    >   SSD detected:       no
+    >   Incompat features:  extref, skinny-metadata
+    >   Number of devices:  1
+    >   Devices:
+    >      ID        SIZE  PATH
+    >       1   256.00GiB  /dev/vdh
+    >
+    >   Creating mount point [/data2-03]
+    >   Registering filesystem [/data2-03]
+    >   UUID=8fddf0be-bd58-4007-9541-8126b0c3d63d /data2-03    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data2-03]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdh        256G   17M  254G   1% /data2-03
+    >   -------- -------- -------- --------
+    >   Node [Angece]
+    >
+    >   [/dev/vdc][/data1-01]
+    >   Fri 18 Jan 02:31:54 GMT 2019
+    >   Angece
+    >   [/dev/vdc][/data1-01]
+    >   ---- ----
+    >   hostname [Angece]
+    >   devpath  [/dev/vdc]
+    >   mntpath  [/data1-01]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vdc]
+    >   Creating mount point [/data1-01]
+    >   Registering filesystem [/data1-01]
+    >   UUID=e96fe7d3-5c72-4c5b-87cb-8ca2626c8bec /data1-01    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data1-01]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdc         32G   17M   30G   1% /data1-01
+    >
+    >   [/dev/vdd][/data2-01]
+    >   Fri 18 Jan 02:31:55 GMT 2019
+    >   Angece
+    >   [/dev/vdd][/data2-01]
+    >   ---- ----
+    >   hostname [Angece]
+    >   devpath  [/dev/vdd]
+    >   mntpath  [/data2-01]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vdd]
+    >   Creating mount point [/data2-01]
+    >   Registering filesystem [/data2-01]
+    >   UUID=36c83514-e392-4b6f-a13e-6ab4520a8874 /data2-01    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data2-01]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdd         32G   31G  4.0M 100% /data2-01
+    >
+    >   [/dev/vde][/data1-02]
+    >   Fri 18 Jan 02:31:56 GMT 2019
+    >   Angece
+    >   [/dev/vde][/data1-02]
+    >   ---- ----
+    >   hostname [Angece]
+    >   devpath  [/dev/vde]
+    >   mntpath  [/data1-02]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vde]
+    >   Creating mount point [/data1-02]
+    >   Registering filesystem [/data1-02]
+    >   UUID=c553c0e4-b693-467a-ae4a-c594cc4d7afa /data1-02    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data1-02]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vde         64G   51G   12G  82% /data1-02
+    >
+    >   [/dev/vdf][/data2-02]
+    >   Fri 18 Jan 02:31:57 GMT 2019
+    >   Angece
+    >   [/dev/vdf][/data2-02]
+    >   ---- ----
+    >   hostname [Angece]
+    >   devpath  [/dev/vdf]
+    >   mntpath  [/data2-02]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vdf]
+    >   Creating mount point [/data2-02]
+    >   Registering filesystem [/data2-02]
+    >   UUID=e3a32ee7-c334-4346-820c-707e46c1d3d8 /data2-02    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data2-02]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdf         64G   46G   17G  74% /data2-02
+    >
+    >   [/dev/vdg][/data1-03]
+    >   Fri 18 Jan 02:31:58 GMT 2019
+    >   Angece
+    >   [/dev/vdg][/data1-03]
+    >   ---- ----
+    >   hostname [Angece]
+    >   devpath  [/dev/vdg]
+    >   mntpath  [/data1-03]
+    >   ---- ----
+    >   Creating btrfs filesystem [/dev/vdg]
+    >   btrfs-progs v4.17.1
+    >   See http://btrfs.wiki.kernel.org for more information.
+    >
+    >   Label:              (null)
+    >   UUID:               848db119-1513-452a-bb72-ae6bfaa06cd7
+    >   Node size:          16384
+    >   Sector size:        4096
+    >   Filesystem size:    256.00GiB
+    >   Block group profiles:
+    >     Data:             single            8.00MiB
+    >     Metadata:         DUP               1.00GiB
+    >     System:           DUP               8.00MiB
+    >   SSD detected:       no
+    >   Incompat features:  extref, skinny-metadata
+    >   Number of devices:  1
+    >   Devices:
+    >      ID        SIZE  PATH
+    >       1   256.00GiB  /dev/vdg
+    >
+    >   Creating mount point [/data1-03]
+    >   Registering filesystem [/data1-03]
+    >   UUID=848db119-1513-452a-bb72-ae6bfaa06cd7 /data1-03    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data1-03]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdg        256G   17M  254G   1% /data1-03
+    >
+    >   [/dev/vdh][/data2-03]
+    >   Fri 18 Jan 02:31:59 GMT 2019
+    >   Angece
+    >   [/dev/vdh][/data2-03]
+    >   ---- ----
+    >   hostname [Angece]
+    >   devpath  [/dev/vdh]
+    >   mntpath  [/data2-03]
+    >   ---- ----
+    >   Creating btrfs filesystem [/dev/vdh]
+    >   btrfs-progs v4.17.1
+    >   See http://btrfs.wiki.kernel.org for more information.
+    >
+    >   Label:              (null)
+    >   UUID:               06598ab6-fa72-45e1-afe1-04eea5ad08ba
+    >   Node size:          16384
+    >   Sector size:        4096
+    >   Filesystem size:    256.00GiB
+    >   Block group profiles:
+    >     Data:             single            8.00MiB
+    >     Metadata:         DUP               1.00GiB
+    >     System:           DUP               8.00MiB
+    >   SSD detected:       no
+    >   Incompat features:  extref, skinny-metadata
+    >   Number of devices:  1
+    >   Devices:
+    >      ID        SIZE  PATH
+    >       1   256.00GiB  /dev/vdh
+    >
+    >   Creating mount point [/data2-03]
+    >   Registering filesystem [/data2-03]
+    >   UUID=06598ab6-fa72-45e1-afe1-04eea5ad08ba /data2-03    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data2-03]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdh        256G   17M  254G   1% /data2-03
+    >   -------- -------- -------- --------
+    >   Node [Edwalafia]
+    >
+    >   [/dev/vdc][/data1-01]
+    >   Fri 18 Jan 02:32:00 GMT 2019
+    >   Edwalafia
+    >   [/dev/vdc][/data1-01]
+    >   ---- ----
+    >   hostname [Edwalafia]
+    >   devpath  [/dev/vdc]
+    >   mntpath  [/data1-01]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vdc]
+    >   Creating mount point [/data1-01]
+    >   Registering filesystem [/data1-01]
+    >   UUID=e6c5141e-f215-4bc8-ac0b-0c93f478fde4 /data1-01    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data1-01]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdc         32G   17M   30G   1% /data1-01
+    >
+    >   [/dev/vdd][/data2-01]
+    >   Fri 18 Jan 02:32:01 GMT 2019
+    >   Edwalafia
+    >   [/dev/vdd][/data2-01]
+    >   ---- ----
+    >   hostname [Edwalafia]
+    >   devpath  [/dev/vdd]
+    >   mntpath  [/data2-01]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vdd]
+    >   Creating mount point [/data2-01]
+    >   Registering filesystem [/data2-01]
+    >   UUID=4bdd314d-4f4f-4870-8d40-086b0ac13e77 /data2-01    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data2-01]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdd         32G   31G  3.5M 100% /data2-01
+    >
+    >   [/dev/vde][/data1-02]
+    >   Fri 18 Jan 02:32:02 GMT 2019
+    >   Edwalafia
+    >   [/dev/vde][/data1-02]
+    >   ---- ----
+    >   hostname [Edwalafia]
+    >   devpath  [/dev/vde]
+    >   mntpath  [/data1-02]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vde]
+    >   Creating mount point [/data1-02]
+    >   Registering filesystem [/data1-02]
+    >   UUID=a921ae6f-02b0-4da3-88dd-bf5252cfcfdb /data1-02    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data1-02]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vde         64G   48G   15G  77% /data1-02
+    >
+    >   [/dev/vdf][/data2-02]
+    >   Fri 18 Jan 02:32:03 GMT 2019
+    >   Edwalafia
+    >   [/dev/vdf][/data2-02]
+    >   ---- ----
+    >   hostname [Edwalafia]
+    >   devpath  [/dev/vdf]
+    >   mntpath  [/data2-02]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vdf]
+    >   Creating mount point [/data2-02]
+    >   Registering filesystem [/data2-02]
+    >   UUID=ce19d30f-2583-4106-b093-e67127beb96d /data2-02    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data2-02]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdf         64G   47G   16G  76% /data2-02
+    >
+    >   [/dev/vdg][/data1-03]
+    >   Fri 18 Jan 02:32:04 GMT 2019
+    >   Edwalafia
+    >   [/dev/vdg][/data1-03]
+    >   ---- ----
+    >   hostname [Edwalafia]
+    >   devpath  [/dev/vdg]
+    >   mntpath  [/data1-03]
+    >   ---- ----
+    >   Creating btrfs filesystem [/dev/vdg]
+    >   btrfs-progs v4.17.1
+    >   See http://btrfs.wiki.kernel.org for more information.
+    >
+    >   Label:              (null)
+    >   UUID:               8624f474-900f-4727-8490-537ddc1ae647
+    >   Node size:          16384
+    >   Sector size:        4096
+    >   Filesystem size:    256.00GiB
+    >   Block group profiles:
+    >     Data:             single            8.00MiB
+    >     Metadata:         DUP               1.00GiB
+    >     System:           DUP               8.00MiB
+    >   SSD detected:       no
+    >   Incompat features:  extref, skinny-metadata
+    >   Number of devices:  1
+    >   Devices:
+    >      ID        SIZE  PATH
+    >       1   256.00GiB  /dev/vdg
+    >
+    >   Creating mount point [/data1-03]
+    >   Registering filesystem [/data1-03]
+    >   UUID=8624f474-900f-4727-8490-537ddc1ae647 /data1-03    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data1-03]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdg        256G   17M  254G   1% /data1-03
+    >
+    >   [/dev/vdh][/data2-03]
+    >   Fri 18 Jan 02:32:05 GMT 2019
+    >   Edwalafia
+    >   [/dev/vdh][/data2-03]
+    >   ---- ----
+    >   hostname [Edwalafia]
+    >   devpath  [/dev/vdh]
+    >   mntpath  [/data2-03]
+    >   ---- ----
+    >   Creating btrfs filesystem [/dev/vdh]
+    >   btrfs-progs v4.17.1
+    >   See http://btrfs.wiki.kernel.org for more information.
+    >
+    >   Label:              (null)
+    >   UUID:               78faf4a4-b4d4-4a78-a7cf-00eb4bd0a455
+    >   Node size:          16384
+    >   Sector size:        4096
+    >   Filesystem size:    256.00GiB
+    >   Block group profiles:
+    >     Data:             single            8.00MiB
+    >     Metadata:         DUP               1.00GiB
+    >     System:           DUP               8.00MiB
+    >   SSD detected:       no
+    >   Incompat features:  extref, skinny-metadata
+    >   Number of devices:  1
+    >   Devices:
+    >      ID        SIZE  PATH
+    >       1   256.00GiB  /dev/vdh
+    >
+    >   Creating mount point [/data2-03]
+    >   Registering filesystem [/data2-03]
+    >   UUID=78faf4a4-b4d4-4a78-a7cf-00eb4bd0a455 /data2-03    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data2-03]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdh        256G   17M  254G   1% /data2-03
+    >   -------- -------- -------- --------
+    >   Node [Onoza]
+    >
+    >   [/dev/vdc][/data1-01]
+    >   Fri 18 Jan 02:32:06 GMT 2019
+    >   Onoza
+    >   [/dev/vdc][/data1-01]
+    >   ---- ----
+    >   hostname [Onoza]
+    >   devpath  [/dev/vdc]
+    >   mntpath  [/data1-01]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vdc]
+    >   Creating mount point [/data1-01]
+    >   Registering filesystem [/data1-01]
+    >   UUID=f26ec954-ee3c-40c2-9d9c-2f31c9eca4c6 /data1-01    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data1-01]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdc         32G   17M   30G   1% /data1-01
+    >
+    >   [/dev/vdd][/data2-01]
+    >   Fri 18 Jan 02:32:07 GMT 2019
+    >   Onoza
+    >   [/dev/vdd][/data2-01]
+    >   ---- ----
+    >   hostname [Onoza]
+    >   devpath  [/dev/vdd]
+    >   mntpath  [/data2-01]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vdd]
+    >   Creating mount point [/data2-01]
+    >   Registering filesystem [/data2-01]
+    >   UUID=26fda47f-cf3b-47af-a23e-80c4f911ee9b /data2-01    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data2-01]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdd         32G   31G  4.6M 100% /data2-01
+    >
+    >   [/dev/vde][/data1-02]
+    >   Fri 18 Jan 02:32:08 GMT 2019
+    >   Onoza
+    >   [/dev/vde][/data1-02]
+    >   ---- ----
+    >   hostname [Onoza]
+    >   devpath  [/dev/vde]
+    >   mntpath  [/data1-02]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vde]
+    >   Creating mount point [/data1-02]
+    >   Registering filesystem [/data1-02]
+    >   UUID=dde98c24-9112-45b4-8ca6-6d6ac85ca9b0 /data1-02    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data1-02]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vde         64G   46G   17G  74% /data1-02
+    >
+    >   [/dev/vdf][/data2-02]
+    >   Fri 18 Jan 02:32:09 GMT 2019
+    >   Onoza
+    >   [/dev/vdf][/data2-02]
+    >   ---- ----
+    >   hostname [Onoza]
+    >   devpath  [/dev/vdf]
+    >   mntpath  [/data2-02]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vdf]
+    >   Creating mount point [/data2-02]
+    >   Registering filesystem [/data2-02]
+    >   UUID=ceba1807-350d-44be-9640-b01c57bdc749 /data2-02    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data2-02]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdf         64G   49G   14G  79% /data2-02
+    >
+    >   [/dev/vdg][/data1-03]
+    >   Fri 18 Jan 02:32:10 GMT 2019
+    >   Onoza
+    >   [/dev/vdg][/data1-03]
+    >   ---- ----
+    >   hostname [Onoza]
+    >   devpath  [/dev/vdg]
+    >   mntpath  [/data1-03]
+    >   ---- ----
+    >   Creating btrfs filesystem [/dev/vdg]
+    >   btrfs-progs v4.17.1
+    >   See http://btrfs.wiki.kernel.org for more information.
+    >
+    >   Label:              (null)
+    >   UUID:               f7fc3c42-4187-46f7-93f0-4ca023c20a5b
+    >   Node size:          16384
+    >   Sector size:        4096
+    >   Filesystem size:    256.00GiB
+    >   Block group profiles:
+    >     Data:             single            8.00MiB
+    >     Metadata:         DUP               1.00GiB
+    >     System:           DUP               8.00MiB
+    >   SSD detected:       no
+    >   Incompat features:  extref, skinny-metadata
+    >   Number of devices:  1
+    >   Devices:
+    >      ID        SIZE  PATH
+    >       1   256.00GiB  /dev/vdg
+    >
+    >   Creating mount point [/data1-03]
+    >   Registering filesystem [/data1-03]
+    >   UUID=f7fc3c42-4187-46f7-93f0-4ca023c20a5b /data1-03    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data1-03]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdg        256G   17M  254G   1% /data1-03
+    >
+    >   [/dev/vdh][/data2-03]
+    >   Fri 18 Jan 02:32:11 GMT 2019
+    >   Onoza
+    >   [/dev/vdh][/data2-03]
+    >   ---- ----
+    >   hostname [Onoza]
+    >   devpath  [/dev/vdh]
+    >   mntpath  [/data2-03]
+    >   ---- ----
+    >   Creating btrfs filesystem [/dev/vdh]
+    >   btrfs-progs v4.17.1
+    >   See http://btrfs.wiki.kernel.org for more information.
+    >
+    >   Label:              (null)
+    >   UUID:               384f0ffe-8dc1-4374-83c2-ba287d5f286e
+    >   Node size:          16384
+    >   Sector size:        4096
+    >   Filesystem size:    256.00GiB
+    >   Block group profiles:
+    >     Data:             single            8.00MiB
+    >     Metadata:         DUP               1.00GiB
+    >     System:           DUP               8.00MiB
+    >   SSD detected:       no
+    >   Incompat features:  extref, skinny-metadata
+    >   Number of devices:  1
+    >   Devices:
+    >      ID        SIZE  PATH
+    >       1   256.00GiB  /dev/vdh
+    >
+    >   Creating mount point [/data2-03]
+    >   Registering filesystem [/data2-03]
+    >   UUID=384f0ffe-8dc1-4374-83c2-ba287d5f286e /data2-03    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data2-03]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdh        256G   17M  254G   1% /data2-03
+
+    # First attempt accidentally wiped /dev/vdc on each node.
+    # Bad  - we lost 32G of data on each node.
+    # Good - we didn't loose the data on the other disks
+    # Check before you create the filesystem.
+    # Interesting to see how robust Kafka is ...
+    # How much did we loose ?
+
+
+# -----------------------------------------------------
+# Create our compose YAML file.
+#[user@trop03]
+
+cat > /tmp/kafka.yml << 'EOYML'
+
+version: "3.2"
+
+services:
+
+    emily:
+        image:
+            confluentinc/cp-kafka:4.1.1
+        ports:
+            - "9092:9092"
+            - "9093:9093"
+        extra_hosts:
+            - "${KAFKA_HOSTNAME}:127.0.0.2"
+        environment:
+            - KAFKA_LISTENERS=jasminum://0.0.0.0:9092
+            - KAFKA_ADVERTISED_LISTENERS=jasminum://${KAFKA_HOSTNAME}:9092
+            - KAFKA_INTER_BROKER_LISTENER_NAME=jasminum
+            - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=jasminum:PLAINTEXT
+            - KAFKA_LOG_DIRS=${KAFKA_LOG_DIRS}
+            - KAFKA_BROKER_ID=${KAFKA_BROKER_ID}
+            - KAFKA_BROKER_RACK=${KAFKA_BROKER_RACK}
+            - KAFKA_ZOOKEEPER_CONNECT=${KAFKA_ZOOKEEPER_CONNECT}
+            - KAFKA_NUM_PARTITIONS=16
+            - KAFKA_DEFAULT_REPLICATION_FACTOR=3
+            - KAFKA_LOG_RETENTION_MS=-1
+            - KAFKA_LOG_RETENTION_BYTES=-1
+            - KAFKA_AUTO_CREATE_TOPICS_ENABLE=true
+            - KAFKA_MESSAGE_MAX_BYTES=10485760
+        volumes:
+            - type:   "bind"
+              source: "/data1-01"
+              target: "/data1-01"
+            - type:   "bind"
+              source: "/data2-01"
+              target: "/data2-01"
+            - type:   "bind"
+              source: "/data1-02"
+              target: "/data1-02"
+            - type:   "bind"
+              source: "/data2-02"
+              target: "/data2-02"
+            - type:   "bind"
+              source: "/data1-03"
+              target: "/data1-03"
+            - type:   "bind"
+              source: "/data2-03"
+              target: "/data2-03"
+
+EOYML
+
+
+# -----------------------------------------------------
+# Deploy our compose YAML file.
+#[user@trop03]
+
+    for vmname in ${kfnames[@]}
+        do
+            scp \
+                ${scpopts[*]} \
+                /tmp/kafka.yml \
+                ${sshuser:?}@${vmname:?}:kafka.yml
+        done
+
+    >   kafka.yml   100% 1590     2.2MB/s   00:00
+    >   kafka.yml   100% 1590     2.5MB/s   00:00
+    >   kafka.yml   100% 1590     2.6MB/s   00:00
+    >   kafka.yml   100% 1590     2.2MB/s   00:00
+
+
+# -----------------------------------------------------
+# Make a list of our Zookeeper nodes.
+#[user@trop03]
+
+    zklist=${zknames[*]}
+    zklist=${zklist// /,}
+
+# -----------------------------------------------------
+# Deploy our compose ENV file.
+#[user@trop03]
+
+
+    for (( i=0 ; i < ${#kfnames[@]} ; i++ ))
+        do
+            vmname=${kfnames[$i]:?}
+
+            echo "Node [${i:?}][${vmname:?}]"
+
+            ssh \
+                ${scpopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+loglist=\$(echo /data*)
+loglist=\${loglist// /,}
+
+cat > kafka.env << EOF
+KAFKA_LOG_DIRS=\${loglist:?}
+KAFKA_BROKER_ID=$(($i+1))
+KAFKA_BROKER_RACK=$(($i+1))
+KAFKA_ZOOKEEPER_CONNECT=${zklist:?}
+KAFKA_HOSTNAME=${vmname:?}
+EOF
+ln -sf kafka.env .env
+                "
+        done
+
+    >   Node [0][Stedigo]
+    >   Node [1][Angece]
+    >   Node [2][Edwalafia]
+    >   Node [3][Onoza]
+
+
+# -----------------------------------------------------
+# Check our compose ENV file.
+#[user@trop03]
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    date
+                    hostname
+                    cat .env
+                    "
+        done
+
+    >   ---- ----
+    >   Fri 18 Jan 04:13:25 GMT 2019
+    >   Stedigo
+    >   KAFKA_LOG_DIRS=/data1-01,/data1-02,/data1-03,/data2-01,/data2-02,/data2-03
+    >   KAFKA_BROKER_ID=1
+    >   KAFKA_BROKER_RACK=1
+    >   KAFKA_ZOOKEEPER_CONNECT=Fosauri,Marpus,Byflame
+    >   KAFKA_HOSTNAME=Stedigo
+    >   ---- ----
+    >   Fri 18 Jan 04:13:25 GMT 2019
+    >   Angece
+    >   KAFKA_LOG_DIRS=/data1-01,/data1-02,/data1-03,/data2-01,/data2-02,/data2-03
+    >   KAFKA_BROKER_ID=2
+    >   KAFKA_BROKER_RACK=2
+    >   KAFKA_ZOOKEEPER_CONNECT=Fosauri,Marpus,Byflame
+    >   KAFKA_HOSTNAME=Angece
+    >   ---- ----
+    >   Fri 18 Jan 04:13:26 GMT 2019
+    >   Edwalafia
+    >   KAFKA_LOG_DIRS=/data1-01,/data1-02,/data1-03,/data2-01,/data2-02,/data2-03
+    >   KAFKA_BROKER_ID=3
+    >   KAFKA_BROKER_RACK=3
+    >   KAFKA_ZOOKEEPER_CONNECT=Fosauri,Marpus,Byflame
+    >   KAFKA_HOSTNAME=Edwalafia
+    >   ---- ----
+    >   Fri 18 Jan 04:13:26 GMT 2019
+    >   Onoza
+    >   KAFKA_LOG_DIRS=/data1-01,/data1-02,/data1-03,/data2-01,/data2-02,/data2-03
+    >   KAFKA_BROKER_ID=4
+    >   KAFKA_BROKER_RACK=4
+    >   KAFKA_ZOOKEEPER_CONNECT=Fosauri,Marpus,Byflame
+    >   KAFKA_HOSTNAME=Onoza
+
+
+# -----------------------------------------------------
+# Start Kafka on each node.
+#[user@trop03]
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            ssh \
+                ${scpopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                date
+                hostname
+
+                docker-compose \
+                    --file kafka.yml \
+                    up -d
+                "
+        done
+
+    >   ---- ----
+    >   Fri 18 Jan 04:17:27 GMT 2019
+    >   Stedigo
+    >   Creating network "stevedore_default" with the default driver
+    >   Creating stevedore_emily_1 ... done
+    >   ---- ----
+    >   Fri 18 Jan 04:17:29 GMT 2019
+    >   Angece
+    >   Creating network "stevedore_default" with the default driver
+    >   Creating stevedore_emily_1 ... done
+    >   ---- ----
+    >   Fri 18 Jan 04:17:32 GMT 2019
+    >   Edwalafia
+    >   Creating network "stevedore_default" with the default driver
+    >   Creating stevedore_emily_1 ... done
+    >   ---- ----
+    >   Fri 18 Jan 04:17:34 GMT 2019
+    >   Onoza
+    >   Creating network "stevedore_default" with the default driver
+    >   Creating stevedore_emily_1 ... done
+
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+# Tail the logs on each node.
+# https://www.systutorials.com/docs/linux/man/1-gnome-terminal/
+# https://www.systutorials.com/docs/linux/man/7-X/#lbAH
+#[user@desktop]
+
+    mate-terminal \
+        --geometry '160x10+25+25' \
+        --command '
+            ssh -t Stedigo "
+                docker logs -f stevedore_emily_1
+                ${SHELL}
+                "
+            '
+    sleep 1
+
+    mate-terminal \
+        --geometry '160x10+125+125' \
+        --command '
+            ssh -t Angece "
+                docker logs -f stevedore_emily_1
+                ${SHELL}
+                "
+            '
+    sleep 1
+
+    mate-terminal \
+        --geometry '160x10+225+225' \
+        --command '
+            ssh -t Edwalafia "
+                docker logs -f stevedore_emily_1
+                ${SHELL}
+                "
+            '
+    sleep 1
+
+    mate-terminal \
+        --geometry '160x10+325+325' \
+        --command '
+            ssh -t Onoza "
+                docker logs -f stevedore_emily_1
+                ${SHELL}
+                "
+            '
+
+[Stedigo]
+    >   ....
+    >   [2019-01-18 04:17:36,698] INFO starting (kafka.server.KafkaServer)
+    >   [2019-01-18 04:17:36,699] INFO Connecting to zookeeper on Fosauri,Marpus,Byflame (kafka.server.KafkaServer)
+    >   [2019-01-18 04:17:36,718] INFO [ZooKeeperClient] Initializing a new session to Fosauri,Marpus,Byflame. (kafka.zookeeper.ZooKeeperClient)
+    >   [2019-01-18 04:17:36,724] INFO Client environment:zookeeper.version=3.4.10-39d3a4f269333c922ed3db283be479f9deacaa0f, built on 03/23/2017 10:13 GMT (org.apache.zookeeper.ZooKeeper)
+    >   [2019-01-18 04:17:36,724] INFO Client environment:host.name=a6257bfe792b (org.apache.zookeeper.ZooKeeper)
+    >   [2019-01-18 04:17:36,724] INFO Client environment:java.version=1.8.0_172 (org.apache.zookeeper.ZooKeeper)
+    >   [2019-01-18 04:17:36,724] INFO Client environment:java.vendor=Azul Systems, Inc. (org.apache.zookeeper.ZooKeeper)
+    >   [2019-01-18 04:17:36,724] INFO Client environment:java.home=/usr/lib/jvm/zulu-8-amd64/jre (org.apache.zookeeper.ZooKeeper)
+    >   ....
+    >   [2019-01-18 04:17:37,303] INFO [ThrottledRequestReaper-Fetch]: Starting (kafka.server.ClientQuotaManager$ThrottledRequestReaper)
+    >   [2019-01-18 04:17:37,304] INFO [ThrottledRequestReaper-Produce]: Starting (kafka.server.ClientQuotaManager$ThrottledRequestReaper)
+    >   [2019-01-18 04:17:37,308] INFO [ThrottledRequestReaper-Request]: Starting (kafka.server.ClientQuotaManager$ThrottledRequestReaper)
+    >   ....
+    >   [2019-01-18 04:17:36,726] INFO Initiating client connection, connectString=Fosauri,Marpus,Byflame sessionTimeout=6000 watcher=kafka.zookeeper.ZooKeeperClient$ZooKeeperClientWatcher$@3c46e67a (org.apache.zookeeper.ZooKeeper)
+    >   [2019-01-18 04:17:36,743] INFO [ZooKeeperClient] Waiting until connected. (kafka.zookeeper.ZooKeeperClient)
+    >   [2019-01-18 04:17:36,744] INFO Opening socket connection to server Marpus/192.168.210.143:2181. Will not attempt to authenticate using SASL (unknown error) (org.apache.zookeeper.ClientCnxn)
+    >   [2019-01-18 04:17:36,750] INFO Socket connection established to Marpus/192.168.210.143:2181, initiating session (org.apache.zookeeper.ClientCnxn)
+    >   [2019-01-18 04:17:36,759] INFO Session establishment complete on server Marpus/192.168.210.143:2181, sessionid = 0x2685e15ce480001, negotiated timeout = 6000 (org.apache.zookeeper.ClientCnxn)
+    >   [2019-01-18 04:17:36,763] INFO [ZooKeeperClient] Connected. (kafka.zookeeper.ZooKeeperClient)
+    >   [2019-01-18 04:17:37,173] INFO Cluster ID = kOVm3OLLRq6Su3tR3oLbJA (kafka.server.KafkaServer)
+    >   [2019-01-18 04:17:37,183] WARN No meta.properties file under dir /data1-01/meta.properties (kafka.server.BrokerMetadataCheckpoint)
+    >   [2019-01-18 04:17:37,186] WARN No meta.properties file under dir /data1-03/meta.properties (kafka.server.BrokerMetadataCheckpoint)
+    >   [2019-01-18 04:17:37,187] WARN No meta.properties file under dir /data2-03/meta.properties (kafka.server.BrokerMetadataCheckpoint)
+    >   ....
+    >   [2019-01-18 04:17:37,343] INFO Loading logs. (kafka.log.LogManager)
+    >   [2019-01-18 04:17:37,395] WARN [Log partition=ztf_20181205_programid1-2, dir=/data2-01] Found a corrupted index file corresponding to log file /data2-01/ztf_20181205_programid1-2/00000000000000000000.log due to Corrupt index found, index file (/data2-01/ztf_20181205_programid1-2/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
+    >   [2019-01-18 04:17:37,425] WARN [Log partition=ztf_20181219_programid1-10, dir=/data1-02] Found a corrupted index file corresponding to log file /data1-02/ztf_20181219_programid1-10/00000000000000015992.log due to Corrupt index found, index file (/data1-02/ztf_20181219_programid1-10/00000000000000015992.index) has non-zero size but the last offset is 15992 which is no greater than the base offset 15992.}, recovering segment and rebuilding index files... (kafka.log.Log)
+    >   [2019-01-18 04:17:37,430] INFO [ProducerStateManager partition=ztf_20181219_programid1-10] Loading producer state from snapshot file '/data1-02/ztf_20181219_programid1-10/00000000000000015992.snapshot' (kafka.log.ProducerStateManager)
+    >   ....
+    >   [2019-01-18 04:17:37,544] WARN [Log partition=ztf_20181219_programid1-7, dir=/data2-02] Found a corrupted index file corresponding to log file /data2-02/ztf_20181219_programid1-7/00000000000000015992.log due to Corrupt index found, index file (/data2-02/ztf_20181219_programid1-7/00000000000000015992.index) has non-zero size but the last offset is 15992 which is no greater than the base offset 15992.}, recovering segment and rebuilding index files... (kafka.log.Log)
+    >   [2019-01-18 04:17:37,545] INFO [ProducerStateManager partition=ztf_20181219_programid1-7] Loading producer state from snapshot file '/data2-02/ztf_20181219_programid1-7/00000000000000015992.snapshot' (kafka.log.ProducerStateManager)
+    >   [2019-01-18 04:17:41,384] INFO [ProducerStateManager partition=ztf_20181219_programid1-7] Writing producer snapshot at offset 18251 (kafka.log.ProducerStateManager)
+    >   [2019-01-18 04:17:41,389] INFO [Log partition=ztf_20181219_programid1-7, dir=/data2-02] Recovering unflushed segment 15992 (kafka.log.Log)
+    >   [2019-01-18 04:17:41,391] INFO [ProducerStateManager partition=ztf_20181219_programid1-7] Loading producer state from snapshot file '/data2-02/ztf_20181219_programid1-7/00000000000000015992.snapshot' (kafka.log.ProducerStateManager)
+    >   [2019-01-18 04:17:41,843] INFO [ProducerStateManager partition=ztf_20181219_programid1-7] Writing producer snapshot at offset 18251 (kafka.log.ProducerStateManager)
+    >   [2019-01-18 04:17:41,851] INFO [Log partition=ztf_20181219_programid1-7, dir=/data2-02] Loading producer state from offset 18251 with message format version 2 (kafka.log.Log)
+    >   [2019-01-18 04:17:41,853] INFO [ProducerStateManager partition=ztf_20181219_programid1-7] Loading producer state from snapshot file '/data2-02/ztf_20181219_programid1-7/00000000000000018251.snapshot' (kafka.log.ProducerStateManager)
+    >   [2019-01-18 04:17:41,854] INFO [Log partition=ztf_20181219_programid1-7, dir=/data2-02] Completed load of log with 2 segments, log start offset 0 and log end offset 18251 in 4472 ms (kafka.log.Log)
+    >   ....
+    >   ....
+    >   [2019-01-18 05:33:45,765] INFO [ProducerStateManager partition=ztf_20181215_programid1-10] Writing producer snapshot at offset 642 (kafka.log.ProducerStateManager)
+    >   [2019-01-18 05:33:45,765] INFO [Log partition=ztf_20181215_programid1-10, dir=/data2-01] Loading producer state from offset 642 with message format version 2 (kafka.log.Log)
+    >   [2019-01-18 05:33:45,766] INFO [ProducerStateManager partition=ztf_20181215_programid1-10] Loading producer state from snapshot file '/data2-01/ztf_20181215_programid1-10/00000000000000000642.snapshot' (kafka.log.ProducerStateManager)
+    >   [2019-01-18 05:33:45,766] INFO [Log partition=ztf_20181215_programid1-10, dir=/data2-01] Completed load of log with 1 segments, log start offset 0 and log end offset 642 in 8085 ms (kafka.log.Log)
+    >   ....
+    >   [2019-01-18 05:33:46,116] WARN [Log partition=ztf_20181216_programid1-13, dir=/data2-01] Found a corrupted index file corresponding to log file /data2-01/ztf_20181216_programid1-13/00000000000000000000.log due to Corrupt index found, index file (/data2-01/ztf_20181216_programid1-13/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
+    >   ....
+    >   [2019-01-18 05:34:05,002] INFO [ProducerStateManager partition=ztf_20181230_programid1-15] Writing producer snapshot at offset 11037 (kafka.log.ProducerStateManager)
+    >   [2019-01-18 05:34:05,003] INFO [Log partition=ztf_20181230_programid1-15, dir=/data2-02] Recovering unflushed segment 0 (kafka.log.Log)
+    >   [2019-01-18 05:34:10,737] INFO [ProducerStateManager partition=ztf_20181230_programid1-15] Writing producer snapshot at offset 11037 (kafka.log.ProducerStateManager)
+    >   [2019-01-18 05:34:10,738] INFO [Log partition=ztf_20181230_programid1-15, dir=/data2-02] Loading producer state from offset 11037 with message format version 2 (kafka.log.Log)
+    >   [2019-01-18 05:34:10,738] INFO [ProducerStateManager partition=ztf_20181230_programid1-15] Loading producer state from snapshot file '/data2-02/ztf_20181230_programid1-15/00000000000000011037.snapshot' (kafka.log.ProducerStateManager)
+    >   [2019-01-18 05:34:10,738] INFO [Log partition=ztf_20181230_programid1-15, dir=/data2-02] Completed load of log with 1 segments, log start offset 0 and log end offset 11037 in 141021 ms (kafka.log.Log)
+    >   ....
+    >   [2019-01-18 05:34:10,742] WARN [Log partition=ztf_20181230_programid1-6, dir=/data2-02] Found a corrupted index file corresponding to log file /data2-02/ztf_20181230_programid1-6/00000000000000000000.log due to Corrupt index found, index file (/data2-02/ztf_20181230_programid1-6/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
+    >   ....
+    >   ....
+    >   ....
+    >   ....
+    >   [2019-01-18 12:42:50,034] INFO [GroupMetadataManager brokerId=1] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   [2019-01-18 12:52:50,034] INFO [GroupMetadataManager brokerId=1] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   [2019-01-18 13:02:50,034] INFO [GroupMetadataManager brokerId=1] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   [2019-01-18 13:12:50,034] INFO [GroupMetadataManager brokerId=1] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   [2019-01-18 13:22:50,034] INFO [GroupMetadataManager brokerId=1] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   ....
+
+
+[Angece]
+    >   ....
+    >   [2019-01-18 04:17:39,121] INFO Initiating client connection, connectString=Fosauri,Marpus,Byflame sessionTimeout=6000 watcher=kafka.zookeeper.ZooKeeperClient$ZooKeeperClientWatcher$@3c46e67a (org.apache.zookeeper.ZooKeeper)
+    >   [2019-01-18 04:17:39,138] INFO [ZooKeeperClient] Waiting until connected. (kafka.zookeeper.ZooKeeperClient)
+    >   [2019-01-18 04:17:39,139] INFO Opening socket connection to server Byflame/192.168.210.144:2181. Will not attempt to authenticate using SASL (unknown error) (org.apache.zookeeper.ClientCnxn)
+    >   [2019-01-18 04:17:39,145] INFO Socket connection established to Byflame/192.168.210.144:2181, initiating session (org.apache.zookeeper.ClientCnxn)
+    >   [2019-01-18 04:17:39,155] INFO Session establishment complete on server Byflame/192.168.210.144:2181, sessionid = 0x3685e161d750003, negotiated timeout = 6000 (org.apache.zookeeper.ClientCnxn)
+    >   [2019-01-18 04:17:39,159] INFO [ZooKeeperClient] Connected. (kafka.zookeeper.ZooKeeperClient)
+    >   [2019-01-18 04:17:39,565] INFO Cluster ID = kOVm3OLLRq6Su3tR3oLbJA (kafka.server.KafkaServer)
+    >   [2019-01-18 04:17:39,575] WARN No meta.properties file under dir /data1-01/meta.properties (kafka.server.BrokerMetadataCheckpoint)
+    >   [2019-01-18 04:17:39,578] WARN No meta.properties file under dir /data1-03/meta.properties (kafka.server.BrokerMetadataCheckpoint)
+    >   [2019-01-18 04:17:39,580] WARN No meta.properties file under dir /data2-03/meta.properties (kafka.server.BrokerMetadataCheckpoint)
+    >   ....
+    >   [2019-01-18 04:17:39,799] WARN [Log partition=ztf_20181205_programid1-11, dir=/data2-01] Found a corrupted index file corresponding to log file /data2-01/ztf_20181205_programid1-11/00000000000000000000.log due to Corrupt index found, index file (/data2-01/ztf_20181205_programid1-11/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
+    >   [2019-01-18 04:17:39,804] WARN [Log partition=ztf_20181219_programid1-10, dir=/data1-02] Found a corrupted index file corresponding to log file /data1-02/ztf_20181219_programid1-10/00000000000000015992.log due to Corrupt index found, index file (/data1-02/ztf_20181219_programid1-10/00000000000000015992.index) has non-zero size but the last offset is 15992 which is no greater than the base offset 15992.}, recovering segment and rebuilding index files... (kafka.log.Log)
+    >   [2019-01-18 04:17:39,805] WARN [Log partition=ztf_20181219_programid1-7, dir=/data2-02] Found a corrupted index file corresponding to log file /data2-02/ztf_20181219_programid1-7/00000000000000015992.log due to Corrupt index found, index file (/data2-02/ztf_20181219_programid1-7/00000000000000015992.index) has non-zero size but the last offset is 15992 which is no greater than the base offset 15992.}, recovering segment and rebuilding index files... (kafka.log.Log)
+    >   [2019-01-18 04:17:39,817] INFO [ProducerStateManager partition=ztf_20181219_programid1-10] Loading producer state from snapshot file '/data1-02/ztf_20181219_programid1-10/00000000000000015992.snapshot' (kafka.log.ProducerStateManager)
+    >   [2019-01-18 04:17:39,819] INFO [ProducerStateManager partition=ztf_20181219_programid1-7] Loading producer state from snapshot file '/data2-02/ztf_20181219_programid1-7/00000000000000015992.snapshot' (kafka.log.ProducerStateManager)
+    >   [2019-01-18 04:17:40,288] INFO [ProducerStateManager partition=ztf_20181219_programid1-7] Writing producer snapshot at offset 18251 (kafka.log.ProducerStateManager)
+    >   [2019-01-18 04:17:40,291] INFO [Log partition=ztf_20181219_programid1-7, dir=/data2-02] Recovering unflushed segment 15992 (kafka.log.Log)
+    >   [2019-01-18 04:17:40,292] INFO [ProducerStateManager partition=ztf_20181219_programid1-7] Loading producer state from snapshot file '/data2-02/ztf_20181219_programid1-7/00000000000000015992.snapshot' (kafka.log.ProducerStateManager)
+    >   [2019-01-18 04:17:40,604] INFO [ProducerStateManager partition=ztf_20181219_programid1-7] Writing producer snapshot at offset 18251 (kafka.log.ProducerStateManager)
+    >   [2019-01-18 04:17:40,620] INFO [Log partition=ztf_20181219_programid1-7, dir=/data2-02] Loading producer state from offset 18251 with message format version 2 (kafka.log.Log)
+    >   [2019-01-18 04:17:40,622] INFO [ProducerStateManager partition=ztf_20181219_programid1-7] Loading producer state from snapshot file '/data2-02/ztf_20181219_programid1-7/00000000000000018251.snapshot' (kafka.log.ProducerStateManager)
+    >   [2019-01-18 04:17:40,624] INFO [Log partition=ztf_20181219_programid1-7, dir=/data2-02] Completed load of log with 2 segments, log start offset 0 and log end offset 18251 in 841 ms (kafka.log.Log)
+    >   [2019-01-18 04:17:40,643] WARN [Log partition=ztf_20181219_programid1-1, dir=/data2-02] Found a corrupted index file corresponding to log file /data2-02/ztf_20181219_programid1-1/00000000000000016000.log due to Corrupt index found, index file (/data2-02/ztf_20181219_programid1-1/00000000000000016000.index) has non-zero size but the last offset is 16000 which is no greater than the base offset 16000.}, recovering segment and rebuilding index files... (kafka.log.Log)
+    >   [2019-01-18 04:17:40,644] INFO [ProducerStateManager partition=ztf_20181219_programid1-1] Loading producer state from snapshot file '/data2-02/ztf_20181219_programid1-1/00000000000000016000.snapshot' (kafka.log.ProducerStateManager)
+    >   [2019-01-18 04:17:40,979] INFO [ProducerStateManager partition=ztf_20181219_programid1-1] Writing producer snapshot at offset 18251 (kafka.log.ProducerStateManager)
+    >   [2019-01-18 04:17:40,979] INFO [Log partition=ztf_20181219_programid1-1, dir=/data2-02] Recovering unflushed segment 16000 (kafka.log.Log)
+    >   ....
+    >   ....
+    >   [2019-01-18 05:37:42,771] INFO [ProducerStateManager partition=ztf_20181216_programid1-6] Writing producer snapshot at offset 8650 (kafka.log.ProducerStateManager)
+    >   [2019-01-18 05:37:42,772] INFO [Log partition=ztf_20181216_programid1-6, dir=/data2-01] Loading producer state from offset 8650 with message format version 2 (kafka.log.Log)
+    >   [2019-01-18 05:37:42,772] INFO [ProducerStateManager partition=ztf_20181216_programid1-6] Loading producer state from snapshot file '/data2-01/ztf_20181216_programid1-6/00000000000000008650.snapshot' (kafka.log.ProducerStateManager)
+    >   [2019-01-18 05:37:42,773] INFO [Log partition=ztf_20181216_programid1-6, dir=/data2-01] Completed load of log with 1 segments, log start offset 0 and log end offset 8650 in 130280 ms (kafka.log.Log)
+    >   [2019-01-18 05:37:43,018] WARN [Log partition=ztf_20181216_programid1-14, dir=/data2-01] Found a corrupted index file corresponding to log file /data2-01/ztf_20181216_programid1-14/00000000000000000000.log due to Corrupt index found, index file (/data2-01/ztf_20181216_programid1-14/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
+    >   [2019-01-18 05:38:03,113] INFO [ProducerStateManager partition=ztf_20181231_programid1-0] Writing producer snapshot at offset 6977 (kafka.log.ProducerStateManager)
+    >   [2019-01-18 05:38:03,168] INFO [Log partition=ztf_20181231_programid1-0, dir=/data2-02] Recovering unflushed segment 0 (kafka.log.Log)
+    >   [2019-01-18 05:38:04,184] INFO [ProducerStateManager partition=ztf_20181231_programid1-0] Writing producer snapshot at offset 6977 (kafka.log.ProducerStateManager)
+    >   [2019-01-18 05:38:04,184] INFO [Log partition=ztf_20181231_programid1-0, dir=/data2-02] Loading producer state from offset 6977 with message format version 2 (kafka.log.Log)
+    >   [2019-01-18 05:38:04,185] INFO [ProducerStateManager partition=ztf_20181231_programid1-0] Loading producer state from snapshot file '/data2-02/ztf_20181231_programid1-0/00000000000000006977.snapshot' (kafka.log.ProducerStateManager)
+    >   [2019-01-18 05:38:04,185] INFO [Log partition=ztf_20181231_programid1-0, dir=/data2-02] Completed load of log with 1 segments, log start offset 0 and log end offset 6977 in 93046 ms (kafka.log.Log)
+    >   [2019-01-18 05:38:05,032] INFO [Log partition=ztf_20181231_programid1-9, dir=/data2-02] Recovering unflushed segment 0 (kafka.log.Log)
+    >   ....
+    >   ....
+    >   ....
+    >   ....
+    >   [2019-01-18 13:16:48,728] DEBUG [Controller id=2] Topics not in preferred replica for broker 2 Map() (kafka.controller.KafkaController)
+    >   [2019-01-18 13:16:48,728] TRACE [Controller id=2] Leader imbalance ratio for broker 2 is 0.0 (kafka.controller.KafkaController)
+    >   [2019-01-18 13:21:43,388] INFO [GroupMetadataManager brokerId=2] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   [2019-01-18 13:21:48,729] TRACE [Controller id=2] Checking need to trigger auto leader balancing (kafka.controller.KafkaController)
+    >   [2019-01-18 13:21:48,729] DEBUG [Controller id=2] Preferred replicas by broker Map(2 -> Map(__confluent.support.metrics-0 -> Vector(2))) (kafka.controller.KafkaController)
+    >   [2019-01-18 13:21:48,729] DEBUG [Controller id=2] Topics not in preferred replica for broker 2 Map() (kafka.controller.KafkaController)
+    >   [2019-01-18 13:21:48,729] TRACE [Controller id=2] Leader imbalance ratio for broker 2 is 0.0 (kafka.controller.KafkaController)
+    >   ....
+
+
+[Edwalafia]
+    >   ....
+    >   [2019-01-18 04:17:40,769] INFO Initiating client connection, connectString=Fosauri,Marpus,Byflame sessionTimeout=6000 watcher=kafka.zookeeper.ZooKeeperClient$ZooKeeperClientWatcher$@3c46e67a (org.apache.zookeeper.ZooKeeper)
+    >   [2019-01-18 04:17:40,784] INFO [ZooKeeperClient] Waiting until connected. (kafka.zookeeper.ZooKeeperClient)
+    >   [2019-01-18 04:17:40,787] INFO Opening socket connection to server Byflame/192.168.210.144:2181. Will not attempt to authenticate using SASL (unknown error) (org.apache.zookeeper.ClientCnxn)
+    >   [2019-01-18 04:17:40,795] INFO Socket connection established to Byflame/192.168.210.144:2181, initiating session (org.apache.zookeeper.ClientCnxn)
+    >   [2019-01-18 04:17:40,810] INFO Session establishment complete on server Byflame/192.168.210.144:2181, sessionid = 0x3685e161d750004, negotiated timeout = 6000 (org.apache.zookeeper.ClientCnxn)
+    >   [2019-01-18 04:17:40,814] INFO [ZooKeeperClient] Connected. (kafka.zookeeper.ZooKeeperClient)
+    >   [2019-01-18 04:17:41,174] INFO Cluster ID = kOVm3OLLRq6Su3tR3oLbJA (kafka.server.KafkaServer)
+    >   [2019-01-18 04:17:41,186] WARN No meta.properties file under dir /data1-01/meta.properties (kafka.server.BrokerMetadataCheckpoint)
+    >   [2019-01-18 04:17:41,188] WARN No meta.properties file under dir /data1-03/meta.properties (kafka.server.BrokerMetadataCheckpoint)
+    >   [2019-01-18 04:17:41,189] WARN No meta.properties file under dir /data2-03/meta.properties (kafka.server.BrokerMetadataCheckpoint)
+    >   ....
+    >   [2019-01-18 04:17:41,357] WARN [Log partition=ztf_20181205_programid1-8, dir=/data2-01] Found a corrupted index file corresponding to log file /data2-01/ztf_20181205_programid1-8/00000000000000000000.log due to Corrupt index found, index file (/data2-01/ztf_20181205_programid1-8/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
+    >   [2019-01-18 04:17:41,358] WARN [Log partition=ztf_20181219_programid1-10, dir=/data1-02] Found a corrupted index file corresponding to log file /data1-02/ztf_20181219_programid1-10/00000000000000015992.log due to Corrupt index found, index file (/data1-02/ztf_20181219_programid1-10/00000000000000015992.index) has non-zero size but the last offset is 15992 which is no greater than the base offset 15992.}, recovering segment and rebuilding index files... (kafka.log.Log)
+    >   [2019-01-18 04:17:41,359] WARN [Log partition=ztf_20181219_programid1-4, dir=/data2-02] Found a corrupted index file corresponding to log file /data2-02/ztf_20181219_programid1-4/00000000000000015988.log due to Corrupt index found, index file (/data2-02/ztf_20181219_programid1-4/00000000000000015988.index) has non-zero size but the last offset is 15988 which is no greater than the base offset 15988.}, recovering segment and rebuilding index files... (kafka.log.Log)
+    >   [2019-01-18 04:17:41,368] INFO [ProducerStateManager partition=ztf_20181219_programid1-10] Loading producer state from snapshot file '/data1-02/ztf_20181219_programid1-10/00000000000000015992.snapshot' (kafka.log.ProducerStateManager)
+    >   [2019-01-18 04:17:41,368] INFO [ProducerStateManager partition=ztf_20181219_programid1-4] Loading producer state from snapshot file '/data2-02/ztf_20181219_programid1-4/00000000000000015988.snapshot' (kafka.log.ProducerStateManager)
+    >   [2019-01-18 04:17:49,894] INFO [ProducerStateManager partition=ztf_20181219_programid1-10] Writing producer snapshot at offset 28361 (kafka.log.ProducerStateManager)
+    >   [2019-01-18 04:17:49,899] INFO [Log partition=ztf_20181219_programid1-10, dir=/data1-02] Recovering unflushed segment 15992 (kafka.log.Log)
+    >   [2019-01-18 04:17:49,901] INFO [ProducerStateManager partition=ztf_20181219_programid1-10] Loading producer state from snapshot file '/data1-02/ztf_20181219_programid1-10/00000000000000015992.snapshot' (kafka.log.ProducerStateManager)
+    >   [2019-01-18 04:17:51,249] INFO [ProducerStateManager partition=ztf_20181219_programid1-10] Writing producer snapshot at offset 28361 (kafka.log.ProducerStateManager)
+    >   [2019-01-18 04:17:51,255] INFO [Log partition=ztf_20181219_programid1-10, dir=/data1-02] Loading producer state from offset 28361 with message format version 2 (kafka.log.Log)
+    >   [2019-01-18 04:17:51,256] INFO [ProducerStateManager partition=ztf_20181219_programid1-10] Loading producer state from snapshot file '/data1-02/ztf_20181219_programid1-10/00000000000000028361.snapshot' (kafka.log.ProducerStateManager)
+    >   [2019-01-18 04:17:51,257] INFO [Log partition=ztf_20181219_programid1-10, dir=/data1-02] Completed load of log with 2 segments, log start offset 0 and log end offset 28361 in 9917 ms (kafka.log.Log)
+    >   [2019-01-18 04:17:51,725] WARN [Log partition=ztf_20181219_programid1-1, dir=/data1-02] Found a corrupted index file corresponding to log file /data1-02/ztf_20181219_programid1-1/00000000000000016000.log due to Corrupt index found, index file (/data1-02/ztf_20181219_programid1-1/00000000000000016000.index) has non-zero size but the last offset is 16000 which is no greater than the base offset 16000.}, recovering segment and rebuilding index files... (kafka.log.Log)
+    >   [2019-01-18 04:17:51,727] INFO [ProducerStateManager partition=ztf_20181219_programid1-1] Loading producer state from snapshot file '/data1-02/ztf_20181219_programid1-1/00000000000000016000.snapshot' (kafka.log.ProducerStateManager)
+    >   [2019-01-18 04:18:00,968] INFO [ProducerStateManager partition=ztf_20181219_programid1-1] Writing producer snapshot at offset 18251 (kafka.log.ProducerStateManager)
+    >   [2019-01-18 04:18:00,969] INFO [Log partition=ztf_20181219_programid1-1, dir=/data1-02] Recovering unflushed segment 16000 (kafka.log.Log)
+    >   ....
+    >   ....
+    >   [2019-01-18 05:35:30,938] INFO [ProducerStateManager partition=ztf_20181230_programid1-10] Writing producer snapshot at offset 11038 (kafka.log.ProducerStateManager)
+    >   [2019-01-18 05:35:30,938] INFO [Log partition=ztf_20181230_programid1-10, dir=/data2-02] Loading producer state from offset 11038 with message format version 2 (kafka.log.Log)
+    >   [2019-01-18 05:35:30,939] INFO [ProducerStateManager partition=ztf_20181230_programid1-10] Loading producer state from snapshot file '/data2-02/ztf_20181230_programid1-10/00000000000000011038.snapshot' (kafka.log.ProducerStateManager)
+    >   [2019-01-18 05:35:30,939] INFO [Log partition=ztf_20181230_programid1-10, dir=/data2-02] Completed load of log with 1 segments, log start offset 0 and log end offset 11038 in 157118 ms (kafka.log.Log)
+    >   [2019-01-18 05:35:31,094] WARN [Log partition=ztf_20181230_programid1-1, dir=/data2-02] Found a corrupted index file corresponding to log file /data2-02/ztf_20181230_programid1-1/00000000000000000000.log due to Corrupt index found, index file (/data2-02/ztf_20181230_programid1-1/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
+    >   [2019-01-18 05:37:59,084] INFO [ProducerStateManager partition=ztf_20181230_programid1-1] Writing producer snapshot at offset 11038 (kafka.log.ProducerStateManager)
+    >   [2019-01-18 05:37:59,085] INFO [Log partition=ztf_20181230_programid1-1, dir=/data2-02] Recovering unflushed segment 0 (kafka.log.Log)
+    >   [2019-01-18 05:38:04,450] INFO [ProducerStateManager partition=ztf_20181230_programid1-1] Writing producer snapshot at offset 11038 (kafka.log.ProducerStateManager)
+    >   [2019-01-18 05:38:04,451] INFO [Log partition=ztf_20181230_programid1-1, dir=/data2-02] Loading producer state from offset 11038 with message format version 2 (kafka.log.Log)
+    >   [2019-01-18 05:38:04,452] INFO [ProducerStateManager partition=ztf_20181230_programid1-1] Loading producer state from snapshot file '/data2-02/ztf_20181230_programid1-1/00000000000000011038.snapshot' (kafka.log.ProducerStateManager)
+    >   [2019-01-18 05:38:04,452] INFO [Log partition=ztf_20181230_programid1-1, dir=/data2-02] Completed load of log with 1 segments, log start offset 0 and log end offset 11038 in 153511 ms (kafka.log.Log)
+    >   [2019-01-18 05:38:04,752] WARN [Log partition=ztf_20181230_programid1-8, dir=/data2-02] Found a corrupted index file corresponding to log file /data2-02/ztf_20181230_programid1-8/00000000000000000000.log due to Corrupt index found, index file (/data2-02/ztf_20181230_programid1-8/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
+    >   [2019-01-18 05:38:15,983] INFO [ProducerStateManager partition=ztf_20181214_programid1-0] Writing producer snapshot at offset 14906 (kafka.log.ProducerStateManager)
+    >   [2019-01-18 05:38:15,984] INFO [Log partition=ztf_20181214_programid1-0, dir=/data2-01] Recovering unflushed segment 0 (kafka.log.Log)
+    >   ....
+    >   ....
+    >   ....
+    >   ....
+    >   [2019-01-18 12:14:19,313] INFO [GroupMetadataManager brokerId=3] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   [2019-01-18 12:24:19,313] INFO [GroupMetadataManager brokerId=3] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   [2019-01-18 12:34:19,313] INFO [GroupMetadataManager brokerId=3] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   [2019-01-18 12:44:19,313] INFO [GroupMetadataManager brokerId=3] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   [2019-01-18 12:54:19,313] INFO [GroupMetadataManager brokerId=3] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   [2019-01-18 13:04:19,313] INFO [GroupMetadataManager brokerId=3] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   [2019-01-18 13:14:19,313] INFO [GroupMetadataManager brokerId=3] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   ....
+
+
+[Onoza]
+    >   ....
+    >   [2019-01-18 04:17:42,917] INFO Initiating client connection, connectString=Fosauri,Marpus,Byflame sessionTimeout=6000 watcher=kafka.zookeeper.ZooKeeperClient$ZooKeeperClientWatcher$@3c46e67a (org.apache.zookeeper.ZooKeeper)
+    >   [2019-01-18 04:17:42,934] INFO [ZooKeeperClient] Waiting until connected. (kafka.zookeeper.ZooKeeperClient)
+    >   [2019-01-18 04:17:42,935] INFO Opening socket connection to server Fosauri/192.168.210.142:2181. Will not attempt to authenticate using SASL (unknown error) (org.apache.zookeeper.ClientCnxn)
+    >   [2019-01-18 04:17:42,941] INFO Socket connection established to Fosauri/192.168.210.142:2181, initiating session (org.apache.zookeeper.ClientCnxn)
+    >   [2019-01-18 04:17:42,955] INFO Session establishment complete on server Fosauri/192.168.210.142:2181, sessionid = 0x1685e15ce410006, negotiated timeout = 6000 (org.apache.zookeeper.ClientCnxn)
+    >   [2019-01-18 04:17:42,959] INFO [ZooKeeperClient] Connected. (kafka.zookeeper.ZooKeeperClient)
+    >   [2019-01-18 04:17:43,354] INFO Cluster ID = kOVm3OLLRq6Su3tR3oLbJA (kafka.server.KafkaServer)
+    >   [2019-01-18 04:17:43,361] WARN No meta.properties file under dir /data1-01/meta.properties (kafka.server.BrokerMetadataCheckpoint)
+    >   [2019-01-18 04:17:43,363] WARN No meta.properties file under dir /data1-03/meta.properties (kafka.server.BrokerMetadataCheckpoint)
+    >   [2019-01-18 04:17:43,364] WARN No meta.properties file under dir /data2-03/meta.properties (kafka.server.BrokerMetadataCheckpoint)
+    >   ....
+    >   [2019-01-18 04:17:43,449] INFO [ThrottledRequestReaper-Fetch]: Starting (kafka.server.ClientQuotaManager$ThrottledRequestReaper)
+    >   [2019-01-18 04:17:43,449] INFO [ThrottledRequestReaper-Produce]: Starting (kafka.server.ClientQuotaManager$ThrottledRequestReaper)
+    >   [2019-01-18 04:17:43,450] INFO [ThrottledRequestReaper-Request]: Starting (kafka.server.ClientQuotaManager$ThrottledRequestReaper)
+    >   [2019-01-18 04:17:43,493] INFO Loading logs. (kafka.log.LogManager)
+    >   [2019-01-18 04:17:43,560] WARN [Log partition=ztf_20181205_programid1-9, dir=/data2-01] Found a corrupted index file corresponding to log file /data2-01/ztf_20181205_programid1-9/00000000000000000000.log due to Corrupt index found, index file (/data2-01/ztf_20181205_programid1-9/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
+    >   [2019-01-18 04:17:43,563] WARN [Log partition=ztf_20181219_programid1-8, dir=/data1-02] Found a corrupted index file corresponding to log file /data1-02/ztf_20181219_programid1-8/00000000000000015967.log due to Corrupt index found, index file (/data1-02/ztf_20181219_programid1-8/00000000000000015967.index) has non-zero size but the last offset is 15967 which is no greater than the base offset 15967.}, recovering segment and rebuilding index files... (kafka.log.Log)
+    >   [2019-01-18 04:17:43,571] WARN [Log partition=ztf_20181219_programid1-15, dir=/data2-02] Found a corrupted index file corresponding to log file /data2-02/ztf_20181219_programid1-15/00000000000000015974.log due to Corrupt index found, index file (/data2-02/ztf_20181219_programid1-15/00000000000000015974.index) has non-zero size but the last offset is 15974 which is no greater than the base offset 15974.}, recovering segment and rebuilding index files... (kafka.log.Log)
+    >   [2019-01-18 04:17:43,575] INFO [ProducerStateManager partition=ztf_20181219_programid1-8] Loading producer state from snapshot file '/data1-02/ztf_20181219_programid1-8/00000000000000015967.snapshot' (kafka.log.ProducerStateManager)
+    >   [2019-01-18 04:17:43,575] INFO [ProducerStateManager partition=ztf_20181219_programid1-15] Loading producer state from snapshot file '/data2-02/ztf_20181219_programid1-15/00000000000000015974.snapshot' (kafka.log.ProducerStateManager)
+    >   [2019-01-18 04:17:44,010] INFO [ProducerStateManager partition=ztf_20181219_programid1-15] Writing producer snapshot at offset 18252 (kafka.log.ProducerStateManager)
+    >   [2019-01-18 04:17:44,013] INFO [Log partition=ztf_20181219_programid1-15, dir=/data2-02] Recovering unflushed segment 15974 (kafka.log.Log)
+    >   [2019-01-18 04:17:44,015] INFO [ProducerStateManager partition=ztf_20181219_programid1-15] Loading producer state from snapshot file '/data2-02/ztf_20181219_programid1-15/00000000000000015974.snapshot' (kafka.log.ProducerStateManager)
+    >   [2019-01-18 04:17:44,023] INFO [ProducerStateManager partition=ztf_20181219_programid1-8] Writing producer snapshot at offset 18252 (kafka.log.ProducerStateManager)
+    >   [2019-01-18 04:17:44,024] INFO [Log partition=ztf_20181219_programid1-8, dir=/data1-02] Recovering unflushed segment 15967 (kafka.log.Log)
+    >   ....
+    >   ....
+    >   [2019-01-18 05:40:21,616] INFO [Log partition=ztf_20181229_programid1-0, dir=/data2-02] Recovering unflushed segment 0 (kafka.log.Log)
+    >   [2019-01-18 05:40:23,405] INFO [ProducerStateManager partition=ztf_20181229_programid1-0] Writing producer snapshot at offset 9330 (kafka.log.ProducerStateManager)
+    >   [2019-01-18 05:40:23,407] INFO [Log partition=ztf_20181229_programid1-0, dir=/data2-02] Loading producer state from offset 9330 with message format version 2 (kafka.log.Log)
+    >   [2019-01-18 05:40:23,408] INFO [ProducerStateManager partition=ztf_20181229_programid1-0] Loading producer state from snapshot file '/data2-02/ztf_20181229_programid1-0/00000000000000009330.snapshot' (kafka.log.ProducerStateManager)
+    >   [2019-01-18 05:40:23,408] INFO [Log partition=ztf_20181229_programid1-0, dir=/data2-02] Completed load of log with 1 segments, log start offset 0 and log end offset 9330 in 110796 ms (kafka.log.Log)
+    >   [2019-01-18 05:40:23,415] WARN [Log partition=ztf_20181229_programid1-10, dir=/data2-02] Found a corrupted index file corresponding to log file /data2-02/ztf_20181229_programid1-10/00000000000000000000.log due to Corrupt index found, index file (/data2-02/ztf_20181229_programid1-10/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
+    >   [2019-01-18 05:40:52,338] INFO [ProducerStateManager partition=ztf_20181216_programid1-0] Writing producer snapshot at offset 8650 (kafka.log.ProducerStateManager)
+    >   [2019-01-18 05:40:52,339] INFO [Log partition=ztf_20181216_programid1-0, dir=/data2-01] Recovering unflushed segment 0 (kafka.log.Log)
+    >   [2019-01-18 05:40:56,380] INFO [ProducerStateManager partition=ztf_20181216_programid1-0] Writing producer snapshot at offset 8650 (kafka.log.ProducerStateManager)
+    >   [2019-01-18 05:40:56,381] INFO [Log partition=ztf_20181216_programid1-0, dir=/data2-01] Loading producer state from offset 8650 with message format version 2 (kafka.log.Log)
+    >   [2019-01-18 05:40:56,382] INFO [ProducerStateManager partition=ztf_20181216_programid1-0] Loading producer state from snapshot file '/data2-01/ztf_20181216_programid1-0/00000000000000008650.snapshot' (kafka.log.ProducerStateManager)
+    >   [2019-01-18 05:40:56,382] INFO [Log partition=ztf_20181216_programid1-0, dir=/data2-01] Completed load of log with 1 segments, log start offset 0 and log end offset 8650 in 103291 ms (kafka.log.Log)
+    >   [2019-01-18 05:40:56,440] WARN [Log partition=ztf_20181216_programid1-3, dir=/data2-01] Found a corrupted index file corresponding to log file /data2-01/ztf_20181216_programid1-3/00000000000000000000.log due to Corrupt index found, index file (/data2-01/ztf_20181216_programid1-3/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
+    >   ....
+    >   ....
+    >   ....
+    >   ....
+    >   [2019-01-18 12:15:40,945] INFO [GroupMetadataManager brokerId=4] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   [2019-01-18 12:25:40,945] INFO [GroupMetadataManager brokerId=4] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   [2019-01-18 12:35:40,945] INFO [GroupMetadataManager brokerId=4] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   [2019-01-18 12:45:40,945] INFO [GroupMetadataManager brokerId=4] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   [2019-01-18 12:55:40,945] INFO [GroupMetadataManager brokerId=4] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   [2019-01-18 13:05:40,945] INFO [GroupMetadataManager brokerId=4] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   [2019-01-18 13:15:40,945] INFO [GroupMetadataManager brokerId=4] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   ....
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

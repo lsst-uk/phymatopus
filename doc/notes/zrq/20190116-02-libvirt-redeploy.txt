@@ -1,0 +1,500 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+    # Detatch the extra volumes from the Kafka nodes.
+    # Create a new set of nodes.
+    # Attatch the extra volumes to the Kafka nodes.
+    # Deploy Zookeeper, Kafka and MirroMaker.
+    # Catch up with the data.
+
+# -----------------------------------------------------
+# Load our libvirt configuration.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+# -----------------------------------------------------
+# Configure our SSH settings.
+#[user@trop03]
+
+    sshuser=Stevedore
+    sshopts=(
+        '-A'
+        '-o LogLevel=ERROR'
+        '-o CheckHostIP=no'
+        '-o UserKnownHostsFile=/dev/null'
+        '-o StrictHostKeyChecking=no'
+        )
+
+    scpopts=(
+        '-o LogLevel=ERROR'
+        '-o CheckHostIP=no'
+        '-o UserKnownHostsFile=/dev/null'
+        '-o StrictHostKeyChecking=no'
+        )
+
+
+# -----------------------------------------------------
+# Assign our virtual machine names.
+#[user@trop03]
+
+    kfnames=(
+        Stedigo
+        Angece
+        Edwalafia
+        Onoza
+        )
+
+    zknames=(
+        Fosauri
+        Marpus
+        Byflame
+        )
+
+    mmnames=(
+        Afoaviel
+        Rusaldez
+        )
+
+
+# -----------------------------------------------------
+# List the current virtual machines.
+#[user@trop03]
+
+    virsh \
+        --connect "${connection:?}" \
+        list \
+            --all
+
+    >    Id    Name                           State
+    >   ----------------------------------------------------
+    >    69    Umiawyth                       running
+    >    -     Afoaviel                       shut off
+    >    -     Angece                         shut off
+    >    -     Byflame                        shut off
+    >    -     Edwalafia                      shut off
+    >    -     Fosauri                        shut off
+    >    -     Onoza                          shut off
+    >    -     Rusaldez                       shut off
+    >    -     Stedigo                        shut off
+
+
+# -----------------------------------------------------
+# List the current volume pools.
+#[user@trop03]
+
+    source "${HOME}/ischnura.settings"
+
+    virsh \
+        --connect "${connection:?}" \
+        pool-list \
+            --details
+
+    >    Name     State    Autostart  Persistent   Capacity  Allocation  Available
+    >   ---------------------------------------------------------------------------
+    >    base     running  yes        yes         64.04 GiB   35.58 GiB  28.47 GiB
+    >    data0    running  yes        yes         91.54 GiB    1.58 GiB  89.96 GiB
+    >    data1    running  yes        yes          3.58 TiB  328.21 GiB   3.26 TiB
+    >    data2    running  yes        yes          3.58 TiB  323.05 GiB   3.27 TiB
+    >    default  running  yes        yes         64.04 GiB   35.58 GiB  28.47 GiB
+    >    home     running  yes        yes         52.60 GiB    4.15 GiB  48.45 GiB
+    >    init     running  yes        yes         64.04 GiB   35.58 GiB  28.47 GiB
+    >    live     running  yes        yes         64.04 GiB   35.58 GiB  28.47 GiB
+
+
+# -----------------------------------------------------
+# List the volumes in each pool.
+#[user@trop03]
+
+    for poolname in $(
+        virsh \
+            --connect "${connection:?}" \
+            pool-list \
+        | sed -n '
+            3,$ {
+                /^[[:space:]]*$/ d
+                s/[[:space:]]*\([^[:space:]]*\).*/\1/p
+                }
+            '
+        )
+    do
+        echo "------------------------------------------------------------------------------"
+        echo "Pool [${poolname:?}]"
+        virsh \
+            --connect "${connection:?}" \
+            vol-list \
+                --pool "${poolname}" \
+                --details
+    done
+
+
+    >   ------------------------------------------------------------------------------
+    >   Pool [base]
+    >    Name                                     Path                                                                  Type   Capacity   Allocation
+    >   ---------------------------------------------------------------------------------------------------------------------------------------------
+    >    fedora-28-16G-docker-base-20181016.qcow  /var/lib/libvirt/images/base/fedora-28-16G-docker-base-20181016.qcow  file  16.00 GiB  1000.54 MiB
+    >    fedora-28-32G-docker-base-20181016.qcow  /var/lib/libvirt/images/base/fedora-28-32G-docker-base-20181016.qcow  file  32.00 GiB   991.62 MiB
+    >    fedora-28-8G-docker-base-20181016.qcow   /var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow   file   8.00 GiB     1.02 GiB
+    >   
+    >   ------------------------------------------------------------------------------
+    >   Pool [data0]
+    >    Name  Path  Type  Capacity  Allocation
+    >   ----------------------------------------
+    >   
+    >   ------------------------------------------------------------------------------
+    >   Pool [data1]
+    >    Name                     Path                                                 Type   Capacity  Allocation
+    >   -----------------------------------------------------------------------------------------------------------
+    >    Angece-data1-01.qcow     /data1/libvirt/images/data1/Angece-data1-01.qcow     file  32.00 GiB   31.99 GiB
+    >    Angece-data1-02.qcow     /data1/libvirt/images/data1/Angece-data1-02.qcow     file  64.00 GiB   52.27 GiB
+    >    Edwalafia-data1-01.qcow  /data1/libvirt/images/data1/Edwalafia-data1-01.qcow  file  32.00 GiB   31.99 GiB
+    >    Edwalafia-data1-02.qcow  /data1/libvirt/images/data1/Edwalafia-data1-02.qcow  file  64.00 GiB   49.31 GiB
+    >    Onoza-data1-01.qcow      /data1/libvirt/images/data1/Onoza-data1-01.qcow      file  32.00 GiB   31.99 GiB
+    >    Onoza-data1-02.qcow      /data1/libvirt/images/data1/Onoza-data1-02.qcow      file  64.00 GiB   47.59 GiB
+    >    Stedigo-data1-01.qcow    /data1/libvirt/images/data1/Stedigo-data1-01.qcow    file  32.00 GiB   31.99 GiB
+    >    Stedigo-data1-02.qcow    /data1/libvirt/images/data1/Stedigo-data1-02.qcow    file  64.00 GiB   51.01 GiB
+    >   
+    >   ------------------------------------------------------------------------------
+    >   Pool [data2]
+    >    Name                     Path                                                 Type   Capacity  Allocation
+    >   -----------------------------------------------------------------------------------------------------------
+    >    Angece-data2-01.qcow     /data2/libvirt/images/data2/Angece-data2-01.qcow     file  32.00 GiB   31.99 GiB
+    >    Angece-data2-02.qcow     /data2/libvirt/images/data2/Angece-data2-02.qcow     file  64.00 GiB   47.58 GiB
+    >    Edwalafia-data2-01.qcow  /data2/libvirt/images/data2/Edwalafia-data2-01.qcow  file  32.00 GiB   31.99 GiB
+    >    Edwalafia-data2-02.qcow  /data2/libvirt/images/data2/Edwalafia-data2-02.qcow  file  64.00 GiB   48.85 GiB
+    >    Onoza-data2-01.qcow      /data2/libvirt/images/data2/Onoza-data2-01.qcow      file  32.00 GiB   31.99 GiB
+    >    Onoza-data2-02.qcow      /data2/libvirt/images/data2/Onoza-data2-02.qcow      file  64.00 GiB   50.56 GiB
+    >    Stedigo-data2-01.qcow    /data2/libvirt/images/data2/Stedigo-data2-01.qcow    file  32.00 GiB   31.99 GiB
+    >    Stedigo-data2-02.qcow    /data2/libvirt/images/data2/Stedigo-data2-02.qcow    file  64.00 GiB   48.03 GiB
+    >   
+    >   ------------------------------------------------------------------------------
+    >   Pool [default]
+    >    Name  Path                          Type  Capacity  Allocation
+    >   ----------------------------------------------------------------
+    >    base  /var/lib/libvirt/images/base  dir     0.00 B      0.00 B
+    >    init  /var/lib/libvirt/images/init  dir     0.00 B      0.00 B
+    >    live  /var/lib/libvirt/images/live  dir     0.00 B      0.00 B
+    >   
+    >   ------------------------------------------------------------------------------
+    >   Pool [home]
+    >    Name  Path  Type  Capacity  Allocation
+    >   ----------------------------------------
+    >   
+    >   ------------------------------------------------------------------------------
+    >   Pool [init]
+    >    Name           Path                                        Type    Capacity  Allocation
+    >   -----------------------------------------------------------------------------------------
+    >    Afoaviel.iso   /var/lib/libvirt/images/init/Afoaviel.iso   file  368.00 KiB  368.00 KiB
+    >    Angece.iso     /var/lib/libvirt/images/init/Angece.iso     file  368.00 KiB  368.00 KiB
+    >    Byflame.iso    /var/lib/libvirt/images/init/Byflame.iso    file  368.00 KiB  368.00 KiB
+    >    Edwalafia.iso  /var/lib/libvirt/images/init/Edwalafia.iso  file  368.00 KiB  368.00 KiB
+    >    Fosauri.iso    /var/lib/libvirt/images/init/Fosauri.iso    file  368.00 KiB  368.00 KiB
+    >    Marpus.iso     /var/lib/libvirt/images/init/Marpus.iso     file  368.00 KiB  368.00 KiB
+    >    Onoza.iso      /var/lib/libvirt/images/init/Onoza.iso      file  368.00 KiB  368.00 KiB
+    >    Rusaldez.iso   /var/lib/libvirt/images/init/Rusaldez.iso   file  368.00 KiB  368.00 KiB
+    >    Stedigo.iso    /var/lib/libvirt/images/init/Stedigo.iso    file  368.00 KiB  368.00 KiB
+    >    Umiawyth.iso   /var/lib/libvirt/images/init/Umiawyth.iso   file  368.00 KiB  368.00 KiB
+    >   
+    >   ------------------------------------------------------------------------------
+    >   Pool [live]
+    >    Name            Path                                         Type  Capacity  Allocation
+    >   -----------------------------------------------------------------------------------------
+    >    Afoaviel.qcow   /var/lib/libvirt/images/live/Afoaviel.qcow   file  8.00 GiB    1.34 GiB
+    >    Angece.qcow     /var/lib/libvirt/images/live/Angece.qcow     file  8.00 GiB    6.43 GiB
+    >    Byflame.qcow    /var/lib/libvirt/images/live/Byflame.qcow    file  8.00 GiB    1.07 GiB
+    >    Edwalafia.qcow  /var/lib/libvirt/images/live/Edwalafia.qcow  file  8.00 GiB    6.43 GiB
+    >    Fosauri.qcow    /var/lib/libvirt/images/live/Fosauri.qcow    file  8.00 GiB    1.10 GiB
+    >    Marpus.qcow     /var/lib/libvirt/images/live/Marpus.qcow     file  8.00 GiB  196.00 KiB
+    >    Onoza.qcow      /var/lib/libvirt/images/live/Onoza.qcow      file  8.00 GiB    6.38 GiB
+    >    Rusaldez.qcow   /var/lib/libvirt/images/live/Rusaldez.qcow   file  8.00 GiB    1.87 GiB
+    >    Stedigo.qcow    /var/lib/libvirt/images/live/Stedigo.qcow    file  8.00 GiB    6.40 GiB
+    >    Umiawyth.qcow   /var/lib/libvirt/images/live/Umiawyth.qcow   file  8.00 GiB  472.57 MiB
+
+
+# -----------------------------------------------------
+# List the volumes on each Kafka node.
+# http://xmlstar.sourceforge.net/doc/UG/ch04.html
+# https://sourceforge.net/p/xmlstar/discussion/226076/thread/d5eca10f/#56b4
+#[user@trop03]
+
+    for vmname in ${kfnames[@]}
+    do
+        echo "$(printf '+ %56s +' '')" | sed 's/ /-/g'
+        echo "$(printf '| %-56s |' 'Node ['${vmname:?}']')"
+        virsh \
+            --connect "${connection:?}" \
+            dumpxml \
+                "${vmname}" \
+        | xmlstarlet \
+            select \
+                --text \
+                --template \
+                    --match '//disk' \
+                    --sort  'A:T:-' 'target/@dev' \
+                    --value-of "concat('| ', target/@dev, ' | ', str:align(source/@file, str:padding(50, ' '), 'left'), ' |')" \
+                    --nl
+    done \
+    ; echo "$(printf '+ %56s +' '')" | sed 's/ /-/g'
+
+    >   +----------------------------------------------------------+
+    >   | Node [Stedigo]                                           |
+    >   | vda | /var/lib/libvirt/images/live/Stedigo.qcow          |
+    >   | vdb | /var/lib/libvirt/images/init/Stedigo.iso           |
+    >   | vdc | /data1/libvirt/images/data1/Stedigo-data1-01.qcow  |
+    >   | vdd | /data2/libvirt/images/data2/Stedigo-data2-01.qcow  |
+    >   | vde | /data1/libvirt/images/data1/Stedigo-data1-02.qcow  |
+    >   | vdf | /data2/libvirt/images/data2/Stedigo-data2-02.qcow  |
+    >   +----------------------------------------------------------+
+    >   | Node [Angece]                                            |
+    >   | vda | /var/lib/libvirt/images/live/Angece.qcow           |
+    >   | vdb | /var/lib/libvirt/images/init/Angece.iso            |
+    >   | vdc | /data1/libvirt/images/data1/Angece-data1-01.qcow   |
+    >   | vdd | /data2/libvirt/images/data2/Angece-data2-01.qcow   |
+    >   | vde | /data1/libvirt/images/data1/Angece-data1-02.qcow   |
+    >   | vdf | /data2/libvirt/images/data2/Angece-data2-02.qcow   |
+    >   +----------------------------------------------------------+
+    >   | Node [Edwalafia]                                         |
+    >   | vda | /var/lib/libvirt/images/live/Edwalafia.qcow        |
+    >   | vdb | /var/lib/libvirt/images/init/Edwalafia.iso         |
+    >   | vdc | /data1/libvirt/images/data1/Edwalafia-data1-01.qco |
+    >   | vdd | /data2/libvirt/images/data2/Edwalafia-data2-01.qco |
+    >   | vde | /data1/libvirt/images/data1/Edwalafia-data1-02.qco |
+    >   | vdf | /data2/libvirt/images/data2/Edwalafia-data2-02.qco |
+    >   +----------------------------------------------------------+
+    >   | Node [Onoza]                                             |
+    >   | vda | /var/lib/libvirt/images/live/Onoza.qcow            |
+    >   | vdb | /var/lib/libvirt/images/init/Onoza.iso             |
+    >   | vdc | /data1/libvirt/images/data1/Onoza-data1-01.qcow    |
+    >   | vdd | /data2/libvirt/images/data2/Onoza-data2-01.qcow    |
+    >   | vde | /data1/libvirt/images/data1/Onoza-data1-02.qcow    |
+    >   | vdf | /data2/libvirt/images/data2/Onoza-data2-02.qcow    |
+    >   +----------------------------------------------------------+
+
+
+# -----------------------------------------------------
+# List the data volumes from each Kafka node.
+#[user@trop03]
+
+    #tmpfile=$(mktemp)
+    tmpfile=nodevols.txt
+
+    for vmname in ${kfnames[@]}
+    do
+        virsh \
+            --connect "${connection:?}" \
+            dumpxml \
+                "${vmname}" \
+        | xmlstarlet \
+            select \
+                --text \
+                --template \
+                    --match '//disk[starts-with(source/@file, "/data")]' \
+                    --sort  'A:T:-' 'target/@dev' \
+                    --output "$(printf '%-10s' ${vmname})" \
+                    --value-of "concat(target/@dev, ' ', source/@file)" \
+                    --nl \
+        | tee \
+            --append \
+                "${tmpfile}"
+    done
+
+    >   Stedigo   vdc /data1/libvirt/images/data1/Stedigo-data1-01.qcow
+    >   Stedigo   vdd /data2/libvirt/images/data2/Stedigo-data2-01.qcow
+    >   Stedigo   vde /data1/libvirt/images/data1/Stedigo-data1-02.qcow
+    >   Stedigo   vdf /data2/libvirt/images/data2/Stedigo-data2-02.qcow
+    >   Angece    vdc /data1/libvirt/images/data1/Angece-data1-01.qcow
+    >   Angece    vdd /data2/libvirt/images/data2/Angece-data2-01.qcow
+    >   Angece    vde /data1/libvirt/images/data1/Angece-data1-02.qcow
+    >   Angece    vdf /data2/libvirt/images/data2/Angece-data2-02.qcow
+    >   Edwalafia vdc /data1/libvirt/images/data1/Edwalafia-data1-01.qcow
+    >   Edwalafia vdd /data2/libvirt/images/data2/Edwalafia-data2-01.qcow
+    >   Edwalafia vde /data1/libvirt/images/data1/Edwalafia-data1-02.qcow
+    >   Edwalafia vdf /data2/libvirt/images/data2/Edwalafia-data2-02.qcow
+    >   Onoza     vdc /data1/libvirt/images/data1/Onoza-data1-01.qcow
+    >   Onoza     vdd /data2/libvirt/images/data2/Onoza-data2-01.qcow
+    >   Onoza     vde /data1/libvirt/images/data1/Onoza-data1-02.qcow
+    >   Onoza     vdf /data2/libvirt/images/data2/Onoza-data2-02.qcow
+
+# -----------------------------------------------------
+# Detach the data volumes from each Kafka node.
+#[user@trop03]
+
+    while read line
+    do
+        vmname=$(echo "${line}" | awk '{print $1}')
+        device=$(echo "${line}" | awk '{print $2}')
+        echo "[${vmname}][${device}]"
+
+        virsh \
+            --connect "${connection:?}" \
+            detach-disk \
+                "${vmname}" \
+                "${device}" \
+                --config
+
+    done < "${tmpfile}"
+
+
+    >   [Stedigo][vdc]
+    >   Disk detached successfully
+    >   
+    >   [Stedigo][vdd]
+    >   Disk detached successfully
+    >   
+    >   [Stedigo][vde]
+    >   Disk detached successfully
+    >   
+    >   [Stedigo][vdf]
+    >   Disk detached successfully
+    >   
+    >   [Angece][vdc]
+    >   Disk detached successfully
+    >   
+    >   [Angece][vdd]
+    >   Disk detached successfully
+    >   
+    >   [Angece][vde]
+    >   Disk detached successfully
+    >   
+    >   [Angece][vdf]
+    >   Disk detached successfully
+    >   
+    >   [Edwalafia][vdc]
+    >   Disk detached successfully
+    >   
+    >   [Edwalafia][vdd]
+    >   Disk detached successfully
+    >   
+    >   [Edwalafia][vde]
+    >   Disk detached successfully
+    >   
+    >   [Edwalafia][vdf]
+    >   Disk detached successfully
+    >   
+    >   [Onoza][vdc]
+    >   Disk detached successfully
+    >   
+    >   [Onoza][vdd]
+    >   Disk detached successfully
+    >   
+    >   [Onoza][vde]
+    >   Disk detached successfully
+    >   
+    >   [Onoza][vdf]
+    >   Disk detached successfully
+
+
+# -----------------------------------------------------
+# Delete the existing Zookeeper nodes.
+#[user@trop03]
+
+    for vmname in ${zknames[@]}
+    do
+        echo "Node [${vmname}]"
+        virsh \
+            --connect "${connection:?}" \
+            undefine \
+                "${vmname}" \
+                --storage \
+                    'vda,vdb'
+    done
+
+    >   Node [Fosauri]
+    >   Domain Fosauri has been undefined
+    >   Volume 'vda'(/var/lib/libvirt/images/live/Fosauri.qcow) removed.
+    >   Volume 'vdb'(/var/lib/libvirt/images/init/Fosauri.iso) removed.
+    >   
+    >   Node [Marpus]
+    >   error: failed to get domain 'Marpus'
+    >   error: Domain not found: no domain with matching name 'Marpus'
+    >   
+    >   Node [Byflame]
+    >   Domain Byflame has been undefined
+    >   Volume 'vda'(/var/lib/libvirt/images/live/Byflame.qcow) removed.
+    >   Volume 'vdb'(/var/lib/libvirt/images/init/Byflame.iso) removed.
+
+    # Not a problem - Marpus was deleted by accident earlier on.
+
+# -----------------------------------------------------
+# Delete the existing Mirror nodes.
+#[user@trop03]
+
+    for vmname in ${mmnames[@]}
+    do
+        echo "Node [${vmname}]"
+        virsh \
+            --connect "${connection:?}" \
+            undefine \
+                "${vmname}" \
+                --storage \
+                    'vda,vdb'
+    done
+
+    >   Node [Afoaviel]
+    >   Domain Afoaviel has been undefined
+    >   Volume 'vda'(/var/lib/libvirt/images/live/Afoaviel.qcow) removed.
+    >   Volume 'vdb'(/var/lib/libvirt/images/init/Afoaviel.iso) removed.
+    >   
+    >   Node [Rusaldez]
+    >   Domain Rusaldez has been undefined
+    >   Volume 'vda'(/var/lib/libvirt/images/live/Rusaldez.qcow) removed.
+    >   Volume 'vdb'(/var/lib/libvirt/images/init/Rusaldez.iso) removed.
+
+
+# -----------------------------------------------------
+# Delete the existing Kafka nodes.
+#[user@trop03]
+
+    for vmname in ${kfnames[@]}
+    do
+        echo "Node [${vmname}]"
+        virsh \
+            --connect "${connection:?}" \
+            undefine \
+                "${vmname}" \
+                --storage \
+                    'vda,vdb'
+    done
+
+    >   Node [Stedigo]
+    >   Domain Stedigo has been undefined
+    >   Volume 'vda'(/var/lib/libvirt/images/live/Stedigo.qcow) removed.
+    >   Volume 'vdb'(/var/lib/libvirt/images/init/Stedigo.iso) removed.
+    >   
+    >   Node [Angece]
+    >   Domain Angece has been undefined
+    >   Volume 'vda'(/var/lib/libvirt/images/live/Angece.qcow) removed.
+    >   Volume 'vdb'(/var/lib/libvirt/images/init/Angece.iso) removed.
+    >   
+    >   Node [Edwalafia]
+    >   Domain Edwalafia has been undefined
+    >   Volume 'vda'(/var/lib/libvirt/images/live/Edwalafia.qcow) removed.
+    >   Volume 'vdb'(/var/lib/libvirt/images/init/Edwalafia.iso) removed.
+    >   
+    >   Node [Onoza]
+    >   Domain Onoza has been undefined
+    >   Volume 'vda'(/var/lib/libvirt/images/live/Onoza.qcow) removed.
+    >   Volume 'vdb'(/var/lib/libvirt/images/init/Onoza.iso) removed.
+
+
+
+

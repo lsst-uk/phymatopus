@@ -1,0 +1,1822 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+    TODO Create VMs
+    TODO Install MirroMaker ...
+    doc/notes/zrq/20181211-01-trop-transfer.txt
+    TODO Update topic ...
+
+    ** testing the new network config - deploy MirroMaker nodes on trop04 **
+    -- move the back to trop03 later --
+
+# -----------------------------------------------------
+# Our Kafka nodes.
+#[user@trop04]
+
+    kfnames=(
+        Stedigo
+        Angece
+        Edwalafia
+        Onoza
+        )
+
+# -----------------------------------------------------
+# Our MirrorMaker nodes.
+#[user@trop04]
+
+    mmnames=(
+        Moemond
+        Iberidia
+        )
+
+# -----------------------------------------------------
+# Create our MirrorMaker nodes.
+# TODO scriptable createvm
+#[user@trop04]
+
+    createvm
+
+    >   INFO : Node name [Moemond]
+    >   INFO : Base name [fedora-28-docker-base-20180708.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-28-docker-base-20180708.qcow]
+    >   INFO : Disc name [Moemond.qcow]
+    >   INFO : Disc size [16GiB]
+    >
+    >   INFO : node [26]
+    >   INFO : MAC  [52:54:0:0:D2:DB]
+    >   INFO : IPv4 [192.168.210.219]
+    >   INFO : MAC  [52:54:0:0:D2:FB]
+    >   INFO : IPv4 [192.168.210.251]
+
+
+    createvm
+
+    >
+    >   INFO : Node name [Iberidia]
+    >   INFO : Base name [fedora-28-docker-base-20180708.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-28-docker-base-20180708.qcow]
+    >   INFO : Disc name [Iberidia.qcow]
+    >   INFO : Disc size [16GiB]
+    >
+    >   INFO : node [27]
+    >   INFO : MAC  [52:54:0:0:D2:DC]
+    >   INFO : IPv4 [192.168.210.220]
+    >   INFO : MAC  [52:54:0:0:D2:FC]
+    >   INFO : IPv4 [192.168.210.252]
+
+
+# -----------------------------------------------------
+# Update the number of cores on our MirrorMaker nodes.
+#[user@trop04]
+
+    source "${HOME}/libvirt.settings"
+
+    for vmname in ${mmnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname}]"
+            virsh \
+                --connect ${connection:?} \
+                    setvcpus \
+                    ${vmname:?} \
+                    2 \
+                    --maximum \
+                    --config
+        done
+
+    >   ---- ----
+    >   Node [Moemond]
+    >   ---- ----
+    >   Node [Iberidia]
+
+
+# -----------------------------------------------------
+# Check we can login to each node.
+#[user@trop04]
+
+    source "${HOME}/ssh-options"
+    source "${HOME}/libvirt.settings"
+
+    for vmname in ${mmnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname}]"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    date
+                    hostname
+                    "
+        done
+
+    >   ---- ----
+    >   Node [Moemond]
+    >   Fri 18 Jan 17:19:59 GMT 2019
+    >   Moemond
+    >   ---- ----
+    >   Node [Iberidia]
+    >   Fri 18 Jan 17:20:01 GMT 2019
+    >   Iberidia
+
+
+# -----------------------------------------------------
+# Create a shell script to fix the network on a node.
+#[user@trop04]
+
+    cat > /tmp/netfix.sh << 'EOF'
+
+ens3mac=$(
+    ifconfig ens3 \
+    | sed -n '
+        s/^[[:space:]]*ether[[:space:]]\([^[:space:]]*\)[[:space:]].*$/\1/p
+        '
+    )
+
+ens7mac=$(
+    ifconfig ens7 \
+    | sed -n '
+        s/^[[:space:]]*ether[[:space:]]\([^[:space:]]*\)[[:space:]].*$/\1/p
+        '
+    )
+
+pushd /etc/sysconfig
+
+    cat >> network << EONET
+
+# Gateway for trop03
+# GATEWAY=192.168.210.190
+# Gateway for trop04
+GATEWAY=192.168.210.254
+
+GATEWAYDEV=ens7
+
+EONET
+
+pushd /etc/sysconfig/network-scripts
+
+    cat > ifcfg-ens3 << EONS3
+BOOTPROTO=dhcp
+DEVICE=ens3
+HWADDR=${ens3mac:?}
+ONBOOT=yes
+TYPE=Ethernet
+USERCTL=no
+DEFROUTE=no
+EONS3
+
+    cat > ifcfg-ens7 << EONS7
+BOOTPROTO=dhcp
+DEVICE=ens7
+HWADDR=${ens7mac:?}
+ONBOOT=yes
+TYPE=Ethernet
+USERCTL=no
+DEFROUTE=yes
+EONS7
+
+    # Routes for trop01-04 nodes
+    cat > route-ens3 << EONS3
+192.168.210.0/27   via 192.168.210.222 dev ens3
+192.168.210.64/27  via 192.168.210.222 dev ens3
+192.168.210.128/27 via 192.168.210.222 dev ens3
+192.168.210.192/27 via 192.168.210.222 dev ens3
+EONS3
+
+popd
+EOF
+
+
+# -----------------------------------------------------
+# Deploy and run the netfix script on each node.
+#[user@trop04]
+
+    source "${HOME}/ssh-options"
+
+    for vmname in ${mmnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            scp \
+                ${scpopts[*]} \
+                /tmp/netfix.sh \
+                ${sshuser:?}@${vmname:?}:/tmp/netfix.sh
+
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    date
+                    hostname
+                    chmod a+x '/tmp/netfix.sh'
+                    sudo -s   '/tmp/netfix.sh'
+                    "
+        done
+
+
+    >   ---- ----
+    >   Node [Moemond]
+    >   netfix.sh   100% 1017     1.0KB/s   00:00
+    >   Fri 18 Jan 17:20:27 GMT 2019
+    >   Moemond
+    >   /etc/sysconfig /home/Stevedore
+    >   /etc/sysconfig/network-scripts /etc/sysconfig /home/Stevedore
+    >   /etc/sysconfig /home/Stevedore
+    >   ---- ----
+    >   Node [Iberidia]
+    >   netfix.sh   100% 1017     1.0KB/s   00:00
+    >   Fri 18 Jan 17:20:29 GMT 2019
+    >   Iberidia
+    >   /etc/sysconfig /home/Stevedore
+    >   /etc/sysconfig/network-scripts /etc/sysconfig /home/Stevedore
+    >   /etc/sysconfig /home/Stevedore
+
+
+# -----------------------------------------------------
+# Shutdown and restart each of our MirrorMaker nodes.
+#[user@trop04]
+
+    source "${HOME}/libvirt.settings"
+
+    for vmname in ${mmnames[@]}
+        do
+            virsh \
+                --connect ${connection:?} \
+                    shutdown \
+                    ${vmname:?}
+        done
+
+    sleep 30
+
+    for vmname in ${mmnames[@]}
+        do
+            virsh \
+                --connect ${connection:?} \
+                    start \
+                    ${vmname:?}
+        done
+
+    >   Domain Moemond is being shutdown
+    >   Domain Iberidia is being shutdown
+
+    >   Domain Moemond started
+    >   Domain Iberidia started
+
+
+# -----------------------------------------------------
+# Check the number of cores on our MirrorMaker nodes.
+#[user@trop04]
+
+    for vmname in ${mmnames[@]}
+        do
+            virsh \
+                --quiet \
+                --connect ${connection:?} \
+                    dumpxml \
+                        "${vmname}" \
+            | xmlstarlet \
+                select \
+                    --text \
+                    --template \
+                        --output "$(printf '%-10s' ${vmname})" \
+                        --value-of "domain/vcpu" \
+                        --nl
+        done
+
+    >   Moemond   2
+    >   Iberidia  2
+
+
+# -----------------------------------------------------
+# Check the ip routes on each or our MirrorMaker nodes.
+#[user@trop04]
+
+    for vmname in ${mmnames[@]}
+        do
+            echo "---- ----"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                hostname
+                date
+                sudo ip route list
+                "
+        done
+
+    >   ---- ----
+    >   Moemond
+    >   Fri 18 Jan 16:24:59 GMT 2019
+    >   default via 192.168.210.254 dev ens7 proto dhcp metric 100
+    >   172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown
+    >   192.168.210.0/27 via 192.168.210.222 dev ens3 proto static metric 101
+    >   192.168.210.64/27 via 192.168.210.222 dev ens3 proto static metric 101
+    >   192.168.210.128/27 via 192.168.210.222 dev ens3 proto static metric 101
+    >   192.168.210.192/27 dev ens3 proto kernel scope link src 192.168.210.219 metric 101
+    >   192.168.210.192/27 via 192.168.210.222 dev ens3 proto static metric 101
+    >   192.168.210.224/27 dev ens7 proto kernel scope link src 192.168.210.251 metric 100
+    >   ---- ----
+    >   Iberidia
+    >   Fri 18 Jan 16:24:59 GMT 2019
+    >   default via 192.168.210.254 dev ens7 proto dhcp metric 100
+    >   172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown
+    >   192.168.210.0/27 via 192.168.210.222 dev ens3 proto static metric 101
+    >   192.168.210.64/27 via 192.168.210.222 dev ens3 proto static metric 101
+    >   192.168.210.128/27 via 192.168.210.222 dev ens3 proto static metric 101
+    >   192.168.210.192/27 dev ens3 proto kernel scope link src 192.168.210.220 metric 101
+    >   192.168.210.192/27 via 192.168.210.222 dev ens3 proto static metric 101
+    >   192.168.210.224/27 dev ens7 proto kernel scope link src 192.168.210.252 metric 100
+
+
+# -----------------------------------------------------
+# Create our Kafka connection list.
+#[user@trop04]
+
+    ztftopicid=ztf_$(date +%Y%m%d)_programid1
+    ztfconnect=public.alerts.ztf.uw.edu:9092
+
+    kafkanames=${kfnames[*]}
+    roeconnect=${kafkanames// /:9092,}:9092
+    roegroupid=ztf-mirror.roe.ac.uk
+
+    echo "
+---- ----
+ztftopicid [${ztftopicid:?}]
+ztfconnect [${ztfconnect:?}]
+roeconnect [${roeconnect:?}]
+roegroupid [${roegroupid:?}]
+---- ----
+"
+
+    >   ---- ----
+    >   ztftopicid [ztf_20190118_programid1]
+    >   ztfconnect [public.alerts.ztf.uw.edu:9092]
+    >   roeconnect [Stedigo:9092,Angece:9092,Edwalafia:9092,Onoza:9092]
+    >   roegroupid [ztf-mirror.roe.ac.uk]
+    >   ---- ----
+
+
+# -----------------------------------------------------
+# Create our compose YAML file.
+#[user@trop04]
+
+cat > /tmp/mirror.yml << 'EOYML'
+
+version: "3.2"
+
+services:
+
+    tina:
+        image:
+            phymatopus/kafka-core
+        volumes:
+            - ${HOME}/producer.config:/etc/mirror/producer.config
+            - ${HOME}/consumer.config:/etc/mirror/consumer.config
+        environment:
+                KAFKA_HEAP_OPTS: -Xmx1G
+        command: [
+             "bin/kafka-mirror-maker.sh",
+             "--num.streams",
+             "${numstreams}",
+             "--consumer.config",
+             "/etc/mirror/consumer.config",
+             "--producer.config",
+             "/etc/mirror/producer.config",
+             "--whitelist",
+             "${ztftopicid}"
+             ]
+EOYML
+
+# -----------------------------------------------------
+# Deploy our compose YAML file.
+#[user@trop04]
+
+    for vmname in ${mmnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname}]"
+            scp \
+                ${scpopts[*]} \
+                /tmp/mirror.yml \
+                ${sshuser:?}@${vmname:?}:mirror.yml
+        done
+
+    >   ---- ----
+    >   Node [Moemond]
+    >   mirror.yml          100%  646     0.6KB/s   00:00
+    >   ---- ----
+    >   Node [Iberidia]
+    >   mirror.yml          100%  646     0.6KB/s   00:00
+
+
+# -----------------------------------------------------
+# Create our Kafka consumer.config file.
+#[user@trop04]
+
+cat > /tmp/consumer.config << EOCFG
+
+group.id=${roegroupid:?}
+bootstrap.servers=${ztfconnect:?}
+security.protocol=PLAINTEXT
+
+auto.offset.reset=earliest
+exclude.internal.topics=true
+
+#
+# From zads-terraform
+# https://github.com/dirac-institute/zads-terraform/blob/master/provisioning/broker/config/consumer.properties
+partition.assignment.strategy=org.apache.kafka.clients.consumer.RoundRobinAssignor
+session.timeout.ms=60000
+
+EOCFG
+
+# -----------------------------------------------------
+# Deploy our Kafka consumer.config file.
+#[user@trop04]
+
+    for vmname in ${mmnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname}]"
+            scp \
+                ${scpopts[*]} \
+                /tmp/consumer.config \
+                ${sshuser:?}@${vmname:?}:consumer.config
+        done
+
+    >   ---- ----
+    >   Node [Moemond]
+    >   consumer.config     100%  409     0.4KB/s   00:00
+    >   ---- ----
+    >   Node [Iberidia]
+    >   consumer.config     100%  409     0.4KB/s   00:00
+
+# -----------------------------------------------------
+# Create our Kafka producer.config file.
+#[user@trop04]
+
+cat > /tmp/producer.config << EOCFG
+
+bootstrap.servers=${roeconnect:?}
+security.protocol=PLAINTEXT
+
+acks=all
+
+EOCFG
+
+# -----------------------------------------------------
+# Deploy our Kafka producer.config file.
+#[user@trop04]
+
+    for vmname in ${mmnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname}]"
+            scp \
+                ${scpopts[*]} \
+                /tmp/producer.config \
+                ${sshuser:?}@${vmname:?}:producer.config
+        done
+
+    >   ---- ----
+    >   Node [Moemond]
+    >   producer.config     100%  109     0.1KB/s   00:00
+    >   ---- ----
+    >   Node [Iberidia]
+    >   producer.config     100%  109     0.1KB/s   00:00
+
+
+# -----------------------------------------------------
+# Create our compose ENV file.
+#[user@trop04]
+
+cat > /tmp/mirror.env << EOCFG
+
+numstreams=4
+ztftopicid=${ztftopicid:?}
+
+EOCFG
+
+# -----------------------------------------------------
+# Deploy our compose ENV file.
+#[user@trop04]
+
+    for vmname in ${mmnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname}]"
+            scp \
+                ${scpopts[*]} \
+                /tmp/mirror.env \
+                ${sshuser:?}@${vmname:?}:mirror.env
+
+            ssh \
+                ${scpopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                ln -sf mirror.env .env
+                "
+        done
+
+    >   ---- ----
+    >   Node [Moemond]
+    >   mirror.env      100%   50     0.1KB/s   00:00
+    >   ---- ----
+    >   Node [Iberidia]
+    >   mirror.env      100%   50     0.1KB/s   00:00
+
+
+# -----------------------------------------------------
+# Check our deployed config files.
+#[user@trop03]
+
+    for vmname in ${mmnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname}]"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    date
+                    hostname
+                    ls -al .env
+                    echo '----'
+                    cat mirror.env
+                    echo '----'
+                    cat mirror.yml
+                    echo '----'
+                    cat consumer.config
+                    echo '----'
+                    cat producer.config
+                    "
+        done
+
+
+    >   ---- ----
+    >   Node [Moemond]
+    >   Fri 18 Jan 18:17:42 GMT 2019
+    >   Moemond
+    >   lrwxrwxrwx. 1 Stevedore Stevedore 10 Jan 18 18:12 .env -> mirror.env
+    >   ----
+    >
+    >   numstreams=4
+    >   ztftopicid=ztf_20190118_programid1
+    >
+    >   ----
+    >
+    >   version: "3.2"
+    >
+    >   services:
+    >
+    >       tina:
+    >           image:
+    >               phymatopus/kafka-core
+    >           volumes:
+    >               - ${HOME}/producer.config:/etc/mirror/producer.config
+    >               - ${HOME}/consumer.config:/etc/mirror/consumer.config
+    >           environment:
+    >                   KAFKA_HEAP_OPTS: -Xmx1G
+    >           command: [
+    >                "bin/kafka-mirror-maker.sh",
+    >                "--num.streams",
+    >                "${numstreams}",
+    >                "--consumer.config",
+    >                "/etc/mirror/consumer.config",
+    >                "--producer.config",
+    >                "/etc/mirror/producer.config",
+    >                "--whitelist",
+    >                "${ztftopicid}"
+    >                ]
+    >   ----
+    >
+    >   group.id=ztf-mirror.roe.ac.uk
+    >   bootstrap.servers=public.alerts.ztf.uw.edu:9092
+    >   security.protocol=PLAINTEXT
+    >
+    >   auto.offset.reset=earliest
+    >   exclude.internal.topics=true
+    >
+    >   #
+    >   # From zads-terraform
+    >   # https://github.com/dirac-institute/zads-terraform/blob/master/provisioning/broker/config/consumer.properties
+    >   partition.assignment.strategy=org.apache.kafka.clients.consumer.RoundRobinAssignor
+    >   session.timeout.ms=60000
+    >
+    >   ----
+    >
+    >   bootstrap.servers=Stedigo:9092,Angece:9092,Edwalafia:9092,Onoza:9092
+    >   security.protocol=PLAINTEXT
+    >
+    >   acks=all
+    >
+    >   ---- ----
+    >   Node [Iberidia]
+    >   Fri 18 Jan 18:17:42 GMT 2019
+    >   Iberidia
+    >   lrwxrwxrwx. 1 Stevedore Stevedore 10 Jan 18 18:12 .env -> mirror.env
+    >   ----
+    >
+    >   numstreams=4
+    >   ztftopicid=ztf_20190118_programid1
+    >
+    >   ----
+    >
+    >   version: "3.2"
+    >
+    >   services:
+    >
+    >       tina:
+    >           image:
+    >               phymatopus/kafka-core
+    >           volumes:
+    >               - ${HOME}/producer.config:/etc/mirror/producer.config
+    >               - ${HOME}/consumer.config:/etc/mirror/consumer.config
+    >           environment:
+    >                   KAFKA_HEAP_OPTS: -Xmx1G
+    >           command: [
+    >                "bin/kafka-mirror-maker.sh",
+    >                "--num.streams",
+    >                "${numstreams}",
+    >                "--consumer.config",
+    >                "/etc/mirror/consumer.config",
+    >                "--producer.config",
+    >                "/etc/mirror/producer.config",
+    >                "--whitelist",
+    >                "${ztftopicid}"
+    >                ]
+    >   ----
+    >
+    >   group.id=ztf-mirror.roe.ac.uk
+    >   bootstrap.servers=public.alerts.ztf.uw.edu:9092
+    >   security.protocol=PLAINTEXT
+    >
+    >   auto.offset.reset=earliest
+    >   exclude.internal.topics=true
+    >
+    >   #
+    >   # From zads-terraform
+    >   # https://github.com/dirac-institute/zads-terraform/blob/master/provisioning/broker/config/consumer.properties
+    >   partition.assignment.strategy=org.apache.kafka.clients.consumer.RoundRobinAssignor
+    >   session.timeout.ms=60000
+    >
+    >   ----
+    >
+    >   bootstrap.servers=Stedigo:9092,Angece:9092,Edwalafia:9092,Onoza:9092
+    >   security.protocol=PLAINTEXT
+    >
+    >   acks=all
+
+# -----------------------------------------------------
+# Start MirrorMaker on each node.
+#[user@trop03]
+
+    for vmname in ${mmnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname}]"
+            ssh \
+                ${scpopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                date
+                hostname
+                docker-compose \
+                    --file mirror.yml \
+                    up -d
+                "
+        done
+
+    >   ---- ----
+    >   Node [Moemond]
+    >   Fri 18 Jan 18:20:12 GMT 2019
+    >   Moemond
+    >   Creating network "stevedore_default" with the default driver
+    >   Pulling tina (phymatopus/kafka-core:)...
+    >   latest: Pulling from phymatopus/kafka-core
+    >   Digest: sha256:998482164d8991aa867730ec2b0d7b0c062311687964d53d255c7857621f28f1
+    >   Status: Downloaded newer image for phymatopus/kafka-core:latest
+    >   Creating stevedore_tina_1 ... done
+    >   ---- ----
+    >   Node [Iberidia]
+    >   Fri 18 Jan 18:20:43 GMT 2019
+    >   Iberidia
+    >   Creating network "stevedore_default" with the default driver
+    >   Pulling tina (phymatopus/kafka-core:)...
+    >   latest: Pulling from phymatopus/kafka-core
+    >   Digest: sha256:998482164d8991aa867730ec2b0d7b0c062311687964d53d255c7857621f28f1
+    >   Status: Downloaded newer image for phymatopus/kafka-core:latest
+    >   Creating stevedore_tina_1 ... done
+
+# -----------------------------------------------------
+# Update the topic and restart MirrorMaker on each node.
+#[user@trop04]
+
+    ztftopicid=ztf_20190112_programid1
+    ztftopicid=ztf_20190111_programid1
+    ztftopicid=ztf_20190110_programid1
+
+    for vmname in ${mmnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname}]"
+            ssh \
+                ${scpopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                docker-compose \
+                    --file mirror.yml \
+                    down
+                sed -i \"
+                    s/^ztftopicid=.*/ztftopicid=${ztftopicid:?}/
+                    \" mirror.env
+                docker-compose \
+                    --file mirror.yml \
+                    up -d
+                "
+        done
+
+--START
+---- ----
+Node [Moemond]
+Stopping stevedore_tina_1 ... done
+Removing stevedore_tina_1 ... done
+Removing network stevedore_default
+Creating network "stevedore_default" with the default driver
+Creating stevedore_tina_1 ... done
+---- ----
+Node [Iberidia]
+Stopping stevedore_tina_1 ... done
+Removing stevedore_tina_1 ... done
+Removing network stevedore_default
+Creating network "stevedore_default" with the default driver
+Creating stevedore_tina_1 ... done
+--END
+
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+# Tail the logs on each node.
+# https://www.systutorials.com/docs/linux/man/1-gnome-terminal/
+# https://www.systutorials.com/docs/linux/man/7-X/#lbAH
+#[user@desktop]
+
+    mate-terminal \
+        --geometry '160x10+25+325' \
+        --command '
+            ssh -t Moemond "
+                docker logs -f stevedore_tina_1
+                ${SHELL}
+                "
+            '
+    sleep 1
+
+    mate-terminal \
+        --geometry '160x10+125+425' \
+        --command '
+            ssh -t Iberidia "
+                docker logs -f stevedore_tina_1
+                ${SHELL}
+                "
+            '
+
+
+    >   [2019-01-18 18:42:39,865] WARN [Producer clientId=producer-1] Connection to node -4 could not be established. Broker may not be available. (org.apache.kafka.clients.NetworkClient)
+    >   [2019-01-18 18:44:50,930] WARN [Producer clientId=producer-1] Connection to node -2 could not be established. Broker may not be available. (org.apache.kafka.clients.NetworkClient)
+    >   [2019-01-18 18:47:01,999] WARN [Producer clientId=producer-1] Connection to node -4 could not be established. Broker may not be available. (org.apache.kafka.clients.NetworkClient)
+    >   [2019-01-18 18:49:13,070] WARN [Producer clientId=producer-1] Connection to node -2 could not be established. Broker may not be available. (org.apache.kafka.clients.NetworkClient)
+    >   [2019-01-18 18:51:24,153] WARN [Producer clientId=producer-1] Connection to node -3 could not be established. Broker may not be available. (org.apache.kafka.clients.NetworkClient)
+    >   [2019-01-18 18:53:35,217] WARN [Producer clientId=producer-1] Connection to node -1 could not be established. Broker may not be available. (org.apache.kafka.clients.NetworkClient)
+    >   [2019-01-18 18:55:46,286] WARN [Producer clientId=producer-1] Connection to node -3 could not be established. Broker may not be available. (org.apache.kafka.clients.NetworkClient)
+    >   [2019-01-18 18:57:57,358] WARN [Producer clientId=producer-1] Connection to node -1 could not be established. Broker may not be available. (org.apache.kafka.clients.NetworkClient)
+    >   [2019-01-18 19:00:08,430] WARN [Producer clientId=producer-1] Connection to node -4 could not be established. Broker may not be available. (org.apache.kafka.clients.NetworkClient)
+    >   [2019-01-18 19:02:19,502] WARN [Producer clientId=producer-1] Connection to node -2 could not be established. Broker may not be available. (org.apache.kafka.clients.NetworkClient)
+
+    >   [2019-01-18 18:42:36,810] WARN [Producer clientId=producer-1] Connection to node -3 could not be established. Broker may not be available. (org.apache.kafka.clients.NetworkClient)
+    >   [2019-01-18 18:44:47,882] WARN [Producer clientId=producer-1] Connection to node -1 could not be established. Broker may not be available. (org.apache.kafka.clients.NetworkClient)
+    >   [2019-01-18 18:46:58,947] WARN [Producer clientId=producer-1] Connection to node -4 could not be established. Broker may not be available. (org.apache.kafka.clients.NetworkClient)
+    >   [2019-01-18 18:49:10,017] WARN [Producer clientId=producer-1] Connection to node -1 could not be established. Broker may not be available. (org.apache.kafka.clients.NetworkClient)
+    >   [2019-01-18 18:51:21,089] WARN [Producer clientId=producer-1] Connection to node -4 could not be established. Broker may not be available. (org.apache.kafka.clients.NetworkClient)
+    >   [2019-01-18 18:53:32,164] WARN [Producer clientId=producer-1] Connection to node -2 could not be established. Broker may not be available. (org.apache.kafka.clients.NetworkClient)
+    >   [2019-01-18 18:55:43,233] WARN [Producer clientId=producer-1] Connection to node -4 could not be established. Broker may not be available. (org.apache.kafka.clients.NetworkClient)
+    >   [2019-01-18 18:57:54,305] WARN [Producer clientId=producer-1] Connection to node -2 could not be established. Broker may not be available. (org.apache.kafka.clients.NetworkClient)
+    >   [2019-01-18 19:00:05,377] WARN [Producer clientId=producer-1] Connection to node -3 could not be established. Broker may not be available. (org.apache.kafka.clients.NetworkClient)
+    >   [2019-01-18 19:02:16,449] WARN [Producer clientId=producer-1] Connection to node -2 could not be established. Broker may not be available. (org.apache.kafka.clients.NetworkClient)
+
+    FAIL connections between virtual machines are not resolving.
+    FAIL tests from trop03.Fosauri to trop04.Wumar time out.
+
+    FAIL network is notwork :-(
+
+
+
+# -----------------------------------------------------
+# Check the ip routes
+#[user@trop03]
+
+    ip route
+
+    >   default via 129.215.175.126 dev br0 onlink
+    >   129.215.175.0/24 dev br0 proto kernel scope link src 129.215.175.98
+    >   192.168.210.0/27 via 129.215.175.96 dev br0
+    >   192.168.210.64/27 via 129.215.175.97 dev br0
+    >   192.168.210.128/27 dev virbr0 proto kernel scope link src 192.168.210.158
+    >   192.168.210.160/27 dev virbr1 proto kernel scope link src 192.168.210.190
+    >   192.168.210.192/27 via 129.215.175.99 dev br0
+
+# -----------------------------------------------------
+# Check the ip routes
+#[user@trop04]
+
+    ip route
+
+    >   default via 129.215.175.126 dev br0
+    >   129.215.175.0/24 dev br0  proto kernel  scope link  src 129.215.175.99
+    >   192.168.210.0/27 via 129.215.175.96 dev br0
+    >   192.168.210.64/27 via 129.215.175.97 dev br0
+    >   192.168.210.128/27 via 129.215.175.98 dev br0
+    >   192.168.210.192/27 dev virbr0  proto kernel  scope link  src 192.168.210.222
+    >   192.168.210.224/27 dev virbr1  proto kernel  scope link  src 192.168.210.254
+
+# -----------------------------------------------------
+# Check the ip routes
+#[user@trop03]
+
+    ssh -A Fosauri \
+        '
+        sudo ip route
+        '
+
+    >   default via 192.168.210.190 dev ens7 proto dhcp metric 100
+    >   172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown
+    >   172.18.0.0/16 dev br-e0c48872d186 proto kernel scope link src 172.18.0.1
+    >   192.168.210.0/27 via 192.168.210.158 dev ens3 proto static metric 101
+    >   192.168.210.64/27 via 192.168.210.158 dev ens3 proto static metric 101
+    >   192.168.210.128/27 dev ens3 proto kernel scope link src 192.168.210.142 metric 101
+    >   192.168.210.128/27 via 192.168.210.158 dev ens3 proto static metric 101
+    >   192.168.210.160/27 dev ens7 proto kernel scope link src 192.168.210.174 metric 100
+    >   192.168.210.192/27 via 192.168.210.158 dev ens3 proto static metric 101
+
+# -----------------------------------------------------
+# Check the ip routes
+#[user@trop04]
+
+    ssh -A Moemond \
+        '
+        sudo ip route
+        '
+
+    >   default via 192.168.210.254 dev ens7 proto dhcp metric 100
+    >   172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown
+    >   172.18.0.0/16 dev br-6bbc414468f0 proto kernel scope link src 172.18.0.1
+    >   192.168.210.192/27 dev ens3 proto kernel scope link src 192.168.210.219 metric 101
+    >   192.168.210.224/27 dev ens7 proto kernel scope link src 192.168.210.251 metric 100
+
+
+    ssh -A Iberidia \
+        '
+        sudo ip route
+        '
+
+    >   default via 192.168.210.254 dev ens7 proto dhcp metric 100
+    >   172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown
+    >   172.18.0.0/16 dev br-7a7906187965 proto kernel scope link src 172.18.0.1
+    >   192.168.210.192/27 dev ens3 proto kernel scope link src 192.168.210.220 metric 101
+    >   192.168.210.224/27 dev ens7 proto kernel scope link src 192.168.210.252 metric 100
+
+    PASS - only one default route
+    FAIL - static routes are missing
+
+# -----------------------------------------------------
+# Add the ip routes manually
+#[user@trop04]
+
+    ssh -A Moemond \
+        '
+        sudo ip route add 192.168.210.0/27   via 192.168.210.222 dev ens3
+        sudo ip route add 192.168.210.64/27  via 192.168.210.222 dev ens3
+        sudo ip route add 192.168.210.128/27 via 192.168.210.222 dev ens3
+        sudo ip route add 192.168.210.192/27 via 192.168.210.222 dev ens3
+        '
+
+    ssh -A Iberidia \
+        '
+        sudo ip route add 192.168.210.0/27   via 192.168.210.222 dev ens3
+        sudo ip route add 192.168.210.64/27  via 192.168.210.222 dev ens3
+        sudo ip route add 192.168.210.128/27 via 192.168.210.222 dev ens3
+        sudo ip route add 192.168.210.192/27 via 192.168.210.222 dev ens3
+        '
+
+# -----------------------------------------------------
+# Check the ip routes
+#[user@trop04]
+
+    ssh -A Moemond \
+        '
+        sudo ip route
+        '
+
+    >   default via 192.168.210.254 dev ens7 proto dhcp metric 100
+    >   172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown
+    >   172.18.0.0/16 dev br-6bbc414468f0 proto kernel scope link src 172.18.0.1
+    >   192.168.210.0/27 via 192.168.210.222 dev ens3
+    >   192.168.210.64/27 via 192.168.210.222 dev ens3
+    >   192.168.210.128/27 via 192.168.210.222 dev ens3
+    >   192.168.210.192/27 via 192.168.210.222 dev ens3
+    >   192.168.210.192/27 dev ens3 proto kernel scope link src 192.168.210.219 metric 101
+    >   192.168.210.224/27 dev ens7 proto kernel scope link src 192.168.210.251 metric 100
+
+
+    ssh -A Iberidia \
+        '
+        sudo ip route
+        '
+
+    >   default via 192.168.210.254 dev ens7 proto dhcp metric 100
+    >   172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown
+    >   172.18.0.0/16 dev br-7a7906187965 proto kernel scope link src 172.18.0.1
+    >   192.168.210.0/27 via 192.168.210.222 dev ens3
+    >   192.168.210.64/27 via 192.168.210.222 dev ens3
+    >   192.168.210.128/27 via 192.168.210.222 dev ens3
+    >   192.168.210.192/27 via 192.168.210.222 dev ens3
+    >   192.168.210.192/27 dev ens3 proto kernel scope link src 192.168.210.220 metric 101
+    >   192.168.210.224/27 dev ens7 proto kernel scope link src 192.168.210.252 metric 100
+
+
+# -----------------------------------------------------
+# Check the ssh connection
+#[user@trop04]
+
+    ssh -A Moemond \
+        '
+        date
+        hostname
+        ssh Fosauri \
+            "
+            date
+            hostname
+            "
+        '
+
+    >   Fri 18 Jan 19:20:26 GMT 2019
+    >   Moemond
+    >   Fri 18 Jan 19:20:26 GMT 2019
+    >   Fosauri
+
+    PASS - ssh connection works
+    HACK - needed manual initial connection to accept host keys
+
+
+# -----------------------------------------------------
+# Update the topic and restart MirrorMaker on each node.
+#[user@trop04]
+
+    ztftopicid=ztf_20190110_programid1
+    ztftopicid=ztf_20190111_programid1
+    ztftopicid=ztf_20190112_programid1
+
+    for vmname in ${mmnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname}]"
+            ssh \
+                ${scpopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                docker-compose \
+                    --file mirror.yml \
+                    down
+                sed -i \"
+                    s/^ztftopicid=.*/ztftopicid=${ztftopicid:?}/
+                    \" mirror.env
+                docker-compose \
+                    --file mirror.yml \
+                    up -d
+                "
+        done
+
+--START
+---- ----
+Node [Moemond]
+Stopping stevedore_tina_1 ... done
+Removing stevedore_tina_1 ... done
+Removing network stevedore_default
+Creating network "stevedore_default" with the default driver
+Creating stevedore_tina_1 ... done
+---- ----
+Node [Iberidia]
+Stopping stevedore_tina_1 ... done
+Removing stevedore_tina_1 ... done
+Removing network stevedore_default
+Creating network "stevedore_default" with the default driver
+Creating stevedore_tina_1 ... done
+--END
+
+
+# -----------------------------------------------------
+# Check our client offsets in the ZTF broker.
+#[user@trop04]
+
+    devnode=Moemond
+
+    ztfconnect=public.alerts.ztf.uw.edu:9092
+    roegroupid=ztf-mirror.roe.ac.uk
+
+    offsetcheck()
+        {
+        date ; \
+        ssh \
+            ${sshopts[*]} \
+            ${sshuser:?}@${devnode:?} \
+            "
+            docker run --rm phymatopus/kafka-core \
+                bin/kafka-consumer-groups.sh \
+                    --bootstrap-server "${ztfconnect:?}" \
+                    --describe \
+                    --group "${roegroupid:?}"
+             " \
+        | sort \
+        ; date
+        }
+
+    offsetcheck
+
+    >   Sat 19 Jan 00:19:24 GMT 2019
+    >   TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                 HOST            CLIENT-ID
+    >   ztf_20190112_programid1 0          14135           14135           0               ztf-mirror.roe.ac.uk-0-33fca493-d145-4c83-9f3b-674da0c2be74 /129.215.175.99 ztf-mirror.roe.ac.uk-0
+    >   ztf_20190112_programid1 10         14135           14135           0               ztf-mirror.roe.ac.uk-1-bd1bfe6f-f068-4d72-a1f1-180905bd1c80 /129.215.175.99 ztf-mirror.roe.ac.uk-1
+    >   ztf_20190112_programid1 11         14135           14135           0               ztf-mirror.roe.ac.uk-1-fe1568f6-274a-4a05-9c42-505c87c0ffe8 /129.215.175.99 ztf-mirror.roe.ac.uk-1
+    >   ztf_20190112_programid1 1          14134           14134           0               ztf-mirror.roe.ac.uk-0-c01d5a61-4fcb-4cbc-ba4b-88a462c1a66b /129.215.175.99 ztf-mirror.roe.ac.uk-0
+    >   ztf_20190112_programid1 12         14135           14135           0               ztf-mirror.roe.ac.uk-2-04fbe88a-2db2-4944-96bd-a301f78ea0ee /129.215.175.99 ztf-mirror.roe.ac.uk-2
+    >   ztf_20190112_programid1 13         14135           14135           0               ztf-mirror.roe.ac.uk-2-51fa52a5-0552-45e2-b016-fd28d766d26b /129.215.175.99 ztf-mirror.roe.ac.uk-2
+    >   ztf_20190112_programid1 2          14135           14135           0               ztf-mirror.roe.ac.uk-1-bd1bfe6f-f068-4d72-a1f1-180905bd1c80 /129.215.175.99 ztf-mirror.roe.ac.uk-1
+    >   ztf_20190112_programid1 3          14135           14135           0               ztf-mirror.roe.ac.uk-1-fe1568f6-274a-4a05-9c42-505c87c0ffe8 /129.215.175.99 ztf-mirror.roe.ac.uk-1
+    >   ztf_20190112_programid1 4          14135           14135           0               ztf-mirror.roe.ac.uk-2-04fbe88a-2db2-4944-96bd-a301f78ea0ee /129.215.175.99 ztf-mirror.roe.ac.uk-2
+    >   ztf_20190112_programid1 5          14135           14135           0               ztf-mirror.roe.ac.uk-2-51fa52a5-0552-45e2-b016-fd28d766d26b /129.215.175.99 ztf-mirror.roe.ac.uk-2
+    >   ztf_20190112_programid1 6          14135           14135           0               ztf-mirror.roe.ac.uk-3-73e41def-7d8a-4951-a609-d196e20329a7 /129.215.175.99 ztf-mirror.roe.ac.uk-3
+    >   ztf_20190112_programid1 7          14134           14134           0               ztf-mirror.roe.ac.uk-3-e2a797fe-30af-463b-9096-6b6c84184bce /129.215.175.99 ztf-mirror.roe.ac.uk-3
+    >   ztf_20190112_programid1 8          14135           14135           0               ztf-mirror.roe.ac.uk-0-33fca493-d145-4c83-9f3b-674da0c2be74 /129.215.175.99 ztf-mirror.roe.ac.uk-0
+    >   ztf_20190112_programid1 9          14135           14135           0               ztf-mirror.roe.ac.uk-0-c01d5a61-4fcb-4cbc-ba4b-88a462c1a66b /129.215.175.99 ztf-mirror.roe.ac.uk-0
+    >   Sat 19 Jan 00:19:33 GMT 2019
+
+    PASS - according to that, we have collected the data from ZTF.
+
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+# Check the disc space on each Kafka node.
+#[user@trop03]
+
+    source "${HOME}/ssh-options"
+
+    kfnames=(
+        Stedigo
+        Angece
+        Edwalafia
+        Onoza
+        )
+
+    for vmname in ${kfnames[@]}
+        do
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    echo \"---- ---- ---- ----\"
+                    echo \"[\$(hostname)][\$(date)]\"
+                    echo \"---- ----\"
+
+                    df -h /
+                    echo \"---- ----\"
+                    df -h \"/data1-01\"
+                    echo \"---- ----\"
+                    df -h \"/data1-02\"
+
+                    echo "---- ----"
+                    df -h \"/data2-01\"
+                    echo "---- ----"
+                    df -h \"/data2-02\"
+
+                    echo "---- ----"
+                    df -h \"/data2-03\"
+                    echo "---- ----"
+                    df -h \"/data2-03\"
+                    "
+        done
+
+    >   ---- ---- ---- ----
+    >   [Stedigo][Fri 18 Jan 23:26:28 GMT 2019]
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vda3       6.8G  2.2G  4.1G  35% /
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdc         32G  3.3G   27G  11% /data1-01
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vde         64G   50G   13G  80% /data1-02
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdd         32G   31G  3.7M 100% /data2-01
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdf         64G   47G   16G  75% /data2-02
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdh        256G  3.3G  251G   2% /data2-03
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdh        256G  3.3G  251G   2% /data2-03
+    >   ---- ---- ---- ----
+    >   [Angece][Fri 18 Jan 23:26:29 GMT 2019]
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vda3       6.8G  2.2G  4.1G  35% /
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdc         32G  3.3G   27G  11% /data1-01
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vde         64G   51G   12G  82% /data1-02
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdd         32G   31G  4.1M 100% /data2-01
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdf         64G   46G   17G  74% /data2-02
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdh        256G  3.3G  251G   2% /data2-03
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdh        256G  3.3G  251G   2% /data2-03
+    >   ---- ---- ---- ----
+    >   [Edwalafia][Fri 18 Jan 23:26:29 GMT 2019]
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vda3       6.8G  2.2G  4.1G  35% /
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdc         32G  3.3G   27G  11% /data1-01
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vde         64G   48G   15G  77% /data1-02
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdd         32G   31G  3.5M 100% /data2-01
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdf         64G   47G   16G  76% /data2-02
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdh        256G  3.3G  251G   2% /data2-03
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdh        256G  3.3G  251G   2% /data2-03
+    >   ---- ---- ---- ----
+    >   [Onoza][Fri 18 Jan 23:26:30 GMT 2019]
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vda3       6.8G  2.2G  4.1G  35% /
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdc         32G  3.3G   27G  11% /data1-01
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vde         64G   46G   17G  74% /data1-02
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdd         32G   31G  4.8M 100% /data2-01
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdf         64G   49G   14G  79% /data2-02
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdh        256G  3.3G  251G   2% /data2-03
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdh        256G  3.3G  251G   2% /data2-03
+
+    PASS - looks like we have collected some data ..
+
+# -----------------------------------------------------
+# Check the data on a Kafka node.
+#[user@trop03]
+
+    vmname=${kfnames[0]}
+
+    ssh \
+        ${sshopts[*]} \
+        ${sshuser:?}@${vmname:?}
+
+
+        ls -al /data1-01
+
+    >   total 32
+    >   drwxr-xr-x. 1 root root 468 Jan 18 23:28 .
+    >   dr-xr-xr-x. 1 root root 228 Jan 18 02:31 ..
+    >   -rw-r--r--. 1 root root   0 Jan 18 06:12 cleaner-offset-checkpoint
+    >   -rw-r--r--. 1 root root   0 Jan 18 04:14 .lock
+    >   -rw-r--r--. 1 root root   4 Jan 18 23:28 log-start-offset-checkpoint
+    >   -rw-r--r--. 1 root root  54 Jan 18 06:12 meta.properties
+    >   -rw-r--r--. 1 root root 117 Jan 18 23:28 recovery-point-offset-checkpoint
+    >   -rw-r--r--. 1 root root 133 Jan 18 23:28 replication-offset-checkpoint
+    >   drwxr-xr-x. 1 root root 206 Jan 18 19:23 ztf_20190112_programid1-12
+    >   drwxr-xr-x. 1 root root 206 Jan 18 19:23 ztf_20190112_programid1-3
+    >   drwxr-xr-x. 1 root root 206 Jan 18 19:23 ztf_20190112_programid1-5
+    >   drwxr-xr-x. 1 root root 206 Jan 18 19:23 ztf_20190112_programid1-7
+
+
+        ls -al /data1-02
+
+    >   total 32
+    >   drwxr-xr-x. 1 root root 4224 Jan 18 23:29 .
+    >   dr-xr-xr-x. 1 root root  228 Jan 18 02:31 ..
+    >   -rw-r--r--. 1 root root    0 Dec 24 05:00 cleaner-offset-checkpoint
+    >   -rw-r--r--. 1 root root    0 Dec 23 18:01 .lock
+    >   -rw-r--r--. 1 root root    4 Jan 18 23:29 log-start-offset-checkpoint
+    >   -rw-r--r--. 1 root root   54 Dec 24 05:00 meta.properties
+    >   -rw-r--r--. 1 root root 2488 Jan 18 23:29 recovery-point-offset-checkpoint
+    >   -rw-r--r--. 1 root root 2488 Jan  8 19:21 replication-offset-checkpoint
+    >   drwxr-xr-x. 1 root root  482 Jan 18 04:22 ztf_20181219_programid1-0
+    >   drwxr-xr-x. 1 root root  482 Jan 18 04:18 ztf_20181219_programid1-10
+    >   drwxr-xr-x. 1 root root  482 Jan 18 04:21 ztf_20181219_programid1-12
+    >   drwxr-xr-x. 1 root root  482 Jan 18 04:19 ztf_20181219_programid1-4
+    >   drwxr-xr-x. 1 root root  482 Jan 18 04:21 ztf_20181219_programid1-6
+    >   drwxr-xr-x. 1 root root  482 Jan 18 04:20 ztf_20181219_programid1-8
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:23 ztf_20181220_programid1-1
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:25 ztf_20181220_programid1-10
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:24 ztf_20181220_programid1-15
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:25 ztf_20181220_programid1-6
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:26 ztf_20181220_programid1-7
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:22 ztf_20181220_programid1-9
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:26 ztf_20181221_programid1-10
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:27 ztf_20181221_programid1-12
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:26 ztf_20181221_programid1-2
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:27 ztf_20181221_programid1-3
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:27 ztf_20181221_programid1-5
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:27 ztf_20181221_programid1-7
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:28 ztf_20181222_programid1-0
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:29 ztf_20181222_programid1-1
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:29 ztf_20181222_programid1-10
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:28 ztf_20181222_programid1-2
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:28 ztf_20181222_programid1-5
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:27 ztf_20181222_programid1-8
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:29 ztf_20181223_programid1-0
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:30 ztf_20181223_programid1-14
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:31 ztf_20181223_programid1-15
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:30 ztf_20181223_programid1-5
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:30 ztf_20181223_programid1-8
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:31 ztf_20181223_programid1-9
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:34 ztf_20181224_programid1-0
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:31 ztf_20181224_programid1-14
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:32 ztf_20181224_programid1-15
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:32 ztf_20181224_programid1-6
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:32 ztf_20181224_programid1-8
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:33 ztf_20181224_programid1-9
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:36 ztf_20181228_programid1-1
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:37 ztf_20181228_programid1-10
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:38 ztf_20181228_programid1-14
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:39 ztf_20181228_programid1-2
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:38 ztf_20181228_programid1-7
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:35 ztf_20181228_programid1-9
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:42 ztf_20181229_programid1-11
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:41 ztf_20181229_programid1-12
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:43 ztf_20181229_programid1-13
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:40 ztf_20181229_programid1-4
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:43 ztf_20181229_programid1-5
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:41 ztf_20181229_programid1-7
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:47 ztf_20181230_programid1-10
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:48 ztf_20181230_programid1-12
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:44 ztf_20181230_programid1-13
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:46 ztf_20181230_programid1-3
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:45 ztf_20181230_programid1-5
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:47 ztf_20181230_programid1-8
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:49 ztf_20181231_programid1-15
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:58 ztf_20181231_programid1-2
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:58 ztf_20181231_programid1-6
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:58 ztf_20181231_programid1-7
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:49 ztf_20181231_programid1-8
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:50 ztf_20181231_programid1-9
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:53 ztf_20190103_programid1-10
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:52 ztf_20190103_programid1-12
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:51 ztf_20190103_programid1-13
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:53 ztf_20190103_programid1-3
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:50 ztf_20190103_programid1-5
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:52 ztf_20190103_programid1-8
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:54 ztf_20190104_programid1-12
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:56 ztf_20190104_programid1-13
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:57 ztf_20190104_programid1-14
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:55 ztf_20190104_programid1-4
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:58 ztf_20190104_programid1-5
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:57 ztf_20190104_programid1-7
+    >   drwxr-xr-x. 1 root root  482 Jan 18 04:58 ztf_20190105_programid1-11
+    >   drwxr-xr-x. 1 root root  482 Jan 18 04:58 ztf_20190105_programid1-12
+    >   drwxr-xr-x. 1 root root  482 Jan 18 04:58 ztf_20190105_programid1-14
+    >   drwxr-xr-x. 1 root root  482 Jan 18 04:58 ztf_20190105_programid1-3
+    >   drwxr-xr-x. 1 root root  482 Jan 18 04:58 ztf_20190105_programid1-5
+    >   drwxr-xr-x. 1 root root  482 Jan 18 04:58 ztf_20190105_programid1-6
+
+
+        ls -al /data1-03
+
+    >   total 32
+    >   drwxr-xr-x. 1 root root 468 Jan 18 23:32 .
+    >   dr-xr-xr-x. 1 root root 228 Jan 18 02:31 ..
+    >   -rw-r--r--. 1 root root   0 Jan 18 06:12 cleaner-offset-checkpoint
+    >   -rw-r--r--. 1 root root   0 Jan 18 04:14 .lock
+    >   -rw-r--r--. 1 root root   4 Jan 18 23:31 log-start-offset-checkpoint
+    >   -rw-r--r--. 1 root root  54 Jan 18 06:12 meta.properties
+    >   -rw-r--r--. 1 root root 117 Jan 18 23:31 recovery-point-offset-checkpoint
+    >   -rw-r--r--. 1 root root 133 Jan 18 23:32 replication-offset-checkpoint
+    >   drwxr-xr-x. 1 root root 206 Jan 18 19:23 ztf_20190112_programid1-0
+    >   drwxr-xr-x. 1 root root 206 Jan 18 19:23 ztf_20190112_programid1-10
+    >   drwxr-xr-x. 1 root root 206 Jan 18 19:23 ztf_20190112_programid1-8
+    >   drwxr-xr-x. 1 root root 206 Jan 18 19:23 ztf_20190112_programid1-9
+
+
+        ls -al /data2-01
+
+    >   total 32
+    >   drwxr-xr-x. 1 root root 3018 Jan 18 23:32 .
+    >   dr-xr-xr-x. 1 root root  228 Jan 18 02:31 ..
+    >   -rw-r--r--. 1 root root    0 Dec 12 05:32 cleaner-offset-checkpoint
+    >   -rw-r--r--. 1 root root    0 Dec 12 05:32 .lock
+    >   -rw-r--r--. 1 root root    4 Jan 18 23:32 log-start-offset-checkpoint
+    >   -rw-r--r--. 1 root root   54 Dec 12 05:32 meta.properties
+    >   -rw-r--r--. 1 root root 1717 Jan 18 23:32 recovery-point-offset-checkpoint
+    >   -rw-r--r--. 1 root root 1717 Jan  8 19:21 replication-offset-checkpoint
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:20 ztf_20181205_programid1-10
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:25 ztf_20181205_programid1-11
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:35 ztf_20181205_programid1-13
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:18 ztf_20181205_programid1-2
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:30 ztf_20181205_programid1-7
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:27 ztf_20181205_programid1-9
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:37 ztf_20181209_programid1-0
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:36 ztf_20181209_programid1-11
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:39 ztf_20181209_programid1-2
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:36 ztf_20181209_programid1-3
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:38 ztf_20181209_programid1-8
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:39 ztf_20181209_programid1-9
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:48 ztf_20181210_programid1-11
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:41 ztf_20181210_programid1-12
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:46 ztf_20181210_programid1-14
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:44 ztf_20181210_programid1-15
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:42 ztf_20181210_programid1-4
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:45 ztf_20181210_programid1-6
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:58 ztf_20181212_programid1-0
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:55 ztf_20181212_programid1-11
+    >   drwxr-xr-x. 1 root root  264 Jan 18 05:00 ztf_20181212_programid1-13
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:50 ztf_20181212_programid1-14
+    >   drwxr-xr-x. 1 root root  264 Jan 18 05:02 ztf_20181212_programid1-4
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:52 ztf_20181212_programid1-6
+    >   drwxr-xr-x. 1 root root  264 Jan 18 05:08 ztf_20181213_programid1-0
+    >   drwxr-xr-x. 1 root root  264 Jan 18 05:07 ztf_20181213_programid1-12
+    >   drwxr-xr-x. 1 root root  264 Jan 18 05:10 ztf_20181213_programid1-13
+    >   drwxr-xr-x. 1 root root  264 Jan 18 05:05 ztf_20181213_programid1-14
+    >   drwxr-xr-x. 1 root root  264 Jan 18 05:04 ztf_20181213_programid1-6
+    >   drwxr-xr-x. 1 root root  264 Jan 18 05:12 ztf_20181213_programid1-7
+    >   drwxr-xr-x. 1 root root  264 Jan 18 05:22 ztf_20181214_programid1-11
+    >   drwxr-xr-x. 1 root root  264 Jan 18 05:19 ztf_20181214_programid1-12
+    >   drwxr-xr-x. 1 root root  264 Jan 18 05:25 ztf_20181214_programid1-14
+    >   drwxr-xr-x. 1 root root  264 Jan 18 05:28 ztf_20181214_programid1-15
+    >   drwxr-xr-x. 1 root root  264 Jan 18 05:16 ztf_20181214_programid1-4
+    >   drwxr-xr-x. 1 root root  264 Jan 18 05:32 ztf_20181214_programid1-6
+    >   drwxr-xr-x. 1 root root  264 Jan 18 05:33 ztf_20181215_programid1-10
+    >   drwxr-xr-x. 1 root root  264 Jan 18 05:33 ztf_20181215_programid1-12
+    >   drwxr-xr-x. 1 root root  264 Jan 18 05:33 ztf_20181215_programid1-13
+    >   drwxr-xr-x. 1 root root  264 Jan 18 05:33 ztf_20181215_programid1-3
+    >   drwxr-xr-x. 1 root root  264 Jan 18 05:33 ztf_20181215_programid1-5
+    >   drwxr-xr-x. 1 root root  264 Jan 18 05:33 ztf_20181215_programid1-8
+    >   drwxr-xr-x. 1 root root  264 Jan 18 05:40 ztf_20181216_programid1-10
+    >   drwxr-xr-x. 1 root root  264 Jan 18 05:44 ztf_20181216_programid1-12
+    >   drwxr-xr-x. 1 root root  264 Jan 18 05:35 ztf_20181216_programid1-13
+    >   drwxr-xr-x. 1 root root  264 Jan 18 05:37 ztf_20181216_programid1-5
+    >   drwxr-xr-x. 1 root root  264 Jan 18 05:39 ztf_20181216_programid1-6
+    >   drwxr-xr-x. 1 root root  264 Jan 18 05:42 ztf_20181216_programid1-8
+    >   drwxr-xr-x. 1 root root  264 Jan 18 06:08 ztf_20181217_programid1-1
+    >   drwxr-xr-x. 1 root root  264 Jan 18 05:56 ztf_20181217_programid1-11
+    >   drwxr-xr-x. 1 root root  264 Jan 18 05:47 ztf_20181217_programid1-14
+    >   drwxr-xr-x. 1 root root  264 Jan 18 06:03 ztf_20181217_programid1-4
+    >   drwxr-xr-x. 1 root root  264 Jan 18 05:51 ztf_20181217_programid1-6
+    >   drwxr-xr-x. 1 root root  264 Jan 18 06:00 ztf_20181217_programid1-9
+
+
+        ls -al /data2-02
+
+    >   total 32
+    >   drwxr-xr-x. 1 root root 4220 Jan 18 23:33 .
+    >   dr-xr-xr-x. 1 root root  228 Jan 18 02:31 ..
+    >   -rw-r--r--. 1 root root    0 Dec 24 05:00 cleaner-offset-checkpoint
+    >   -rw-r--r--. 1 root root    0 Dec 23 20:19 .lock
+    >   -rw-r--r--. 1 root root    4 Jan 18 23:33 log-start-offset-checkpoint
+    >   -rw-r--r--. 1 root root   54 Dec 24 05:00 meta.properties
+    >   -rw-r--r--. 1 root root 2484 Jan 18 23:33 recovery-point-offset-checkpoint
+    >   -rw-r--r--. 1 root root 2484 Jan  8 19:21 replication-offset-checkpoint
+    >   drwxr-xr-x. 1 root root  482 Jan 18 04:18 ztf_20181219_programid1-1
+    >   drwxr-xr-x. 1 root root  482 Jan 18 04:19 ztf_20181219_programid1-13
+    >   drwxr-xr-x. 1 root root  482 Jan 18 04:18 ztf_20181219_programid1-15
+    >   drwxr-xr-x. 1 root root  482 Jan 18 04:19 ztf_20181219_programid1-3
+    >   drwxr-xr-x. 1 root root  482 Jan 18 04:17 ztf_20181219_programid1-7
+    >   drwxr-xr-x. 1 root root  482 Jan 18 04:19 ztf_20181219_programid1-9
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:31 ztf_20181220_programid1-0
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:26 ztf_20181220_programid1-12
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:20 ztf_20181220_programid1-13
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:29 ztf_20181220_programid1-3
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:24 ztf_20181220_programid1-5
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:35 ztf_20181220_programid1-8
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:37 ztf_20181221_programid1-0
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:35 ztf_20181221_programid1-14
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:37 ztf_20181221_programid1-15
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:36 ztf_20181221_programid1-6
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:36 ztf_20181221_programid1-8
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:37 ztf_20181221_programid1-9
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:40 ztf_20181222_programid1-11
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:38 ztf_20181222_programid1-12
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:41 ztf_20181222_programid1-13
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:43 ztf_20181222_programid1-14
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:39 ztf_20181222_programid1-4
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:42 ztf_20181222_programid1-7
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:45 ztf_20181223_programid1-11
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:44 ztf_20181223_programid1-12
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:46 ztf_20181223_programid1-2
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:48 ztf_20181223_programid1-3
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:44 ztf_20181223_programid1-4
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:47 ztf_20181223_programid1-6
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:50 ztf_20181224_programid1-10
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:52 ztf_20181224_programid1-12
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:49 ztf_20181224_programid1-2
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:53 ztf_20181224_programid1-3
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:51 ztf_20181224_programid1-5
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:54 ztf_20181224_programid1-7
+    >   drwxr-xr-x. 1 root root  264 Jan 18 05:03 ztf_20181228_programid1-0
+    >   drwxr-xr-x. 1 root root  264 Jan 18 05:08 ztf_20181228_programid1-11
+    >   drwxr-xr-x. 1 root root  264 Jan 18 05:11 ztf_20181228_programid1-12
+    >   drwxr-xr-x. 1 root root  264 Jan 18 04:59 ztf_20181228_programid1-13
+    >   drwxr-xr-x. 1 root root  264 Jan 18 05:05 ztf_20181228_programid1-4
+    >   drwxr-xr-x. 1 root root  264 Jan 18 05:01 ztf_20181228_programid1-5
+    >   drwxr-xr-x. 1 root root  264 Jan 18 05:15 ztf_20181229_programid1-0
+    >   drwxr-xr-x. 1 root root  264 Jan 18 05:19 ztf_20181229_programid1-1
+    >   drwxr-xr-x. 1 root root  264 Jan 18 05:22 ztf_20181229_programid1-10
+    >   drwxr-xr-x. 1 root root  264 Jan 18 05:17 ztf_20181229_programid1-14
+    >   drwxr-xr-x. 1 root root  264 Jan 18 05:21 ztf_20181229_programid1-2
+    >   drwxr-xr-x. 1 root root  264 Jan 18 05:13 ztf_20181229_programid1-8
+    >   drwxr-xr-x. 1 root root  264 Jan 18 05:29 ztf_20181230_programid1-0
+    >   drwxr-xr-x. 1 root root  264 Jan 18 05:25 ztf_20181230_programid1-1
+    >   drwxr-xr-x. 1 root root  264 Jan 18 05:34 ztf_20181230_programid1-15
+    >   drwxr-xr-x. 1 root root  264 Jan 18 05:36 ztf_20181230_programid1-6
+    >   drwxr-xr-x. 1 root root  264 Jan 18 05:31 ztf_20181230_programid1-7
+    >   drwxr-xr-x. 1 root root  264 Jan 18 05:27 ztf_20181230_programid1-9
+    >   drwxr-xr-x. 1 root root  264 Jan 18 05:40 ztf_20181231_programid1-0
+    >   drwxr-xr-x. 1 root root  264 Jan 18 06:12 ztf_20181231_programid1-11
+    >   drwxr-xr-x. 1 root root  264 Jan 18 06:12 ztf_20181231_programid1-12
+    >   drwxr-xr-x. 1 root root  264 Jan 18 06:12 ztf_20181231_programid1-14
+    >   drwxr-xr-x. 1 root root  264 Jan 18 05:37 ztf_20181231_programid1-3
+    >   drwxr-xr-x. 1 root root  264 Jan 18 05:39 ztf_20181231_programid1-5
+    >   drwxr-xr-x. 1 root root  264 Jan 18 05:50 ztf_20190103_programid1-0
+    >   drwxr-xr-x. 1 root root  264 Jan 18 05:44 ztf_20190103_programid1-1
+    >   drwxr-xr-x. 1 root root  264 Jan 18 05:46 ztf_20190103_programid1-15
+    >   drwxr-xr-x. 1 root root  264 Jan 18 05:48 ztf_20190103_programid1-6
+    >   drwxr-xr-x. 1 root root  264 Jan 18 05:52 ztf_20190103_programid1-7
+    >   drwxr-xr-x. 1 root root  264 Jan 18 05:42 ztf_20190103_programid1-9
+    >   drwxr-xr-x. 1 root root  264 Jan 18 05:55 ztf_20190104_programid1-0
+    >   drwxr-xr-x. 1 root root  264 Jan 18 06:07 ztf_20190104_programid1-1
+    >   drwxr-xr-x. 1 root root  264 Jan 18 06:04 ztf_20190104_programid1-10
+    >   drwxr-xr-x. 1 root root  264 Jan 18 06:09 ztf_20190104_programid1-11
+    >   drwxr-xr-x. 1 root root  264 Jan 18 06:11 ztf_20190104_programid1-2
+    >   drwxr-xr-x. 1 root root  264 Jan 18 05:59 ztf_20190104_programid1-8
+    >   drwxr-xr-x. 1 root root  482 Jan 18 06:11 ztf_20190105_programid1-0
+    >   drwxr-xr-x. 1 root root  482 Jan 18 06:11 ztf_20190105_programid1-15
+    >   drwxr-xr-x. 1 root root  482 Jan 18 06:11 ztf_20190105_programid1-2
+    >   drwxr-xr-x. 1 root root  482 Jan 18 06:11 ztf_20190105_programid1-7
+    >   drwxr-xr-x. 1 root root  482 Jan 18 06:11 ztf_20190105_programid1-8
+    >   drwxr-xr-x. 1 root root  482 Jan 18 06:11 ztf_20190105_programid1-9
+
+
+        ls -al /data2-03
+
+    >   total 32
+    >   drwxr-xr-x. 1 root root 470 Jan 18 23:34 .
+    >   dr-xr-xr-x. 1 root root 228 Jan 18 02:31 ..
+    >   -rw-r--r--. 1 root root   0 Jan 18 06:12 cleaner-offset-checkpoint
+    >   -rw-r--r--. 1 root root   0 Jan 18 04:14 .lock
+    >   -rw-r--r--. 1 root root   4 Jan 18 23:34 log-start-offset-checkpoint
+    >   -rw-r--r--. 1 root root  54 Jan 18 06:12 meta.properties
+    >   -rw-r--r--. 1 root root 118 Jan 18 23:34 recovery-point-offset-checkpoint
+    >   -rw-r--r--. 1 root root 134 Jan 18 23:34 replication-offset-checkpoint
+    >   drwxr-xr-x. 1 root root 206 Jan 18 19:23 ztf_20190112_programid1-1
+    >   drwxr-xr-x. 1 root root 206 Jan 18 19:23 ztf_20190112_programid1-13
+    >   drwxr-xr-x. 1 root root 206 Jan 18 19:23 ztf_20190112_programid1-15
+    >   drwxr-xr-x. 1 root root 206 Jan 18 19:23 ztf_20190112_programid1-6
+
+
+
+# -----------------------------------------------------
+# Update the topic and restart MirrorMaker on each node.
+#[user@trop04]
+
+    mmnames=(
+        Moemond
+        Iberidia
+        )
+
+    ztftopicid=ztf_20190110_programid1
+    ztftopicid=ztf_20190111_programid1
+    ztftopicid=ztf_20190112_programid1
+    ztftopicid=ztf_20190113_programid1
+    ztftopicid=ztf_20190114_programid1
+    ztftopicid=ztf_20190115_programid1
+    ztftopicid=ztf_20190116_programid1
+    ztftopicid=ztf_20190117_programid1
+    ztftopicid=ztf_20190118_programid1
+    ztftopicid=ztf_20190119_programid1
+
+
+    source "${HOME}/ssh-options"
+
+    updatetopic()
+        {
+        local newtopic=${1:?}
+        for vmname in ${mmnames[@]}
+            do
+                echo "---- ----"
+                echo "Node [${vmname}]"
+                ssh \
+                    ${scpopts[*]} \
+                    ${sshuser:?}@${vmname:?} \
+                    "
+                    docker-compose \
+                        --file mirror.yml \
+                        down
+                    sed -i \"
+                        s/^ztftopicid=.*/ztftopicid=${newtopic:?}/
+                        \" mirror.env
+                    docker-compose \
+                        --file mirror.yml \
+                        up -d
+                    "
+            done
+        }
+
+    devnode=Moemond
+    ztfconnect=public.alerts.ztf.uw.edu:9092
+    roegroupid=ztf-mirror.roe.ac.uk
+
+    offsetcheck()
+        {
+        date ; \
+        ssh \
+            ${sshopts[*]} \
+            ${sshuser:?}@${devnode:?} \
+            "
+            docker run --rm phymatopus/kafka-core \
+                bin/kafka-consumer-groups.sh \
+                    --bootstrap-server "${ztfconnect:?}" \
+                    --describe \
+                    --group "${roegroupid:?}"
+             " \
+        | sort \
+        ; date
+        }
+
+
+    updatetopic ztf_20190110_programid1
+    updatetopic ztf_20190111_programid1
+    updatetopic ztf_20190112_programid1
+    updatetopic ztf_20190113_programid1
+    updatetopic ztf_20190114_programid1
+
+    updatetopic ztf_20190120_programid1
+
+
+    offsetcheck
+
+
+
+# -----------------------------------------------------
+# Update the topic and restart MirrorMaker on each node.
+#[user@trop04]
+
+    offsetcheck
+
+    >   Sun 20 Jan 05:38:15 GMT 2019
+    >   TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                 HOST            CLIENT-ID
+    >   ztf_20190119_programid1 0          2237            2237            0               ztf-mirror.roe.ac.uk-0-3f7f5616-de3f-4bb0-b148-5acc680953d0 /129.215.175.99 ztf-mirror.roe.ac.uk-0
+    >   ztf_20190119_programid1 10         2236            2236            0               ztf-mirror.roe.ac.uk-1-4b302e52-ac1a-4824-b2d0-02d7b07480b8 /129.215.175.99 ztf-mirror.roe.ac.uk-1
+    >   ztf_20190119_programid1 11         2236            2236            0               ztf-mirror.roe.ac.uk-1-ab3a67fc-89e9-42d2-9c7e-135d7fdd8b29 /129.215.175.99 ztf-mirror.roe.ac.uk-1
+    >   ztf_20190119_programid1 12         2236            2236            0               ztf-mirror.roe.ac.uk-2-71eacd7c-6597-4857-9e98-e7928eef980a /129.215.175.99 ztf-mirror.roe.ac.uk-2
+    >   ztf_20190119_programid1 1          2236            2236            0               ztf-mirror.roe.ac.uk-0-c2c4035e-e016-409f-ac05-793a79b6a98a /129.215.175.99 ztf-mirror.roe.ac.uk-0
+    >   ztf_20190119_programid1 13         2236            2236            0               ztf-mirror.roe.ac.uk-2-8998bc23-e799-463f-bb93-e289a6c6833c /129.215.175.99 ztf-mirror.roe.ac.uk-2
+    >   ztf_20190119_programid1 2          2236            2236            0               ztf-mirror.roe.ac.uk-1-4b302e52-ac1a-4824-b2d0-02d7b07480b8 /129.215.175.99 ztf-mirror.roe.ac.uk-1
+    >   ztf_20190119_programid1 3          2236            2236            0               ztf-mirror.roe.ac.uk-1-ab3a67fc-89e9-42d2-9c7e-135d7fdd8b29 /129.215.175.99 ztf-mirror.roe.ac.uk-1
+    >   ztf_20190119_programid1 4          2236            2236            0               ztf-mirror.roe.ac.uk-2-71eacd7c-6597-4857-9e98-e7928eef980a /129.215.175.99 ztf-mirror.roe.ac.uk-2
+    >   ztf_20190119_programid1 5          2236            2236            0               ztf-mirror.roe.ac.uk-2-8998bc23-e799-463f-bb93-e289a6c6833c /129.215.175.99 ztf-mirror.roe.ac.uk-2
+    >   ztf_20190119_programid1 6          2237            2237            0               ztf-mirror.roe.ac.uk-3-93d1de73-c08d-46c6-9d14-d21abc94f998 /129.215.175.99 ztf-mirror.roe.ac.uk-3
+    >   ztf_20190119_programid1 7          2236            2236            0               ztf-mirror.roe.ac.uk-3-c4a7817d-b4c7-4e2e-b3a6-16f73897887c /129.215.175.99 ztf-mirror.roe.ac.uk-3
+    >   ztf_20190119_programid1 8          2237            2237            0               ztf-mirror.roe.ac.uk-0-3f7f5616-de3f-4bb0-b148-5acc680953d0 /129.215.175.99 ztf-mirror.roe.ac.uk-0
+    >   ztf_20190119_programid1 9          2236            2236            0               ztf-mirror.roe.ac.uk-0-c2c4035e-e016-409f-ac05-793a79b6a98a /129.215.175.99 ztf-mirror.roe.ac.uk-0
+    >   Sun 20 Jan 05:38:23 GMT 2019
+
+
+    updatetopic ztf_20190120_programid1
+
+    >   ---- ----
+    >   Node [Moemond]
+    >   Stopping stevedore_tina_1 ... done
+    >   Removing stevedore_tina_1 ... done
+    >   Removing network stevedore_default
+    >   Creating network "stevedore_default" with the default driver
+    >   Creating stevedore_tina_1 ... done
+    >   ---- ----
+    >   Node [Iberidia]
+    >   Stopping stevedore_tina_1 ... done
+    >   Removing stevedore_tina_1 ... done
+    >   Removing network stevedore_default
+    >   Creating network "stevedore_default" with the default driver
+    >   Creating stevedore_tina_1 ... done
+
+
+    offsetcheck
+
+    >   Sun 20 Jan 05:38:55 GMT 2019
+    >   TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                 HOST            CLIENT-ID
+    >   ztf_20190119_programid1 0          2237            2237            0               -                                                           -               -
+    >   ztf_20190119_programid1 10         2236            2236            0               -                                                           -               -
+    >   ztf_20190119_programid1 11         2236            2236            0               -                                                           -               -
+    >   ztf_20190119_programid1 12         2236            2236            0               -                                                           -               -
+    >   ztf_20190119_programid1 1          2236            2236            0               -                                                           -               -
+    >   ztf_20190119_programid1 13         2236            2236            0               -                                                           -               -
+    >   ztf_20190119_programid1 2          2236            2236            0               -                                                           -               -
+    >   ztf_20190119_programid1 3          2236            2236            0               -                                                           -               -
+    >   ztf_20190119_programid1 4          2236            2236            0               -                                                           -               -
+    >   ztf_20190119_programid1 5          2236            2236            0               -                                                           -               -
+    >   ztf_20190119_programid1 6          2237            2237            0               -                                                           -               -
+    >   ztf_20190119_programid1 7          2236            2236            0               -                                                           -               -
+    >   ztf_20190119_programid1 8          2237            2237            0               -                                                           -               -
+    >   ztf_20190119_programid1 9          2236            2236            0               -                                                           -               -
+    >   ztf_20190120_programid1 0          -               2388            -               ztf-mirror.roe.ac.uk-0-b27cebc5-17c4-4b04-b4b4-bfeaae4261b6 /129.215.175.99 ztf-mirror.roe.ac.uk-0
+    >   ztf_20190120_programid1 10         -               2388            -               ztf-mirror.roe.ac.uk-1-0fab2ff8-e3ec-4898-a7dd-8ff5ed6c6568 /129.215.175.99 ztf-mirror.roe.ac.uk-1
+    >   ztf_20190120_programid1 11         -               2389            -               ztf-mirror.roe.ac.uk-1-ba08ee87-c6bb-43ad-944a-1656c218c20c /129.215.175.99 ztf-mirror.roe.ac.uk-1
+    >   ztf_20190120_programid1 12         -               2388            -               ztf-mirror.roe.ac.uk-2-c0e2148c-88e4-4842-964e-2d9c721bfcab /129.215.175.99 ztf-mirror.roe.ac.uk-2
+    >   ztf_20190120_programid1 1          -               2388            -               ztf-mirror.roe.ac.uk-0-dce04f64-72f8-4c90-ae10-dd730cd46571 /129.215.175.99 ztf-mirror.roe.ac.uk-0
+    >   ztf_20190120_programid1 13         -               2388            -               ztf-mirror.roe.ac.uk-2-f18148c2-6ad2-475d-8138-dcb903761e67 /129.215.175.99 ztf-mirror.roe.ac.uk-2
+    >   ztf_20190120_programid1 2          -               2389            -               ztf-mirror.roe.ac.uk-1-0fab2ff8-e3ec-4898-a7dd-8ff5ed6c6568 /129.215.175.99 ztf-mirror.roe.ac.uk-1
+    >   ztf_20190120_programid1 3          -               2388            -               ztf-mirror.roe.ac.uk-1-ba08ee87-c6bb-43ad-944a-1656c218c20c /129.215.175.99 ztf-mirror.roe.ac.uk-1
+    >   ztf_20190120_programid1 4          -               2389            -               ztf-mirror.roe.ac.uk-2-c0e2148c-88e4-4842-964e-2d9c721bfcab /129.215.175.99 ztf-mirror.roe.ac.uk-2
+    >   ztf_20190120_programid1 5          -               2389            -               ztf-mirror.roe.ac.uk-2-f18148c2-6ad2-475d-8138-dcb903761e67 /129.215.175.99 ztf-mirror.roe.ac.uk-2
+    >   ztf_20190120_programid1 6          -               2388            -               ztf-mirror.roe.ac.uk-3-04990a21-0433-42c9-9d42-4416d2459645 /129.215.175.99 ztf-mirror.roe.ac.uk-3
+    >   ztf_20190120_programid1 7          -               2388            -               ztf-mirror.roe.ac.uk-3-74ccb6f4-e664-4e78-8fe9-de22cec997e0 /129.215.175.99 ztf-mirror.roe.ac.uk-3
+    >   ztf_20190120_programid1 8          -               2389            -               ztf-mirror.roe.ac.uk-0-b27cebc5-17c4-4b04-b4b4-bfeaae4261b6 /129.215.175.99 ztf-mirror.roe.ac.uk-0
+    >   ztf_20190120_programid1 9          -               2388            -               ztf-mirror.roe.ac.uk-0-dce04f64-72f8-4c90-ae10-dd730cd46571 /129.215.175.99 ztf-mirror.roe.ac.uk-0
+    >   Sun 20 Jan 05:39:06 GMT 2019
+
+
+    offsetcheck
+
+    >   Sun 20 Jan 05:41:00 GMT 2019
+    >   Note: This will not show information about old Zookeeper-based consumers.
+    >   
+    >   TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                 HOST            CLIENT-ID
+    >   ztf_20190119_programid1 0          2237            2237            0               -                                                           -               -
+    >   ztf_20190119_programid1 10         2236            2236            0               -                                                           -               -
+    >   ztf_20190119_programid1 11         2236            2236            0               -                                                           -               -
+    >   ztf_20190119_programid1 12         2236            2236            0               -                                                           -               -
+    >   ztf_20190119_programid1 1          2236            2236            0               -                                                           -               -
+    >   ztf_20190119_programid1 13         2236            2236            0               -                                                           -               -
+    >   ztf_20190119_programid1 2          2236            2236            0               -                                                           -               -
+    >   ztf_20190119_programid1 3          2236            2236            0               -                                                           -               -
+    >   ztf_20190119_programid1 4          2236            2236            0               -                                                           -               -
+    >   ztf_20190119_programid1 5          2236            2236            0               -                                                           -               -
+    >   ztf_20190119_programid1 6          2237            2237            0               -                                                           -               -
+    >   ztf_20190119_programid1 7          2236            2236            0               -                                                           -               -
+    >   ztf_20190119_programid1 8          2237            2237            0               -                                                           -               -
+    >   ztf_20190119_programid1 9          2236            2236            0               -                                                           -               -
+    >   ztf_20190120_programid1 0          474             2391            1917            ztf-mirror.roe.ac.uk-0-b27cebc5-17c4-4b04-b4b4-bfeaae4261b6 /129.215.175.99 ztf-mirror.roe.ac.uk-0
+    >   ztf_20190120_programid1 10         432             2391            1959            ztf-mirror.roe.ac.uk-1-0fab2ff8-e3ec-4898-a7dd-8ff5ed6c6568 /129.215.175.99 ztf-mirror.roe.ac.uk-1
+    >   ztf_20190120_programid1 11         476             2391            1915            ztf-mirror.roe.ac.uk-1-ba08ee87-c6bb-43ad-944a-1656c218c20c /129.215.175.99 ztf-mirror.roe.ac.uk-1
+    >   ztf_20190120_programid1 12         499             2391            1892            ztf-mirror.roe.ac.uk-2-c0e2148c-88e4-4842-964e-2d9c721bfcab /129.215.175.99 ztf-mirror.roe.ac.uk-2
+    >   ztf_20190120_programid1 13         455             2391            1936            ztf-mirror.roe.ac.uk-2-f18148c2-6ad2-475d-8138-dcb903761e67 /129.215.175.99 ztf-mirror.roe.ac.uk-2
+    >   ztf_20190120_programid1 1          432             2391            1959            ztf-mirror.roe.ac.uk-0-dce04f64-72f8-4c90-ae10-dd730cd46571 /129.215.175.99 ztf-mirror.roe.ac.uk-0
+    >   ztf_20190120_programid1 2          433             2391            1958            ztf-mirror.roe.ac.uk-1-0fab2ff8-e3ec-4898-a7dd-8ff5ed6c6568 /129.215.175.99 ztf-mirror.roe.ac.uk-1
+    >   ztf_20190120_programid1 3          477             2391            1914            ztf-mirror.roe.ac.uk-1-ba08ee87-c6bb-43ad-944a-1656c218c20c /129.215.175.99 ztf-mirror.roe.ac.uk-1
+    >   ztf_20190120_programid1 4          499             2391            1892            ztf-mirror.roe.ac.uk-2-c0e2148c-88e4-4842-964e-2d9c721bfcab /129.215.175.99 ztf-mirror.roe.ac.uk-2
+    >   ztf_20190120_programid1 5          457             2391            1934            ztf-mirror.roe.ac.uk-2-f18148c2-6ad2-475d-8138-dcb903761e67 /129.215.175.99 ztf-mirror.roe.ac.uk-2
+    >   ztf_20190120_programid1 6          956             2391            1435            ztf-mirror.roe.ac.uk-3-04990a21-0433-42c9-9d42-4416d2459645 /129.215.175.99 ztf-mirror.roe.ac.uk-3
+    >   ztf_20190120_programid1 7          891             2391            1500            ztf-mirror.roe.ac.uk-3-74ccb6f4-e664-4e78-8fe9-de22cec997e0 /129.215.175.99 ztf-mirror.roe.ac.uk-3
+    >   ztf_20190120_programid1 8          476             2391            1915            ztf-mirror.roe.ac.uk-0-b27cebc5-17c4-4b04-b4b4-bfeaae4261b6 /129.215.175.99 ztf-mirror.roe.ac.uk-0
+    >   ztf_20190120_programid1 9          437             2391            1954            ztf-mirror.roe.ac.uk-0-dce04f64-72f8-4c90-ae10-dd730cd46571 /129.215.175.99 ztf-mirror.roe.ac.uk-0
+    >   Sun 20 Jan 05:41:11 GMT 2019
+
+
+# -----------------------------------------------------
+# Update the topic and restart MirrorMaker on each node.
+#[user@trop04]
+
+    offsetcheck
+
+    >   Mon 21 Jan 03:27:27 GMT 2019
+    >   TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                 HOST            CLIENT-ID
+    >   ztf_20190120_programid1 0          8122            8122            0               ztf-mirror.roe.ac.uk-0-b27cebc5-17c4-4b04-b4b4-bfeaae4261b6 /129.215.175.99 ztf-mirror.roe.ac.uk-0
+    >   ztf_20190120_programid1 10         8123            8123            0               ztf-mirror.roe.ac.uk-1-0fab2ff8-e3ec-4898-a7dd-8ff5ed6c6568 /129.215.175.99 ztf-mirror.roe.ac.uk-1
+    >   ztf_20190120_programid1 11         8123            8123            0               ztf-mirror.roe.ac.uk-1-ba08ee87-c6bb-43ad-944a-1656c218c20c /129.215.175.99 ztf-mirror.roe.ac.uk-1
+    >   ztf_20190120_programid1 12         8123            8123            0               ztf-mirror.roe.ac.uk-2-c0e2148c-88e4-4842-964e-2d9c721bfcab /129.215.175.99 ztf-mirror.roe.ac.uk-2
+    >   ztf_20190120_programid1 13         8123            8123            0               ztf-mirror.roe.ac.uk-2-f18148c2-6ad2-475d-8138-dcb903761e67 /129.215.175.99 ztf-mirror.roe.ac.uk-2
+    >   ztf_20190120_programid1 1          8123            8123            0               ztf-mirror.roe.ac.uk-0-dce04f64-72f8-4c90-ae10-dd730cd46571 /129.215.175.99 ztf-mirror.roe.ac.uk-0
+    >   ztf_20190120_programid1 2          8123            8123            0               ztf-mirror.roe.ac.uk-1-0fab2ff8-e3ec-4898-a7dd-8ff5ed6c6568 /129.215.175.99 ztf-mirror.roe.ac.uk-1
+    >   ztf_20190120_programid1 3          8123            8123            0               ztf-mirror.roe.ac.uk-1-ba08ee87-c6bb-43ad-944a-1656c218c20c /129.215.175.99 ztf-mirror.roe.ac.uk-1
+    >   ztf_20190120_programid1 4          8123            8123            0               ztf-mirror.roe.ac.uk-2-c0e2148c-88e4-4842-964e-2d9c721bfcab /129.215.175.99 ztf-mirror.roe.ac.uk-2
+    >   ztf_20190120_programid1 5          8123            8123            0               ztf-mirror.roe.ac.uk-2-f18148c2-6ad2-475d-8138-dcb903761e67 /129.215.175.99 ztf-mirror.roe.ac.uk-2
+    >   ztf_20190120_programid1 6          8122            8122            0               ztf-mirror.roe.ac.uk-3-04990a21-0433-42c9-9d42-4416d2459645 /129.215.175.99 ztf-mirror.roe.ac.uk-3
+    >   ztf_20190120_programid1 7          8123            8123            0               ztf-mirror.roe.ac.uk-3-74ccb6f4-e664-4e78-8fe9-de22cec997e0 /129.215.175.99 ztf-mirror.roe.ac.uk-3
+    >   ztf_20190120_programid1 8          8123            8123            0               ztf-mirror.roe.ac.uk-0-b27cebc5-17c4-4b04-b4b4-bfeaae4261b6 /129.215.175.99 ztf-mirror.roe.ac.uk-0
+    >   ztf_20190120_programid1 9          8123            8123            0               ztf-mirror.roe.ac.uk-0-dce04f64-72f8-4c90-ae10-dd730cd46571 /129.215.175.99 ztf-mirror.roe.ac.uk-0
+    >   Mon 21 Jan 03:27:35 GMT 2019
+
+
+    updatetopic ztf_20190121_programid1
+
+    >   ---- ----
+    >   Node [Moemond]
+    >   Stopping stevedore_tina_1 ... done
+    >   Removing stevedore_tina_1 ... done
+    >   Removing network stevedore_default
+    >   Creating network "stevedore_default" with the default driver
+    >   Creating stevedore_tina_1 ... done
+    >   ---- ----
+    >   Node [Iberidia]
+    >   Stopping stevedore_tina_1 ... done
+    >   Removing stevedore_tina_1 ... done
+    >   Removing network stevedore_default
+    >   Creating network "stevedore_default" with the default driver
+    >   Creating stevedore_tina_1 ... done
+    >   --END
+    >   
+    >       offsetcheck
+    >   
+    >   Mon 21 Jan 03:29:15 GMT 2019
+    >   TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                 HOST            CLIENT-ID
+    >   ztf_20190120_programid1 0          8122            8122            0               -                                                           -               -
+    >   ztf_20190120_programid1 10         8123            8123            0               -                                                           -               -
+    >   ztf_20190120_programid1 11         8123            8123            0               -                                                           -               -
+    >   ztf_20190120_programid1 12         8123            8123            0               -                                                           -               -
+    >   ztf_20190120_programid1 13         8123            8123            0               -                                                           -               -
+    >   ztf_20190120_programid1 1          8123            8123            0               -                                                           -               -
+    >   ztf_20190120_programid1 2          8123            8123            0               -                                                           -               -
+    >   ztf_20190120_programid1 3          8123            8123            0               -                                                           -               -
+    >   ztf_20190120_programid1 4          8123            8123            0               -                                                           -               -
+    >   ztf_20190120_programid1 5          8123            8123            0               -                                                           -               -
+    >   ztf_20190120_programid1 6          8122            8122            0               -                                                           -               -
+    >   ztf_20190120_programid1 7          8123            8123            0               -                                                           -               -
+    >   ztf_20190120_programid1 8          8123            8123            0               -                                                           -               -
+    >   ztf_20190120_programid1 9          8123            8123            0               -                                                           -               -
+    >   ztf_20190121_programid1 0          -               0               -               ztf-mirror.roe.ac.uk-0-0b725904-33ec-4e15-ad82-48b858fe2143 /129.215.175.99 ztf-mirror.roe.ac.uk-0
+    >   ztf_20190121_programid1 10         -               0               -               ztf-mirror.roe.ac.uk-1-acb86dcc-3d39-46b9-8673-aa51feb6bdbe /129.215.175.99 ztf-mirror.roe.ac.uk-1
+    >   ztf_20190121_programid1 1          -               0               -               ztf-mirror.roe.ac.uk-0-c7c53da6-ae4f-4e5a-80cc-aaff226e7910 /129.215.175.99 ztf-mirror.roe.ac.uk-0
+    >   ztf_20190121_programid1 11         -               0               -               ztf-mirror.roe.ac.uk-1-d352aa61-8c81-469b-824e-9b4b93644424 /129.215.175.99 ztf-mirror.roe.ac.uk-1
+    >   ztf_20190121_programid1 12         -               0               -               ztf-mirror.roe.ac.uk-2-9bea06bd-b52a-4bab-86fe-d545c73346bc /129.215.175.99 ztf-mirror.roe.ac.uk-2
+    >   ztf_20190121_programid1 13         -               0               -               ztf-mirror.roe.ac.uk-2-bdb21fc3-b540-44df-810c-c6c586e4e459 /129.215.175.99 ztf-mirror.roe.ac.uk-2
+    >   ztf_20190121_programid1 2          -               0               -               ztf-mirror.roe.ac.uk-1-acb86dcc-3d39-46b9-8673-aa51feb6bdbe /129.215.175.99 ztf-mirror.roe.ac.uk-1
+    >   ztf_20190121_programid1 3          -               0               -               ztf-mirror.roe.ac.uk-1-d352aa61-8c81-469b-824e-9b4b93644424 /129.215.175.99 ztf-mirror.roe.ac.uk-1
+    >   ztf_20190121_programid1 4          -               0               -               ztf-mirror.roe.ac.uk-2-9bea06bd-b52a-4bab-86fe-d545c73346bc /129.215.175.99 ztf-mirror.roe.ac.uk-2
+    >   ztf_20190121_programid1 5          -               0               -               ztf-mirror.roe.ac.uk-2-bdb21fc3-b540-44df-810c-c6c586e4e459 /129.215.175.99 ztf-mirror.roe.ac.uk-2
+    >   ztf_20190121_programid1 6          -               0               -               ztf-mirror.roe.ac.uk-3-1a272dbe-0571-4c07-a527-173be127151f /129.215.175.99 ztf-mirror.roe.ac.uk-3
+    >   ztf_20190121_programid1 7          -               0               -               ztf-mirror.roe.ac.uk-3-46dae3bf-b090-43ff-bcc1-5920411a1731 /129.215.175.99 ztf-mirror.roe.ac.uk-3
+    >   ztf_20190121_programid1 8          -               0               -               ztf-mirror.roe.ac.uk-0-0b725904-33ec-4e15-ad82-48b858fe2143 /129.215.175.99 ztf-mirror.roe.ac.uk-0
+    >   ztf_20190121_programid1 9          -               0               -               ztf-mirror.roe.ac.uk-0-c7c53da6-ae4f-4e5a-80cc-aaff226e7910 /129.215.175.99 ztf-mirror.roe.ac.uk-0
+    >   Mon 21 Jan 03:29:25 GMT 2019
+    >   --END
+    >   
+    >       offsetcheck
+    >   
+
+
+    offsetcheck
+
+
+
+    offsetcheck
+
+
+
+    offsetcheck
+
+

@@ -1,0 +1,657 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+    TODO - install Zookeeper ..
+    doc/notes/zrq/20181210-01-trop-transfer.txt
+
+# -----------------------------------------------------
+# Our Zookeeper nodes.
+#[user@trop03]
+
+    zknames=(
+        Fosauri
+        Marpus
+        Byflame
+        )
+
+# -----------------------------------------------------
+# Create our Zookeeper nodes.
+# TODO scriptable createvm
+#[user@trop03]
+
+    createvm
+
+    >   INFO : Node name [Fosauri]
+    >   INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Disc name [Fosauri.qcow]
+    >   INFO : Disc size [8GiB]
+    >
+    >   INFO : node [13]
+    >   INFO : MAC  [52:54:0:0:D2:8E]
+    >   INFO : IPv4 [192.168.210.142]
+    >   INFO : MAC  [52:54:0:0:D2:AE]
+    >   INFO : IPv4 [192.168.210.174]
+
+
+    createvm
+
+    >   INFO : Node name [Marpus]
+    >   INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Disc name [Marpus.qcow]
+    >   INFO : Disc size [8GiB]
+    >
+    >   INFO : node [14]
+    >   INFO : MAC  [52:54:0:0:D2:8F]
+    >   INFO : IPv4 [192.168.210.143]
+    >   INFO : MAC  [52:54:0:0:D2:AF]
+    >   INFO : IPv4 [192.168.210.175]
+
+
+    createvm
+
+    >   INFO : Node name [Byflame]
+    >   INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Disc name [Byflame.qcow]
+    >   INFO : Disc size [8GiB]
+    >
+    >   INFO : node [15]
+    >   INFO : MAC  [52:54:0:0:D2:90]
+    >   INFO : IPv4 [192.168.210.144]
+    >   INFO : MAC  [52:54:0:0:D2:B0]
+    >   INFO : IPv4 [192.168.210.176]
+
+
+# -----------------------------------------------------
+# Update the number of cores on our Zookeeper nodes.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+    for vmname in ${zknames[@]}
+        do
+            virsh \
+                --connect ${connection:?} \
+                    setvcpus \
+                    ${vmname:?} \
+                    2 \
+                    --maximum \
+                    --config
+        done
+
+
+# -----------------------------------------------------
+# Check we can login to each node.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+    for vmname in ${zknames[@]}
+        do
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    date
+                    hostname
+                    "
+        done
+
+
+# -----------------------------------------------------
+# Create a shell script to fix the network on a node.
+#[user@trop03]
+
+    cat > /tmp/netfix.sh << 'EOF'
+
+ens3mac=$(
+    ifconfig ens3 \
+    | sed -n '
+        s/^[[:space:]]*ether[[:space:]]\([^[:space:]]*\)[[:space:]].*$/\1/p
+        '
+    )
+
+ens7mac=$(
+    ifconfig ens7 \
+    | sed -n '
+        s/^[[:space:]]*ether[[:space:]]\([^[:space:]]*\)[[:space:]].*$/\1/p
+        '
+    )
+
+pushd /etc/sysconfig
+
+    cat >> network << EONET
+
+# Gateway for trop03
+GATEWAY=192.168.210.190
+# Gateway for trop04
+# GATEWAY=192.168.210.254
+
+GATEWAYDEV=ens7
+
+EONET
+
+pushd /etc/sysconfig/network-scripts
+
+    cat > ifcfg-ens3 << EONS3
+BOOTPROTO=dhcp
+DEVICE=ens3
+HWADDR=${ens3mac:?}
+ONBOOT=yes
+TYPE=Ethernet
+USERCTL=no
+DEFROUTE=no
+EONS3
+
+    cat > ifcfg-ens7 << EONS7
+BOOTPROTO=dhcp
+DEVICE=ens7
+HWADDR=${ens7mac:?}
+ONBOOT=yes
+TYPE=Ethernet
+USERCTL=no
+DEFROUTE=yes
+EONS7
+
+    # Routes for trop01-04 nodes
+    cat > route-ens3 << EONS3
+192.168.210.0/27   via 192.168.210.158 dev ens3
+192.168.210.64/27  via 192.168.210.158 dev ens3
+192.168.210.128/27 via 192.168.210.158 dev ens3
+192.168.210.192/27 via 192.168.210.158 dev ens3
+EONS3
+
+popd
+EOF
+
+
+# -----------------------------------------------------
+# Deploy and run the netfix script on each node.
+#[user@trop03]
+
+    source "${HOME}/ssh-options"
+
+    for vmname in ${zknames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            scp \
+                ${scpopts[*]} \
+                /tmp/netfix.sh \
+                ${sshuser:?}@${vmname:?}:/tmp/netfix.sh
+
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    date
+                    hostname
+                    chmod a+x '/tmp/netfix.sh'
+                    sudo -s   '/tmp/netfix.sh'
+                    "
+        done
+
+
+    >   ---- ----
+    >   Node [Fosauri]
+    >   netfix.sh   100%  966     2.0MB/s   00:00
+    >   Thu 17 Jan 20:12:18 GMT 2019
+    >   Fosauri
+    >   /etc/sysconfig /home/Stevedore
+    >   /etc/sysconfig/network-scripts /etc/sysconfig /home/Stevedore
+    >   /etc/sysconfig /home/Stevedore
+    >   ---- ----
+    >   Node [Marpus]
+    >   netfix.sh   100%  966     1.8MB/s   00:00
+    >   Thu 17 Jan 20:12:20 GMT 2019
+    >   Marpus
+    >   /etc/sysconfig /home/Stevedore
+    >   /etc/sysconfig/network-scripts /etc/sysconfig /home/Stevedore
+    >   /etc/sysconfig /home/Stevedore
+    >   ---- ----
+    >   Node [Byflame]
+    >   netfix.sh   100%  966     2.0MB/s   00:00
+    >   Thu 17 Jan 20:12:20 GMT 2019
+    >   Byflame
+    >   /etc/sysconfig /home/Stevedore
+    >   /etc/sysconfig/network-scripts /etc/sysconfig /home/Stevedore
+    >   /etc/sysconfig /home/Stevedore
+
+
+# -----------------------------------------------------
+# Shutdown and restart each of our Zookeeper nodes.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+    for vmname in ${zknames[@]}
+        do
+            virsh \
+                --connect ${connection:?} \
+                    shutdown \
+                    ${vmname:?}
+        done
+
+    sleep 30
+
+    for vmname in ${zknames[@]}
+        do
+            virsh \
+                --connect ${connection:?} \
+                    start \
+                    ${vmname:?}
+        done
+
+    >   Domain Fosauri is being shutdown
+    >   Domain Marpus is being shutdown
+    >   Domain Byflame is being shutdown
+
+    >   Domain Fosauri started
+    >   Domain Marpus started
+    >   Domain Byflame started
+
+
+# -----------------------------------------------------
+# Check the number of cores on our Zookeeper nodes.
+#[user@trop03]
+
+    for vmname in ${zknames[@]}
+        do
+            virsh \
+                --quiet \
+                --connect ${connection:?} \
+                    dumpxml \
+                        "${vmname}" \
+            | xmlstarlet \
+                select \
+                    --text \
+                    --template \
+                        --output "$(printf '%-10s' ${vmname})" \
+                        --value-of "domain/vcpu" \
+                        --nl
+        done
+
+    >   Fosauri   2
+    >   Marpus    2
+    >   Byflame   2
+
+
+# -----------------------------------------------------
+# Check the ip routes on each of our Zookeeper nodes.
+#[user@trop03]
+
+    for vmname in ${zknames[@]}
+        do
+            echo "---- ----"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                hostname
+                date
+                sudo ip route list
+                "
+        done
+
+    >   ---- ----
+    >   Fosauri
+    >   Thu 17 Jan 23:10:27 GMT 2019
+    >   default via 192.168.210.190 dev ens7 proto dhcp metric 100
+    >   172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown
+    >   172.18.0.0/16 dev br-e0c48872d186 proto kernel scope link src 172.18.0.1 linkdown
+    >   192.168.210.0/27 via 192.168.210.158 dev ens3 proto static metric 101
+    >   192.168.210.64/27 via 192.168.210.158 dev ens3 proto static metric 101
+    >   192.168.210.128/27 dev ens3 proto kernel scope link src 192.168.210.142 metric 101
+    >   192.168.210.128/27 via 192.168.210.158 dev ens3 proto static metric 101
+    >   192.168.210.160/27 dev ens7 proto kernel scope link src 192.168.210.174 metric 100
+    >   192.168.210.192/27 via 192.168.210.158 dev ens3 proto static metric 101
+    >   ---- ----
+    >   Marpus
+    >   Thu 17 Jan 23:10:28 GMT 2019
+    >   default via 192.168.210.190 dev ens7 proto dhcp metric 100
+    >   172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown
+    >   172.18.0.0/16 dev br-a6163c27a3f6 proto kernel scope link src 172.18.0.1 linkdown
+    >   192.168.210.0/27 via 192.168.210.158 dev ens3 proto static metric 101
+    >   192.168.210.64/27 via 192.168.210.158 dev ens3 proto static metric 101
+    >   192.168.210.128/27 dev ens3 proto kernel scope link src 192.168.210.143 metric 101
+    >   192.168.210.128/27 via 192.168.210.158 dev ens3 proto static metric 101
+    >   192.168.210.160/27 dev ens7 proto kernel scope link src 192.168.210.175 metric 100
+    >   192.168.210.192/27 via 192.168.210.158 dev ens3 proto static metric 101
+    >   ---- ----
+    >   Byflame
+    >   Thu 17 Jan 23:10:28 GMT 2019
+    >   default via 192.168.210.190 dev ens7 proto dhcp metric 100
+    >   172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown
+    >   172.18.0.0/16 dev br-7440c7638139 proto kernel scope link src 172.18.0.1 linkdown
+    >   192.168.210.0/27 via 192.168.210.158 dev ens3 proto static metric 101
+    >   192.168.210.64/27 via 192.168.210.158 dev ens3 proto static metric 101
+    >   192.168.210.128/27 dev ens3 proto kernel scope link src 192.168.210.144 metric 101
+    >   192.168.210.128/27 via 192.168.210.158 dev ens3 proto static metric 101
+    >   192.168.210.160/27 dev ens7 proto kernel scope link src 192.168.210.176 metric 100
+    >   192.168.210.192/27 via 192.168.210.158 dev ens3 proto static metric 101
+
+
+# -----------------------------------------------------
+# Build a list of lists of zookeeper addresses.
+# Each instance gets a lits of the other server names,
+# with it's own address set to 0.0.0.0 to make this
+# instance listen on all interfaces.
+#[user@trop03]
+
+    unset zkservers
+    declare -a zkservers=()
+
+    for i in {0..2}
+    do
+
+        delim=''
+        ports=':2888:3888'
+        servers=''
+
+        for j in {0..2}
+        do
+
+
+            if [[ $i -eq $j ]]
+            then
+                server="0.0.0.0"
+            else
+                server="${zknames[${j}]}"
+            fi
+            servers=${servers}${delim}${server}${ports}
+            delim=';'
+            j=$(($j + 1))
+        done
+        zkservers+=(${servers})
+    done
+
+    for i in {0..2}
+    do
+        echo "list[${i}] [${zkservers[${i}]}]"
+    done
+
+    >   list[0] [0.0.0.0:2888:3888;Marpus:2888:3888;Byflame:2888:3888]
+    >   list[1] [Fosauri:2888:3888;0.0.0.0:2888:3888;Byflame:2888:3888]
+    >   list[2] [Fosauri:2888:3888;Marpus:2888:3888;0.0.0.0:2888:3888]
+
+# -----------------------------------------------------
+# Create our compose YAML file.
+#[user@trop03]
+
+cat > /tmp/zookeeper.yml << 'EOYML'
+
+version: '3'
+
+networks:
+    zookeeper:
+
+volumes:
+    zklog:
+    zkdata:
+
+services:
+
+    courtney:
+        image:
+            confluentinc/cp-zookeeper:4.1.1
+        ports:
+            - "2181:2181"
+            - "2888:2888"
+            - "3888:3888"
+        environment:
+            - ZOOKEEPER_SERVER_ID=${ZOOKEEPER_SERVER_ID}
+            - ZOOKEEPER_SERVERS=${ZOOKEEPER_SERVERS}
+            - ZOOKEEPER_TICK_TIME=2000
+            - ZOOKEEPER_INIT_LIMIT=5
+            - ZOOKEEPER_SYNC_LIMIT=2
+            - ZOOKEEPER_CLIENT_PORT=2181
+            - ZOOKEEPER_CLIENT_PORT_ADDRESS=0.0.0.0
+        volumes:
+            - "zklog:/var/lib/zookeeper/log"
+            - "zkdata:/var/lib/zookeeper/data"
+        networks:
+            - zookeeper
+
+EOYML
+
+# -----------------------------------------------------
+# Deploy our compose YAML file to each node.
+#[user@trop03]
+
+    source "${HOME}/ssh-options"
+
+    for vmname in ${zknames[@]}
+        do
+            scp \
+                ${scpopts[*]} \
+                /tmp/zookeeper.yml \
+                ${sshuser:?}@${vmname:?}:zookeeper.yml
+        done
+
+    >   zookeeper.yml   100%  740   740.4KB/s   00:00
+    >   zookeeper.yml   100%  740     1.2MB/s   00:00
+    >   zookeeper.yml   100%  740     1.5MB/s   00:00
+
+
+# -----------------------------------------------------
+# Deploy a compose ENV file to each node.
+#[user@trop03]
+
+    source "${HOME}/ssh-options"
+
+    for (( i=0 ; i < ${#zknames[@]} ; i++ ))
+        do
+            vmname=${zknames[${i}]}
+            echo "Node [${i}][${vmname}]"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+cat > zookeeper.env << EOF
+ZOOKEEPER_SERVER_ID=$((i + 1))
+ZOOKEEPER_SERVERS=${serverlist[${i}]}
+EOF
+ln -sf zookeeper.env .env
+                    "
+        done
+
+    >   Node [0][Fosauri]
+    >   Node [1][Marpus]
+    >   Node [2][Byflame]
+
+
+# -----------------------------------------------------
+# Check the compose ENV file on each node.
+#[user@trop03]
+
+    for vmname in ${zknames[@]}
+        do
+            echo "---- ----"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                hostname
+                date
+                cat .env
+                "
+        done
+
+    >   ---- ----
+    >   Fosauri
+    >   Thu 17 Jan 18:52:57 GMT 2019
+    >   ZOOKEEPER_SERVER_ID=1
+    >   ZOOKEEPER_SERVERS=0.0.0.0:2888:3888;Marpus:2888:3888;Byflame:2888:3888
+    >   ---- ----
+    >   Marpus
+    >   Thu 17 Jan 18:52:57 GMT 2019
+    >   ZOOKEEPER_SERVER_ID=2
+    >   ZOOKEEPER_SERVERS=Fosauri:2888:3888;0.0.0.0:2888:3888;Byflame:2888:3888
+    >   ---- ----
+    >   Byflame
+    >   Thu 17 Jan 18:52:57 GMT 2019
+    >   ZOOKEEPER_SERVER_ID=3
+    >   ZOOKEEPER_SERVERS=Fosauri:2888:3888;Marpus:2888:3888;0.0.0.0:2888:3888
+
+
+# -----------------------------------------------------
+# Start Zookeeper on each node.
+#[user@trop03]
+
+    for vmname in ${zknames[@]}
+        do
+            echo "---- ----"
+            ssh \
+                ${scpopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                hostname
+                date
+                docker-compose \
+                    --file zookeeper.yml \
+                    up -d
+                "
+        done
+
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+# Tail the logs on each node.
+# https://www.systutorials.com/docs/linux/man/1-gnome-terminal/
+# https://www.systutorials.com/docs/linux/man/7-X/#lbAH
+#[user@desktop]
+
+    mate-terminal \
+        --geometry '160x10+25+25' \
+        --command '
+            ssh -t Fosauri "
+                docker logs -f stevedore_courtney_1
+                ${SHELL}
+                "
+            '
+    sleep 1
+
+    mate-terminal \
+        --geometry '160x10+125+125' \
+        --command '
+            ssh -t Marpus "
+                docker logs -f stevedore_courtney_1
+                ${SHELL}
+                "
+            '
+    sleep 1
+
+    mate-terminal \
+        --geometry '160x10+225+225' \
+        --command '
+            ssh -t Byflame "
+                docker logs -f stevedore_courtney_1
+                ${SHELL}
+                "
+            '
+
+
+[Fosauri]
+    >   [2019-01-17 23:11:42,753] INFO Resolved hostname: Byflame to address: Byflame/192.168.210.144 (org.apache.zookeeper.server.quorum.QuorumPeer)
+    >   [2019-01-17 23:11:42,753] INFO Notification time out: 12800 (org.apache.zookeeper.server.quorum.FastLeaderElection)
+    >   ....
+    >   [2019-01-17 23:11:52,648] INFO Received connection request /192.168.210.143:36792 (org.apache.zookeeper.server.quorum.QuorumCnxManager)
+    >   [2019-01-17 23:11:52,655] INFO Notification: 1 (message format version), 2 (n.leader), 0x0 (n.zxid), 0x1 (n.round), LOOKING (n.state), 2 (n.sid), 0x0 (n.peerEpoch) LOOKING (my state) (org.apache.zookeeper.server.quorum.FastLeaderElection)
+    >   [2019-01-17 23:11:52,657] INFO Notification: 1 (message format version), 2 (n.leader), 0x0 (n.zxid), 0x1 (n.round), LOOKING (n.state), 1 (n.sid), 0x0 (n.peerEpoch) LOOKING (my state) (org.apache.zookeeper.server.quorum.FastLeaderElection)
+    >   [2019-01-17 23:11:52,658] WARN Cannot open channel to 3 at election address Byflame/192.168.210.144:3888 (org.apache.zookeeper.server.quorum.QuorumCnxManager)
+    >   ....
+    >   [2019-01-17 23:11:52,658] INFO Resolved hostname: Byflame to address: Byflame/192.168.210.144 (org.apache.zookeeper.server.quorum.QuorumPeer)
+    >   [2019-01-17 23:11:52,859] INFO FOLLOWING (org.apache.zookeeper.server.quorum.QuorumPeer)
+    >   [2019-01-17 23:11:52,867] INFO TCP NoDelay set to: true (org.apache.zookeeper.server.quorum.Learner)
+    >   ....
+    >   [2019-01-17 23:11:52,882] INFO Created server with tickTime 2000 minSessionTimeout 4000 maxSessionTimeout 40000 datadir /var/lib/zookeeper/log/version-2 snapdir /var/lib/zookeeper/data/version-2 (org.apache.zookeeper.server.ZooKeeperServer)
+    >   [2019-01-17 23:11:52,884] INFO FOLLOWING - LEADER ELECTION TOOK - 22774 (org.apache.zookeeper.server.quorum.Learner)
+    >   [2019-01-17 23:11:52,886] INFO Resolved hostname: Marpus to address: Marpus/192.168.210.143 (org.apache.zookeeper.server.quorum.QuorumPeer)
+    >   [2019-01-17 23:11:52,888] WARN Unexpected exception, tries=0, connecting to Marpus/192.168.210.143:2888 (org.apache.zookeeper.server.quorum.Learner)
+    >   ....
+    >   [2019-01-17 23:11:53,916] INFO Getting a diff from the leader 0x0 (org.apache.zookeeper.server.quorum.Learner)
+    >   [2019-01-17 23:12:14,139] INFO Received connection request /192.168.210.144:44772 (org.apache.zookeeper.server.quorum.QuorumCnxManager)
+    >   [2019-01-17 23:12:14,144] INFO Notification: 1 (message format version), 3 (n.leader), 0x0 (n.zxid), 0x1 (n.round), LOOKING (n.state), 3 (n.sid), 0x0 (n.peerEpoch) FOLLOWING (my state) (org.apache.zookeeper.server.quorum.FastLeaderElection)
+
+
+[Marpus]
+    >   [2019-01-17 23:11:52,418] INFO quorum.cnxn.threads.size set to 20 (org.apache.zookeeper.server.quorum.QuorumPeer)
+    >   [2019-01-17 23:11:52,422] INFO currentEpoch not found! Creating with a reasonable default of 0. This should only happen when you are upgrading your installation (org.apache.zookeeper.server.quorum.QuorumPeer)
+    >   [2019-01-17 23:11:52,602] INFO acceptedEpoch not found! Creating with a reasonable default of 0. This should only happen when you are upgrading your installation (org.apache.zookeeper.server.quorum.QuorumPeer)
+    >   [2019-01-17 23:11:52,618] INFO My election bind port: /0.0.0.0:3888 (org.apache.zookeeper.server.quorum.QuorumCnxManager)
+    >   [2019-01-17 23:11:52,637] INFO LOOKING (org.apache.zookeeper.server.quorum.QuorumPeer)
+    >   [2019-01-17 23:11:52,640] INFO New election. My id =  2, proposed zxid=0x0 (org.apache.zookeeper.server.quorum.FastLeaderElection)
+    >   [2019-01-17 23:11:52,655] INFO Notification: 1 (message format version), 2 (n.leader), 0x0 (n.zxid), 0x1 (n.round), LOOKING (n.state), 2 (n.sid), 0x0 (n.peerEpoch) LOOKING (my state) (org.apache.zookeeper.server.quorum.FastLeaderElection)
+    >   [2019-01-17 23:11:52,655] WARN Cannot open channel to 3 at election address Byflame/192.168.210.144:3888 (org.apache.zookeeper.server.quorum.QuorumCnxManager)
+    >   ....
+    >   [2019-01-17 23:11:52,660] INFO Notification: 1 (message format version), 1 (n.leader), 0x0 (n.zxid), 0x1 (n.round), LOOKING (n.state), 1 (n.sid), 0x0 (n.peerEpoch) LOOKING (my state) (org.apache.zookeeper.server.quorum.FastLeaderElection)
+    >   [2019-01-17 23:11:52,662] INFO Notification: 1 (message format version), 2 (n.leader), 0x0 (n.zxid), 0x1 (n.round), LOOKING (n.state), 1 (n.sid), 0x0 (n.peerEpoch) LOOKING (my state) (org.apache.zookeeper.server.quorum.FastLeaderElection)
+    >   [2019-01-17 23:11:52,662] INFO Resolved hostname: Byflame to address: Byflame/192.168.210.144 (org.apache.zookeeper.server.quorum.QuorumPeer)
+    >   [2019-01-17 23:11:52,863] INFO LEADING (org.apache.zookeeper.server.quorum.QuorumPeer)
+    >   [2019-01-17 23:11:52,868] INFO TCP NoDelay set to: true (org.apache.zookeeper.server.quorum.Leader)
+    >   ....
+    >   [2019-01-17 23:11:52,899] INFO Created server with tickTime 2000 minSessionTimeout 4000 maxSessionTimeout 40000 datadir /var/lib/zookeeper/log/version-2 snapdir /var/lib/zookeeper/data/version-2 (org.apache.zookeeper.server.ZooKeeperServer)
+    >   [2019-01-17 23:11:52,902] INFO LEADING - LEADER ELECTION TOOK - 262 (org.apache.zookeeper.server.quorum.Leader)
+    >   [2019-01-17 23:11:53,905] INFO Follower sid: 1 : info : org.apache.zookeeper.server.quorum.QuorumPeer$QuorumServer@3aaab8d6 (org.apache.zookeeper.server.quorum.LearnerHandler)
+    >   [2019-01-17 23:11:53,914] INFO Synchronizing with Follower sid: 1 maxCommittedLog=0x0 minCommittedLog=0x0 peerLastZxid=0x0 (org.apache.zookeeper.server.quorum.LearnerHandler)
+    >   [2019-01-17 23:11:53,914] INFO leader and follower are in sync, zxid=0x0 (org.apache.zookeeper.server.quorum.LearnerHandler)
+    >   [2019-01-17 23:11:53,914] INFO Sending DIFF (org.apache.zookeeper.server.quorum.LearnerHandler)
+    >   [2019-01-17 23:11:53,923] INFO Received NEWLEADER-ACK message from 1 (org.apache.zookeeper.server.quorum.LearnerHandler)
+    >   [2019-01-17 23:11:53,924] INFO Have quorum of supporters, sids: [ 1,2 ]; starting up and setting last processed zxid: 0x100000000 (org.apache.zookeeper.server.quorum.Leader)
+    >   [2019-01-17 23:12:14,144] INFO Received connection request /192.168.210.144:41992 (org.apache.zookeeper.server.quorum.QuorumCnxManager)
+    >   [2019-01-17 23:12:14,150] INFO Notification: 1 (message format version), 3 (n.leader), 0x0 (n.zxid), 0x1 (n.round), LOOKING (n.state), 3 (n.sid), 0x0 (n.peerEpoch) LEADING (my state) (org.apache.zookeeper.server.quorum.FastLeaderElection)
+    >   [2019-01-17 23:12:14,185] INFO Follower sid: 3 : info : org.apache.zookeeper.server.quorum.QuorumPeer$QuorumServer@718d07cd (org.apache.zookeeper.server.quorum.LearnerHandler)
+    >   [2019-01-17 23:12:14,189] INFO Synchronizing with Follower sid: 3 maxCommittedLog=0x0 minCommittedLog=0x0 peerLastZxid=0x0 (org.apache.zookeeper.server.quorum.LearnerHandler)
+    >   [2019-01-17 23:12:14,190] INFO Sending SNAP (org.apache.zookeeper.server.quorum.LearnerHandler)
+    >   [2019-01-17 23:12:14,190] INFO Sending snapshot last zxid of peer is 0x0  zxid of leader is 0x100000000sent zxid of db as 0x100000000 (org.apache.zookeeper.server.quorum.LearnerHandler)
+    >   [2019-01-17 23:12:14,212] INFO Received NEWLEADER-ACK message from 3 (org.apache.zookeeper.server.quorum.LearnerHandler)
+
+
+[Byflame]
+    >   [2019-01-17 23:12:14,089] INFO quorum.cnxn.threads.size set to 20 (org.apache.zookeeper.server.quorum.QuorumPeer)
+    >   [2019-01-17 23:12:14,095] INFO currentEpoch not found! Creating with a reasonable default of 0. This should only happen when you are upgrading your installation (org.apache.zookeeper.server.quorum.QuorumPeer)
+    >   [2019-01-17 23:12:14,099] INFO acceptedEpoch not found! Creating with a reasonable default of 0. This should only happen when you are upgrading your installation (org.apache.zookeeper.server.quorum.QuorumPeer)
+    >   [2019-01-17 23:12:14,117] INFO My election bind port: /0.0.0.0:3888 (org.apache.zookeeper.server.quorum.QuorumCnxManager)
+    >   [2019-01-17 23:12:14,130] INFO LOOKING (org.apache.zookeeper.server.quorum.QuorumPeer)
+    >   [2019-01-17 23:12:14,133] INFO New election. My id =  3, proposed zxid=0x0 (org.apache.zookeeper.server.quorum.FastLeaderElection)
+    >   [2019-01-17 23:12:14,145] INFO Notification: 1 (message format version), 2 (n.leader), 0x0 (n.zxid), 0x1 (n.round), LOOKING (n.state), 1 (n.sid), 0x0 (n.peerEpoch) LOOKING (my state) (org.apache.zookeeper.server.quorum.FastLeaderElection)
+    >   [2019-01-17 23:12:14,145] INFO Notification: 1 (message format version), 3 (n.leader), 0x0 (n.zxid), 0x1 (n.round), LOOKING (n.state), 3 (n.sid), 0x0 (n.peerEpoch) LOOKING (my state) (org.apache.zookeeper.server.quorum.FastLeaderElection)
+    >   [2019-01-17 23:12:14,145] INFO Notification: 1 (message format version), 2 (n.leader), 0x0 (n.zxid), 0x1 (n.round), FOLLOWING (n.state), 1 (n.sid), 0x1 (n.peerEpoch) LOOKING (my state) (org.apache.zookeeper.server.quorum.FastLeaderElection)
+    >   [2019-01-17 23:12:14,150] INFO Notification: 1 (message format version), 2 (n.leader), 0x0 (n.zxid), 0x1 (n.round), LOOKING (n.state), 2 (n.sid), 0x0 (n.peerEpoch) LOOKING (my state) (org.apache.zookeeper.server.quorum.FastLeaderElection)
+    >   [2019-01-17 23:12:14,150] INFO Notification: 1 (message format version), 2 (n.leader), 0x0 (n.zxid), 0x1 (n.round), LEADING (n.state), 2 (n.sid), 0x1 (n.peerEpoch) LOOKING (my state) (org.apache.zookeeper.server.quorum.FastLeaderElection)
+    >   [2019-01-17 23:12:14,151] INFO FOLLOWING (org.apache.zookeeper.server.quorum.QuorumPeer)
+    >   [2019-01-17 23:12:14,157] INFO TCP NoDelay set to: true (org.apache.zookeeper.server.quorum.Learner)
+    >   ....
+    >   [2019-01-17 23:12:14,172] INFO Created server with tickTime 2000 minSessionTimeout 4000 maxSessionTimeout 40000 datadir /var/lib/zookeeper/log/version-2 snapdir /var/lib/zookeeper/data/version-2 (org.apache.zookeeper.server.ZooKeeperServer)
+    >   [2019-01-17 23:12:14,173] INFO FOLLOWING - LEADER ELECTION TOOK - 41 (org.apache.zookeeper.server.quorum.Learner)
+    >   [2019-01-17 23:12:14,178] INFO Resolved hostname: Marpus to address: Marpus/192.168.210.143 (org.apache.zookeeper.server.quorum.QuorumPeer)
+    >   [2019-01-17 23:12:14,190] INFO Getting a snapshot from leader (org.apache.zookeeper.server.quorum.Learner)
+    >   [2019-01-17 23:12:14,207] INFO Snapshotting: 0x100000000 to /var/lib/zookeeper/data/version-2/snapshot.100000000 (org.apache.zookeeper.server.persistence.FileTxnSnapLog)
+
+
+    I think that looks healthy.
+    At the moment, not 100% sure what a healthy Zookeeper looks like.
+    Track the logs to learn ...
+
+
