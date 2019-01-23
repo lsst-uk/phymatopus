@@ -1,0 +1,625 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+    trop04
+    Compose deployment of Cassandra.
+    Similar structure to Kafka deployment.
+    Virtual machines + additional volumes.
+
+    4x4=16 cores
+
+    trop03
+    Live deployment of Kafka - done
+
+
+    trop0x
+    Standalone instance of KafkaConnect.
+
+    Use KafkaConnect without Confluent Schema Registry
+    https://stackoverflow.com/questions/52333230/use-kafkaconnect-without-confluent-schema-registry
+    https://stackoverflow.com/a/52342547
+    https://github.com/farmdawgnation/registryless-avro-converter
+
+        key.converter=me.frmr.kafka.connect.RegistrylessAvroConverter
+        key.converter.schema.path=/path/to/schema/file.avsc
+        value.converter=me.frmr.kafka.connect.RegistrylessAvroConverter
+        value.converter.schema.path=/path/to/schema/file.avsc
+
+    Docker images for Cassandra
+
+        https://hub.docker.com/_/cassandra/
+        https://github.com/docker-library/cassandra
+
+
+    Cassandra data directories
+
+        https://stackoverflow.com/questions/9631591/apache-cassandra-data-storage-on-disk
+        https://stackoverflow.com/a/9633671
+
+
+
+    TODO
+
+        Disable swap
+        https://community.axway.com/s/question/0D52X00005iS6gZSAS/what-does-this-cassandra-error-mean
+
+        Increase the number of file, processes and other limits
+        https://docs.datastax.com/en/archived/cassandra/2.0/cassandra/install/installRecommendSettings.html#reference_ds_sxl_gf3_2k__user-resource-limits
+
+            memlock unlimited
+            nofile 100000
+            nproc 32768
+            as unlimited
+
+
+
+# -----------------------------------------------------
+# Our Cassandra nodes.
+#[user@trop04]
+
+    canames=(
+        Astendawen
+        Nendalith
+        Saelia
+        Adwaeric
+        )
+
+# -----------------------------------------------------
+# Our Kafka nodes.
+#[user@trop04]
+
+    kfnames=(
+        Stedigo
+        Angece
+        Edwalafia
+        Onoza
+        )
+
+# -----------------------------------------------------
+# Our Zookeeper nodes.
+#[user@trop04]
+
+    zknames=(
+        Fosauri
+        Marpus
+        Byflame
+        )
+
+# -----------------------------------------------------
+# Our MirrorMaker nodes.
+#[user@trop04]
+
+    mmnames=(
+        Moemond
+        Iberidia
+        )
+
+
+# -----------------------------------------------------
+# Create our compose YAML file.
+#[user@trop04]
+
+cat > /tmp/cassandra.yml << 'EOYML'
+
+version: "3.2"
+
+services:
+
+    ursula:
+        image:
+            cassandra:3.11.3
+        ports:
+            - "7000:7000"
+            - "7001:7001"
+            - "7199:7199"
+            - "9042:9042"
+            - "9160:9160"
+        extra_hosts:
+            - "${CASSANDRA_HOSTNAME}:127.0.0.2"
+        environment:
+            - CASSANDRA_BROADCAST_ADDRESS=${CASSANDRA_HOSTNAME}
+            - CASSANDRA_SEEDS=${CASSANDRA_SEEDS}
+        volumes:
+            - type:   "bind"
+              source: "/data1-01"
+              target: "/var/lib/cassandra"
+            - type:   "bind"
+              source: "/data2-01"
+              target: "/data2-01"
+
+EOYML
+
+
+# -----------------------------------------------------
+# Deploy our compose YAML file.
+#[user@trop04]
+
+    for vmname in ${canames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            scp \
+                ${scpopts[*]} \
+                /tmp/cassandra.yml \
+                ${sshuser:?}@${vmname:?}:cassandra.yml
+        done
+
+--START--
+---- ----
+Node [Astendawen]
+cassandra.yml   100%  653     0.6KB/s   00:00
+---- ----
+Node [Nendalith]
+cassandra.yml   100%  653     0.6KB/s   00:00
+---- ----
+Node [Saelia]
+cassandra.yml   100%  653     0.6KB/s   00:00
+---- ----
+Node [Adwaeric]
+cassandra.yml   100%  653     0.6KB/s   00:00
+--END--
+
+# -----------------------------------------------------
+# Deploy our compose ENV file.
+#[user@trop04]
+
+    seedlist=${canames[@]}
+    seedlist=${seedlist// /,}
+
+    seedname=${canames[0]}
+
+
+    for vmname in ${canames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+
+            ssh \
+                ${scpopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+cat > cassandra.env << EOF
+
+CASSANDRA_HOSTNAME=${vmname}
+CASSANDRA_SEEDS=${seedlist}
+
+#CASSANDRA_DC
+#CASSANDRA_RACK
+#CASSANDRA_ENDPOINT_SNITCH
+
+EOF
+ln -sf cassandra.env .env
+                "
+        done
+
+--START--
+---- ----
+Node [Astendawen]
+---- ----
+Node [Nendalith]
+---- ----
+Node [Saelia]
+---- ----
+Node [Adwaeric]
+--END--
+
+
+# -----------------------------------------------------
+# Check our compose ENV file.
+#[user@trop04]
+
+    for vmname in ${canames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    date
+                    hostname
+                    cat .env
+                    "
+        done
+
+--START--
+---- ----
+Node [Astendawen]
+Wed 23 Jan 19:05:54 GMT 2019
+Astendawen
+
+CASSANDRA_HOSTNAME=Astendawen
+CASSANDRA_SEEDS=Astendawen,Nendalith,Saelia,Adwaeric
+
+#CASSANDRA_DC
+#CASSANDRA_RACK
+#CASSANDRA_ENDPOINT_SNITCH
+
+---- ----
+Node [Nendalith]
+Wed 23 Jan 19:05:55 GMT 2019
+Nendalith
+
+CASSANDRA_HOSTNAME=Nendalith
+CASSANDRA_SEEDS=Astendawen,Nendalith,Saelia,Adwaeric
+
+#CASSANDRA_DC
+#CASSANDRA_RACK
+#CASSANDRA_ENDPOINT_SNITCH
+
+---- ----
+Node [Saelia]
+Wed 23 Jan 19:05:55 GMT 2019
+Saelia
+
+CASSANDRA_HOSTNAME=Saelia
+CASSANDRA_SEEDS=Astendawen,Nendalith,Saelia,Adwaeric
+
+#CASSANDRA_DC
+#CASSANDRA_RACK
+#CASSANDRA_ENDPOINT_SNITCH
+
+---- ----
+Node [Adwaeric]
+Wed 23 Jan 19:05:56 GMT 2019
+Adwaeric
+
+CASSANDRA_HOSTNAME=Adwaeric
+CASSANDRA_SEEDS=Astendawen,Nendalith,Saelia,Adwaeric
+
+#CASSANDRA_DC
+#CASSANDRA_RACK
+#CASSANDRA_ENDPOINT_SNITCH
+--END--
+
+
+
+# -----------------------------------------------------
+# Disable swap.
+# https://community.axway.com/s/question/0D52X00005iS6gZSAS/what-does-this-cassandra-error-mean
+#[user@trop04]
+
+# TODO
+sed '
+    /swap/ d
+    ' /etc/fstab
+
+
+# -----------------------------------------------------
+# Increase the number of file and process limits.
+# https://community.axway.com/s/question/0D52X00005iS6gZSAS/what-does-this-cassandra-error-mean
+# https://docs.datastax.com/en/archived/cassandra/2.0/cassandra/install/installRecommendSettings.html#reference_ds_sxl_gf3_2k__user-resource-limits
+#[user@trop04]
+
+# TODO
+cat >> /etc/security/limits.d/cassandra.conf << EOF
+cassandra - memlock unlimited
+cassandra - nofile 100000
+cassandra - nproc 32768
+cassandra - as unlimited
+EOF
+
+# TODO
+cat >> /etc/security/limits.d/90-nproc.conf << EOF
+* - nproc 32768
+EOF
+
+# TODO
+cat >> /etc/sysctl.conf << EOF
+vm.max_map_count = 1048575
+EOF
+
+
+# -----------------------------------------------------
+# Start Cassandra on each node.
+#[user@trop04]
+
+    for vmname in ${canames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            ssh \
+                ${scpopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                date
+                hostname
+
+                docker-compose \
+                    --file cassandra.yml \
+                    up -d
+                "
+        done
+
+--START--
+---- ----
+Node [Astendawen]
+Wed 23 Jan 19:06:27 GMT 2019
+Astendawen
+Creating network "stevedore_default" with the default driver
+Pulling ursula (cassandra:3.11.3)...
+3.11.3: Pulling from library/cassandra
+Digest: sha256:73344db0ae5c27d1491c43fb1f48bf44d752d0407a1465d529dd3c90730742d0
+Status: Downloaded newer image for cassandra:3.11.3
+Creating stevedore_ursula_1 ... done
+---- ----
+Node [Nendalith]
+Wed 23 Jan 19:06:44 GMT 2019
+Nendalith
+Creating network "stevedore_default" with the default driver
+Pulling ursula (cassandra:3.11.3)...
+3.11.3: Pulling from library/cassandra
+Digest: sha256:73344db0ae5c27d1491c43fb1f48bf44d752d0407a1465d529dd3c90730742d0
+Status: Downloaded newer image for cassandra:3.11.3
+Creating stevedore_ursula_1 ... done
+---- ----
+Node [Saelia]
+Wed 23 Jan 19:07:01 GMT 2019
+Saelia
+Creating network "stevedore_default" with the default driver
+Pulling ursula (cassandra:3.11.3)...
+3.11.3: Pulling from library/cassandra
+Digest: sha256:73344db0ae5c27d1491c43fb1f48bf44d752d0407a1465d529dd3c90730742d0
+Status: Downloaded newer image for cassandra:3.11.3
+Creating stevedore_ursula_1 ... done
+---- ----
+Node [Adwaeric]
+Wed 23 Jan 19:07:19 GMT 2019
+Adwaeric
+Creating network "stevedore_default" with the default driver
+Pulling ursula (cassandra:3.11.3)...
+3.11.3: Pulling from library/cassandra
+Digest: sha256:73344db0ae5c27d1491c43fb1f48bf44d752d0407a1465d529dd3c90730742d0
+Status: Downloaded newer image for cassandra:3.11.3
+Creating stevedore_ursula_1 ... done
+--END--
+
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+# Tail the logs on each node.
+# https://www.systutorials.com/docs/linux/man/1-gnome-terminal/
+# https://www.systutorials.com/docs/linux/man/7-X/#lbAH
+#[user@desktop]
+
+    mate-terminal \
+        --geometry '160x10+25+25' \
+        --command '
+            ssh -t Astendawen "
+                docker logs -f stevedore_ursula_1
+                ${SHELL}
+                "
+            '
+    sleep 1
+
+    mate-terminal \
+        --geometry '160x10+125+125' \
+        --command '
+            ssh -t Nendalith "
+                docker logs -f stevedore_ursula_1
+                ${SHELL}
+                "
+            '
+    sleep 1
+
+    mate-terminal \
+        --geometry '160x10+225+225' \
+        --command '
+            ssh -t Saelia "
+                docker logs -f stevedore_ursula_1
+                ${SHELL}
+                "
+            '
+    sleep 1
+
+    mate-terminal \
+        --geometry '160x10+325+325' \
+        --command '
+            ssh -t Adwaeric "
+                docker logs -f stevedore_ursula_1
+                ${SHELL}
+                "
+            '
+
+
+
+--START--
+INFO  [main] 2019-01-23 19:07:39,356 DatabaseDescriptor.java:367 - DiskAccessMode 'auto' determined to be mmap, indexAccessMode is mmap
+INFO  [main] 2019-01-23 19:07:39,356 DatabaseDescriptor.java:425 - Global memtable on-heap threshold is enabled at 249MB
+INFO  [main] 2019-01-23 19:07:39,357 DatabaseDescriptor.java:429 - Global memtable off-heap threshold is enabled at 249MB
+INFO  [main] 2019-01-23 19:07:39,583 RateBasedBackPressure.java:123 - Initialized back-pressure with high ratio: 0.9, factor: 5, flow: FAST, window size: 2000.
+INFO  [main] 2019-01-23 19:07:39,583 DatabaseDescriptor.java:729 - Back-pressure is disabled with strategy org.apache.cassandra.net.RateBasedBackPressure{high_ratio=0.9, factor=5, flow=FAST}.
+INFO  [main] 2019-01-23 19:07:39,770 JMXServerUtils.java:246 - Configured JMX server at: service:jmx:rmi://127.0.0.1/jndi/rmi://127.0.0.1:7199/jmxrmi
+INFO  [main] 2019-01-23 19:07:39,782 CassandraDaemon.java:473 - Hostname: cdc5caeb21d2
+INFO  [main] 2019-01-23 19:07:39,783 CassandraDaemon.java:480 - JVM vendor/version: OpenJDK 64-Bit Server VM/1.8.0_181
+INFO  [main] 2019-01-23 19:07:39,785 CassandraDaemon.java:481 - Heap size: 998.438MiB/998.438MiB
+INFO  [main] 2019-01-23 19:07:39,786 CassandraDaemon.java:486 - Code Cache Non-heap memory: init = 2555904(2496K) used = 4282944(4182K) committed = 4325376(4224K) max = 251658240(245760K)
+INFO  [main] 2019-01-23 19:07:39,787 CassandraDaemon.java:486 - Metaspace Non-heap memory: init = 0(0K) used = 17388088(16980K) committed = 17956864(17536K) max = -1(-1K)
+INFO  [main] 2019-01-23 19:07:39,788 CassandraDaemon.java:486 - Compressed Class Space Non-heap memory: init = 0(0K) used = 2093440(2044K) committed = 2228224(2176K) max = 1073741824(1048576K)
+INFO  [main] 2019-01-23 19:07:39,788 CassandraDaemon.java:486 - Par Eden Space Heap memory: init = 214827008(209792K) used = 98879632(96562K) committed = 214827008(209792K) max = 214827008(209792K)
+INFO  [main] 2019-01-23 19:07:39,789 CassandraDaemon.java:486 - Par Survivor Space Heap memory: init = 26804224(26176K) used = 0(0K) committed = 26804224(26176K) max = 26804224(26176K)
+INFO  [main] 2019-01-23 19:07:39,789 CassandraDaemon.java:486 - CMS Old Gen Heap memory: init = 805306368(786432K) used = 0(0K) committed = 805306368(786432K) max = 805306368(786432K)
+--END--
+
+--START--
+INFO  [main] 2019-01-23 19:07:39,791 CassandraDaemon.java:490 - JVM Arguments: [-Xloggc:/var/log/cassandra/gc.log, -ea, -XX:+UseThreadPriorities, -XX:ThreadPriorityPolicy=42, -XX:+HeapDumpOnOutOfMemoryError, -Xss256k, -XX:StringTableSize=1000003, -XX:+AlwaysPreTouch, -XX:-UseBiasedLocking, -XX:+UseTLAB, -XX:+ResizeTLAB, -XX:+UseNUMA, -XX:+PerfDisableSharedMem, -Djava.net.preferIPv4Stack=true, -XX:+UseParNewGC, -XX:+UseConcMarkSweepGC, -XX:+CMSParallelRemarkEnabled, -XX:SurvivorRatio=8, -XX:MaxTenuringThreshold=1, -XX:CMSInitiatingOccupancyFraction=75, -XX:+UseCMSInitiatingOccupancyOnly, -XX:CMSWaitDuration=10000, -XX:+CMSParallelInitialMarkEnabled, -XX:+CMSEdenChunksRecordAlways, -XX:+CMSClassUnloadingEnabled, -XX:+PrintGCDetails, -XX:+PrintGCDateStamps, -XX:+PrintHeapAtGC, -XX:+PrintTenuringDistribution, -XX:+PrintGCApplicationStoppedTime, -XX:+PrintPromotionFailure, -XX:+UseGCLogFileRotation, -XX:NumberOfGCLogFiles=10, -XX:GCLogFileSize=10M, -Xms1024M, -Xmx1024M, -Xmn256M, -XX:+UseCondCardMark, -XX:CompileCommandFile=/etc/cassandra/hotspot_compiler, -javaagent:/usr/share/cassandra/lib/jamm-0.3.0.jar, -Dcassandra.jmx.local.port=7199, -Dcom.sun.management.jmxremote.authenticate=false, -Dcom.sun.management.jmxremote.password.file=/etc/cassandra/jmxremote.password, -Djava.library.path=/usr/share/cassandra/lib/sigar-bin, -Dcassandra.libjemalloc=/usr/lib/x86_64-linux-gnu/libjemalloc.so.1, -XX:OnOutOfMemoryError=kill -9 %p, -Dlogback.configurationFile=logback.xml, -Dcassandra.logdir=/var/log/cassandra, -Dcassandra.storagedir=/var/lib/cassandra, -Dcassandra-foreground=yes]
+WARN  [main] 2019-01-23 19:07:39,868 NativeLibrary.java:187 - Unable to lock JVM memory (ENOMEM). This can result in part of the JVM being swapped out, especially with mmapped I/O enabled. Increase RLIMIT_MEMLOCK or run Cassandra as root.
+INFO  [main] 2019-01-23 19:07:39,868 StartupChecks.java:140 - jemalloc seems to be preloaded from /usr/lib/x86_64-linux-gnu/libjemalloc.so.1
+WARN  [main] 2019-01-23 19:07:39,869 StartupChecks.java:169 - JMX is not enabled to receive remote connections. Please see cassandra-env.sh for more info.
+INFO  [main] 2019-01-23 19:07:39,872 SigarLibrary.java:44 - Initializing SIGAR library
+WARN  [main] 2019-01-23 19:07:39,886 SigarLibrary.java:174 - Cassandra server running in degraded mode. Is swap disabled? : false,  Address space adequate? : true,  nofile limit adequate? : true, nproc limit adequate? : true
+WARN  [main] 2019-01-23 19:07:39,891 StartupChecks.java:311 - Maximum number of memory map areas per process (vm.max_map_count) 65530 is too low, recommended value: 1048575, you can change it with sysctl.
+WARN  [main] 2019-01-23 19:07:39,910 StartupChecks.java:332 - Directory /var/lib/cassandra/data doesn't exist
+WARN  [main] 2019-01-23 19:07:39,922 StartupChecks.java:332 - Directory /var/lib/cassandra/commitlog doesn't exist
+WARN  [main] 2019-01-23 19:07:39,923 StartupChecks.java:332 - Directory /var/lib/cassandra/saved_caches doesn't exist
+WARN  [main] 2019-01-23 19:07:39,925 StartupChecks.java:332 - Directory /var/lib/cassandra/hints doesn't exist
+--END--
+
+--START--
+INFO  [main] 2019-01-23 19:07:53,945 MessagingService.java:761 - Starting Messaging Service on /172.18.0.2:7000 (eth0)
+WARN  [main] 2019-01-23 19:07:53,959 SystemKeyspace.java:1087 - No host ID found, created 246ccdeb-b184-4df6-9de8-a4146b0948bb (Note: This should happen exactly once per node).
+INFO  [main] 2019-01-23 19:07:53,998 OutboundTcpConnection.java:108 - OutboundTcpConnection using coalescing strategy DISABLED
+INFO  [HANDSHAKE-Nendalith/192.168.210.216] 2019-01-23 19:07:54,036 OutboundTcpConnection.java:561 - Handshaking version with Nendalith/192.168.210.216
+INFO  [HANDSHAKE-Astendawen/192.168.210.215] 2019-01-23 19:07:54,036 OutboundTcpConnection.java:561 - Handshaking version with Astendawen/192.168.210.215
+INFO  [HANDSHAKE-Saelia/192.168.210.217] 2019-01-23 19:07:54,043 OutboundTcpConnection.java:561 - Handshaking version with Saelia/192.168.210.217
+INFO  [HANDSHAKE-/172.18.0.2] 2019-01-23 19:07:54,101 OutboundTcpConnection.java:561 - Handshaking version with /172.18.0.2
+INFO  [main] 2019-01-23 19:08:25,055 StorageService.java:550 - Unable to gossip with any peers but continuing anyway since node is in its own seed list
+INFO  [main] 2019-01-23 19:08:25,085 StorageService.java:704 - Loading persisted ring state
+INFO  [main] 2019-01-23 19:08:25,087 StorageService.java:822 - Starting up server gossip
+--END--
+
+--START--
+INFO  [main] 2019-01-23 19:08:25,656 StorageService.java:883 - This node will not auto bootstrap because it is configured to be a seed node.
+--END--
+
+
+
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+# Test connections between ndoes ..
+#[user@node]
+
+    canames=(
+        Astendawen
+        Nendalith
+        Saelia
+        Adwaeric
+        )
+
+    for vmname in ${canames[@]}
+        do
+                    echo ""
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            for caport in 7000 7001 7199 9042 9160
+                do
+                    echo ""
+                    echo "Port [${caport}]"
+                    nc -vz "${vmname:?}" "${caport}"
+                done
+        done
+
+--START--
+---- ----
+Node [Astendawen]
+
+Port [7000]
+Ncat: Version 7.60 ( https://nmap.org/ncat )
+Ncat: Connected to 192.168.210.215:7000.
+Ncat: 0 bytes sent, 0 bytes received in 0.02 seconds.
+
+Port [7001]
+Ncat: Version 7.60 ( https://nmap.org/ncat )
+Ncat: Connection refused.
+
+Port [7199]
+Ncat: Version 7.60 ( https://nmap.org/ncat )
+Ncat: Connection refused.
+
+Port [9042]
+Ncat: Version 7.60 ( https://nmap.org/ncat )
+Ncat: Connected to 192.168.210.215:9042.
+Ncat: 0 bytes sent, 0 bytes received in 0.01 seconds.
+
+Port [9160]
+Ncat: Version 7.60 ( https://nmap.org/ncat )
+Ncat: Connection refused.
+
+---- ----
+Node [Nendalith]
+
+Port [7000]
+Ncat: Version 7.60 ( https://nmap.org/ncat )
+Ncat: Connected to 192.168.210.216:7000.
+Ncat: 0 bytes sent, 0 bytes received in 0.02 seconds.
+
+Port [7001]
+Ncat: Version 7.60 ( https://nmap.org/ncat )
+Ncat: Connection refused.
+
+Port [7199]
+Ncat: Version 7.60 ( https://nmap.org/ncat )
+Ncat: Connection refused.
+
+Port [9042]
+Ncat: Version 7.60 ( https://nmap.org/ncat )
+Ncat: Connected to 192.168.210.216:9042.
+Ncat: 0 bytes sent, 0 bytes received in 0.01 seconds.
+
+Port [9160]
+Ncat: Version 7.60 ( https://nmap.org/ncat )
+Ncat: Connection refused.
+
+---- ----
+Node [Saelia]
+
+Port [7000]
+Ncat: Version 7.60 ( https://nmap.org/ncat )
+Ncat: Connected to 192.168.210.217:7000.
+Ncat: 0 bytes sent, 0 bytes received in 0.02 seconds.
+
+Port [7001]
+Ncat: Version 7.60 ( https://nmap.org/ncat )
+Ncat: Connection refused.
+
+Port [7199]
+Ncat: Version 7.60 ( https://nmap.org/ncat )
+Ncat: Connection refused.
+
+Port [9042]
+Ncat: Version 7.60 ( https://nmap.org/ncat )
+Ncat: Connected to 192.168.210.217:9042.
+Ncat: 0 bytes sent, 0 bytes received in 0.02 seconds.
+
+Port [9160]
+Ncat: Version 7.60 ( https://nmap.org/ncat )
+Ncat: Connection refused.
+
+---- ----
+Node [Adwaeric]
+
+Port [7000]
+Ncat: Version 7.60 ( https://nmap.org/ncat )
+Ncat: Connected to 192.168.210.218:7000.
+Ncat: 0 bytes sent, 0 bytes received in 0.02 seconds.
+
+Port [7001]
+Ncat: Version 7.60 ( https://nmap.org/ncat )
+Ncat: Connection refused.
+
+Port [7199]
+Ncat: Version 7.60 ( https://nmap.org/ncat )
+Ncat: Connection refused.
+
+Port [9042]
+Ncat: Version 7.60 ( https://nmap.org/ncat )
+Ncat: Connected to 192.168.210.218:9042.
+Ncat: 0 bytes sent, 0 bytes received in 0.02 seconds.
+
+Port [9160]
+Ncat: Version 7.60 ( https://nmap.org/ncat )
+Ncat: Connection refused.
+--END--
+
+
+

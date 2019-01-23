@@ -1694,7 +1694,7 @@ Creating stevedore_tina_1 ... done
 
     >   Sun 20 Jan 05:41:00 GMT 2019
     >   Note: This will not show information about old Zookeeper-based consumers.
-    >   
+    >
     >   TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                 HOST            CLIENT-ID
     >   ztf_20190119_programid1 0          2237            2237            0               -                                                           -               -
     >   ztf_20190119_programid1 10         2236            2236            0               -                                                           -               -
@@ -1769,9 +1769,10 @@ Creating stevedore_tina_1 ... done
     >   Creating network "stevedore_default" with the default driver
     >   Creating stevedore_tina_1 ... done
     >   --END
-    >   
-    >       offsetcheck
-    >   
+
+    offsetcheck
+
+    >
     >   Mon 21 Jan 03:29:15 GMT 2019
     >   TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                 HOST            CLIENT-ID
     >   ztf_20190120_programid1 0          8122            8122            0               -                                                           -               -
@@ -1804,19 +1805,287 @@ Creating stevedore_tina_1 ... done
     >   ztf_20190121_programid1 9          -               0               -               ztf-mirror.roe.ac.uk-0-c7c53da6-ae4f-4e5a-80cc-aaff226e7910 /129.215.175.99 ztf-mirror.roe.ac.uk-0
     >   Mon 21 Jan 03:29:25 GMT 2019
     >   --END
-    >   
+    >
     >       offsetcheck
-    >   
+    >
+
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+# Update the topic and restart MirrorMaker on each node.
+#[user@trop04]
 
 
     offsetcheck
 
+--START--
+Mon 21 Jan 19:34:44 GMT 2019
+TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                 HOST            CLIENT-ID
+ztf_20190121_programid1 0          1576            1576            0               ztf-mirror.roe.ac.uk-0-0b725904-33ec-4e15-ad82-48b858fe2143 /129.215.175.99 ztf-mirror.roe.ac.uk-0
+ztf_20190121_programid1 10         1575            1575            0               ztf-mirror.roe.ac.uk-1-acb86dcc-3d39-46b9-8673-aa51feb6bdbe /129.215.175.99 ztf-mirror.roe.ac.uk-1
+ztf_20190121_programid1 11         1576            1576            0               ztf-mirror.roe.ac.uk-1-d352aa61-8c81-469b-824e-9b4b93644424 /129.215.175.99 ztf-mirror.roe.ac.uk-1
+ztf_20190121_programid1 1          1575            1575            0               ztf-mirror.roe.ac.uk-0-c7c53da6-ae4f-4e5a-80cc-aaff226e7910 /129.215.175.99 ztf-mirror.roe.ac.uk-0
+ztf_20190121_programid1 12         1576            1576            0               ztf-mirror.roe.ac.uk-2-9bea06bd-b52a-4bab-86fe-d545c73346bc /129.215.175.99 ztf-mirror.roe.ac.uk-2
+ztf_20190121_programid1 13         1575            1575            0               ztf-mirror.roe.ac.uk-2-bdb21fc3-b540-44df-810c-c6c586e4e459 /129.215.175.99 ztf-mirror.roe.ac.uk-2
+ztf_20190121_programid1 2          1576            1576            0               ztf-mirror.roe.ac.uk-1-acb86dcc-3d39-46b9-8673-aa51feb6bdbe /129.215.175.99 ztf-mirror.roe.ac.uk-1
+ztf_20190121_programid1 3          1576            1576            0               ztf-mirror.roe.ac.uk-1-d352aa61-8c81-469b-824e-9b4b93644424 /129.215.175.99 ztf-mirror.roe.ac.uk-1
+ztf_20190121_programid1 4          1576            1576            0               ztf-mirror.roe.ac.uk-2-9bea06bd-b52a-4bab-86fe-d545c73346bc /129.215.175.99 ztf-mirror.roe.ac.uk-2
+ztf_20190121_programid1 5          1576            1576            0               ztf-mirror.roe.ac.uk-2-bdb21fc3-b540-44df-810c-c6c586e4e459 /129.215.175.99 ztf-mirror.roe.ac.uk-2
+ztf_20190121_programid1 6          1576            1576            0               ztf-mirror.roe.ac.uk-3-1a272dbe-0571-4c07-a527-173be127151f /129.215.175.99 ztf-mirror.roe.ac.uk-3
+ztf_20190121_programid1 7          1575            1575            0               ztf-mirror.roe.ac.uk-3-46dae3bf-b090-43ff-bcc1-5920411a1731 /129.215.175.99 ztf-mirror.roe.ac.uk-3
+ztf_20190121_programid1 8          1576            1576            0               ztf-mirror.roe.ac.uk-0-0b725904-33ec-4e15-ad82-48b858fe2143 /129.215.175.99 ztf-mirror.roe.ac.uk-0
+ztf_20190121_programid1 9          1576            1576            0               ztf-mirror.roe.ac.uk-0-c7c53da6-ae4f-4e5a-80cc-aaff226e7910 /129.215.175.99 ztf-mirror.roe.ac.uk-0
+Mon 21 Jan 19:34:53 GMT 2019
+--END--
+
+
+# -----------------------------------------------------
+# Check the disc space on each Kafka node.
+#[user@trop04]
+
+    source "${HOME}/ssh-options"
+
+    devnode=Moemond
+
+    ssh \
+        ${sshopts[*]} \
+        ${sshuser:?}@${devnode:?} \
+            '
+
+            sshuser=Stevedore
+
+            sshopts=(
+                "-A"
+                "-o LogLevel=ERROR"
+                "-o CheckHostIP=no"
+                "-o UserKnownHostsFile=/dev/null"
+                "-o StrictHostKeyChecking=no"
+                )
+
+            kfnames=(
+                Stedigo
+                Angece
+                Edwalafia
+                Onoza
+                )
+
+            for vmname in ${kfnames[@]}
+                do
+                    ssh \
+                        ${sshopts[*]} \
+                        ${sshuser:?}@${vmname:?} \
+                            "
+                            echo \"---- ---- ---- ----\"
+                            echo \"[\$(hostname)][\$(date)]\"
+                            echo \"---- ----\"
+
+                            df -h /
+                            echo \"---- ----\"
+                            df -h \"/data1-01\"
+                            echo \"---- ----\"
+                            df -h \"/data1-02\"
+
+                            echo "---- ----"
+                            df -h \"/data2-01\"
+                            echo "---- ----"
+                            df -h \"/data2-02\"
+
+                            echo "---- ----"
+                            df -h \"/data2-03\"
+                            echo "---- ----"
+                            df -h \"/data2-03\"
+                            "
+                done
+            '
+
+--START--
+---- ---- ---- ----
+[Stedigo][Mon 21 Jan 18:45:56 GMT 2019]
+---- ----
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vda3       6.8G  2.2G  4.1G  35% /
+---- ----
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vdc         32G  5.9G   25G  20% /data1-01
+---- ----
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vde         64G   50G   13G  80% /data1-02
+---- ----
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vdd         32G   31G  3.7M 100% /data2-01
+---- ----
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vdf         64G   47G   16G  75% /data2-02
+---- ----
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vdh        256G  5.9G  249G   3% /data2-03
+---- ----
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vdh        256G  5.9G  249G   3% /data2-03
+---- ---- ---- ----
+[Angece][Mon 21 Jan 18:45:56 GMT 2019]
+---- ----
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vda3       6.8G  2.2G  4.1G  35% /
+---- ----
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vdc         32G  5.9G   25G  20% /data1-01
+---- ----
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vde         64G   51G   12G  82% /data1-02
+---- ----
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vdd         32G   31G  4.1M 100% /data2-01
+---- ----
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vdf         64G   46G   17G  74% /data2-02
+---- ----
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vdh        256G  5.9G  249G   3% /data2-03
+---- ----
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vdh        256G  5.9G  249G   3% /data2-03
+---- ---- ---- ----
+[Edwalafia][Mon 21 Jan 18:45:57 GMT 2019]
+---- ----
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vda3       6.8G  2.2G  4.1G  35% /
+---- ----
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vdc         32G  5.9G   25G  20% /data1-01
+---- ----
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vde         64G   48G   15G  77% /data1-02
+---- ----
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vdd         32G   31G  3.5M 100% /data2-01
+---- ----
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vdf         64G   47G   16G  76% /data2-02
+---- ----
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vdh        256G  5.9G  249G   3% /data2-03
+---- ----
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vdh        256G  5.9G  249G   3% /data2-03
+---- ---- ---- ----
+[Onoza][Mon 21 Jan 18:45:58 GMT 2019]
+---- ----
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vda3       6.8G  2.2G  4.1G  35% /
+---- ----
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vdc         32G  5.9G   25G  20% /data1-01
+---- ----
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vde         64G   46G   17G  74% /data1-02
+---- ----
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vdd         32G   31G  4.8M 100% /data2-01
+---- ----
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vdf         64G   49G   14G  79% /data2-02
+---- ----
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vdh        256G  5.9G  249G   3% /data2-03
+---- ----
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vdh        256G  5.9G  249G   3% /data2-03
+--END--
+
+
+# -----------------------------------------------------
+# Update the topic and restart MirrorMaker on each node.
+#[user@trop04]
+
+    updatetopic ztf_20190122_programid1
+
+    >   ---- ----
+    >   Node [Moemond]
+    >   Stopping stevedore_tina_1 ... done
+    >   Removing stevedore_tina_1 ... done
+    >   Removing network stevedore_default
+    >   Creating network "stevedore_default" with the default driver
+    >   Creating stevedore_tina_1 ... done
+    >   ---- ----
+    >   Node [Iberidia]
+    >   Stopping stevedore_tina_1 ... done
+    >   Removing stevedore_tina_1 ... done
+    >   Removing network stevedore_default
+    >   Creating network "stevedore_default" with the default driver
+    >   Creating stevedore_tina_1 ... done
+    >   --END
+
+
+
+
+
+# -----------------------------------------------------
+# Update the topic and restart MirrorMaker on each node.
+#[user@trop04]
+
+    source "${HOME}/ssh-options"
+
+    devnode=Moemond
+    ztfconnect=public.alerts.ztf.uw.edu:9092
+    roegroupid=ztf-mirror.roe.ac.uk
+
+    mmnames=(
+        Moemond
+        Iberidia
+        )
+
+    updatetopic()
+        {
+        local newtopic=${1:?}
+        for vmname in ${mmnames[@]}
+            do
+                echo "---- ----"
+                echo "Node [${vmname}]"
+                ssh \
+                    ${scpopts[*]} \
+                    ${sshuser:?}@${vmname:?} \
+                    "
+                    docker-compose \
+                        --file mirror.yml \
+                        down
+                    sed -i \"
+                        s/^ztftopicid=.*/ztftopicid=${newtopic:?}/
+                        \" mirror.env
+                    docker-compose \
+                        --file mirror.yml \
+                        up -d
+                    "
+            done
+        }
+
+    offsetcheck()
+        {
+        date ; \
+        ssh \
+            ${sshopts[*]} \
+            ${sshuser:?}@${devnode:?} \
+            "
+            docker run --rm phymatopus/kafka-core \
+                bin/kafka-consumer-groups.sh \
+                    --bootstrap-server "${ztfconnect:?}" \
+                    --describe \
+                    --group "${roegroupid:?}"
+             " \
+        | sort \
+        ; date
+        }
 
 
     offsetcheck
 
-
+    updatetopic ztf_20190120_programid1
+    updatetopic ztf_20190121_programid1
+    updatetopic ztf_20190122_programid1
+    updatetopic ztf_20190123_programid1
 
     offsetcheck
+
+
 
 
