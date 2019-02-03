@@ -202,7 +202,7 @@ The key's randomart image is:
 
 
 # -----------------------------------------------------
-# Transfer the public key to each node.
+# Transfer the public keys to each node.
 #[Stevedore@controller]
 
     source "${HOME}/node-lists"
@@ -214,7 +214,7 @@ The key's randomart image is:
             echo "Node [${vmname}]"
             scp ${scpopts[*]} \
                 ${HOME}/.ssh/controller-key.pub \
-                ${sshuser:?}@${vmname:?}:.ssh/authorized_keys
+                ${sshuser:?}@${vmname:?}:.ssh/controller-key.pub
         done
 
 --START--
@@ -226,6 +226,32 @@ Node [Iberidia]
 controller-key.pub      100%  399   367.3KB/s   00:00
 --END--
 
+
+# -----------------------------------------------------
+# Login to each node and add the new key.
+#[Stevedore@controller]
+
+    source "${HOME}/node-lists"
+    source "${HOME}/ssh-options"
+
+    for vmname in ${mmnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname}]"
+            ssh \
+                -i "${HOME}/.ssh/controller-key" \
+                ${sshuser:?}@${vmname:?} \
+                    '
+                    date
+                    hostname
+                    cat ${HOME}/.ssh/controller-key.pub \
+                     >> ${HOME}/.ssh/authorized_keys
+                    '
+        done
+
+
+--START--
+--END--
 
 # -----------------------------------------------------
 # Test login to each node to accept the host key.
