@@ -1,0 +1,552 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+
+
+
+    192.41.108.44   lsstukhead
+
+    172.16.1.1	    lsstwork0.vlan
+    172.16.1.2	    lsstwork1.vlan
+    172.16.1.3	    lsstwork2.vlan
+    172.16.1.4	    lsstwork3.vlan
+
+    172.16.1.5	    trop3.vlan
+    172.16.1.6	    trop4.vlan
+
+    172.16.1.7	    lsstdata1.vlan
+    172.16.1.8	    lsstdata2.vlan
+
+
+# -----------------------------------------------------
+# Check the hosts file on the worker nodes.
+#[user@work0]
+
+    cat /etc/hosts
+
+        127.0.0.1	    localhost
+        192.41.108.44	lsstukhead.roe.ac.uk	lsstukhead
+
+        172.16.1.1	head
+        172.16.1.2	work1
+        172.16.1.3	work2
+        172.16.1.4	work3
+        172.16.1.5	trop3
+        172.16.1.6	trop4
+        172.16.1.7	data1
+        172.16.1.8	data2
+
+
+# -----------------------------------------------------
+# Check the worker config for the 192 network address.
+#[user@work0]
+
+    for worker in work0 work1 work2 work3 data1 data2
+    do
+        echo "Host [${worker}]"
+        ssh "${worker}" \
+            '
+            grep '192' /etc/hosts
+            '
+    done
+
+    >   Host [work0]
+    >   192.41.108.44	lsstukhead.roe.ac.uk	lsstukwork0
+    >   Host [work1]
+    >   192.41.108.44	lsstukhead.roe.ac.uk	lsstukhead
+    >   Host [work2]
+    >   192.41.108.44	lsstukhead.roe.ac.uk	lsstukhead
+    >   Host [work3]
+    >   192.41.108.44	lsstukhead.roe.ac.uk	lsstukhead
+    >   Host [data1]
+    >   192.41.108.44	lsstukhead.roe.ac.uk	lsstukhead
+    >   Host [data2]
+    >   192.41.108.44	lsstukhead.roe.ac.uk	lsstukhead
+
+    #
+    # If they are all on the same 172 VLAN, do any of these
+    # machines need to know about the 192.41.108.44 address ?
+    #
+
+
+# -----------------------------------------------------
+# Remove the 192 address from the worker config.
+#[user@work0]
+
+        for worker in work0 work1 work2 work3 data1 data2
+        do
+            echo "Host [${worker}]"
+            ssh "${worker}" \
+                '
+                sed -i "
+                    /192/ d
+                    " /etc/hosts
+                '
+        done
+
+    >   Host [work0]
+    >   Host [work1]
+    >   Host [work2]
+    >   Host [work3]
+    >   Host [data1]
+    >   Host [data2]
+
+
+# -----------------------------------------------------
+# Check the worker config for the 192 network address.
+#[user@work0]
+
+    for worker in work0 work1 work2 work3 data1 data2
+    do
+        echo "Host [${worker}]"
+        ssh "${worker}" \
+            '
+            grep '192' /etc/hosts
+            '
+    done
+
+    >   Host [work0]
+    >   Host [work1]
+    >   Host [work2]
+    >   Host [work3]
+    >   Host [data1]
+    >   Host [data2]
+
+
+# -----------------------------------------------------
+# Fix the name for work0 on the worker nodes.
+#[user@work0]
+
+    for worker in work0 work1 work2 work3 data1 data2
+    do
+        echo "Host [${worker}]"
+        ssh "${worker}" \
+            '
+            grep '172.16.1.1' /etc/hosts
+            '
+    done
+
+    >   172.16.1.1	head
+    >   Host [work1]
+    >   172.16.1.1	head
+    >   Host [work2]
+    >   172.16.1.1	head
+    >   Host [work3]
+    >   172.16.1.1	head
+    >   Host [data1]
+    >   172.16.1.1	head
+    >   Host [data2]
+    >   172.16.1.1	head
+
+
+    for worker in work0 work1 work2 work3 data1 data2
+    do
+        echo "Host [${worker}]"
+        ssh "${worker}" \
+            '
+            sed -i "
+                s/head/work0/
+                " /etc/hosts
+            '
+    done
+
+    >   Host [work0]
+    >   Host [work1]
+    >   Host [work2]
+    >   Host [work3]
+    >   Host [data1]
+    >   Host [data2]
+
+
+    for worker in work0 work1 work2 work3 data1 data2
+    do
+        echo "Host [${worker}]"
+        ssh "${worker}" \
+            '
+            grep '172.16.1.1' /etc/hosts
+            '
+    done
+
+    >   Host [work0]
+    >   172.16.1.1	work0
+    >   Host [work1]
+    >   172.16.1.1	work0
+    >   Host [work2]
+    >   172.16.1.1	work0
+    >   Host [work3]
+    >   172.16.1.1	work0
+    >   Host [data1]
+    >   172.16.1.1	work0
+    >   Host [data2]
+    >   172.16.1.1	work0
+
+
+# -----------------------------------------------------
+# List the interfaces on the worker nodes.
+#[user@work0]
+
+    for worker in work0 work1 work2 work3 data1 data2 trop3 trop4
+    for worker in trop3 trop4
+    do
+        echo "---- ----"
+        echo "Host [${worker}]"
+        ssh "${worker}" \
+            '
+            /sbin/ifconfig
+            '
+    done
+
+    >   ---- ----
+    >   Host [work0]
+    >   br1: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+    >           inet 172.16.1.1  netmask 255.255.255.0  broadcast 172.16.1.255
+    >           inet6 fe80::3ca0:78ff:feb1:311b  prefixlen 64  scopeid 0x20<link>
+    >           ether 3e:a0:78:b1:31:1b  txqueuelen 1000  (Ethernet)
+    >           RX packets 10380214  bytes 2686772915 (2.6 GB)
+    >           RX errors 0  dropped 4  overruns 0  frame 0
+    >           TX packets 89053  bytes 1205617637 (1.2 GB)
+    >           TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+    >   
+    >   eno1: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+    >           ether a4:bf:01:64:eb:00  txqueuelen 1000  (Ethernet)
+    >           RX packets 10464290  bytes 2844096332 (2.8 GB)
+    >           RX errors 0  dropped 2096  overruns 0  frame 0
+    >           TX packets 858904  bytes 1256431021 (1.2 GB)
+    >           TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+    >   
+    >   eno2: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+    >           inet 192.41.108.44  netmask 255.255.255.0  broadcast 192.41.108.255
+    >           inet6 fe80::a6bf:1ff:fe64:eb01  prefixlen 64  scopeid 0x20<link>
+    >           ether a4:bf:01:64:eb:01  txqueuelen 1000  (Ethernet)
+    >           RX packets 8856688  bytes 2737360587 (2.7 GB)
+    >           RX errors 0  dropped 2292  overruns 0  frame 0
+    >           TX packets 89019  bytes 9115933 (9.1 MB)
+    >           TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+    >   
+    >   lo: flags=73<UP,LOOPBACK,RUNNING>  mtu 65536
+    >           inet 127.0.0.1  netmask 255.0.0.0
+    >           inet6 ::1  prefixlen 128  scopeid 0x10<host>
+    >           loop  txqueuelen 1000  (Local Loopback)
+    >           RX packets 7399  bytes 780850 (780.8 KB)
+    >           RX errors 0  dropped 0  overruns 0  frame 0
+    >           TX packets 7399  bytes 780850 (780.8 KB)
+    >           TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+    >   
+    >   ---- ----
+    >   Host [work1]
+    >   br1: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+    >           inet 172.16.1.2  netmask 255.255.255.0  broadcast 172.16.1.255
+    >           inet6 fe80::14ad:4bff:fed2:b203  prefixlen 64  scopeid 0x20<link>
+    >           ether 16:ad:4b:d2:b2:03  txqueuelen 1000  (Ethernet)
+    >           RX packets 10327337  bytes 2831506788 (2.8 GB)
+    >           RX errors 0  dropped 190  overruns 0  frame 0
+    >           TX packets 13628  bytes 1131637 (1.1 MB)
+    >           TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+    >   
+    >   eno1: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+    >           ether a4:bf:01:64:f3:81  txqueuelen 1000  (Ethernet)
+    >           RX packets 10537797  bytes 3005737201 (3.0 GB)
+    >           RX errors 19  dropped 7236  overruns 0  frame 12
+    >           TX packets 14030  bytes 1201163 (1.2 MB)
+    >           TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+    >   
+    >   lo: flags=73<UP,LOOPBACK,RUNNING>  mtu 65536
+    >           inet 127.0.0.1  netmask 255.0.0.0
+    >           inet6 ::1  prefixlen 128  scopeid 0x10<host>
+    >           loop  txqueuelen 1000  (Local Loopback)
+    >           RX packets 6225548  bytes 442016992 (442.0 MB)
+    >           RX errors 0  dropped 0  overruns 0  frame 0
+    >           TX packets 6225548  bytes 442016992 (442.0 MB)
+    >           TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+    >   
+    >   ---- ----
+    >   Host [work2]
+    >   br1: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+    >           inet 172.16.1.3  netmask 255.255.255.0  broadcast 172.16.1.255
+    >           inet6 fe80::205a:d8ff:feea:cba  prefixlen 64  scopeid 0x20<link>
+    >           ether 22:5a:d8:ea:0c:ba  txqueuelen 1000  (Ethernet)
+    >           RX packets 10319477  bytes 2831025036 (2.8 GB)
+    >           RX errors 0  dropped 0  overruns 0  frame 0
+    >           TX packets 8347  bytes 765216 (765.2 KB)
+    >           TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+    >   
+    >   eno1: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+    >           ether a4:bf:01:64:eb:15  txqueuelen 1000  (Ethernet)
+    >           RX packets 10537152  bytes 3005673169 (3.0 GB)
+    >           RX errors 0  dropped 7274  overruns 0  frame 0
+    >           TX packets 8701  bytes 827874 (827.8 KB)
+    >           TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+    >   
+    >   lo: flags=73<UP,LOOPBACK,RUNNING>  mtu 65536
+    >           inet 127.0.0.1  netmask 255.0.0.0
+    >           inet6 ::1  prefixlen 128  scopeid 0x10<host>
+    >           loop  txqueuelen 1000  (Local Loopback)
+    >           RX packets 6225548  bytes 442017240 (442.0 MB)
+    >           RX errors 0  dropped 0  overruns 0  frame 0
+    >           TX packets 6225548  bytes 442017240 (442.0 MB)
+    >           TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+    >   
+    >   ---- ----
+    >   Host [work3]
+    >   br1: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+    >           inet 172.16.1.4  netmask 255.255.255.0  broadcast 172.16.1.255
+    >           inet6 fe80::549a:7dff:fef4:215f  prefixlen 64  scopeid 0x20<link>
+    >           ether 56:9a:7d:f4:21:5f  txqueuelen 1000  (Ethernet)
+    >           RX packets 10320013  bytes 2828082336 (2.8 GB)
+    >           RX errors 0  dropped 0  overruns 0  frame 0
+    >           TX packets 8592  bytes 759997 (759.9 KB)
+    >           TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+    >   
+    >   eno1: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+    >           ether a4:bf:01:64:f1:eb  txqueuelen 1000  (Ethernet)
+    >           RX packets 10535015  bytes 3002670070 (3.0 GB)
+    >           RX errors 0  dropped 7316  overruns 0  frame 0
+    >           TX packets 8991  bytes 826348 (826.3 KB)
+    >           TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+    >   
+    >   lo: flags=73<UP,LOOPBACK,RUNNING>  mtu 65536
+    >           inet 127.0.0.1  netmask 255.0.0.0
+    >           inet6 ::1  prefixlen 128  scopeid 0x10<host>
+    >           loop  txqueuelen 1000  (Local Loopback)
+    >           RX packets 6225540  bytes 442016368 (442.0 MB)
+    >           RX errors 0  dropped 0  overruns 0  frame 0
+    >           TX packets 6225540  bytes 442016368 (442.0 MB)
+    >           TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+    >   
+    >   ---- ----
+    >   Host [data1]
+    >   enp96s0f1: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+    >           inet 172.16.1.7  netmask 255.255.0.0  broadcast 172.16.255.255
+    >           inet6 fe80::ae1f:6bff:fe4d:3be5  prefixlen 64  scopeid 0x20<link>
+    >           ether ac:1f:6b:4d:3b:e5  txqueuelen 1000  (Ethernet)
+    >           RX packets 6911271  bytes 2241276630 (2.2 GB)
+    >           RX errors 0  dropped 907803  overruns 0  frame 0
+    >           TX packets 6669  bytes 663911 (663.9 KB)
+    >           TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+    >   
+    >   lo: flags=73<UP,LOOPBACK,RUNNING>  mtu 65536
+    >           inet 127.0.0.1  netmask 255.0.0.0
+    >           inet6 ::1  prefixlen 128  scopeid 0x10<host>
+    >           loop  txqueuelen 1000  (Local Loopback)
+    >           RX packets 4810744  bytes 341565388 (341.5 MB)
+    >           RX errors 0  dropped 0  overruns 0  frame 0
+    >           TX packets 4810744  bytes 341565388 (341.5 MB)
+    >           TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+    >   
+    >   ---- ----
+    >   Host [data2]
+    >   enp96s0f1: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+    >           inet 172.16.1.8  netmask 255.255.0.0  broadcast 172.16.255.255
+    >           inet6 fe80::ae1f:6bff:fe4d:3c7f  prefixlen 64  scopeid 0x20<link>
+    >           ether ac:1f:6b:4d:3c:7f  txqueuelen 1000  (Ethernet)
+    >           RX packets 6911195  bytes 2241277912 (2.2 GB)
+    >           RX errors 0  dropped 907810  overruns 0  frame 0
+    >           TX packets 6591  bytes 618583 (618.5 KB)
+    >           TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+    >   
+    >   lo: flags=73<UP,LOOPBACK,RUNNING>  mtu 65536
+    >           inet 127.0.0.1  netmask 255.0.0.0
+    >           inet6 ::1  prefixlen 128  scopeid 0x10<host>
+    >           loop  txqueuelen 1000  (Local Loopback)
+    >           RX packets 4810828  bytes 341571376 (341.5 MB)
+    >           RX errors 0  dropped 0  overruns 0  frame 0
+    >           TX packets 4810828  bytes 341571376 (341.5 MB)
+    >           TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+    >   
+    >   ---- ----
+    >   Host [trop3]
+    >   br0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+    >           inet 129.215.175.98  netmask 255.255.255.0  broadcast 129.215.175.255
+    >           inet6 fe80::ec4:7aff:fe35:1176  prefixlen 64  scopeid 0x20<link>
+    >           ether 0c:c4:7a:35:11:76  txqueuelen 1000  (Ethernet)
+    >           RX packets 9763467  bytes 2356492919 (2.1 GiB)
+    >           RX errors 0  dropped 4054  overruns 0  frame 0
+    >           TX packets 20520  bytes 2002857 (1.9 MiB)
+    >           TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+    >   
+    >   br1: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+    >           inet 172.16.1.5  netmask 255.255.0.0  broadcast 172.16.1.255
+    >           inet6 fe80::ec4:7aff:fe35:1177  prefixlen 64  scopeid 0x20<link>
+    >           ether 0c:c4:7a:35:11:77  txqueuelen 1000  (Ethernet)
+    >           RX packets 10332584  bytes 2684693701 (2.5 GiB)
+    >           RX errors 0  dropped 1  overruns 0  frame 0
+    >           TX packets 1889  bytes 217690 (212.5 KiB)
+    >           TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+    >   
+    >   eth0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+    >           ether 0c:c4:7a:35:11:76  txqueuelen 1000  (Ethernet)
+    >           RX packets 10198237  bytes 2543492675 (2.3 GiB)
+    >           RX errors 0  dropped 80954  overruns 0  frame 0
+    >           TX packets 20557  bytes 2005215 (1.9 MiB)
+    >           TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+    >   
+    >   eth1: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+    >           ether 0c:c4:7a:35:11:77  txqueuelen 1000  (Ethernet)
+    >           RX packets 10411535  bytes 2839300976 (2.6 GiB)
+    >           RX errors 0  dropped 0  overruns 0  frame 0
+    >           TX packets 1915  bytes 221021 (215.8 KiB)
+    >           TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+    >   
+    >   lo: flags=73<UP,LOOPBACK,RUNNING>  mtu 65536
+    >           inet 127.0.0.1  netmask 255.0.0.0
+    >           inet6 ::1  prefixlen 128  scopeid 0x10<host>
+    >           loop  txqueuelen 1  (Local Loopback)
+    >           RX packets 57  bytes 10797 (10.5 KiB)
+    >           RX errors 0  dropped 0  overruns 0  frame 0
+    >           TX packets 57  bytes 10797 (10.5 KiB)
+    >           TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+    >   
+    >   virbr0: flags=4099<UP,BROADCAST,MULTICAST>  mtu 1500
+    >           inet 192.168.210.158  netmask 255.255.255.224  broadcast 192.168.210.159
+    >           ether 52:54:00:00:d2:9e  txqueuelen 1000  (Ethernet)
+    >           RX packets 0  bytes 0 (0.0 B)
+    >           RX errors 0  dropped 0  overruns 0  frame 0
+    >           TX packets 0  bytes 0 (0.0 B)
+    >           TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+    >   
+    >   virbr1: flags=4099<UP,BROADCAST,MULTICAST>  mtu 1500
+    >           inet 192.168.210.190  netmask 255.255.255.224  broadcast 192.168.210.191
+    >           ether 52:54:00:00:d2:be  txqueuelen 1000  (Ethernet)
+    >           RX packets 0  bytes 0 (0.0 B)
+    >           RX errors 0  dropped 0  overruns 0  frame 0
+    >           TX packets 0  bytes 0 (0.0 B)
+    >           TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+    >   
+    >   ---- ----
+    >   Host [trop4]
+    >   br0       Link encap:Ethernet  HWaddr 0c:c4:7a:35:11:28
+    >             inet addr:129.215.175.99  Bcast:129.215.175.255  Mask:255.255.255.0
+    >             inet6 addr: fe80::ec4:7aff:fe35:1128/64 Scope:Link
+    >             UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+    >             RX packets:9758176 errors:0 dropped:4052 overruns:0 frame:0
+    >             TX packets:15955 errors:0 dropped:0 overruns:0 carrier:0
+    >             collisions:0 txqueuelen:0
+    >             RX bytes:2291757223 (2.1 GiB)  TX bytes:1971772 (1.8 MiB)
+    >   
+    >   br1       Link encap:Ethernet  HWaddr 0c:c4:7a:35:11:29
+    >             inet addr:172.16.1.6  Bcast:172.16.1.255  Mask:255.255.0.0
+    >             inet6 addr: fe80::ec4:7aff:fe35:1129/64 Scope:Link
+    >             UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+    >             RX packets:10333132 errors:0 dropped:0 overruns:0 frame:0
+    >             TX packets:649 errors:0 dropped:0 overruns:0 carrier:0
+    >             collisions:0 txqueuelen:0
+    >             RX bytes:2684742987 (2.5 GiB)  TX bytes:167876 (163.9 KiB)
+    >   
+    >   eth0      Link encap:Ethernet  HWaddr 0c:c4:7a:35:11:28
+    >             UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+    >             RX packets:10155249 errors:0 dropped:80957 overruns:0 frame:0
+    >             TX packets:16009 errors:0 dropped:0 overruns:0 carrier:0
+    >             collisions:0 txqueuelen:1000
+    >             RX bytes:2476190844 (2.3 GiB)  TX bytes:1975288 (1.8 MiB)
+    >   
+    >   eth1      Link encap:Ethernet  HWaddr 0c:c4:7a:35:11:29
+    >             UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+    >             RX packets:10412545 errors:0 dropped:2 overruns:0 frame:0
+    >             TX packets:757 errors:0 dropped:0 overruns:0 carrier:0
+    >             collisions:0 txqueuelen:1000
+    >             RX bytes:2839473931 (2.6 GiB)  TX bytes:184808 (180.4 KiB)
+    >   
+    >   lo        Link encap:Local Loopback
+    >             inet addr:127.0.0.1  Mask:255.0.0.0
+    >             inet6 addr: ::1/128 Scope:Host
+    >             UP LOOPBACK RUNNING  MTU:65536  Metric:1
+    >             RX packets:197 errors:0 dropped:0 overruns:0 frame:0
+    >             TX packets:197 errors:0 dropped:0 overruns:0 carrier:0
+    >             collisions:0 txqueuelen:0
+    >             RX bytes:41600 (40.6 KiB)  TX bytes:41600 (40.6 KiB)
+
+    #
+    # Worker0 is the only worker that is accessible via the public internet.
+    # Ethernet interface eno2 on 192.41.108.44 is accessible on the public internet.
+    # Should we change this to a bridge ?
+    #
+
+    #
+    # All four workers have a bridge interface connected to the VLAN.
+    # Bridge interface br1 on the 172.16.1.0/24 network.
+    #
+
+    #
+    # The two data machines have an ethernet interface connected to the VLAN.
+    # Ethernet interface enp96s0f1 on the 172.16.0.0/16 network.
+    #
+
+    #
+    # The two trop machines have a bridge interface accessible via the public internet.
+    # Bridge interface br0 on the 129.215.175.0/24 network.
+    #
+
+    #
+    # The two trop machines have a bridge interface connected to the VLAN.
+    # Bridge interface br0 on the 172.16.0.0/16 network.
+    #
+
+    #
+    # The worker nodes use a different netmask for the VLAN network
+    # compared to the trop and data machines.
+    #
+
+
+# -----------------------------------------------------
+# Check we can access the head node from the ROE network.
+#[user@shep]
+
+    ssh root@192.41.108.44 \
+        '
+        date
+        hostname -s
+        hostname -f
+        '
+
+    >   Wed 13 Mar 17:25:31 GMT 2019
+    >   lsstukwork0
+    >   lsstukwork0
+
+
+# -----------------------------------------------------
+# Check we can access the head node from our external network.
+#[user@desktop]
+
+    ssh root@192.41.108.44 \
+        '
+        date
+        hostname -s
+        hostname -f
+        '
+
+    >   Wed 13 Mar 17:25:31 GMT 2019
+    >   lsstukwork0
+    >   lsstukwork0
+
+
+
+
+
+
+
+
+
+
+
+
+
+

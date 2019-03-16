@@ -1,0 +1,356 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+# -----------------------------------------------------
+# Create a virtual machine with fixed address to run the dnsmasq service.
+#[user@trop04]
+
+    create the iso config file
+    create the qcow image file
+
+    create the virtual machine
+
+
+# -----------------------------------------------------
+# Update the OS and install docker on the host.
+#[user@work0]
+
+    apt update
+
+    >   ....
+    >   ....
+    >   Reading package lists... Done
+    >   Building dependency tree
+    >   Reading state information... Done
+    >   35 packages can be upgraded. Run 'apt list --upgradable' to see them.
+
+
+    apt upgrade
+
+    >   Reading package lists... Done
+    >   Building dependency tree
+    >   Reading state information... Done
+    >   Calculating upgrade... Done
+    >   The following packages will be upgraded:
+    >     ....
+    >     ....
+    >   35 to upgrade, 0 to newly install, 0 to remove and 0 not to upgrade.
+    >   ....
+    >   ....
+
+
+    apt install docker.io
+
+    >   apt install docker.io
+    >   Reading package lists... Done
+    >   Building dependency tree
+    >   Reading state information... Done
+    >   ....
+    >   ....
+    >   Setting up docker.io (18.09.2-0ubuntu1~18.04.1) ...
+    >   Adding group `docker' (GID 117) ...
+    >   Done.
+    >   ....
+    >   ....
+
+    reboot
+
+    >   Connection to 192.41.108.44 closed by remote host.
+    >   Connection to 192.41.108.44 closed.
+
+
+# -----------------------------------------------------
+# Run a test container.
+#[user@work0]
+
+    docker run \
+        --rm \
+        --tty \
+        --interactive \
+        fedora \
+            bash
+
+        cat /etc/redhat-release
+
+        >   Fedora release 29 (Twenty Nine)
+
+# -----------------------------------------------------
+# Run an experimental Apache container.
+#[user@work0]
+
+    docker run \
+        --detach \
+        --publish 80:80 \
+        yrvafhom/docker-demo
+
+
+    >   Unable to find image 'yrvafhom/docker-demo:latest' locally
+    >   latest: Pulling from yrvafhom/docker-demo
+    >   5c90d4a2d1a8: Pull complete
+    >   211aa11a4599: Pull complete
+    >   2706d6f1677e: Pull complete
+    >   Digest: sha256:ebdb5a876d9847affbc7f42c924886d3381a935be9158f50399e5e2d7a6db622
+    >   Status: Downloaded newer image for yrvafhom/docker-demo:latest
+    >   448360a42dbf35ec574f4930847a510c5c8e32137854464000589dba2f4dbd43
+
+
+    docker ps
+
+    >   CONTAINER ID        IMAGE                  COMMAND                  CREATED              STATUS              PORTS                NAMES
+    >   448360a42dbf        yrvafhom/docker-demo   "/bin/sh -c '/usr/sb…"   About a minute ago   Up About a minute   0.0.0.0:80->80/tcp   wonderful_margulis
+
+# -----------------------------------------------------
+# Check to see if the Apache service is visible via the localhost interface.
+#[user@work0]
+
+    curl --head "http://127.0.0.1:80/"
+
+    >   HTTP/1.1 200 OK
+    >   Date: Thu, 14 Mar 2019 13:20:36 GMT
+    >   Server: Apache/2.4.10 (Debian)
+    >   Last-Modified: Tue, 26 Jul 2016 23:22:23 GMT
+    >   ETag: "2b60-538922c4a49c0"
+    >   Accept-Ranges: bytes
+    >   Content-Length: 11104
+    >   Vary: Accept-Encoding
+    >   Content-Type: text/html
+
+
+# -----------------------------------------------------
+# Check to see if the Apache service is visible via the VLAN interface.
+#[user@work0]
+
+    curl --head "http://172.16.1.1:80/"
+
+    >   HTTP/1.1 200 OK
+    >   Date: Thu, 14 Mar 2019 13:22:32 GMT
+    >   Server: Apache/2.4.10 (Debian)
+    >   Last-Modified: Tue, 26 Jul 2016 23:22:23 GMT
+    >   ETag: "2b60-538922c4a49c0"
+    >   Accept-Ranges: bytes
+    >   Content-Length: 11104
+    >   Vary: Accept-Encoding
+    >   Content-Type: text/html
+
+
+# -----------------------------------------------------
+# Check to see if the Apache service is visible via the public interface.
+#[user@work0]
+
+    curl --head "http://192.41.108.44:80/"
+
+    >   HTTP/1.1 200 OK
+    >   Date: Thu, 14 Mar 2019 13:23:23 GMT
+    >   Server: Apache/2.4.10 (Debian)
+    >   Last-Modified: Tue, 26 Jul 2016 23:22:23 GMT
+    >   ETag: "2b60-538922c4a49c0"
+    >   Accept-Ranges: bytes
+    >   Content-Length: 11104
+    >   Vary: Accept-Encoding
+    >   Content-Type: text/html
+
+
+# -----------------------------------------------------
+# Check to see if the Apache service is visible from another host on the VLAN.
+#[user@work0]
+
+    ssh work1 \
+        '
+        curl --head "http://172.16.1.1:80/"
+        '
+
+    >   HTTP/1.1 200 OK
+    >   Date: Thu, 14 Mar 2019 13:25:06 GMT
+    >   Server: Apache/2.4.10 (Debian)
+    >   Last-Modified: Tue, 26 Jul 2016 23:22:23 GMT
+    >   ETag: "2b60-538922c4a49c0"
+    >   Accept-Ranges: bytes
+    >   Content-Length: 11104
+    >   Vary: Accept-Encoding
+    >   Content-Type: text/html
+
+
+# -----------------------------------------------------
+# Check to see if the Apache service is visible from an external host.
+#[user@work0]
+
+    ssh data \
+        '
+        curl --head "http://192.41.108.44:80/"
+        '
+
+    >   HTTP/1.1 200 OK
+    >   Date: Thu, 14 Mar 2019 13:27:26 GMT
+    >   Server: Apache/2.4.10 (Debian)
+    >   Last-Modified: Tue, 26 Jul 2016 23:22:23 GMT
+    >   ETag: "2b60-538922c4a49c0"
+    >   Accept-Ranges: bytes
+    >   Content-Length: 11104
+    >   Vary: Accept-Encoding
+    >   Content-Type: text/html
+
+
+# -----------------------------------------------------
+# Stop the experimental Apache container.
+#[user@work0]
+
+    docker ps -a
+
+    >   CONTAINER ID        IMAGE                  COMMAND                  CREATED             STATUS              PORTS                NAMES
+    >   448360a42dbf        yrvafhom/docker-demo   "/bin/sh -c '/usr/sb…"   10 minutes ago      Up 10 minutes       0.0.0.0:80->80/tcp   wonderful_margulis
+
+
+    docker stop '448360a42dbf'
+
+    >   448360a42dbf
+
+
+    docker ps -a
+
+    >   CONTAINER ID        IMAGE                  COMMAND                  CREATED             STATUS                       PORTS               NAMES
+    >   448360a42dbf        yrvafhom/docker-demo   "/bin/sh -c '/usr/sb…"   11 minutes ago      Exited (137) 6 seconds ago                       wonderful_margulis
+
+
+    docker rm '448360a42dbf'
+
+    >    448360a42dbf
+
+
+# -----------------------------------------------------
+# Run the Apache container bound to a specific interface.
+# https://docs.docker.com/v17.09/engine/userguide/networking/default_network/binding/
+#[user@work0]
+
+    docker run \
+        --detach \
+        --publish 172.16.1.1:80:80 \
+        yrvafhom/docker-demo
+
+
+    >   38b4d9e1dc62e2fe72ceb20664f10ec416a38a22860e771716753145f3870099
+
+    docker ps
+
+    >   CONTAINER ID        IMAGE                  COMMAND                  CREATED             STATUS              PORTS                   NAMES
+    >   38b4d9e1dc62        yrvafhom/docker-demo   "/bin/sh -c '/usr/sb…"   15 seconds ago      Up 14 seconds       172.16.1.1:80->80/tcp   heuristic_knuth
+
+
+# -----------------------------------------------------
+# Check to see if the Apache service is visible via the localhost interface.
+#[user@work0]
+
+    curl --head "http://127.0.0.1:80/"
+
+    >   curl: (7) Failed to connect to 127.0.0.1 port 80: Connection refused
+
+
+# -----------------------------------------------------
+# Check to see if the Apache service is visible via the VLAN interface.
+#[user@work0]
+
+    curl --head "http://172.16.1.1:80/"
+
+    >   HTTP/1.1 200 OK
+    >   Date: Thu, 14 Mar 2019 13:39:18 GMT
+    >   Server: Apache/2.4.10 (Debian)
+    >   Last-Modified: Tue, 26 Jul 2016 23:22:23 GMT
+    >   ETag: "2b60-538922c4a49c0"
+    >   Accept-Ranges: bytes
+    >   Content-Length: 11104
+    >   Vary: Accept-Encoding
+    >   Content-Type: text/html
+
+
+# -----------------------------------------------------
+# Check to see if the Apache service is visible via the public interface.
+#[user@work0]
+
+    curl --head "http://192.41.108.44:80/"
+
+    >   curl: (7) Failed to connect to 192.41.108.44 port 80: Connection refused
+
+
+# -----------------------------------------------------
+# Check to see if the Apache service is visible from another host on the VLAN.
+#[user@work0]
+
+    ssh work1 \
+        '
+        curl --head "http://172.16.1.1:80/"
+        '
+
+    >   HTTP/1.1 200 OK
+    >   Date: Thu, 14 Mar 2019 13:39:50 GMT
+    >   Server: Apache/2.4.10 (Debian)
+    >   Last-Modified: Tue, 26 Jul 2016 23:22:23 GMT
+    >   ETag: "2b60-538922c4a49c0"
+    >   Accept-Ranges: bytes
+    >   Content-Length: 11104
+    >   Vary: Accept-Encoding
+    >   Content-Type: text/html
+
+
+# -----------------------------------------------------
+# Check to see if the Apache service is visible from an external host.
+#[user@linode]
+
+    curl --head "http://192.41.108.44:80/"
+
+    >   curl: (7) couldn't connect to host
+
+# -----------------------------------------------------
+# Check to see if the Apache service is visible from an external host.
+#[user@desktop]
+
+    curl --head "http://192.41.108.44:80/"
+
+    >   curl: (7) Failed to connect to 192.41.108.44 port 80: Connection timed out
+
+    #
+    # Binding the Docker container to a specific IP address works.
+    # In theory this should also work for limiting the dnsmasq DHCP and DNS service to the VLAN.
+    #
+
+
+# -----------------------------------------------------
+# Remove the experimental Apache service.
+#[user@desktop]
+
+    docker stop 38b4d9e1dc62
+
+    >   38b4d9e1dc62
+
+
+    docker rm 38b4d9e1dc62
+
+    >   38b4d9e1dc62
+
+
+    docker ps -a
+
+    >   CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS               NAMES
+
+
+
+
+
+

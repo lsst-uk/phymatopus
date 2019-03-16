@@ -1,0 +1,1039 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+    Evaluating Docker images for dnsmasq
+
+        1-25 of 2,732 results for dnsmasq.
+        https://hub.docker.com/search?q=dnsmasq&type=image
+
+            None for official image
+            None for Docker certified
+            None for verified publisher
+
+        https://hub.docker.com/r/andyshinn/dnsmasq
+        https://github.com/andyshinn/docker-dnsmasq
+        https://github.com/andyshinn/docker-dnsmasq/blob/master/Dockerfile
+
+            Bare bones deployment, configuration is all handled on the command line.
+            dnsmasq is run with -k, --keep-in-foreground, running it as the main process in the container.
+            Container command line params passed direct to dnsmasq.
+
+        https://hub.docker.com/r/jpillora/dnsmasq
+        https://github.com/jpillora/docker-dnsmasq
+        https://github.com/jpillora/docker-dnsmasq/blob/master/Dockerfile
+
+            dnsmasq wrapped in webproc
+
+            webproc allows us to tweak the config from the GUI,
+            but then tweaks don't end up in notes.
+            https://github.com/jpillora/webproc
+
+        https://hub.docker.com/r/storytel/dnsmasq
+        https://github.com/Storytel/dnsmasq
+        https://github.com/Storytel/dnsmasq/blob/master/Dockerfile
+
+            Basic alpine based deployment.
+            Looks good enough for now.
+            Easy to copy to create our own version-controlled version.
+
+
+
+# -----------------------------------------------------
+# What tweaks do we need for dnsmasq to provide DCHP ?
+#
+
+    The Docker documentation is less than helpful about _why_
+    https://docs.docker.com/engine/reference/run/#runtime-privilege-and-linux-capabilities
+
+        NET_ADMIN 	Perform various network-related operations.
+
+    Why cap-add NET_ADMIN ?
+    https://github.com/pi-hole/docker-pi-hole/issues/110
+
+        Suggests we need --net host and --cap-add=NET_ADMIN
+
+    Comments in the dnsmasq source code
+    https://github.com/dnsmasq/dnsmasq/blob/ce5732e84fc46d7f99c152f736cfb4ef5ec98a01/src/dnsmasq.c#L574
+
+	  /* On linux, we keep CAP_NETADMIN (for ARP-injection) and
+	     CAP_NET_RAW (for icmp) if we're doing dhcp. If we have yet to bind
+	     ports because of DAD, or we're doing it dynamically,
+	     we need CAP_NET_BIND_SERVICE too. */
+
+
+    Question about modifying the host interfaces
+    https://forums.docker.com/t/about-container-sharing-host-networking-net-host-networking-host/32984
+
+        "The option --cap-add NET_ADMIN adds the permissions for the
+         container to access and configure the hosts network stack,
+         as described in the docker run reference manual"
+
+        "In the docker run reference page, there’s the following sentece:"
+
+            “Note: --network=“host” gives the container full access to local
+            system services such as D-bus and is therefore considered insecure.”
+
+
+    ServerFault qeustion refers to a list of capabilities
+    https://serverfault.com/questions/780370/does-dockers-cap-net-admin-allow-a-container-to-affect-the-host-network-or-onl
+
+        Perform various network-related operations:
+        - interface configuration;
+        - administration of IP firewall, masquerading, and accounting
+        - modify routing tables;
+        - bind to any address for transparent proxying;
+        - set type-of-service (TOS)
+        - clear driver statistics;
+        - set promiscuous mode;
+        - enabling multicasting;
+
+    Linux capabilities man page has the same list
+    https://linux.die.net/man/7/capabilities
+
+
+    Kubernetes documentation says _how_ but not _why_.
+    https://www.weave.works/blog/container-capabilities-kubernetes/
+
+    General concensus seems to be we need both
+
+        --net host
+
+    and
+
+        --cap-add NET_ADMIN
+
+    So far, I haven't found any information on _why_ we need NET_ADMIN.
+
+    Specifically, which part of the DHCP DISCOVER, OFFER, REQUEST, ACKNOWLEDGE needs NET_ADMIN capabilities.
+    https://en.wikipedia.org/wiki/Dynamic_Host_Configuration_Protocol
+
+
+    .....
+
+    Or perhaps not.
+    https://github.com/jpetazzo/pxe/issues/3
+
+        Dnsmasq needs capability NET_ADMIN to send unicast DHCPOFFERS since Docker removed this capability @ moby/moby#4059
+
+        Adding "--dhcp-broadcast" resolved the issue for me.
+
+        Additional discussion on dnsmasq mailing list: http://lists.thekelleys.org.uk/pipermail/dnsmasq-discuss/2014q2/008540.html
+
+    Patch for ioctl(SIOCSARP) issue with Docker + Dnsmasq
+    http://lists.thekelleys.org.uk/pipermail/dnsmasq-discuss/2014q2/008540.html
+
+        >
+        > I ran into an issue using dnsmasq within a docker/lxc container.
+        > Newer versions of docker drop the NET_ADMIN capability[1] which
+        > prevents ioctl(SIOCSARP) call from succeeding for unicast DHCPOFFERs.
+        >
+        > I've thrown together a quick patch (hack? due to lack of familiarity
+        > perhaps) and it's available on Github[2] as well as attached for
+        > completeness.
+        >
+        > I'm not sure if this is the best way to fix this or not.  I'm not that
+        > familiar with DHCP + dnsmasq to know any better.  I've also tried a
+        > docker container with ISC dhcpd and it worked without any
+        > modifications. I didn't look any closer to see how isc dhcpd operated.
+        >
+        > [1] https://github.com/dotcloud/docker/pull/4059
+        > [2] https://github.com/kmanna/dnsmasq/compare/master...docker_arp_fail
+        >
+        >
+
+        It's possible to get the same effect by configuration. Adding
+
+        dhcp-broadcast
+
+        to the dnsmasq config which will cause it to always use broadcast.
+
+        If a dnsmasq configuration is supplied for use with docker then adding
+        to that might be a better solution. If not then this patch has merit,
+        but some downsides too: it's a classic "do something surprising to mask
+        an unexpected error".
+
+        Note that there are other bits of code in dnsmasq that rely on having
+        NET_ADMIN, most obviously, the ability to bind ports < 1024 if
+        --bind-dynamic is in use.
+
+
+    dnsmasq home page
+    http://www.thekelleys.org.uk/dnsmasq/doc.html
+
+    dnsmasq man page
+    http://www.thekelleys.org.uk/dnsmasq/docs/dnsmasq-man.html
+
+        dhcp-broadcast[=tag:<tag>[,tag:<tag>]]
+
+            (IPv4 only) When all the given tags appear in the tag set, always use broadcast to communicate with the host when it is unconfigured.
+            It is permissible to supply no tags, in which case this is unconditional.
+            Most DHCP clients which need broadcast replies set a flag in their requests so that this happens automatically, some old BOOTP clients do not.
+
+    Dynamic Host Configuration Protocol RFC
+    https://www.ietf.org/rfc/rfc2131.txt
+
+    4.1 Constructing and sending DHCP messages
+
+        ....
+        ....
+
+        A client that cannot receive unicast IP datagrams until its protocol
+        software has been configured with an IP address SHOULD set the
+        BROADCAST bit in the 'flags' field to 1 in any DHCPDISCOVER or
+        DHCPREQUEST messages that client sends.  The BROADCAST bit will
+        provide a hint to the DHCP server and BOOTP relay agent to broadcast
+        any messages to the client on the client's subnet.  A client that can
+        receive unicast IP datagrams before its protocol software has been
+        configured SHOULD clear the BROADCAST bit to 0.  The BOOTP
+        clarifications document discusses the ramifications of the use of the
+        BROADCAST bit [21].
+
+        A server or relay agent sending or relaying a DHCP message directly
+        to a DHCP client (i.e., not to a relay agent specified in the
+        'giaddr' field) SHOULD examine the BROADCAST bit in the 'flags'
+        field.  If this bit is set to 1, the DHCP message SHOULD be sent as
+        an IP broadcast using an IP broadcast address (preferably 0xffffffff)
+        as the IP destination address and the link-layer broadcast address as
+        the link-layer destination address.  If the BROADCAST bit is cleared
+        to 0, the message SHOULD be sent as an IP unicast to the IP address
+        specified in the 'yiaddr' field and the link-layer address specified
+        in the 'chaddr' field.  If unicasting is not possible, the message
+        MAY be sent as an IP broadcast using an IP broadcast address
+        (preferably 0xffffffff) as the IP destination address and the link-
+        layer broadcast address as the link-layer destination address.
+
+
+    Clarifications and Extensions for the Bootstrap Protocol
+    https://tools.ietf.org/html/rfc1542#section-3.1.1
+
+    3.1.1 The BROADCAST flag
+
+        Normally, BOOTP servers and relay agents attempt to deliver BOOTREPLY
+        messages directly to a client using unicast delivery.  The IP
+        destination address (in the IP header) is set to the BOOTP 'yiaddr'
+        address and the link-layer destination address is set to the BOOTP
+        'chaddr' address.  Unfortunately, some client implementations are
+        unable to receive such unicast IP datagrams until they know their own
+        IP address (thus we have a "chicken and egg" issue).  Often, however,
+        they can receive broadcast IP datagrams (those with a valid IP
+        broadcast address as the IP destination and the link-layer broadcast
+        address as the link-layer destination).
+
+        If a client falls into this category, it SHOULD set (to 1) the
+        newly-defined BROADCAST flag in the 'flags' field of BOOTREPLY
+        messages it generates.  This will provide a hint to BOOTP servers and
+        relay agents that they should attempt to broadcast their BOOTREPLY
+        messages to the client.
+
+        If a client does not have this limitation (i.e., it is perfectly able
+        to receive unicast BOOTREPLY messages), it SHOULD NOT set the
+        BROADCAST flag (i.e., it SHOULD clear the BROADCAST flag to 0).
+
+        DISCUSSION:
+
+            This addition to the protocol is a workaround for old host
+            implementations.  Such implementations SHOULD be modified so
+            that they may receive unicast BOOTREPLY messages, thus making
+            use of this workaround unnecessary.  In general, the use of
+            this mechanism is discouraged.
+
+
+# -----------------------------------------------------
+
+    What we have so far ..
+
+
+        By default, DHCP requires the DHCPOFFER and ACK messages to be sent using
+        unicast datagrams addressed to the MAC address of the client that sent
+        the DHCPDISCOVER or DHCPREQUEST.
+
+        To do this, dnsmasq needs to have the NET_ADMIN capability.
+
+        By default, Docker containers do not have this capability,
+        so we need to enable it using `--cap-add NET_ADMIN`.
+
+        By default Docker will create a virtual interface for the container,
+        connected to the virtual bridge created by Docker.
+
+        .... why does dnsmasq need to access the host interface ?
+        .... is this because the Docker bridge won't forward the
+        DHCPDISCOVER and DHCPREQUEST broadcast messages from the
+        main physical network ?
+
+        To connect the Docker container directly to the host interface
+        we need to use `--network host`.
+
+        At least on source claims setting both `--cap-add NET_ADMIN`
+        and `--network host` is a security risk.
+        -- explanation needed
+
+        We can avoid needing  `--cap-add NET_ADMIN` by configuring
+        dnsmasq with `--dhcp-broadcast` which forces it to broadcast
+        the DHCPOFFER and ACK messages.
+
+        The RFC 1542 says the following :
+
+            "In general, the use of this mechanism is discouraged."
+
+        So far, no explanation _why_ this is discouraged.
+
+
+# -----------------------------------------------------
+# Create the dnsmasq config files.
+#[user@work0]
+
+    mkdir /etc/dnsmasq
+
+    cat > /etc/dnsmasq/01.base.conf << EOF
+domain-needed
+bogus-priv
+no-hosts
+no-resolv
+keep-in-foreground
+dhcp-broadcast
+expand-hosts
+server=195.194.120.1
+server=195.194.120.2
+server=8.8.8.8
+EOF
+
+    cat > /etc/dnsmasq/02.lsstuk-vlan.conf << EOF
+host-record=vlan-001,vlan-001.lsstuk,172.16.1.1
+host-record=vlan-002,vlan-002.lsstuk,172.16.1.2
+host-record=vlan-003,vlan-003.lsstuk,172.16.1.3
+host-record=vlan-004,vlan-004.lsstuk,172.16.1.4
+host-record=vlan-005,vlan-005.lsstuk,172.16.1.5
+host-record=vlan-006,vlan-006.lsstuk,172.16.1.6
+host-record=vlan-007,vlan-007.lsstuk,172.16.1.7
+host-record=vlan-008,vlan-008.lsstuk,172.16.1.8
+EOF
+
+    cat > /etc/dnsmasq/03.lsstuk-name.conf << EOF
+host-record=work-00,work-00.lsstuk,172.16.1.1
+host-record=work-01,work-01.lsstuk,172.16.1.2
+host-record=work-02,work-02.lsstuk,172.16.1.3
+host-record=work-03,work-03.lsstuk,172.16.1.4
+host-record=trop-03,trop-03.lsstuk,172.16.1.5
+host-record=trop-04,trop-04.lsstuk,172.16.1.6
+host-record=data-01,data-01.lsstuk,172.16.1.7
+host-record=data-02,data-02.lsstuk,172.16.1.8
+EOF
+
+    cat > /etc/dnsmasq/04.trop-public.conf << EOF
+host-record=trop01,trop01.roe.ac.uk,129.215.175.96
+host-record=trop02,trop02.roe.ac.uk,129.215.175.97
+host-record=trop05,trop03.roe.ac.uk,129.215.175.98
+host-record=trop04,trop04.roe.ac.uk,129.215.175.99
+EOF
+
+
+# -----------------------------------------------------
+# Run the dnsmasq container bound to a specific interface.
+# https://stackoverflow.com/a/39448493
+#[user@work0]
+
+    docker run \
+        --detach \
+        --network host \
+        --cap-add NET_ADMIN \
+        --publish 172.16.1.1:53:53/udp \
+        --publish 172.16.1.1:53:53/tcp \
+        --publish 172.16.1.1:67:67/udp \
+        --volume /etc/dnsmasq:/etc/dnsmasq \
+        storytel/dnsmasq
+
+    >   WARNING: Published ports are discarded when using host network mode
+    >   dnsmasq: failed to create listening socket for port 53: Address in use
+
+# -----------------------------------------------------
+# Run the dnsmasq container with logging to `stdout`.
+#[user@work0]
+
+    cat > /etc/dnsmasq/00.debug.conf << EOF
+no-daemon
+log-facility=-
+EOF
+
+    docker run \
+        --tty \
+        --interactive \
+        --publish 172.16.1.1:53:53/udp \
+        --publish 172.16.1.1:53:53/tcp \
+        --publish 172.16.1.1:67:67/udp \
+        --volume /etc/dnsmasq:/etc/dnsmasq \
+        storytel/dnsmasq
+
+    >   dnsmasq[1]: started, version 2.78 cachesize 150
+    >   dnsmasq[1]: compile time options: IPv6 GNU-getopt no-DBus no-i18n no-IDN DHCP DHCPv6 no-Lua TFTP no-conntrack ipset auth no-DNSSEC loop-detect inotify
+    >   dnsmasq[1]: using nameserver 8.8.8.8#53
+    >   dnsmasq[1]: using nameserver 195.194.120.2#53
+    >   dnsmasq[1]: using nameserver 195.194.120.1#53
+    >   dnsmasq[1]: cleared cache
+
+
+# -----------------------------------------------------
+# Run the dnsmasq container.
+#[user@work0]
+
+    docker run \
+        --tty \
+        --interactive \
+        --network host \
+        --cap-add NET_ADMIN \
+        --publish 172.16.1.1:53:53/udp \
+        --publish 172.16.1.1:53:53/tcp \
+        --publish 172.16.1.1:67:67/udp \
+        --volume /etc/dnsmasq:/etc/dnsmasq \
+        storytel/dnsmasq
+
+    >   WARNING: Published ports are discarded when using host network mode
+    >   dnsmasq: failed to create listening socket for port 53: Address in use
+
+    #
+    # Suggests that something else is using port 53 ?
+    #
+
+# -----------------------------------------------------
+# List the active network connections.
+# https://www.cyberciti.biz/faq/unix-linux-check-if-port-is-in-use-command/
+#[user@work0]
+
+    lsof -i -P -n
+
+    >   COMMAND    PID            USER   FD   TYPE DEVICE SIZE/OFF NODE NAME
+    >   systemd-r 1724 systemd-resolve   12u  IPv4  54632      0t0  UDP 127.0.0.53:53
+    >   systemd-r 1724 systemd-resolve   13u  IPv4  54633      0t0  TCP 127.0.0.53:53 (LISTEN)
+    >   sshd      1865            root    3u  IPv4  53383      0t0  TCP *:22 (LISTEN)
+    >   sshd      1865            root    4u  IPv6  53385      0t0  TCP *:22 (LISTEN)
+    >   apt-cache 2056        www-data    0u  IPv4  24691      0t0  TCP 172.16.1.1:3142->172.16.1.7:42170 (CLOSE_WAIT)
+    >   apt-cache 2056        www-data    7u  IPv4  38225      0t0  TCP *:3142 (LISTEN)
+    >   sshd      2571            root    3u  IPv4  61655      0t0  TCP 192.41.108.44:22->81.187.247.196:60586 (ESTABLISHED)
+    >   sshd      9215            root    3u  IPv4  64909      0t0  TCP 192.41.108.44:22->81.187.247.196:35610 (ESTABLISHED)
+
+    #
+    # Who the **** is `systemd-resolve` !?
+    #
+
+    systemd-resolved home page
+    https://www.freedesktop.org/software/systemd/man/systemd-resolved.service.html
+
+        systemd-resolved is a system service that provides network name resolution to local applications.
+
+    systemd-resolved man page
+    http://man7.org/linux/man-pages/man1/systemd-resolve.1.html
+
+    How to disable systemd-resolved and resolve DNS with dnsmasq?
+    https://askubuntu.com/a/1097054
+
+    #
+    # Summary so far ...
+    # Ubuntu uses systemd-resolved as a local DNS cache.
+    # systemd-resolved listens on 127.0.0.53:53
+    #
+
+    #
+    # The fact that dnsmasq conflicts with this means it is trying to listen on *all* ports.
+    # Which explains the warning we get with `--network host`.
+    #
+
+
+# -----------------------------------------------------
+# Run the dnsmasq container publishing ports to specific interfaces.
+#[user@work0]
+
+    docker run \
+        --tty \
+        --interactive \
+        --publish 172.16.1.1:53:53/udp \
+        --publish 172.16.1.1:53:53/tcp \
+        --publish 172.16.1.1:67:67/udp \
+        --volume /etc/dnsmasq:/etc/dnsmasq \
+        storytel/dnsmasq
+
+    >   dnsmasq[1]: started, version 2.78 cachesize 150
+    >   dnsmasq[1]: compile time options: IPv6 GNU-getopt no-DBus no-i18n no-IDN DHCP DHCPv6 no-Lua TFTP no-conntrack ipset auth no-DNSSEC loop-detect inotify
+    >   dnsmasq[1]: using nameserver 8.8.8.8#53
+    >   dnsmasq[1]: using nameserver 195.194.120.2#53
+    >   dnsmasq[1]: using nameserver 195.194.120.1#53
+    >   dnsmasq[1]: cleared cache
+
+    #
+    # This seems to work .. but the container is connected to a virtual interface.
+    #
+
+# -----------------------------------------------------
+# List the active network connections on the host.
+#[user@work0]
+
+    lsof -i -P -n
+
+    >   COMMAND    PID            USER   FD   TYPE DEVICE SIZE/OFF NODE NAME
+    >   systemd-r 1724 systemd-resolve   12u  IPv4  54632      0t0  UDP 127.0.0.53:53
+    >   systemd-r 1724 systemd-resolve   13u  IPv4  54633      0t0  TCP 127.0.0.53:53 (LISTEN)
+    >   sshd      1865            root    3u  IPv4  53383      0t0  TCP *:22 (LISTEN)
+    >   sshd      1865            root    4u  IPv6  53385      0t0  TCP *:22 (LISTEN)
+    >   apt-cache 2056        www-data    0u  IPv4  24691      0t0  TCP 172.16.1.1:3142->172.16.1.7:42170 (CLOSE_WAIT)
+    >   apt-cache 2056        www-data    7u  IPv4  38225      0t0  TCP *:3142 (LISTEN)
+    >   sshd      2571            root    3u  IPv4  61655      0t0  TCP 192.41.108.44:22->81.187.247.196:60586 (ESTABLISHED)
+    >   sshd      9215            root    3u  IPv4  64909      0t0  TCP 192.41.108.44:22->81.187.247.196:35610 (ESTABLISHED)
+
+# -----------------------------------------------------
+# List the host network interfaces.
+#[user@work0]
+
+    ifconfig
+
+    >   br1: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+    >           inet 172.16.1.1  netmask 255.255.255.0  broadcast 172.16.1.255
+    >           inet6 fe80::3ca0:78ff:feb1:311b  prefixlen 64  scopeid 0x20<link>
+    >           ether 3e:a0:78:b1:31:1b  txqueuelen 1000  (Ethernet)
+    >           RX packets 723502  bytes 181344585 (181.3 MB)
+    >           RX errors 0  dropped 0  overruns 0  frame 0
+    >           TX packets 5375  bytes 34466231 (34.4 MB)
+    >           TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+    >   
+    >   docker0: flags=4099<UP,BROADCAST,MULTICAST>  mtu 1500
+    >           inet 172.17.0.1  netmask 255.255.0.0  broadcast 172.17.255.255
+    >           inet6 fe80::42:84ff:fe02:3f67  prefixlen 64  scopeid 0x20<link>
+    >           ether 02:42:84:02:3f:67  txqueuelen 0  (Ethernet)
+    >           RX packets 66  bytes 6156 (6.1 KB)
+    >           RX errors 0  dropped 0  overruns 0  frame 0
+    >           TX packets 148  bytes 11305 (11.3 KB)
+    >           TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+    >   
+    >   ....
+
+
+# -----------------------------------------------------
+# List the network interfaces inside the container.
+#[user@work0]
+
+    docker ps
+
+    >   CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS                                                                 NAMES
+    >   d44fe7c57432        storytel/dnsmasq    "dnsmasq"           41 seconds ago      Up 40 seconds       172.16.1.1:53->53/udp, 172.16.1.1:53->53/tcp, 172.16.1.1:67->67/udp   elastic_beaver
+
+    docker exec \
+        --tty \
+        --interactive \
+        d44fe7c57432 \
+            /sbin/ifconfig
+
+    >   eth0      Link encap:Ethernet  HWaddr 02:42:AC:11:00:02
+    >             inet addr:172.17.0.2  Bcast:172.17.255.255  Mask:255.255.0.0
+    >             UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+    >             RX packets:12 errors:0 dropped:0 overruns:0 frame:0
+    >             TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+    >             collisions:0 txqueuelen:0
+    >             RX bytes:976 (976.0 B)  TX bytes:0 (0.0 B)
+    >   
+    >   lo        Link encap:Local Loopback
+    >             inet addr:127.0.0.1  Mask:255.0.0.0
+    >             UP LOOPBACK RUNNING  MTU:65536  Metric:1
+    >             RX packets:0 errors:0 dropped:0 overruns:0 frame:0
+    >             TX packets:0 errors:0 dropped:0 overruns:0 carrier:0
+    >             collisions:0 txqueuelen:1000
+    >             RX bytes:0 (0.0 B)  TX bytes:0 (0.0 B)
+
+    #
+    # Summary so far ...
+    # The physical host is on  172.16.1.0/24
+    # Docker containers are on 172.17.0.0/16
+    # Which means dnsmasq probably won't see packets broadcast on the 172.16.1.0/24 network ?
+    #
+
+
+# -----------------------------------------------------
+# Run the dnsmasq container linked to the host interfaces.
+#[user@work0]
+
+    docker run \
+        --tty \
+        --interactive \
+        --network host \
+        --volume /etc/dnsmasq:/etc/dnsmasq \
+        storytel/dnsmasq
+
+    >   dnsmasq: failed to create listening socket for port 53: Address in use
+
+# -----------------------------------------------------
+# Run the dnsmasq container linked to the host interfaces.
+# Limit dnsmasq to listen on a specific address.
+#[user@work0]
+
+    cat > /etc/dnsmasq/01.debug.conf << EOF
+listen-address=172.16.1.1
+EOF
+
+    docker run \
+        --tty \
+        --interactive \
+        --network host \
+        --volume /etc/dnsmasq:/etc/dnsmasq \
+        storytel/dnsmasq
+
+    >   dnsmasq: failed to create listening socket for port 53: Address in use
+
+# -----------------------------------------------------
+# Run the dnsmasq container linked to the host interfaces.
+# Configure dnsmasq to listen on a specific address.
+#[user@work0]
+
+    cat > /etc/dnsmasq/01.debug.conf << EOF
+interface=172.16.1.1
+except-interface=127.0.0.1
+EOF
+
+    docker run \
+        --tty \
+        --interactive \
+        --network host \
+        --volume /etc/dnsmasq:/etc/dnsmasq \
+        storytel/dnsmasq
+
+    >   dnsmasq: failed to create listening socket for port 53: Address in use
+
+# -----------------------------------------------------
+# Run the dnsmasq container linked to the host interfaces.
+# Configure dnsmasq to listen on a specific interface,
+# and prevent it from connecting to the wildcard address.
+#[user@work0]
+
+    cat > /etc/dnsmasq/01.debug.conf << EOF
+interface=172.16.1.1
+bind-interfaces
+EOF
+
+    docker run \
+        --tty \
+        --interactive \
+        --network host \
+        --volume /etc/dnsmasq:/etc/dnsmasq \
+        storytel/dnsmasq
+
+    >   dnsmasq: unknown interface 172.16.1.1
+
+# -----------------------------------------------------
+# Check what interfaces a container with `--net host` can see.
+#[user@work0]
+
+    docker run \
+        --tty \
+        --interactive \
+        --network host \
+        fedora \
+            bash
+
+        dnf install net-tools
+
+        ifconfig
+
+    >   br1: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+    >           inet 172.16.1.1  netmask 255.255.255.0  broadcast 172.16.1.255
+    >           inet6 fe80::3ca0:78ff:feb1:311b  prefixlen 64  scopeid 0x20<link>
+    >           ether 3e:a0:78:b1:31:1b  txqueuelen 1000  (Ethernet)
+    >           RX packets 840190  bytes 211726669 (201.9 MiB)
+    >           RX errors 0  dropped 0  overruns 0  frame 0
+    >           TX packets 5808  bytes 37248080 (35.5 MiB)
+    >           TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+    >   
+    >   docker0: flags=4099<UP,BROADCAST,MULTICAST>  mtu 1500
+    >           inet 172.17.0.1  netmask 255.255.0.0  broadcast 172.17.255.255
+    >           inet6 fe80::42:84ff:fe02:3f67  prefixlen 64  scopeid 0x20<link>
+    >           ether 02:42:84:02:3f:67  txqueuelen 0  (Ethernet)
+    >           RX packets 66  bytes 6156 (6.0 KiB)
+    >           RX errors 0  dropped 0  overruns 0  frame 0
+    >           TX packets 156  bytes 11905 (11.6 KiB)
+    >           TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+    >   
+    >   eno1: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+    >           ether a4:bf:01:64:eb:00  txqueuelen 1000  (Ethernet)
+    >           RX packets 848983  bytes 225178467 (214.7 MiB)
+    >           RX errors 0  dropped 0  overruns 0  frame 0
+    >           TX packets 26860  bytes 38637512 (36.8 MiB)
+    >           TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+    >   
+    >   eno2: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+    >           inet 192.41.108.44  netmask 255.255.255.0  broadcast 192.41.108.255
+    >           inet6 fe80::a6bf:1ff:fe64:eb01  prefixlen 64  scopeid 0x20<link>
+    >           ether a4:bf:01:64:eb:01  txqueuelen 1000  (Ethernet)
+    >           RX packets 2332591  bytes 589117558 (561.8 MiB)
+    >           RX errors 0  dropped 0  overruns 0  frame 0
+    >           TX packets 37724  bytes 2791329 (2.6 MiB)
+    >           TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+    >   
+    >   lo: flags=73<UP,LOOPBACK,RUNNING>  mtu 65536
+    >           inet 127.0.0.1  netmask 255.0.0.0
+    >           inet6 ::1  prefixlen 128  scopeid 0x10<host>
+    >           loop  txqueuelen 1000  (Local Loopback)
+    >           RX packets 572  bytes 57480 (56.1 KiB)
+    >           RX errors 0  dropped 0  overruns 0  frame 0
+    >           TX packets 572  bytes 57480 (56.1 KiB)
+    >           TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+
+
+    #
+    # 172.16.1.1 is a bridge not an interface.
+    # Do we need to connect to eno1 instead ?
+    #
+
+    #
+    # From the dnsmasq man page :
+
+        "On Linux, when --bind-interfaces or --bind-dynamic
+        are in effect, IP alias interface labels (eg "eth1:0")
+        are checked, rather than interface names."
+
+# -----------------------------------------------------
+# Run the dnsmasq container linked to the host interfaces.
+# Configure dnsmasq to bind to a named interface, and
+# prevent it from connecting to the wildcard address.
+#[user@work0]
+
+    cat > /etc/dnsmasq/01.debug.conf << EOF
+interface=eno1
+bind-interfaces
+EOF
+
+    docker run \
+        --tty \
+        --interactive \
+        --network host \
+        --volume /etc/dnsmasq:/etc/dnsmasq \
+        storytel/dnsmasq
+
+    >   dnsmasq: unknown interface eno1
+
+# -----------------------------------------------------
+# Run the dnsmasq container linked to the host interfaces.
+# Configure dnsmasq to bind to the bridge interface by name,
+# and prevent it from connecting to the wildcard address.
+#[user@work0]
+
+    cat > /etc/dnsmasq/01.debug.conf << EOF
+interface=br1
+bind-interfaces
+EOF
+
+    docker run \
+        --tty \
+        --interactive \
+        --network host \
+        --volume /etc/dnsmasq:/etc/dnsmasq \
+        storytel/dnsmasq
+
+    >   dnsmasq[1]: started, version 2.78 cachesize 150
+    >   dnsmasq[1]: compile time options: IPv6 GNU-getopt no-DBus no-i18n no-IDN DHCP DHCPv6 no-Lua TFTP no-conntrack ipset auth no-DNSSEC loop-detect inotify
+    >   dnsmasq[1]: using nameserver 8.8.8.8#53
+    >   dnsmasq[1]: using nameserver 195.194.120.2#53
+    >   dnsmasq[1]: using nameserver 195.194.120.1#53
+    >   dnsmasq[1]: cleared cache
+
+    #
+    # Do we have a problem with the upstream name servers ?
+    # If we have taken so much care to only listen on the 172.16.1.1 interface ..
+    # Will dnsmasq be able to use the 192.41.108.44 interface to connect to the upstream servers ?
+    # We will find out later ...
+    #
+
+# -----------------------------------------------------
+# List the combination of config settings so far.
+#[user@work0]
+
+    pushd /etc/dnsmasq
+
+        for config in $(ls -1)
+        do
+            echo "---- [${config}]"
+            cat "${config}"
+        done
+
+    popd
+
+    >   ---- [00.debug.conf]
+    >   no-daemon
+    >   log-facility=-
+    >   ---- [01.base.conf]
+    >   domain-needed
+    >   bogus-priv
+    >   no-hosts
+    >   no-resolv
+    >   keep-in-foreground
+    >   dhcp-broadcast
+    >   expand-hosts
+    >   server=195.194.120.1
+    >   server=195.194.120.2
+    >   server=8.8.8.8
+    >   ---- [01.debug.conf]
+    >   interface=br1
+    >   bind-interfaces
+    >   ---- [02.lsstuk-vlan.conf]
+    >   host-record=vlan-001,vlan-001.lsstuk,172.16.1.1
+    >   host-record=vlan-002,vlan-002.lsstuk,172.16.1.2
+    >   host-record=vlan-003,vlan-003.lsstuk,172.16.1.3
+    >   host-record=vlan-004,vlan-004.lsstuk,172.16.1.4
+    >   host-record=vlan-005,vlan-005.lsstuk,172.16.1.5
+    >   host-record=vlan-006,vlan-006.lsstuk,172.16.1.6
+    >   host-record=vlan-007,vlan-007.lsstuk,172.16.1.7
+    >   host-record=vlan-008,vlan-008.lsstuk,172.16.1.8
+    >   ---- [03.lsstuk-name.conf]
+    >   host-record=work-00,work-00.lsstuk,172.16.1.1
+    >   host-record=work-01,work-01.lsstuk,172.16.1.2
+    >   host-record=work-02,work-02.lsstuk,172.16.1.3
+    >   host-record=work-03,work-03.lsstuk,172.16.1.4
+    >   host-record=trop-03,trop-03.lsstuk,172.16.1.5
+    >   host-record=trop-04,trop-04.lsstuk,172.16.1.6
+    >   host-record=data-01,data-01.lsstuk,172.16.1.7
+    >   host-record=data-02,data-02.lsstuk,172.16.1.8
+    >   ---- [04.trop-public.conf]
+    >   host-record=trop01,trop01.roe.ac.uk,129.215.175.96
+    >   host-record=trop02,trop02.roe.ac.uk,129.215.175.97
+    >   host-record=trop05,trop03.roe.ac.uk,129.215.175.98
+    >   host-record=trop04,trop04.roe.ac.uk,129.215.175.99
+
+# -----------------------------------------------------
+# Add the debug options into the base config.
+#[user@work0]
+
+    pushd /etc/dnsmasq
+
+        cat 00.debug.conf >> 01.base.conf
+        cat 01.debug.conf >> 01.base.conf
+
+        rm 00.debug.conf
+        rm 01.debug.conf
+
+    popd
+
+# -----------------------------------------------------
+# Add a dynamic DHCP range.
+#[user@work0]
+
+    cat > /etc/dnsmasq/05.dhcp-alpha.conf << EOF
+dhcp-range=set:alpha,172.16.2.1,172.16.2.15,255.255.255.0,172.16.2.255,10m
+dhcp-generate-names=alpha
+EOF
+
+# -----------------------------------------------------
+# Add a static DHCP range.
+#[user@work0]
+
+    cat > /etc/dnsmasq/05.dhcp-beta.conf << EOF
+dhcp-range=set:beta,172.16.3.2,static,255.255.255.0,172.16.3.255,5m
+
+dhcp-host=52:54:00:10:03:02,172.16.3.2,Umiawyth,10m
+dhcp-host=52:54:00:10:03:03,172.16.3.3,Etalema,10m
+dhcp-host=52:54:00:10:03:04,172.16.3.4,Greand,10m
+dhcp-host=52:54:00:10:03:05,172.16.3.5,Nydiralle,10m
+
+host-record=Umiawyth,172.16.3.2
+host-record=Etalema,172.16.3.3
+host-record=Greand,172.16.3.4
+host-record=Nydiralle,172.16.3.5
+EOF
+
+
+# -----------------------------------------------------
+# Add some more debug options.
+#[user@work0]
+
+    cat > /etc/dnsmasq/00.debug.conf << EOF
+log-dhcp
+log-queries
+EOF
+
+
+# -----------------------------------------------------
+# Run the dnsmasq container.
+#[user@work0]
+
+    docker run \
+        --tty \
+        --interactive \
+        --network host \
+        --volume /etc/dnsmasq:/etc/dnsmasq \
+        storytel/dnsmasq
+
+    >   dnsmasq[1]: started, version 2.78 cachesize 150
+    >   dnsmasq[1]: compile time options: IPv6 GNU-getopt no-DBus no-i18n no-IDN DHCP DHCPv6 no-Lua TFTP no-conntrack ipset auth no-DNSSEC loop-detect inotify
+    >   dnsmasq-dhcp[1]: DHCP, static leases only on 172.16.3.2, lease time 5m
+    >   dnsmasq-dhcp[1]: DHCP, IP range 172.16.2.1 -- 172.16.2.15, lease time 10m
+    >   dnsmasq-dhcp[1]: DHCP, sockets bound exclusively to interface br1
+    >   dnsmasq[1]: using nameserver 8.8.8.8#53
+    >   dnsmasq[1]: using nameserver 195.194.120.2#53
+    >   dnsmasq[1]: using nameserver 195.194.120.1#53
+    >   dnsmasq[1]: cleared cache
+
+# -----------------------------------------------------
+# Edit the ischnura address ranges on trop03 to match.
+#[user@trop03]
+
+    source "${HOME}/ischnura.settings"
+
+    pushd "${ischcode:?}"
+        pushd src/dat
+
+            vi tropo-machines.txt
+
+                ....
+
+            -   trop03  Umiawyth    52:54:00:02:03:08   192.168.203.8
+            -   trop03  Etalema     52:54:00:02:03:09   192.168.203.9
+            -   trop03  Greand      52:54:00:02:03:0A   192.168.203.10
+            -   trop03  Nydiralle   52:54:00:02:03:0B   192.168.203.11
+
+            +   trop03  Umiawyth    52:54:00:10:03:02   172.16.3.2
+            +   trop03  Etalema     52:54:00:10:03:03   172.16.3.3
+            +   trop03  Greand      52:54:00:10:03:04   172.16.3.4
+            +   trop03  Nydiralle   52:54:00:10:03:05   172.16.3.5
+
+                ....
+
+        popd
+    popd
+
+
+# -----------------------------------------------------
+# Edit the ischnura template on trop03 to use the bridged interface.
+#[user@trop03]
+
+    source "${HOME}/ischnura.settings"
+
+    pushd "${ischcode:?}"
+        pushd src/dat
+
+            vi tropo-template.xml
+
+                ....
+
+            -   <interface type='network'>
+            +   <interface type='bridge'>
+                  <mac address='##:##:##:##:##:##'/>
+            -     <source network='routed'/>
+            +     <source bridge='br0'/>
+                  <target dev='vnet0'/>
+                  <model type='virtio'/>
+                  <alias name='net0'/>
+                  <address type='pci' domain='0x0000' bus='0x00' slot='0x03' function='0x0'/>
+                </interface>
+
+                ....
+
+        popd
+    popd
+
+
+# -----------------------------------------------------
+# Edit the code ischnura on trop03 to use the dat file for mac addreses.
+#[user@trop03]
+
+    source "${HOME}/ischnura.settings"
+
+    pushd "${ischcode:?}"
+        pushd src/bin
+
+            vi createvm
+
+            -   #thisname=$(hostname -s)
+            -   #thisline=($(cat "${machines:?}" | awk '{if (($1 == "'${thisname:?}'") && ($2 == "'${nodename:?}'")) {print}}'))
+
+            +   thisname=$(hostname -s)
+            +   thisline=($(cat "${machines:?}" | awk '{if (($1 == "'${thisname:?}'") && ($2 == "'${nodename:?}'")) {print}}'))
+            +   bridged=${thisline[2]}
+
+                ....
+
+                echo "INFO : node [${nodenum}]"
+            -   echo "INFO : MAC  [$(printmac  ${routed})]"
+            +   echo "INFO : MAC  [${bridged}]"
+
+            ~   #echo "INFO : IPv4 [$(printinet ${routed})]"
+                echo "INFO : MAC  [$(printmac  ${natted})]"
+            ~   #echo "INFO : IPv4 [$(printinet ${natted})]"
+                echo ""
+
+                ....
+
+                xmlstarlet \
+                    ed \
+                    --update "/domain/name" \
+                    --value  "${nodename:?}" \
+            -       --update "//interface[source/@network='routed']/mac/@address" \
+            +       --update "//interface[source/@network='bridged']/mac/@address" \
+            -       --value  "$(printmac  ${routed})" \
+            +       --value  "${bridged}" \
+                    --update "//interface[source/@network='natted']/mac/@address" \
+                    --value  "$(printmac  ${natted})" \
+                    --update "//disk[@device='disk']/source/@file" \
+
+        popd
+    popd
+
+
+# -----------------------------------------------------
+# Create a VM on trop03 and see what happens.
+#[user@trop03]
+
+    createvm
+
+    >   [1] fedora-28-8G-docker-base-20181016.qcow
+    >   [2] fedora-28-32G-docker-base-20181016.qcow
+    >   [3] fedora-28-16G-docker-base-20181016.qcow
+    >   Select base image (1) 1
+    >   
+    >   INFO : Node name [Umiawyth]
+    >   INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Disc name [Umiawyth.qcow]
+    >   INFO : Disc size [8GiB]
+    >   
+    >   INFO : node [0]
+    >   INFO : MAC  [52:54:00:10:03:02]
+    >   INFO : MAC  [52:54:0:0:D2:A1]
+
+    #
+    # None of the network interfaces work.
+    # The bridge interface, ens3, sends DHCPDISCOVER requests but gets no reply.
+    # The natted interface, ens7, sends DHCPDISCOVER requests but gets no reply.
+    #
+
+    #
+    # Need to tweak the kernel boot in order to set the root password.
+    # https://www.maketecheasier.com/reset-root-password-linux/
+
+        Find the line beginning with “Linux.”
+        After, look for “ro,” and change it “rw.”
+        Add init=/bin/bash at the end of the line.
+
+    #
+    # Separate steps ..
+    # First get the natted interface working again ..
+    # Then experiment with the bridged interface ...
+    #
+
+    #
+    # Question - would the routed interface configuration work on the VLAN.
+    # If so, then do we need the dnsmasq service after all ?
+    #
+
+
+
