@@ -1,0 +1,800 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+    #
+    # Temp fix - get the existing vortual machines up and running by manually editing ther config files.
+    #
+
+    #
+    # Update the `natted` and `routed` networks on trop03.
+    # Update the virtual machine configurations - interface MAC addreses.
+    # Start the virtual machines, edit the interface configurations and routes.
+    #
+
+
+# -----------------------------------------------------
+# Reboot trop03 and then apply the changes.
+#[user@trop03]
+
+    sudo reboot
+
+    >   Connection to trop03.roe.ac.uk closed by remote host.
+    >   Connection to trop03.roe.ac.uk closed.
+
+    ssh trop03
+
+
+# -----------------------------------------------------
+# Stop all our virtual machines.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+    for vmname in $(
+        virsh \
+            --quiet \
+            --connect ${connection:?} \
+            list --all \
+          | sed '
+            s/[[:space:]]*\([^[:space:]]*\)[[:space:]]*\([^[:space:]]*\)[[:space:]]*\(.*$\)/\2/
+            '
+        )
+        do
+            echo "Stopping [${vmname}]"
+            virsh \
+                --connect ${connection:?} \
+                shutdown \
+                    "${vmname}"
+
+        done
+
+    >   Stopping [Angece]
+    >   error: Failed to shutdown domain Angece
+    >   error: Requested operation is not valid: domain is not running
+    >   
+    >   Stopping [Byflame]
+    >   error: Failed to shutdown domain Byflame
+    >   error: Requested operation is not valid: domain is not running
+    >   
+    >   Stopping [Edwalafia]
+    >   error: Failed to shutdown domain Edwalafia
+    >   error: Requested operation is not valid: domain is not running
+    >   
+    >   Stopping [Fosauri]
+    >   error: Failed to shutdown domain Fosauri
+    >   error: Requested operation is not valid: domain is not running
+    >   
+    >   Stopping [Marpus]
+    >   error: Failed to shutdown domain Marpus
+    >   error: Requested operation is not valid: domain is not running
+    >   
+    >   Stopping [Onoza]
+    >   error: Failed to shutdown domain Onoza
+    >   error: Requested operation is not valid: domain is not running
+    >   
+    >   Stopping [Stedigo]
+    >   error: Failed to shutdown domain Stedigo
+    >   error: Requested operation is not valid: domain is not running
+    >   
+    >   Stopping [Umiawyth]
+    >   error: Failed to shutdown domain Umiawyth
+    >   error: Requested operation is not valid: domain is not running
+
+# -----------------------------------------------------
+# List the existing libvirt networks.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        --connect ${connection:?} \
+        net-list \
+            --all
+
+    >    Name                 State      Autostart     Persistent
+    >   ----------------------------------------------------------
+    >    bridged              active     yes           yes
+    >    natted               active     yes           yes
+    >    routed               active     yes           yes
+
+
+# -----------------------------------------------------
+# Delete the existing libvirt networks.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+    for netname in $(
+        virsh \
+            --quiet \
+            --connect ${connection:?} \
+            net-list \
+                --all \
+          | awk '
+            {print $1}
+            '
+        )
+        do
+            echo "Stopping network [${netname}]"
+            virsh \
+                --connect ${connection:?} \
+                net-destroy \
+                    "${netname}"
+
+            echo "Deleting network [${netname}]"
+            virsh \
+                --connect ${connection:?} \
+                net-undefine \
+                    "${netname}"
+
+        done
+
+    >   Stopping network [natted]
+    >   Network bridged destroyed
+    >   
+    >   Deleting network [natted]
+    >   Network bridged has been undefined
+    >   
+    >   Stopping network [routed]
+    >   Network bridged destroyed
+    >   
+    >   Deleting network [routed]
+    >   Network bridged has been undefined
+    >   
+    >   Stopping network [bridged]
+    >   Network bridged destroyed
+    >   
+    >   Deleting network [bridged]
+    >   Network bridged has been undefined
+    >   
+
+
+# -----------------------------------------------------
+# Create a new `natted` network on trop03.
+#[user@trop03]
+
+    vi "/tmp/natted.xml"
+
+        <network ipv6='yes'>
+          <name>natted</name>
+          <uuid/>
+          <forward mode='nat'>
+            <nat>
+              <port start='1024' end='65535'/>
+            </nat>
+          </forward>
+          <bridge name='virbr1' stp='off' delay='0'/>
+          <mac address='52:54:00:05:00:FE'/>
+          <ip family='ipv4' address='192.168.5.254' netmask='255.255.255.0'>
+            <dhcp>
+              <range start='192.168.5.1' end='192.168.5.31'/>
+              <host mac='52:54:00:05:00:01' ip='192.168.5.1'  name='Umiawyth'/>
+              <host mac='52:54:00:05:00:02' ip='192.168.5.2'  name='Etalema'/>
+              <host mac='52:54:00:05:00:03' ip='192.168.5.3'  name='Greand'/>
+              <host mac='52:54:00:05:00:04' ip='192.168.5.4'  name='Nydiralle'/>
+              <host mac='52:54:00:05:00:05' ip='192.168.5.5'  name='Kedaekoth'/>
+              <host mac='52:54:00:05:00:06' ip='192.168.5.6'  name='Onelith'/>
+              <host mac='52:54:00:05:00:07' ip='192.168.5.7'  name='Elaleld'/>
+              <host mac='52:54:00:05:00:08' ip='192.168.5.8'  name='Afoaviel'/>
+              <host mac='52:54:00:05:00:09' ip='192.168.5.9'  name='Rusaldez'/>
+              <host mac='52:54:00:05:00:0A' ip='192.168.5.10' name='Stedigo'/>
+              <host mac='52:54:00:05:00:0B' ip='192.168.5.11' name='Angece'/>
+              <host mac='52:54:00:05:00:0C' ip='192.168.5.12' name='Edwalafia'/>
+              <host mac='52:54:00:05:00:0D' ip='192.168.5.13' name='Onoza'/>
+              <host mac='52:54:00:05:00:0E' ip='192.168.5.14' name='Fosauri'/>
+              <host mac='52:54:00:05:00:0F' ip='192.168.5.15' name='Marpus'/>
+              <host mac='52:54:00:05:00:10' ip='192.168.5.16' name='Byflame'/>
+              <host mac='52:54:00:05:00:11' ip='192.168.5.17' name='Grerat'/>
+              <host mac='52:54:00:05:00:12' ip='192.168.5.18' name='Jeralenia'/>
+              <host mac='52:54:00:05:00:13' ip='192.168.5.19' name='Dwardoa'/>
+              <host mac='52:54:00:05:00:14' ip='192.168.5.20' name='Larohac'/>
+              <host mac='52:54:00:05:00:15' ip='192.168.5.21' name='Kaaeclya'/>
+              <host mac='52:54:00:05:00:16' ip='192.168.5.22' name='Elirannor'/>
+              <host mac='52:54:00:05:00:17' ip='192.168.5.23' name='Jeroaveth'/>
+              <host mac='52:54:00:05:00:18' ip='192.168.5.24' name='Rorekon'/>
+              <host mac='52:54:00:05:00:19' ip='192.168.5.25' name='Astalenna'/>
+              <host mac='52:54:00:05:00:1A' ip='192.168.5.26' name='Afib'/>
+              <host mac='52:54:00:05:00:1B' ip='192.168.5.27' name='Lotholia'/>
+              <host mac='52:54:00:05:00:1C' ip='192.168.5.28' name='Astilamos'/>
+            </dhcp>
+          </ip>
+        </network>
+
+
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        --connect ${connection:?} \
+        net-define \
+        "/tmp/natted.xml"
+
+    >   Network natted defined from /tmp/natted.xml
+
+
+    virsh \
+        --connect ${connection:?} \
+        net-start \
+            'natted'
+
+    >   Network natted started
+
+
+    virsh \
+        --connect ${connection:?} \
+        net-autostart \
+            'natted'
+
+    >   Network natted marked as autostarted
+
+# -----------------------------------------------------
+# Create a new `routed` network on trop03.
+#[user@trop03]
+
+    vi "/tmp/routed.xml"
+
+        <network ipv6='yes'>
+          <name>routed</name>
+          <uuid/>
+          <forward mode="route"/>
+          <bridge name='virbr0' stp='off' delay='0'/>
+          <mac address='52:54:00:05:01:FE'/>
+          <ip family='ipv4' address='172.17.5.254' netmask='255.255.255.0'>
+            <dhcp>
+              <range start='172.17.5.1' end='172.17.5.31'/>
+              <host mac='52:54:00:05:01:01' ip='172.17.5.1'  name='Umiawyth'/>
+              <host mac='52:54:00:05:01:02' ip='172.17.5.2'  name='Etalema'/>
+              <host mac='52:54:00:05:01:03' ip='172.17.5.3'  name='Greand'/>
+              <host mac='52:54:00:05:01:04' ip='172.17.5.4'  name='Nydiralle'/>
+              <host mac='52:54:00:05:01:05' ip='172.17.5.5'  name='Kedaekoth'/>
+              <host mac='52:54:00:05:01:06' ip='172.17.5.6'  name='Onelith'/>
+              <host mac='52:54:00:05:01:07' ip='172.17.5.7'  name='Elaleld'/>
+              <host mac='52:54:00:05:01:08' ip='172.17.5.8'  name='Afoaviel'/>
+              <host mac='52:54:00:05:01:09' ip='172.17.5.9'  name='Rusaldez'/>
+              <host mac='52:54:00:05:01:0A' ip='172.17.5.10' name='Stedigo'/>
+              <host mac='52:54:00:05:01:0B' ip='172.17.5.11' name='Angece'/>
+              <host mac='52:54:00:05:01:0C' ip='172.17.5.12' name='Edwalafia'/>
+              <host mac='52:54:00:05:01:0D' ip='172.17.5.13' name='Onoza'/>
+              <host mac='52:54:00:05:01:0E' ip='172.17.5.14' name='Fosauri'/>
+              <host mac='52:54:00:05:01:0F' ip='172.17.5.15' name='Marpus'/>
+              <host mac='52:54:00:05:01:10' ip='172.17.5.16' name='Byflame'/>
+              <host mac='52:54:00:05:01:11' ip='172.17.5.17' name='Grerat'/>
+              <host mac='52:54:00:05:01:12' ip='172.17.5.18' name='Jeralenia'/>
+              <host mac='52:54:00:05:01:13' ip='172.17.5.19' name='Dwardoa'/>
+              <host mac='52:54:00:05:01:14' ip='172.17.5.20' name='Larohac'/>
+              <host mac='52:54:00:05:01:15' ip='172.17.5.21' name='Kaaeclya'/>
+              <host mac='52:54:00:05:01:16' ip='172.17.5.22' name='Elirannor'/>
+              <host mac='52:54:00:05:01:17' ip='172.17.5.23' name='Jeroaveth'/>
+              <host mac='52:54:00:05:01:18' ip='172.17.5.24' name='Rorekon'/>
+              <host mac='52:54:00:05:01:19' ip='172.17.5.25' name='Astalenna'/>
+              <host mac='52:54:00:05:01:1A' ip='172.17.5.26' name='Afib'/>
+              <host mac='52:54:00:05:01:1B' ip='172.17.5.27' name='Lotholia'/>
+              <host mac='52:54:00:05:01:1C' ip='172.17.5.28' name='Astilamos'/>
+            </dhcp>
+          </ip>
+        </network>
+
+
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        --connect ${connection:?} \
+        net-define \
+        "/tmp/routed.xml"
+
+    >   Network routed defined from /tmp/routed.xml
+
+
+    virsh \
+        --connect ${connection:?} \
+        net-start \
+            'routed'
+
+    >   Network routed started
+
+
+    virsh \
+        --connect ${connection:?} \
+        net-autostart \
+            'routed'
+
+    >   Network routed marked as autostarted
+
+
+# -----------------------------------------------------
+# Update the `hosts` file on trop03 to match the `routed` networks.
+#[user@trop03]
+
+    sudo vi /etc/hosts
+
+        ....
+
+        #
+        # trop03 routed network
+        172.17.5.1   Umiawyth
+        172.17.5.2   Etalema
+        172.17.5.3   Greand
+        172.17.5.4   Nydiralle
+        172.17.5.5   Kedaekoth
+        172.17.5.6   Onelith
+        172.17.5.7   Elaleld
+        172.17.5.8   Afoaviel
+        172.17.5.9   Rusaldez
+        172.17.5.10  Stedigo
+        172.17.5.11  Angece
+        172.17.5.12  Edwalafia
+        172.17.5.13  Onoza
+        172.17.5.14  Fosauri
+        172.17.5.15  Marpus
+        172.17.5.16  Byflame
+        172.17.5.17  Grerat
+        172.17.5.18  Jeralenia
+        172.17.5.19  Dwardoa
+        172.17.5.20  Larohac
+        172.17.5.21  Kaaeclya
+        172.17.5.22  Elirannor
+        172.17.5.23  Jeroaveth
+        172.17.5.24  Rorekon
+        172.17.5.25  Astalenna
+        172.17.5.26  Afib
+        172.17.5.27  Lotholia
+        172.17.5.28  Astilamos
+
+
+        #
+        # trop04 routed network
+        172.17.6.1   Wumar
+        172.17.6.2   Larilaweth
+        172.17.6.3   Ror
+        172.17.6.4   Asterade
+        172.17.6.5   Ibedrinnon
+        172.17.6.6   Arigorith
+        172.17.6.7   Glydan
+        172.17.6.8   Clarith
+        172.17.6.9   Cadoired
+        172.17.6.10  Adweasien
+        172.17.6.11  Etemar
+        172.17.6.12  Sevaymwen
+        172.17.6.13  Rydan
+        172.17.6.14  Kaaclya
+        172.17.6.15  Crohab
+        172.17.6.16  Iberani
+        172.17.6.17  Nerrawan
+        172.17.6.18  Gwauswen
+        172.17.6.19  Cirel
+        172.17.6.20  Gendaswen
+        172.17.6.21  Ocede
+        172.17.6.22  Crilird
+        172.17.6.23  Astendawen
+        172.17.6.24  Nendalith
+        172.17.6.25  Saelia
+        172.17.6.26  Adwaeric
+        172.17.6.27  Moemond
+        172.17.6.28  Iberidia
+
+# -----------------------------------------------------
+# Check the firewall settings on trop03.
+#[user@trop03]
+
+    sudo iptables \
+        --line-numbers \
+        --table filter \
+        --list \
+            INPUT
+
+    #
+    # Allow connections from anywhere on the main VLAN subnet.
+    #
+
+    >   ....
+    >   13   ACCEPT     udp  --  172.16.0.0/16        anywhere
+    >   14   ACCEPT     tcp  --  172.16.0.0/16        anywhere
+    >   ....
+
+
+# -----------------------------------------------------
+# Allow ssh connections from the `routed` network on this host.
+# * only needed for testing.
+#[user@trop03]
+
+    sudo iptables \
+        --insert INPUT 15 \
+        --source 172.17.5.0/24 \
+        --protocol tcp \
+        --dport 22 \
+        --jump ACCEPT
+
+
+# -----------------------------------------------------
+# Allow ssh connections from the `routed` network on the other host(s).
+# * only needed for testing.
+#[user@trop03]
+
+    sudo iptables \
+        --insert INPUT 16 \
+        --source 172.17.6.0/24 \
+        --protocol tcp \
+        --dport 22 \
+        --jump ACCEPT
+
+
+# -----------------------------------------------------
+# Check the firewall settings on trop03.
+#[user@trop03]
+
+    sudo iptables \
+        --line-numbers \
+        --table filter \
+        --list \
+            INPUT
+
+    >   Chain INPUT (policy DROP)
+    >   num  target     prot opt source               destination
+    >   1    ACCEPT     udp  --  anywhere             anywhere             udp dpt:domain
+    >   2    ACCEPT     tcp  --  anywhere             anywhere             tcp dpt:domain
+    >   3    ACCEPT     udp  --  anywhere             anywhere             udp dpt:bootps
+    >   4    ACCEPT     tcp  --  anywhere             anywhere             tcp dpt:bootps
+    >   5    ACCEPT     udp  --  anywhere             anywhere             udp dpt:domain
+    >   6    ACCEPT     tcp  --  anywhere             anywhere             tcp dpt:domain
+    >   7    ACCEPT     udp  --  anywhere             anywhere             udp dpt:bootps
+    >   8    ACCEPT     tcp  --  anywhere             anywhere             tcp dpt:bootps
+    >   9    ACCEPT     udp  --  anywhere             anywhere             udp dpt:bootps
+    >   10   ACCEPT     tcp  --  anywhere             anywhere             tcp dpt:bootps
+    >   11   override   all  --  anywhere             anywhere
+    >   12   ACCEPT     all  --  anywhere             anywhere
+    >   13   ACCEPT     udp  --  172.16.0.0/16        anywhere
+    >   14   ACCEPT     tcp  --  172.16.0.0/16        anywhere
+    >   15   ACCEPT     tcp  --  172.17.5.0/24        anywhere             tcp dpt:ssh
+    >   16   ACCEPT     tcp  --  172.17.6.0/24        anywhere             tcp dpt:ssh
+    >   17   ACCEPT     tcp  --  195.194.120.0/22     anywhere             tcp dpt:ssh
+    >   18   ACCEPT     tcp  --  195.194.121.0/24     anywhere             tcp dpt:ssh
+    >   19   ACCEPT     tcp  --  192.108.120.0/24     anywhere             tcp dpt:ssh
+    >   20   ACCEPT     tcp  --  192.41.108.0/24      anywhere             tcp dpt:ssh
+    >   21   ACCEPT     tcp  --  EdLAN.net.ed.ac.uk/16  anywhere             tcp dpt:ssh
+    >   22   ACCEPT     tcp  --  polymer.andrews.metagrid.co.uk  anywhere             tcp dpt:ssh
+    >   23   ACCEPT     tcp  --  67.46.187.81.in-addr.arpa  anywhere             tcp dpt:ssh
+    >   24   DROP       udp  --  anywhere             anywhere             udp dpt:bootps
+    >   25   DROP       tcp  --  anywhere             anywhere             tcp dpt:bootps
+    >   26   LOG        all  --  anywhere             anywhere             LOG level warning prefix "drop "
+    >   27   DROP       all  --  anywhere             anywhere
+
+
+# -----------------------------------------------------
+# Check the ip routes on trop03.
+#[user@trop03]
+
+    ip route
+
+    >   default via 129.215.175.126 dev br0 onlink
+    >   129.215.175.0/24 dev br0 proto kernel scope link src 129.215.175.98
+    >   172.16.0.0/16 dev br1 proto kernel scope link src 172.16.1.5
+    >   172.17.5.0/24 dev virbr0 proto kernel scope link src 172.17.5.254 linkdown
+    >   192.168.5.0/24 dev virbr1 proto kernel scope link src 192.168.5.254 linkdown
+
+
+    #
+    # The main VLAN subnet (already configured).
+    >   172.16.0.0/16 dev br1 proto kernel scope link src 172.16.1.5
+
+    #
+    # The `natted` network on this machine (added by libvirt).
+    >   192.168.5.0/24 dev virbr1 proto kernel scope link src 192.168.5.254
+
+    #
+    # The `routed` network on this machine (added by libvirt).
+    >   172.17.5.0/24 dev virbr0 proto kernel scope link src 172.17.5.254
+
+# -----------------------------------------------------
+# Add an ip route for the `routed` network on the other machine(s).
+#[user@trop03]
+
+    sudo ip route add 172.17.6.0/24 via 172.16.1.6 dev br1
+
+
+
+# -----------------------------------------------------
+# Check the ip routes on trop03.
+#[user@trop03]
+
+    ip route
+
+    >   default via 129.215.175.126 dev br0 onlink
+    >   129.215.175.0/24 dev br0 proto kernel scope link src 129.215.175.98
+    >   172.16.0.0/16 dev br1 proto kernel scope link src 172.16.1.5
+    >   172.17.5.0/24 dev virbr0 proto kernel scope link src 172.17.5.254 linkdown
+    >   172.17.6.0/24 via 172.16.1.6 dev br1
+    >   192.168.5.0/24 dev virbr1 proto kernel scope link src 192.168.5.254 linkdown
+
+
+# -----------------------------------------------------
+# Edit the config for the `Umiawyth` virtual machine.
+# Adding a MAC address that matches our `routed` and `natted` networks.
+#[user@trop03]
+
+    vmname=Umiawyth
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        --connect ${connection:?} \
+        edit \
+            "${vmname:?}"
+
+        <interface type='network'>
+    ~     <mac address='52:54:00:05:00:01'/>
+          <source network='natted'/>
+          <model type='virtio'/>
+          <address type='pci' domain='0x0000' bus='0x00' slot='0x07' function='0x0'/>
+        </interface>
+
+        <interface type='network'>
+    ~     <mac address='52:54:00:05:01:01'/>
+          <source network='routed'/>
+          <model type='virtio'/>
+          <address type='pci' domain='0x0000' bus='0x00' slot='0x08' function='0x0'/>
+        </interface>
+
+
+    >   Domain Umiawyth XML configuration edited.
+
+
+# -----------------------------------------------------
+# Start the `Umiawyth` virtual machine.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        --connect ${connection:?} \
+        start \
+            "${vmname:?}"
+
+    >   Domain Umiawyth started
+
+
+# -----------------------------------------------------
+# Update the ssh fingerprint for the `Umiawyth` virtual machine.
+# https://unix.stackexchange.com/questions/126908/get-ssh-server-key-fingerprint
+# https://serverfault.com/questions/132970/can-i-automatically-add-a-new-host-to-known-hosts/132973
+#[user@trop03]
+
+    ssh-keygen -q -R "172.17.5.1"
+
+    ssh-keyscan -t ecdsa "${vmname:?},172.17.5.1" >> "${HOME}/.ssh/known_hosts"
+
+# -----------------------------------------------------
+# Login to the virtual machine and edit the network config.
+#[user@trop03]
+
+    source "${HOME}/ssh-options"
+
+    ssh ${sshopts} \
+        "${sshuser:?}@${vmname:?}"
+
+    >   Last login: Tue Mar 19 13:20:47 2019 from 172.17.5.254
+
+# -----------------------------------------------------
+# Edit the network config on the virtual machine.
+#[user@Umiawyth]
+
+    sudo vi /etc/sysconfig/network
+
+    >   # Manually edited.
+    >   # Default gateway is the 192.168.0.0/24 `natted` network.
+    >   GATEWAY=192.168.5.254
+    >   GATEWAYDEV=ens7
+
+
+# -----------------------------------------------------
+# Edit the `natted` interface on the virtual machine.
+#[user@Umiawyth]
+
+    sudo vi /etc/sysconfig/network-scripts/ifcfg-ens7
+
+    >   #
+    >   # Manually edited, 192.168.0.0/24 `natted` network.
+    >   #
+    >   BOOTPROTO=dhcp
+    >   DEVICE=ens7
+    >   HWADDR=52:54:00:05:00:01
+    >   ONBOOT=yes
+    >   TYPE=Ethernet
+    >   USERCTL=no
+    >   DEFROUTE=yes
+
+
+    sudo vi /etc/sysconfig/network-scripts/route-ens7
+
+    >   -
+
+# -----------------------------------------------------
+# Edit the `routed` interface on the virtual machine.
+#[user@Umiawyth]
+
+    sudo vi /etc/sysconfig/network-scripts/ifcfg-ens8
+
+    >   #
+    >   # Manually edited, 172.17.0.0/24 `routed` network.
+    >   #
+    >   BOOTPROTO=dhcp
+    >   DEVICE=ens7
+    >   HWADDR=52:54:00:05:01:01
+    >   ONBOOT=yes
+    >   TYPE=Ethernet
+    >   USERCTL=no
+    >   DEFROUTE=no
+
+    sudo vi /etc/sysconfig/network-scripts/route-ens8
+
+    >   172.16.0.0/16 via 172.17.5.254 dev ens8
+    >   172.17.6.1/24 via 172.17.5.254 dev ens8
+
+
+# -----------------------------------------------------
+# Reboot the virtual machine
+#[user@Umiawyth]
+
+    sudo reboot
+
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+#[user@trop03]
+
+    vmname=Umiawyth
+    vm172=172.17.5.1
+    vm192=192.168.5.1
+
+
+# -----------------------------------------------------
+# Try connecting via the `natted` interface.
+#[user@trop03]
+
+    source "${HOME}/ssh-options"
+
+    ssh ${sshopts} \
+        ${sshuser:?}@{vm192:?} \
+        '
+        date
+        hostname
+        '
+
+    >   Wed 20 Mar 13:45:16 GMT 2019
+    >   Umiawyth
+
+
+# -----------------------------------------------------
+# Try connecting via the `routed` interface.
+#[user@trop03]
+
+    source "${HOME}/ssh-options"
+
+    ssh ${sshopts} \
+        ${sshuser:?}@{vm172:?} \
+        '
+        date
+        hostname
+        '
+
+    >   Wed 20 Mar 13:45:34 GMT 2019
+    >   Umiawyth
+
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+# Login to do the next set of tests.
+#[user@trop03]
+
+    source "${HOME}/ssh-options"
+
+    ssh ${sshopts} \
+        "${sshuser:?}@${vmname:?}"
+
+
+# -----------------------------------------------------
+# Check the ip routes.
+#[user@Umiawyth]
+
+    ip route
+
+    >   default via 192.168.5.254 dev ens7 proto dhcp metric 100
+    >   172.16.0.0/16 via 172.17.5.254 dev ens8 proto static metric 101
+    >   172.17.5.0/24 dev ens8 proto kernel scope link src 172.17.5.1 metric 101
+    >   172.17.6.0/24 via 172.17.5.254 dev ens8 proto static metric 101
+    >   192.168.5.0/24 dev ens7 proto kernel scope link src 192.168.5.1 metric 100
+
+
+# -----------------------------------------------------
+# Check the `Umiawyth` virtual machine can see an ROE machine.
+#[user@Umiawyth]
+
+    curl --head --silent "http://tap.roe.ac.uk/osa/availability"
+
+    >   HTTP/1.1 200
+    >   Date: Wed, 20 Mar 2019 14:43:41 GMT
+    >   Server: Apache/2.4.34 (Fedora)
+    >   X-Clacks-Overhead: GNU Terry Pratchett
+    >   firethorn.auth.identity: http://tap.roe.ac.uk/firethorn/community-member/32956724
+    >   firethorn.auth.username: anon-EKC35K3QMUJ5WAAAAFUZXDWOEY
+    >   firethorn.auth.community: friends
+    >   Content-Type: text/xml;charset=UTF-8
+    >   Content-Length: 224
+
+
+# -----------------------------------------------------
+# Check the `Umiawyth` virtual machine can see the outside world.
+#[user@Umiawyth]
+
+    curl --head --silent "http://data.metagrid.co.uk/temp/"
+
+    >   HTTP/1.1 200 OK
+    >   Date: Wed, 20 Mar 2019 13:47:08 GMT
+    >   Server: Apache/2.2.15 (CentOS)
+    >   Connection: close
+    >   Content-Type: text/html;charset=UTF-8
+
+
+# -----------------------------------------------------
+# Check the `Umiawyth` virtual machine can login to it's own host.
+#[user@Umiawyth]
+
+    ssh dmr@172.16.1.5 \
+        '
+        date
+        hostname
+        '
+
+    >   Wed 20 Mar 13:48:19 GMT 2019
+    >   trop03
+
+
+# -----------------------------------------------------
+# Check the `Umiawyth` virtual machine can login to another host.
+#[user@Umiawyth]
+
+    ssh dmr@172.16.1.6 \
+        '
+        date
+        hostname
+        '
+
+    >   Wed 20 Mar 14:48:30 GMT 2019
+    >   trop04
+
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+# Check the `Wumar` virtual machine can be reached from another host.
+#[user@trop04]
+
+    source "${HOME}/ssh-options"
+
+    vmname=Umiawyth
+
+    ssh ${sshopts} \
+        "${sshuser:?}@${vmname:?}" \
+        '
+        date
+        hostname
+        '
+
+    >   Wed 20 Mar 19:25:12 GMT 2019
+    >   Umiawyth
+

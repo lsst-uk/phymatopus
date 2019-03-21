@@ -1,0 +1,356 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+    #
+    # Start all of the other VMs.
+    # Edit the libvirt configuration.
+    # Start the virtual machine.
+    # Login and edit the network configuration.
+    # Reboot and test.
+    #
+
+# -----------------------------------------------------
+# Our Zookeeper nodes.
+#[user@trop03]
+
+    zknames=(
+        Fosauri
+        Marpus
+        Byflame
+        )
+
+# -----------------------------------------------------
+# Our Kafka nodes.
+#[user@trop03]
+
+    kfnames=(
+        Stedigo
+        Angece
+        Edwalafia
+        Onoza
+        )
+
+# -----------------------------------------------------
+# Our MirrorMaker nodes.
+#[user@trop04]
+
+    mmnames=(
+        Moemond
+        Iberidia
+        )
+
+# -----------------------------------------------------
+# Get the configuration data for our libvirt networks.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+    getnetinfo()
+        {
+        local netname=${1:?}
+        virsh \
+            --connect ${connection:?} \
+            net-dumpxml \
+                "${netname}" \
+        > "/tmp/${netname}.xml"
+        }
+
+    for netname in natted routed
+    do
+        getnetinfo ${netname:?}
+    done
+
+# -----------------------------------------------------
+# Get the net address from a network config.
+#[user@trop03]
+
+    getnetip()
+        {
+        local netname=${1:?}
+        xmlstarlet \
+            select \
+                --indent \
+                --template \
+                    --match "//ip[1]" \
+                    --value-of "@address" \
+        "/tmp/${netname}.xml"
+        }
+
+# -----------------------------------------------------
+# Get a MAC address from a network config.
+#[user@trop03]
+
+    getvmmac()
+        {
+        local vmname=${1:?}
+        local netname=${2:?}
+        xmlstarlet \
+            select \
+                --indent \
+                --template \
+                    --match "//host[@name='${vmname:?}']" \
+                    --value-of "@mac" \
+        "/tmp/${netname}.xml"
+        }
+
+
+# -----------------------------------------------------
+# Update a virtual machine network configuration.
+#[user@trop03]
+
+    routedpci=0x03
+    routeddev=ens3
+
+    nattedpci=0x07
+    natteddev=ens7
+
+    setvminfo()
+        {
+        local vmname=${1:?}
+
+        echo "---- ----"
+        echo "Node [${vmname:?}]"
+
+        virsh \
+            --connect ${connection:?} \
+            dumpxml \
+                --inactive \
+                --security-info \
+                    "${vmname:?}" \
+        > "/tmp/${vmname:?}.xml"
+
+        nattedmac=$(getvmmac "${vmname:?}" 'natted')
+        routedmac=$(getvmmac "${vmname:?}" 'routed')
+
+        echo "natted MAC [${nattedmac}]"
+        echo "routed MAC [${routedmac}]"
+
+        xmlstarlet \
+            edit \
+                --inplace \
+                --update "//interface[1]/source/@network" \
+                    --value 'routed' \
+                --update "//interface[1]/mac/@address" \
+                    --value "${routedmac:?}" \
+                --update "//interface[1]/address/@slot" \
+                    --value "${routedpci:?}" \
+                --update "//interface[2]/source/@network" \
+                    --value 'natted' \
+                --update "//interface[2]/mac/@address" \
+                    --value "${nattedmac:?}" \
+                --update "//interface[2]/address/@slot" \
+                    --value "${nattedpci:?}" \
+        "/tmp/${vmname:?}.xml"
+
+        virsh \
+            --connect ${connection:?} \
+            define \
+                "/tmp/${vmname:?}.xml"
+        }
+
+# -----------------------------------------------------
+# Update the vm config for our Zookeeper nodes.
+#[user@trop03]
+
+    for vmname in ${zknames[@]}
+    do
+        getvminfo "${vmname:?}"
+        setvminfo "${vmname:?}"
+    done
+
+
+    >   ---- ----
+    >   Node [Fosauri]
+    >   natted MAC [52:54:00:05:00:0E]
+    >   routed MAC [52:54:00:05:01:0E]
+    >   Domain Fosauri defined from /tmp/Fosauri.xml
+    >   
+    >   ---- ----
+    >   Node [Marpus]
+    >   natted MAC [52:54:00:05:00:0F]
+    >   routed MAC [52:54:00:05:01:0F]
+    >   Domain Marpus defined from /tmp/Marpus.xml
+    >   
+    >   ---- ----
+    >   Node [Byflame]
+    >   natted MAC [52:54:00:05:00:10]
+    >   routed MAC [52:54:00:05:01:10]
+    >   Domain Byflame defined from /tmp/Byflame.xml
+
+
+# -----------------------------------------------------
+# Update the vm config for our Kafka nodes.
+#[user@trop03]
+
+    for vmname in ${kfnames[@]}
+    do
+        getvminfo "${vmname:?}"
+        setvminfo "${vmname:?}"
+    done
+
+
+    >   ---- ----
+    >   Node [Stedigo]
+    >   natted MAC [52:54:00:05:00:0A]
+    >   routed MAC [52:54:00:05:01:0A]
+    >   Domain Stedigo defined from /tmp/Stedigo.xml
+    >   
+    >   ---- ----
+    >   Node [Angece]
+    >   natted MAC [52:54:00:05:00:0B]
+    >   routed MAC [52:54:00:05:01:0B]
+    >   Domain Angece defined from /tmp/Angece.xml
+    >   
+    >   ---- ----
+    >   Node [Edwalafia]
+    >   natted MAC [52:54:00:05:00:0C]
+    >   routed MAC [52:54:00:05:01:0C]
+    >   Domain Edwalafia defined from /tmp/Edwalafia.xml
+    >   
+    >   ---- ----
+    >   Node [Onoza]
+    >   natted MAC [52:54:00:05:00:0D]
+    >   routed MAC [52:54:00:05:01:0D]
+    >   Domain Onoza defined from /tmp/Onoza.xml
+
+
+# -----------------------------------------------------
+# Start our Zookeeper nodes.
+#[user@trop03]
+
+    vmname=Fosauri
+    virsh \
+        --connect ${connection:?} \
+        start \
+            "${vmname}"
+
+    >   Domain Fosauri started
+
+
+# -----------------------------------------------------
+# Stop the Docker service.
+#[user@trop03]
+
+    ssh "${vmname}" \
+        "
+        date
+        hostname
+        sudo systemctl stop   docker
+        sudo systemctl status docker
+        "
+
+    >   Thu 21 Mar 04:12:29 GMT 2019
+    >   Fosauri
+    >   ● docker.service - Docker Application Container Engine
+    >      Loaded: loaded (/usr/lib/systemd/system/docker.service; enabled; vendor preset: disabled)
+    >      Active: inactive (dead) since Thu 2019-03-21 04:11:11 GMT; 1min 18s ago
+    >        Docs: https://docs.docker.com
+    >     Process: 816 ExecStart=/usr/bin/dockerd (code=exited, status=0/SUCCESS)
+    >    Main PID: 816 (code=exited, status=0/SUCCESS)
+
+
+# -----------------------------------------------------
+# Update the virtual machine.
+#[user@trop03]
+
+    routedpci=0x03
+    routeddev=ens3
+    routedip=$(getnetip 'routed')
+
+    nattedpci=0x07
+    natteddev=ens7
+    nattedip=$(getnetip 'natted')
+
+    ssh "${vmname}" \
+        "
+        date
+        hostname
+
+        cat > /tmp/network << EOCFG
+GATEWAY=${nattedip:?}
+GATEWAYDEV=${natteddev:?}
+EOCFG
+
+        cat > "/tmp/ifcfg-${routeddev:?}" << EOCFG
+BOOTPROTO=dhcp
+DEVICE=${routeddev:?}
+HWADDR=${routedmac:?}
+ONBOOT=yes
+TYPE=Ethernet
+USERCTL=no
+DEFROUTE=no
+EOCFG
+
+    cat > "/tmp/ifcfg-${natteddev:?}" << EOCFG
+BOOTPROTO=dhcp
+DEVICE=${natteddev:?}
+HWADDR=${nattedmac:?}
+ONBOOT=yes
+TYPE=Ethernet
+USERCTL=no
+DEFROUTE=yes
+EOCFG
+
+    cat > "/tmp/route-${routeddev:?}" << EOCFG
+172.16.0.0/16 via ${routedip:?} dev ${routeddev:?}
+172.17.5.1/24 via ${routedip:?} dev ${routeddev:?}
+172.17.6.1/24 via ${routedip:?} dev ${routeddev:?}
+EOCFG
+
+    cat > "/tmp/route-${natteddev:?}" << EOCFG
+EOCFG
+
+        sudo mv "/tmp/network"                "/etc/sysconfig/network"
+        sudo mv "/tmp/ifcfg-${routeddev:?}"   "/etc/sysconfig/network-scripts/ifcfg-${routeddev:?}"
+        sudo mv "/tmp/ifcfg-${natteddev:?}"   "/etc/sysconfig/network-scripts/ifcfg-${natteddev:?}"
+        sudo mv "/tmp/route-${routeddev:?}"   "/etc/sysconfig/network-scripts/route-${routeddev:?}"
+        sudo mv "/tmp/route-${natteddev:?}"   "/etc/sysconfig/network-scripts/route-${natteddev:?}"
+
+        "
+
+# -----------------------------------------------------
+# Reboot the virtual machine.
+#[user@trop03]
+
+    virsh \
+        --connect ${connection:?} \
+        reboot \
+            "${vmname}"
+
+# -----------------------------------------------------
+# Check the network config.
+#[user@trop03]
+
+    ssh "${vmname}" \
+        "
+        echo "---- [network]"
+        cat "/etc/sysconfig/network"
+        echo "---- [ifcfg-ens3]"
+        cat "/etc/sysconfig/network-scripts/ifcfg-ens3"
+        echo "---- [ifcfg-ens7]"
+        cat "/etc/sysconfig/network-scripts/ifcfg-ens7"
+        echo "---- [route-ens3]"
+        cat "/etc/sysconfig/network-scripts/route-ens3"
+        echo "---- [route-ens7]"
+        cat "/etc/sysconfig/network-scripts/route-ens7"
+        "
+
