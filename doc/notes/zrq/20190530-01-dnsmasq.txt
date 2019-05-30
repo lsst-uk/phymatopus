@@ -1,0 +1,308 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+    Local MAC addresses
+    https://serverfault.com/a/40720
+    https://en.wikipedia.org/wiki/MAC_address#Universal_vs._local
+
+# -----------------------------------------------------
+# Create the dnsmasq config files.
+#[root@work01]
+
+    mkdir /etc/dnsmasq
+
+    cat > /etc/dnsmasq/00.debug.conf << EOF
+log-dhcp
+log-queries
+EOF
+
+    cat > /etc/dnsmasq/01.base.conf << EOF
+domain-needed
+bogus-priv
+no-hosts
+no-resolv
+keep-in-foreground
+dhcp-broadcast
+expand-hosts
+server=195.194.120.1
+server=195.194.120.2
+server=8.8.8.8
+no-daemon
+log-facility=-
+interface=br1
+bind-interfaces
+EOF
+
+    cat > /etc/dnsmasq/02.lsstuk-name.conf << EOF
+host-record=work-01,work-01.lsstuk,172.16.1.1
+host-record=work-02,work-02.lsstuk,172.16.1.2
+host-record=work-03,work-03.lsstuk,172.16.1.3
+host-record=work-04,work-04.lsstuk,172.16.1.4
+host-record=trop-03,trop-03.lsstuk,172.16.1.5
+host-record=trop-04,trop-04.lsstuk,172.16.1.6
+host-record=data-01,data-01.lsstuk,172.16.1.7
+host-record=data-02,data-02.lsstuk,172.16.1.8
+host-record=gaia-01,gaia-01.lsstuk,172.16.1.9
+host-record=gaia-02,gaia-02.lsstuk,172.16.1.10
+EOF
+
+    cat > /etc/dnsmasq/03.trop-public.conf << EOF
+host-record=trop01.roe.ac.uk,129.215.175.96
+host-record=trop02.roe.ac.uk,129.215.175.97
+host-record=trop03.roe.ac.uk,129.215.175.98
+host-record=trop04.roe.ac.uk,129.215.175.99
+EOF
+
+    cat > /etc/dnsmasq/04.dhcp-work-01.conf << EOF
+dhcp-range=set:work-01,172.16.0.1,172.16.0.255,255.255.0.0,172.16.255.255,5m
+dhcp-generate-names=work-01
+EOF
+
+    cat > /etc/dnsmasq/05.dhcp-work-02.conf << EOF
+dhcp-range=set:work-02,172.16.2.1,172.16.2.255,255.255.0.0,172.16.255.255,5m
+dhcp-generate-names=work-02
+EOF
+
+    cat > /etc/dnsmasq/06.dhcp-work-03.conf << EOF
+dhcp-range=set:work-03,172.16.3.1,172.16.3.255,255.255.0.0,172.16.255.255,5m
+dhcp-generate-names=work-03
+EOF
+
+    cat > /etc/dnsmasq/07.dhcp-work-04.conf << EOF
+dhcp-range=set:work-04,172.16.4.1,172.16.4.255,255.255.0.0,172.16.255.255,5m
+dhcp-generate-names=work-04
+EOF
+
+    cat > /etc/dnsmasq/08.dhcp-trop-03.conf << EOF
+dhcp-range=set:trop-03,172.16.5.1,172.16.5.255,255.255.0.0,172.16.255.255,5m
+dhcp-generate-names=trop-03
+
+dhcp-host=06:00:00:10:05:01,172.16.5.1,Umiawyth,5m
+dhcp-host=06:00:00:10:05:02,172.16.5.2,Etalema,5m
+dhcp-host=06:00:00:10:05:03,172.16.5.3,Greand,5m
+dhcp-host=06:00:00:10:05:04,172.16.5.4,Nydiralle,5m
+
+host-record=Umiawyth,172.16.5.1
+host-record=Etalema,172.16.5.2
+host-record=Greand,172.16.5.3
+host-record=Nydiralle,172.16.5.4
+
+EOF
+
+    cat > /etc/dnsmasq/09.dhcp-trop-04.conf << EOF
+dhcp-range=set:trop-04,172.16.6.1,172.16.6.255,255.255.0.0,172.16.255.255,5m
+dhcp-generate-names=trop-04
+EOF
+
+
+# -----------------------------------------------------
+# Run the dnsmasq container linked to the host interfaces.
+# Configure dnsmasq to bind to the bridge interface by name,
+# and prevent it from connecting to the wildcard address.
+#[root@work01]
+
+    docker run \
+        --tty \
+        --interactive \
+        --network host \
+        --volume /etc/dnsmasq:/etc/dnsmasq \
+        storytel/dnsmasq
+
+    >   dnsmasq[1]: started, version 2.78 cachesize 150
+    >   dnsmasq[1]: compile time options: IPv6 GNU-getopt no-DBus no-i18n no-IDN DHCP DHCPv6 no-Lua TFTP no-conntrack ipset auth no-DNSSEC loop-detect inotify
+    >   dnsmasq-dhcp[1]: DHCP, IP range 172.16.5.1 -- 172.16.5.255, lease time 5m
+    >   dnsmasq-dhcp[1]: DHCP, IP range 172.16.4.1 -- 172.16.4.255, lease time 5m
+    >   dnsmasq-dhcp[1]: DHCP, IP range 172.16.2.1 -- 172.16.2.255, lease time 5m
+    >   dnsmasq-dhcp[1]: DHCP, IP range 172.16.6.1 -- 172.16.6.255, lease time 5m
+    >   dnsmasq-dhcp[1]: DHCP, IP range 172.16.3.1 -- 172.16.3.255, lease time 5m
+    >   dnsmasq-dhcp[1]: DHCP, IP range 172.16.0.1 -- 172.16.0.255, lease time 5m
+    >   dnsmasq-dhcp[1]: DHCP, sockets bound exclusively to interface br1
+    >   dnsmasq[1]: using nameserver 8.8.8.8#53
+    >   dnsmasq[1]: using nameserver 195.194.120.2#53
+    >   dnsmasq[1]: using nameserver 195.194.120.1#53
+    >   dnsmasq[1]: cleared cache
+
+
+# -----------------------------------------------------
+# Update the DNS config on work02-04
+#[root@work02]
+#[root@work03]
+#[root@work04]
+
+    vi /etc/netplan/01-netcfg.yaml
+
+        bridges:
+          br1:
+            addresses: [ 172.16.1.2/16 ]
+            interfaces: [ eno1 ]
+            gateway4: 172.16.1.1
+            dhcp4: false
+            optional: true
+    +       nameservers:
+    +         search: [ lsstuk, roe.ac.uk ]
+    +         addresses:
+    +           - "172.16.1.1"
+
+
+      nameservers:
+        search: [ lsstuk, roe.ac.uk ]
+        addresses:
+          - "172.16.1.1"
+
+
+    netplan generate
+
+    netplan apply
+
+
+# -----------------------------------------------------
+# Remove the hosts entries from work01-04.
+#[root@work01]
+#[root@work02]
+#[root@work03]
+#[root@work04]
+
+    vi /etc/hosts
+
+        127.0.0.1       localhost
+
+    -   172.16.1.1      work0
+    -   172.16.1.2      work1
+    -   172.16.1.3      work2
+    -   172.16.1.4      work3
+    -   172.16.1.5      trop3
+    -   172.16.1.6      trop4
+    -   172.16.1.7      data1
+    -   172.16.1.8      data2
+    -   172.16.1.9      gaia1
+    -   172.16.1.10     gaia2
+
+
+# -----------------------------------------------------
+# Test the DNS resolver on work01-04.
+#[root@work01]
+#[root@work02]
+#[root@work03]
+#[root@work04]
+
+    host work-01
+
+    >   work-01.lsstuk has address 172.16.1.1
+
+
+    host work-01.lsstuk
+
+    >   work-01.lsstuk has address 172.16.1.1
+
+
+    host -v work-01.lsstuk
+
+    >   Trying "work-01.lsstuk"
+    >   ;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 14075
+    >   ;; flags: qr rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 0
+    >   
+    >   ;; QUESTION SECTION:
+    >   ;work-01.lsstuk.			IN	A
+    >   
+    >   ;; ANSWER SECTION:
+    >   work-01.lsstuk.		0	IN	A	172.16.1.1
+    >   
+    >   Received 48 bytes from 127.0.0.53#53 in 1 ms
+    >   Trying "work-01.lsstuk"
+    >   ;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 47216
+    >   ;; flags: qr rd ra; QUERY: 1, ANSWER: 0, AUTHORITY: 0, ADDITIONAL: 0
+    >   
+    >   ;; QUESTION SECTION:
+    >   ;work-01.lsstuk.			IN	AAAA
+    >   
+    >   Received 32 bytes from 127.0.0.53#53 in 0 ms
+    >   Trying "work-01.lsstuk"
+    >   ;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 61995
+    >   ;; flags: qr rd ra; QUERY: 1, ANSWER: 0, AUTHORITY: 0, ADDITIONAL: 0
+    >   
+    >   ;; QUESTION SECTION:
+    >   ;work-01.lsstuk.			IN	MX
+    >   
+    >   Received 32 bytes from 127.0.0.53#53 in 20 ms
+
+
+# -----------------------------------------------------
+# Test the DNS resolver on work01-04.
+#[root@work01]
+#[root@work02]
+#[root@work03]
+#[root@work04]
+
+    host data.metagrid.co.uk
+
+    >   data.metagrid.co.uk is an alias for bullfinch.linode.metagrid.co.uk.
+    >   bullfinch.linode.metagrid.co.uk has address 178.79.157.93
+    >   bullfinch.linode.metagrid.co.uk has IPv6 address 2a01:7e00::f03c:91ff:fedf:f8b
+
+
+    host -v data.metagrid.co.uk
+
+    >   Trying "data.metagrid.co.uk"
+    >   ;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 3217
+    >   ;; flags: qr rd ra; QUERY: 1, ANSWER: 2, AUTHORITY: 0, ADDITIONAL: 0
+    >   
+    >   ;; QUESTION SECTION:
+    >   ;data.metagrid.co.uk.		IN	A
+    >   
+    >   ;; ANSWER SECTION:
+    >   data.metagrid.co.uk.	7187	IN	CNAME	bullfinch.linode.metagrid.co.uk.
+    >   bullfinch.linode.metagrid.co.uk. 7164 IN A	178.79.157.93
+    >   
+    >   Received 84 bytes from 127.0.0.53#53 in 1 ms
+    >   Trying "bullfinch.linode.metagrid.co.uk"
+    >   ;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 9373
+    >   ;; flags: qr rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 0
+    >   
+    >   ;; QUESTION SECTION:
+    >   ;bullfinch.linode.metagrid.co.uk. IN	AAAA
+    >   
+    >   ;; ANSWER SECTION:
+    >   bullfinch.linode.metagrid.co.uk. 7164 IN AAAA	2a01:7e00::f03c:91ff:fedf:f8b
+    >   
+    >   Received 77 bytes from 127.0.0.53#53 in 0 ms
+    >   Trying "bullfinch.linode.metagrid.co.uk"
+    >   ;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 61549
+    >   ;; flags: qr rd ra; QUERY: 1, ANSWER: 0, AUTHORITY: 0, ADDITIONAL: 0
+    >   
+    >   ;; QUESTION SECTION:
+    >   ;bullfinch.linode.metagrid.co.uk. IN	MX
+    >   
+    >   Received 49 bytes from 127.0.0.53#53 in 0 ms
+
+
+# -----------------------------------------------------
+# Test the DNS resolver on work01-04.
+#[root@work01]
+#[root@work02]
+#[root@work03]
+#[root@work04]
+
+    host trop01.roe.ac.uk
+
+    >   trop01.roe.ac.uk has address 129.215.175.96
+
+
