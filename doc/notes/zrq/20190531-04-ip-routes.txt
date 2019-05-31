@@ -1,0 +1,737 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+
+    #
+    # Do we even the 192 natted networks ?
+    # We just use the 10,x,y,z network in metagrid.
+    #
+
+
+# -----------------------------------------------------
+# Shutdown the natted network on trop03.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        -c $connection \
+        net-destroy \
+            natted
+
+
+
+# -----------------------------------------------------
+# Edit the configuratrion for Umiawyth.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        -c $connection \
+        dumpxml \
+            Umiawyth \
+        > Umiawyth.xml
+
+    vi Umiawyth.xml
+
+    -   <interface type='network'>
+    -      <mac address='02:00:00:10:05:01'/>
+    -      <source network='natted' bridge='virbr1'/>
+    -      <target dev='vnet0'/>
+    -      <model type='virtio'/>
+    -      <alias name='net0'/>
+    -      <address type='pci' domain='0x0000' bus='0x00' slot='0x07' function='0x0'/>
+    -    </interface>
+
+         <interface type='bridge'>
+           <mac address='06:00:00:10:05:01'/>
+           <source bridge='br1'/>
+           <target dev='vnet1'/>
+    -      <model type='rtl8139'/>
+    +      <model type='virtio'/>
+           <alias name='net1'/>
+           <address type='pci' domain='0x0000' bus='0x00' slot='0x03' function='0x0'/>
+         </interface>
+
+
+# -----------------------------------------------------
+# Restart Umiawyth using the new configutation.
+#[user@trop03]
+
+    virsh \
+        -c $connection \
+        destroy \
+            Umiawyth
+
+
+
+    virsh \
+        -c $connection \
+        define \
+            Umiawyth.xml
+
+    >   Domain Umiawyth defined from Umiawyth.xml
+
+
+    virsh \
+        -c $connection \
+        start \
+            Umiawyth
+
+    >   Domain Umiawyth started
+
+# -----------------------------------------------------
+# Login to Umiawyth using its 172 address.
+#[user@trop03]
+
+    host Umiawyth
+
+    >   Umiawyth has address 172.16.5.1
+
+
+    ssh Stevedore@Umiawyth
+
+    >   ssh: connect to host umiawyth port 22: Connection timed out
+
+
+# -----------------------------------------------------
+# Set the kernel bridge parameters.
+#[root@trop03]
+
+    modprobe br_netfilter
+    sysctl 'net.bridge'
+
+    >   net.bridge.bridge-nf-call-arptables = 1
+    >   net.bridge.bridge-nf-call-ip6tables = 1
+    >   net.bridge.bridge-nf-call-iptables = 0
+    >   net.bridge.bridge-nf-filter-pppoe-tagged = 0
+    >   net.bridge.bridge-nf-filter-vlan-tagged = 0
+    >   net.bridge.bridge-nf-pass-vlan-input-dev = 0
+
+
+    sysctl 'net.bridge.bridge-nf-call-arptables=0'
+    sysctl 'net.bridge.bridge-nf-call-ip6tables=0'
+    sysctl 'net.bridge.bridge-nf-call-iptables=0'
+
+
+    sysctl 'net.bridge'
+
+    >   net.bridge.bridge-nf-call-arptables = 0
+    >   net.bridge.bridge-nf-call-ip6tables = 0
+    >   net.bridge.bridge-nf-call-iptables = 0
+    >   net.bridge.bridge-nf-filter-pppoe-tagged = 0
+    >   net.bridge.bridge-nf-filter-vlan-tagged = 0
+    >   net.bridge.bridge-nf-pass-vlan-input-dev = 0
+
+
+# -----------------------------------------------------
+# Login to Umiawyth using its 172 address.
+#[user@trop03]
+
+    host Umiawyth
+
+    >   Umiawyth has address 172.16.5.1
+
+
+    ssh Stevedore@Umiawyth
+
+    >   HANGS
+    >   ^C
+
+    #
+    # Is this due to host network .. or is the virtual machine config now just very confused?
+    #
+
+
+# -----------------------------------------------------
+# Edit the createvm script to skip the last couple of steps.
+#[user@trop03]
+
+    pushd $(dirname $(which createvm))
+
+        cp createvm createvm.bak
+        vi createvm
+
+
+            #---------------------------------------------------------------------
+            # Create and start a new instance.
+
+                echo "Creating new virtual machine [${nodename:?}]"
+                virsh \
+                    --quiet \
+                    --connect "${connection:?}" \
+                        define "${tempxml}"
+
+        +   # Exit here to skip starting the new VM.
+        +   exit 0
+
+                echo "Starting new virtual machine [${nodename:?}]"
+                virsh \
+                    --quiet \
+                    --connect "${connection:?}" \
+                        start "${nodename:?}"
+
+    popd
+
+
+# -----------------------------------------------------
+# Create a new clean virtual machine, but don't start it.
+#[user@trop03]
+
+    createvm
+
+    >   INFO : Node name [Umiawyth]
+    >   INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Disc name [Umiawyth.qcow]
+    >   INFO : Disc size [8GiB]
+
+
+# -----------------------------------------------------
+# Edit the configuratrion for Umiawyth.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        -c $connection \
+        dumpxml \
+            Umiawyth \
+        > Umiawyth.xml
+
+    vi Umiawyth.xml
+
+    -   <interface type='network'>
+    -     <mac address='52:54:00:10:03:02'/>
+    -     <source network='bridged'/>
+    -     <model type='virtio'/>
+    -     <address type='pci' domain='0x0000' bus='0x00' slot='0x03' function='0x0'/>
+    -   </interface>
+    -   <interface type='network'>
+    -     <mac address='52:54:00:00:d2:a1'/>
+    -     <source network='natted'/>
+    -     <model type='virtio'/>
+    -     <address type='pci' domain='0x0000' bus='0x00' slot='0x07' function='0x0'/>
+    -   </interface>
+
+    +   <interface type='bridge'>
+    +     <mac address='06:00:00:10:05:01'/>
+    +     <source bridge='br1'/>
+    +     <model type='virtio'/>
+    +     <alias name='net0'/>
+    +     <address type='pci' domain='0x0000' bus='0x00' slot='0x03' function='0x0'/>
+    +   </interface>
+
+
+# -----------------------------------------------------
+# Restart Umiawyth using the new configutation.
+#[user@trop03]
+
+    virsh \
+        -c $connection \
+        define \
+            Umiawyth.xml
+
+    >   Domain Umiawyth defined from Umiawyth.xml
+
+
+    virsh \
+        -c $connection \
+        start \
+            Umiawyth
+
+    >   Domain Umiawyth started
+
+# -----------------------------------------------------
+# Login to Umiawyth (on trop03) from trop03 using its 172 address.
+#[user@trop03]
+
+    host Umiawyth
+
+    >   Umiawyth has address 172.16.5.1
+
+
+    ssh Stevedore@Umiawyth
+
+    >   ssh: connect to host umiawyth port 22: Connection timed out
+
+
+# -----------------------------------------------------
+# Login to Umiawyth (on trop03) from trop04 using its 172 address.
+#[user@trop04]
+
+    host Umiawyth
+
+    >   Umiawyth has address 172.16.5.1
+
+
+    ssh Stevedore@Umiawyth
+
+    >   HANGS
+    >   ^C
+
+
+# -----------------------------------------------------
+# Login to Umiawyth (on trop03) from Wumar (on trop04) using its 172 address.
+#[user@trop04]
+
+    ssh Stevedore@192.168.6.1
+
+        >   Last login: Fri May 31 05:09:15 2019 from 192.168.6.254
+        >   [Stevedore@Wumar ~]$
+
+        ssh -A Stevedore@Umiawyth
+
+            >   Last login: Fri May 31 13:46:52 2019 from 172.16.6.1
+            >   [Stevedore@Umiawyth ~]$
+
+            ssh -A Stevedore@Wumar
+
+                >   Last login: Fri May 31 13:46:56 2019 from 172.16.5.1
+                >   [Stevedore@Wumar ~]$
+
+   #
+   # SSH between virtual machines works.
+   # SSH from physical hosts to the virtual machines hangs or times out.
+   #
+
+
+# -----------------------------------------------------
+# Check the iptables rules on trop03.
+#[root@trop03]
+
+    iptables \
+        --verbose \
+        --line-numbers \
+        --table filter \
+        --list INPUT
+
+    >   Chain INPUT (policy DROP 0 packets, 0 bytes)
+    >   num   pkts bytes target     prot opt in     out     source               destination
+    >   1        0     0 ACCEPT     udp  --  virbr1 any     anywhere             anywhere             udp dpt:domain
+    >   2        0     0 ACCEPT     tcp  --  virbr1 any     anywhere             anywhere             tcp dpt:domain
+    >   3        0     0 ACCEPT     udp  --  virbr1 any     anywhere             anywhere             udp dpt:bootps
+    >   4        0     0 ACCEPT     tcp  --  virbr1 any     anywhere             anywhere             tcp dpt:bootps
+    >   5        0     0 ACCEPT     udp  --  virbr0 any     anywhere             anywhere             udp dpt:bootps
+    >   6        0     0 ACCEPT     tcp  --  virbr0 any     anywhere             anywhere             tcp dpt:bootps
+    >   7    64700   28M override   all  --  any    any     anywhere             anywhere
+    >   8        3    87 ACCEPT     all  --  lo     any     anywhere             anywhere
+    >   9       10  3294 ACCEPT     udp  --  any    any     172.16.0.0/16        anywhere
+    >   10       0     0 ACCEPT     tcp  --  any    any     172.16.0.0/16        anywhere
+    >   11       0     0 ACCEPT     tcp  --  any    any     195.194.120.0/22     anywhere             tcp dpt:ssh
+    >   12       0     0 ACCEPT     tcp  --  any    any     195.194.121.0/24     anywhere             tcp dpt:ssh
+    >   13       0     0 ACCEPT     tcp  --  any    any     192.108.120.0/24     anywhere             tcp dpt:ssh
+    >   14       0     0 ACCEPT     tcp  --  any    any     192.41.108.0/24      anywhere             tcp dpt:ssh
+    >   15       0     0 ACCEPT     tcp  --  any    any     EdLAN.net.ed.ac.uk/16  anywhere             tcp dpt:ssh
+    >   16       0     0 ACCEPT     tcp  --  any    any     float01/30           anywhere             tcp dpt:ssh
+    >   17       2   120 ACCEPT     tcp  --  any    any     polymer.andrews.metagrid.co.uk  anywhere             tcp dpt:ssh
+    >   18       0     0 ACCEPT     tcp  --  any    any     67.46.187.81.in-addr.arpa  anywhere             tcp dpt:ssh
+    >   19   58806   28M DROP       udp  --  br0    any     anywhere             anywhere             udp dpt:bootps
+    >   20       0     0 DROP       tcp  --  br0    any     anywhere             anywhere             tcp dpt:bootps
+    >   21    1774  143K LOG        all  --  any    any     anywhere             anywhere             LOG level warning prefix "drop "
+    >   22    1774  143K DROP       all  --  any    any     anywhere             anywhere
+
+
+    iptables \
+        --verbose \
+        --line-numbers \
+        --table filter \
+        --list OUTPUT
+
+    >   Chain OUTPUT (policy DROP 0 packets, 0 bytes)
+    >   num   pkts bytes target     prot opt in     out     source               destination
+    >   1        0     0 ACCEPT     udp  --  any    virbr1  anywhere             anywhere             udp dpt:bootpc
+    >   2        0     0 ACCEPT     udp  --  any    virbr0  anywhere             anywhere             udp dpt:bootpc
+    >   3     3397  350K override   all  --  any    any     anywhere             anywhere
+    >   4        3    87 ACCEPT     all  --  any    lo      anywhere             anywhere
+    >   5      116  6965 ACCEPT     udp  --  any    any     anywhere             anywhere             udp spts:1024:65535 dpt:domain
+    >   6        0     0 ACCEPT     tcp  --  any    any     anywhere             anywhere             tcp spts:1024:65535 dpt:domain
+    >   7       23  1748 ACCEPT     udp  --  any    any     anywhere             anywhere             udp dpt:ntp
+    >   8       67  4020 ACCEPT     tcp  --  any    any     anywhere             anywhere
+    >   9        0     0 LOG        all  --  any    any     anywhere             anywhere             LOG level warning prefix "drop "
+    >   10       0     0 DROP       all  --  any    any     anywhere             anywhere
+
+
+    iptables \
+        --verbose \
+        --line-numbers \
+        --table filter \
+        --list FORWARD
+
+    >   Chain FORWARD (policy DROP 0 packets, 0 bytes)
+    >   num   pkts bytes target     prot opt in     out     source               destination
+    >   1        0     0 ACCEPT     all  --  any    virbr1  anywhere             192.168.5.0/24       ctstate RELATED,ESTABLISHED
+    >   2        0     0 ACCEPT     all  --  virbr1 any     192.168.5.0/24       anywhere
+    >   3        0     0 ACCEPT     all  --  virbr1 virbr1  anywhere             anywhere
+    >   4        0     0 REJECT     all  --  any    virbr1  anywhere             anywhere             reject-with icmp-port-unreachable
+    >   5        0     0 REJECT     all  --  virbr1 any     anywhere             anywhere             reject-with icmp-port-unreachable
+    >   6        0     0 ACCEPT     all  --  virbr0 virbr0  anywhere             anywhere
+    >   7        0     0 REJECT     all  --  any    virbr0  anywhere             anywhere             reject-with icmp-port-unreachable
+    >   8        0     0 REJECT     all  --  virbr0 any     anywhere             anywhere             reject-with icmp-port-unreachable
+    >   9       40  2464 LOG        all  --  any    any     anywhere             anywhere             LOG level warning prefix "drop "
+    >   10      40  2464 DROP       all  --  any    any     anywhere             anywhere
+
+
+
+# -----------------------------------------------------
+# Redact the dhcp, dns and ntp rules.
+# Redact the external ssh rules.
+#[root@trop03]
+
+    >   Chain INPUT (policy DROP 0 packets, 0 bytes)
+    >   num   pkts bytes target     prot opt in     out     source               destination
+    >   ....
+    >   7    64700   28M override   all  --  any    any     anywhere             anywhere
+    >   8        3    87 ACCEPT     all  --  lo     any     anywhere             anywhere
+    >   9       10  3294 ACCEPT     udp  --  any    any     172.16.0.0/16        anywhere
+    >   10       0     0 ACCEPT     tcp  --  any    any     172.16.0.0/16        anywhere
+    >   ....
+    >   ....
+    >   21    1774  143K LOG        all  --  any    any     anywhere             anywhere             LOG level warning prefix "drop "
+    >   22    1774  143K DROP       all  --  any    any     anywhere             anywhere
+
+
+    >   Chain OUTPUT (policy DROP 0 packets, 0 bytes)
+    >   num   pkts bytes target     prot opt in     out     source               destination
+    >   ....
+    >   3     3397  350K override   all  --  any    any     anywhere             anywhere
+    >   4        3    87 ACCEPT     all  --  any    lo      anywhere             anywhere
+    >   ....
+    >   8       67  4020 ACCEPT     tcp  --  any    any     anywhere             anywhere
+    >   9        0     0 LOG        all  --  any    any     anywhere             anywhere             LOG level warning prefix "drop "
+    >   10       0     0 DROP       all  --  any    any     anywhere             anywhere
+
+
+
+    >   Chain FORWARD (policy DROP 0 packets, 0 bytes)
+    >   num   pkts bytes target     prot opt in     out     source               destination
+    >   1        0     0 ACCEPT     all  --  any    virbr1  anywhere             192.168.5.0/24       ctstate RELATED,ESTABLISHED
+    >   2        0     0 ACCEPT     all  --  virbr1 any     192.168.5.0/24       anywhere
+    >   3        0     0 ACCEPT     all  --  virbr1 virbr1  anywhere             anywhere
+    >   4        0     0 REJECT     all  --  any    virbr1  anywhere             anywhere             reject-with icmp-port-unreachable
+    >   5        0     0 REJECT     all  --  virbr1 any     anywhere             anywhere             reject-with icmp-port-unreachable
+    >   6        0     0 ACCEPT     all  --  virbr0 virbr0  anywhere             anywhere
+    >   7        0     0 REJECT     all  --  any    virbr0  anywhere             anywhere             reject-with icmp-port-unreachable
+    >   8        0     0 REJECT     all  --  virbr0 any     anywhere             anywhere             reject-with icmp-port-unreachable
+    >   9       40  2464 LOG        all  --  any    any     anywhere             anywhere             LOG level warning prefix "drop "
+    >   10      40  2464 DROP       all  --  any    any     anywhere             anywhere
+
+    #
+    # IF the packets were getting blocked by iptables, they should appear in the log ?
+    # No sign of dport 22 packets being dropped.
+    #
+
+
+# -----------------------------------------------------
+# None of the above !!
+# trop03 and trop04 had old data in their /etc/hosts files.
+#[root@trop03]
+#[root@trop04]
+
+    vi /etc/hosts
+
+    -   #
+    -   # trop03 routed network
+    -   172.17.5.1   Umiawyth
+    -   172.17.5.2   Etalema
+        ....
+        ....
+    -   172.17.5.27  Lotholia
+    -   172.17.5.28  Astilamos
+
+    -   #
+    -   # trop04 routed network
+    -   172.17.6.1   Wumar
+    -   172.17.6.2   Larilaweth
+        ....
+        ....
+    -   172.17.6.27  Moemond
+    -   172.17.6.28  Iberidia
+
+# -----------------------------------------------------
+# All is sweetness and light :-)
+
+
+    trop03 --> trop04 pass
+    trop04 --> trop03 pass
+
+    trop03 --> Umiawyth (172.16.5.1) (trop03) pass
+    trop04 --> Umiawyth (172.16.5.1) (trop03) pass
+
+    trop03 --> Wumar (172.16.6.1)  (trop04) pass
+    trop04 --> Wumar (172.16.6.1)  (trop04) pass
+    trop04 --> Wumar (192.168.6.1) (trop04) pass
+
+
+# -----------------------------------------------------
+# Tidy up ..
+# Remove the 192.168 natted network.
+#[root@trop03]
+#[root@trop04]
+
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        -c $connection \
+        net-destroy \
+            natted
+
+    >   Network natted destroyed
+
+    virsh \
+        -c $connection \
+        net-undefine \
+            natted
+
+
+# -----------------------------------------------------
+# Tidy up ..
+# Remove the routed network.
+#[root@trop03]
+#[root@trop04]
+
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        -c $connection \
+        net-destroy \
+            routed
+
+    >   Network routed destroyed
+
+    virsh \
+        -c $connection \
+        net-undefine \
+            routed
+
+    >   Network routed has been undefined
+
+
+# -----------------------------------------------------
+# Tidy up ..
+# Check the virtual networks are gone.
+#[root@trop03]
+#[root@trop04]
+
+    virsh \
+        -c $connection \
+        net-list \
+            --all
+
+    >    Name                 State      Autostart     Persistent
+    >   ----------------------------------------------------------
+
+
+# -----------------------------------------------------
+# Tidy up ..
+# Edit the configuratrion for Wumar.
+#[user@trop04]
+
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        -c $connection \
+        dumpxml \
+            Wumar \
+        > Wumar.xml
+
+    vi Wumar.xml
+
+    -   <interface type='network'>
+    -     <mac address='02:00:00:10:06:01'/>
+    -     <source network='natted' bridge='virbr1'/>
+    -     <target dev='vnet0'/>
+    -     <model type='virtio'/>
+    -     <alias name='net0'/>
+    -     <address type='pci' domain='0x0000' bus='0x00' slot='0x07' function='0x0'/>
+    -   </interface>
+        <interface type='bridge'>
+          <mac address='06:00:00:10:06:01'/>
+          <source bridge='br1'/>
+          <target dev='vnet1'/>
+    ~     <model type='virtio'/>
+    ~     <alias name='net0'/>
+          <address type='pci' domain='0x0000' bus='0x00' slot='0x03' function='0x0'/>
+        </interface>
+
+
+# -----------------------------------------------------
+# Tidy up ..
+# Remove the 192.168 rules.
+#[root@trop03]
+#[root@trop04]
+
+    vi /var/lib/iptables/active
+
+
+        # Internal DHCP requests - allow
+    -   #[0:0] -A INPUT -i virbr0 -p udp --dport 67 -j ACCEPT
+    -   #[0:0] -A INPUT -i virbr0 -p tcp --dport 67 -j ACCEPT
+
+        #
+        # The FORWARD chain.
+        #
+    -   #[0:0] -A FORWARD -i virbr0 -o virbr0 -j ACCEPT
+    -   #[0:0] -A FORWARD -o virbr0 -j REJECT --reject-with icmp-port-unreachable
+    -   #[0:0] -A FORWARD -i virbr0 -j REJECT --reject-with icmp-port-unreachable
+        [0:0] -A FORWARD -j LOG --log-prefix "drop "
+        [0:0] -A FORWARD -j DROP
+
+        #
+        # The OUTPUT chain.
+        #
+    -   # Allow internal DHCP offers.
+    -   #[0:0] -A OUTPUT -o virbr0 -p udp -m udp --dport 68 -j ACCEPT
+        [0:0] -A OUTPUT -j override
+        [0:0] -A OUTPUT -o lo -j ACCEPT
+
+
+# -----------------------------------------------------
+# Tidy up ..
+# Remove old dns references
+#[root@trop03]
+#[root@trop04]
+
+    vi /etc/network/interfaces
+
+    -   # dns-* options are implemented by the resolvconf package, if installed
+    -   # dns-nameservers 195.194.120.1 195.194.120.2
+    -   # dns-search roe.ac.uk
+
+
+# -----------------------------------------------------
+# Tidy up ..
+# Reboot to check changes are persistent.
+#[root@trop03]
+#[root@trop04]
+
+    reboot
+
+    >   Connection to trop03.roe.ac.uk closed by remote host.
+    >   Connection to trop03.roe.ac.uk closed.
+
+
+# -----------------------------------------------------
+# Restart Umiawyth using the new configutation.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        -c $connection \
+        start \
+            Umiawyth
+
+    >   Domain Umiawyth started
+
+
+# -----------------------------------------------------
+# Test SSH login from the physical host.
+#[user@trop03]
+#[user@trop04]
+
+    ssh Umiawyth \
+        '
+        date
+        hostname
+        '
+
+    >   Fri 31 May 18:23:42 BST 2019
+    >   Umiawyth
+
+
+    ssh Umiawyth \
+        '
+        date
+        hostname
+        ssh Wumar \
+            "
+            date
+            hostname
+            "
+        '
+
+    >   Fri 31 May 18:25:49 BST 2019
+    >   Umiawyth
+    >   Fri 31 May 18:25:49 BST 2019
+    >   Wumar
+
+
+# -----------------------------------------------------
+# Restart Wumar using the new configutation.
+#[user@trop04]
+
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        -c $connection \
+        define \
+            Wumar.xml
+
+    >   Domain Wumar defined from Wumar.xml
+
+    virsh \
+        -c $connection \
+        start \
+            Wumar
+
+    >   Domain Wumar started
+
+
+# -----------------------------------------------------
+# Test SSH login from the physical host.
+#[user@trop03]
+#[user@trop04]
+
+    ssh Wumar \
+        '
+        date
+        hostname
+        '
+
+    >   Fri 31 May 18:50:58 BST 2019
+    >   Wumar
+
+
+    ssh Wumar \
+        '
+        date
+        hostname
+        ssh Umiawyth \
+            "
+            date
+            hostname
+            "
+        '
+
+    >   Fri 31 May 18:51:09 BST 2019
+    >   Wumar
+    >   Fri 31 May 18:51:10 BST 2019
+    >   Umiawyth
+
+
+
+
+
+
+
