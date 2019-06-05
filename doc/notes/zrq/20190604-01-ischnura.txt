@@ -61,6 +61,30 @@ EOF
         virtinst
 
 --START--
+Reading package lists... Done
+Building dependency tree
+Reading state information... Done
+....
+....
+--END--
+
+
+#---------------------------------------------------------------------
+# Install XML and JSON tools.
+#[user@work02]
+
+    sudo apt-get update
+
+    sudo apt-get install \
+        xmlstarlet \
+        jq
+
+--START--
+Reading package lists... Done
+Building dependency tree
+Reading state information... Done
+....
+....
 --END--
 
 
@@ -71,6 +95,28 @@ EOF
     sudo systemctl status libvirtd
 
 --START--
+● libvirtd.service - Virtualization daemon
+   Loaded: loaded (/lib/systemd/system/libvirtd.service; enabled; vendor preset: enabled)
+   Active: active (running) since Wed 2019-06-05 02:25:40 BST; 4min 17s ago
+     Docs: man:libvirtd(8)
+           https://libvirt.org
+ Main PID: 17426 (libvirtd)
+    Tasks: 19 (limit: 32768)
+   CGroup: /system.slice/libvirtd.service
+           ├─17426 /usr/sbin/libvirtd
+           ├─17963 /usr/sbin/dnsmasq --conf-file=/var/lib/libvirt/dnsmasq/default.conf --leasefile-ro --dhcp-script=/usr/lib/libvirt/libvirt_leaseshelper
+           └─17964 /usr/sbin/dnsmasq --conf-file=/var/lib/libvirt/dnsmasq/default.conf --leasefile-ro --dhcp-script=/usr/lib/libvirt/libvirt_leaseshelper
+
+Jun 05 02:25:42 lsstukwork2 dnsmasq[17963]: compile time options: IPv6 GNU-getopt DBus i18n IDN DHCP DHCPv6 no-Lua TFTP conntrack ipset auth DNSSEC loop-detect inotify
+Jun 05 02:25:42 lsstukwork2 dnsmasq-dhcp[17963]: DHCP, IP range 192.168.122.2 -- 192.168.122.254, lease time 1h
+Jun 05 02:25:42 lsstukwork2 dnsmasq-dhcp[17963]: DHCP, sockets bound exclusively to interface virbr0
+Jun 05 02:25:42 lsstukwork2 dnsmasq[17963]: reading /etc/resolv.conf
+Jun 05 02:25:42 lsstukwork2 dnsmasq[17963]: using nameserver 127.0.0.53#53
+Jun 05 02:25:42 lsstukwork2 dnsmasq[17963]: read /etc/hosts - 4 addresses
+Jun 05 02:25:42 lsstukwork2 dnsmasq[17963]: read /var/lib/libvirt/dnsmasq/default.addnhosts - 0 addresses
+Jun 05 02:25:42 lsstukwork2 dnsmasq-dhcp[17963]: read /var/lib/libvirt/dnsmasq/default.hostsfile
+Jun 05 02:25:42 lsstukwork2 dnsmasq[17963]: reading /etc/resolv.conf
+Jun 05 02:25:42 lsstukwork2 dnsmasq[17963]: using nameserver 127.0.0.53#53
 --END--
 
 
@@ -81,19 +127,20 @@ EOF
 
     sudo adduser $(id -un) libvirt
 
-    sudo adduser $(id -un) libvirt-qemu
-
 --START--
+Adding user `dmr' to group `libvirt' ...
+Adding user dmr to group libvirt
+Done.
 --END--
 
 
+    sudo adduser $(id -un) libvirt-qemu
 
-
-
-
-
-
-
+--START--
+Adding user `dmr' to group `libvirt-qemu' ...
+Adding user dmr to group libvirt-qemu
+Done.
+--END--
 
 
 # -----------------------------------------------------
@@ -158,267 +205,265 @@ EOF
     sudo chmod o=rx   "${PROJECTS_BASE:?}"
 
 
-# -----------------------------------------------------
-# Install the Ischnura source code.
+#---------------------------------------------------------------------
+# Add our user to the users group.
 #[user@work02]
 
-    source "${HOME}/ischnura.settings"
+    sudo adduser $(id -un) users
 
-    if [  -e "${ischcode:?}" ]
-    then
-        pushd "${ischcode:?}"
-
-            echo "Updating Ischnura source code"
-            git pull
-
-        popd
-    else
-        pushd "$(dirname ${ischcode:?})"
-
-            echo "Cloning Ischnura source code from [${ftpygit:?}]"
-            git clone "${ischrepo:?}" "$(basename ${ischcode:?})"
-
-        popd
-    fi
-
-
-# -----------------------------------------------------
-# Configure the Ischnura data files.
-#[user@work02]
-
-    source "${HOME}/ischnura.settings"
-
-    pushd "${ischcode:?}"
-
-        pushd 'src'
-
-            cat > config << 'EOF'
-
-machines=${datpath:?}/lsst-machines.txt
-template=${datpath:?}/lsst-template.xml
-
-EOF
-        popd
-    popd
-
-
-# -----------------------------------------------------
-# Sed script to convert the list of Ischnura machines into a list of dnsmasq DCHP hosts.
-# (*) only needed to configure dnsmasq on work01.
-
-    sed '
-        /^[[:space:]]*$/ !{
-            s/^\([[:alnum:]]*\)[[:space:]]*\([[:alnum:]]*\)[[:space:]]*\([:[:alnum:]]*\)[[:space:]]*\([.[:alnum:]]*\)$/dhcp-host=\3,\4,\2/
-            }
-        ' lsst-machines.txt \
-        | tee lsst-dnsmasq.txt
-
-
+--START--
+Adding user `dmr' to group `users' ...
+Adding user dmr to group users
+Done.
+--END--
 
 
 #---------------------------------------------------------------------
-# List the storage pools.
+# List the libvirt storage pools.
 #[user@work02]
+
+    source "${HOME}/libvirt.settings"
 
     virsh \
         --connect "${connection:?}" \
         pool-list
 
 --START--
+ Name                 State      Autostart
+-------------------------------------------
 --END--
 
 
 #---------------------------------------------------------------------
-# Create our base pool.
+# Create our libvirt storage pools.
 #[user@work02]
 
     source "${HOME}/ischnura.settings"
 
-    poolname=${basepool:?}
-    poolpath=${basepath:?}
-    poolfile=/tmp/${poolname:?}.xml
-
-    cat > "${poolfile:?}" << EOF
-<pool type="dir">
-    <name>${poolname:?}</name>
-    <target>
-        <path>${poolpath:?}</path>
-    </target>
-</pool>
-EOF
+    unset pooldata
+    declare -A pooldata=(
+        [${initpool}]=${initpath}
+        [${basepool}]=${basepath}
+        [${livepool}]=${livepath}
+        )
 
 
-    virsh \
-        --connect "${connection:?}" \
-        pool-define \
-            "${poolfile:?}"
+    for poolname in "${!pooldata[@]}"
+        do
+            poolpath=${pooldata[${poolname:?}]}
+            echo "Name [${poolname:?}]"
+            echo "Path [${poolpath:?}]"
 
---START--
---END--
+            sudo mkdir -p ${poolpath:?}
 
+            virsh \
+                --connect ${connection:?} \
+                pool-define-as \
+                    "${poolname:?}" \
+                    'dir' \
+                    --target "${poolpath}"
 
-    virsh \
-        --connect "${connection:?}" \
-        pool-build \
-            "${poolname:?}"
+            virsh \
+                --connect ${connection:?} \
+                pool-build \
+                    "${poolname:?}"
 
---START--
---END--
+            virsh \
+                --connect ${connection:?} \
+                pool-start \
+                    ${poolname:?}
 
+            virsh \
+                --connect ${connection:?} \
+                pool-autostart \
+                    ${poolname:?}
 
-    virsh \
-        --connect "${connection:?}" \
-        pool-start \
-            "${poolname:?}"
-
---START--
---END--
-
-
-    virsh \
-        --connect "${connection:?}" \
-        pool-autostart \
-            "${poolname:?}"
+        done
 
 --START--
---END--
+Name [init]
+Path [/var/lib/libvirt/images/init]
+Pool init defined
+Pool init built
+Pool init started
+Pool init marked as autostarted
 
+Name [base]
+Path [/var/lib/libvirt/images/base]
+Pool base defined
+Pool base built
+Pool base started
+Pool base marked as autostarted
 
-#---------------------------------------------------------------------
-# Create our live pool.
-#[user@work02]
-
-    livepath=/var/lib/libvirt/images/live
-
-    poolname=${livepool:?}
-    poolpath=${livepath:?}
-    poolfile=/tmp/${poolname:?}.xml
-
-    cat > "${poolfile:?}" << EOF
-<pool type="dir">
-    <name>${poolname:?}</name>
-    <target>
-        <path>${poolpath:?}</path>
-    </target>
-</pool>
-EOF
-
-
-    virsh \
-        --connect "${connection:?}" \
-        pool-define \
-            "${poolfile:?}"
-
---START--
---END--
-
-
-    virsh \
-        --connect "${connection:?}" \
-        pool-build \
-            "${poolname:?}"
-
---START--
---END--
-
-
-    virsh \
-        --connect "${connection:?}" \
-        pool-start \
-            "${poolname:?}"
-
---START--
---END--
-
-
-    virsh \
-        --connect "${connection:?}" \
-        pool-autostart \
-            "${poolname:?}"
-
---START--
+Name [live]
+Path [/var/lib/libvirt/images/live]
+Pool live defined
+Pool live built
+Pool live started
+Pool live marked as autostarted
 --END--
 
 
 #---------------------------------------------------------------------
-# List the storage pools.
+# List the libvirt storage pools.
 #[user@work02]
+
+    source "${HOME}/libvirt.settings"
 
     virsh \
         --connect "${connection:?}" \
-        pool-list
+        pool-list \
+            --details
 
 --START--
+ Name  State    Autostart  Persistent    Capacity  Allocation   Available
+--------------------------------------------------------------------------
+ base  running  yes        yes         303.44 GiB  540.32 MiB  302.91 GiB
+ init  running  yes        yes         303.44 GiB  540.32 MiB  302.91 GiB
+ live  running  yes        yes         303.44 GiB  540.32 MiB  302.91 GiB
 --END--
-
-
-
-
-
 
 
 # -----------------------------------------------------
-# Check the udev rules are in place ..
-# https://bugzilla.redhat.com/show_bug.cgi?id=512206
-
-# https://wiki.libvirt.org/page/Networking#Debian.2FUbuntu_Bridging
-# https://wiki.debian.org/BridgeNetworkConnections
-
+# List the pool paths.
 #[user@trop04]
 
-    vi /etc/sysctl.d/98-bridge.conf
+    for poolname in $(
+        virsh \
+            --quiet \
+            --connect ${connection:?} \
+            pool-list --all \
+          | sed '
+            s/[[:space:]]*\([^[:space:]]*\)[[:space:]]*\([^[:space:]]*\)[[:space:]]*\([^[:space:]]*\)/\1/
+            '
+        )
+        do
+            poolpath=$(
+                virsh \
+                    --connect ${connection:?} \
+                    pool-dumpxml \
+                        "${poolname:?}" \
+                  | xmlstarlet select -t -v '//target/path'
+                )
+            echo ""
+            echo "Name [${poolname}]"
+            echo "Path [${poolpath}]"
+        done
 
-        ###################################################################
-        # Netfilter bridge settings.
-        #
-        # http://wiki.libvirt.org/page/Net.bridge.bridge-nf-call_and_sysctl.conf
-        # http://ebtables.netfilter.org/misc/brnf-faq.html
-        # http://unix.stackexchange.com/questions/136918/why-does-my-firewall-iptables-interfere-in-my-bridge-brctl
-        # http://manpages.ubuntu.com/manpages/zesty/man5/sysctl.d.5.html
+--START--
+Name [base]
+Path [/var/lib/libvirt/images/base]
 
-        net.bridge.bridge-nf-call-iptables  = 0
-        net.bridge.bridge-nf-call-arptables = 0
-        net.bridge.bridge-nf-call-ip6tables = 0
+Name [init]
+Path [/var/lib/libvirt/images/init]
 
-        # Enable packet forwarding for IPv4
-        net.ipv4.ip_forward = 1
-
-        # Enable packet forwarding for IPv6
-        net.ipv6.conf.all.forwarding = 1
-
-    vi /etc/udev/rules.d/98-bridge.rules
-
-        # Load the net.bridge rules when the ip_tables module is loaded.
-        # http://manpages.ubuntu.com/manpages/zesty/man5/sysctl.d.5.html
-        #
-
-        ACTION=="add", SUBSYSTEM=="module", KERNEL=="ip_tables", RUN+="/sbin/sysctl --load /etc/sysctl.d/98-bridge.conf"
-
-
-
+Name [live]
+Path [/var/lib/libvirt/images/live]
+--END--
 
 
 # -----------------------------------------------------
-# Check if forwarded packets are filtered by iptables ..
+# Add the netfilter bridge config and udev rules.
+# https://bugzilla.redhat.com/show_bug.cgi?id=512206
+# http://wiki.libvirt.org/page/Net.bridge.bridge-nf-call_and_sysctl.conf
+# http://ebtables.netfilter.org/misc/brnf-faq.html
+# http://unix.stackexchange.com/questions/136918/why-does-my-firewall-iptables-interfere-in-my-bridge-brctl
+# http://manpages.ubuntu.com/manpages/zesty/man5/sysctl.d.5.html
+# https://wiki.libvirt.org/page/Networking#Debian.2FUbuntu_Bridging
+# https://wiki.debian.org/BridgeNetworkConnections
+#[user@trop04]
+
+    sudo vi /etc/sysctl.d/98-bridge.conf
+
+###################################################################
+# Netfilter bridge settings.
+#
+# http://wiki.libvirt.org/page/Net.bridge.bridge-nf-call_and_sysctl.conf
+# http://ebtables.netfilter.org/misc/brnf-faq.html
+# http://unix.stackexchange.com/questions/136918/why-does-my-firewall-iptables-interfere-in-my-bridge-brctl
+# http://manpages.ubuntu.com/manpages/zesty/man5/sysctl.d.5.html
+
+net.bridge.bridge-nf-call-iptables  = 0
+net.bridge.bridge-nf-call-arptables = 0
+net.bridge.bridge-nf-call-ip6tables = 0
+
+# Enable packet forwarding for IPv4
+net.ipv4.ip_forward = 1
+
+# Enable packet forwarding for IPv6
+net.ipv6.conf.all.forwarding = 1
+
+    sudo vi /etc/udev/rules.d/98-bridge.rules
+
+# Load the net.bridge rules when the ip_tables module is loaded.
+# http://manpages.ubuntu.com/manpages/zesty/man5/sysctl.d.5.html
+ACTION=="add", SUBSYSTEM=="module", KERNEL=="ip_tables",   RUN+="/sbin/sysctl --load /etc/sysctl.d/98-bridge.conf"
+ACTION=="add", SUBSYSTEM=="module", KERNEL=="br_netfilter" RUN+="/sbin/sysctl --load /etc/sysctl.d/98-bridge.conf"
+
+# -----------------------------------------------------
+# Check that forwarded packets are not filtered by iptables ..
 #[user@work02]
+
+    sudo modprobe br_netfilter
 
     sudo sysctl 'net.bridge'
 
 --START--
+net.bridge.bridge-nf-call-arptables = 1
+net.bridge.bridge-nf-call-ip6tables = 1
+net.bridge.bridge-nf-call-iptables = 1
+net.bridge.bridge-nf-filter-pppoe-tagged = 0
+net.bridge.bridge-nf-filter-vlan-tagged = 0
+net.bridge.bridge-nf-pass-vlan-input-dev = 0
 --END--
 
-    PASS : call-iptables is set to 0 (false).
+    FAIL : call-iptables is set to 1 (true).
+
+# -----------------------------------------------------
+# Reboot to see if the rules take effect ..
+#[user@work02]
+
+    sudo reboot
+
+--START--
+Connection to work02 closed by remote host.
+Connection to work02 closed.
+--END--
+
+
+# -----------------------------------------------------
+# Check that forwarded packets are not filtered by iptables ..
+#[user@work02]
+
+    sudo modprobe br_netfilter
+
+    sudo sysctl 'net.bridge'
+
+--START--
+net.bridge.bridge-nf-call-arptables = 0
+net.bridge.bridge-nf-call-ip6tables = 0
+net.bridge.bridge-nf-call-iptables = 0
+net.bridge.bridge-nf-filter-pppoe-tagged = 0
+net.bridge.bridge-nf-filter-vlan-tagged = 0
+net.bridge.bridge-nf-pass-vlan-input-dev = 0
+--END--
 
 
 #---------------------------------------------------------------------
-# List the networks.
+# List the libvirt networks.
 #[user@work02]
+
+    source "${HOME}/libvirt.settings"
 
     virsh \
         --connect "${connection:?}" \
-        net-list --all
+        net-list \
+            --all
 
 --START--
+ Name                 State      Autostart     Persistent
+----------------------------------------------------------
+ default              active     yes           yes
 --END--
 
 
@@ -434,6 +479,7 @@ EOF
             'default'
 
 --START--
+Network default destroyed
 --END--
 
 
@@ -441,6 +487,10 @@ EOF
         --connect ${connection:?} \
         net-undefine \
             'default'
+
+--START--
+Network default has been undefined
+--END--
 
 
 # -----------------------------------------------------
@@ -454,17 +504,18 @@ cat > /tmp/bridged.xml << EOF
     <name>bridged</name>
     <uuid/>
     <forward mode='bridge'/>
-    <bridge name='br0'/>
+    <bridge name='br1'/>
 </network>
 EOF
 
     virsh \
         --connect ${connection:?} \
         net-define \
-            'bridged.xml'
+            '/tmp/bridged.xml'
 
 
 --START--
+Network bridged defined from /tmp/bridged.xml
 --END--
 
 
@@ -474,6 +525,7 @@ EOF
             'bridged'
 
 --START--
+Network bridged started
 --END--
 
 
@@ -483,21 +535,267 @@ EOF
             'bridged'
 
 --START--
+Network bridged marked as autostarted
+--END--
+
+
+#---------------------------------------------------------------------
+# List the libvirt networks.
+#[user@work02]
+
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        --connect "${connection:?}" \
+        net-list --all
+
+--START--
+ Name                 State      Autostart     Persistent
+----------------------------------------------------------
+ bridged              active     yes           yes
+--END--
+
+
+# -----------------------------------------------------
+# Install the Ischnura source code.
+#[user@work02]
+
+    source "${HOME}/ischnura.settings"
+
+    if [  -e "${ischcode:?}" ]
+    then
+        pushd "${ischcode:?}"
+
+            echo "Updating Ischnura source code"
+            git pull
+
+        popd
+    else
+        mkdir -p "$(dirname ${ischcode:?})"
+        pushd "$(dirname ${ischcode:?})"
+
+            echo "Cloning Ischnura source code from [${ischrepo:?}]"
+            git clone "${ischrepo:?}" "$(basename ${ischcode:?})"
+
+        popd
+    fi
+
+
+# -----------------------------------------------------
+# Configure the Ischnura data files.
+#[user@work02]
+
+    source "${HOME}/ischnura.settings"
+
+    cat > "${ischcode:?}/src/config" << 'EOF'
+thisname=work02
+machines=${datpath:?}/lsst-machines.txt
+template=${datpath:?}/lsst-template.xml
+EOF
+
+
+# -----------------------------------------------------
+# Add the Ischnura scripts to our path.
+#[user@work02]
+
+    cat >> "${HOME}/.bashrc" << EOF
+#
+# Add the Ischnura path.
+if [[ ! \${PATH:?} == *"ischnura"* ]]
+then
+    export PATH=${PATH}:${ischcode:?}/src/bin
+fi
+EOF
+
+
+# -----------------------------------------------------
+# Sed script to convert the list of Ischnura machines into a list of dnsmasq DCHP hosts.
+# (*) only needed to configure dnsmasq on work01.
+
+    sed '
+        /^[[:space:]]*$/ !{
+            s/^\([[:alnum:]]*\)[[:space:]]*\([[:alnum:]]*\)[[:space:]]*\([:[:alnum:]]*\)[[:space:]]*\([.[:alnum:]]*\)$/dhcp-host=\3,\4,\2/
+            }
+        ' lsst-machines.txt \
+        | tee lsst-dnsmasq.txt
+
+
+#---------------------------------------------------------------------
+# Download a copy of the base image.
+#[user@work02]
+
+    basefile=fedora-28-8G-docker-base-20181016.qcow
+
+    pushd /tmp
+        wget "http://data.metagrid.co.uk/ischnura/base/${basefile:?}"
+    popd
+
+
+#---------------------------------------------------------------------
+# Check the image details.
+#[user@work02]
+
+    qemu-img \
+        info \
+            "/tmp/${basefile:?}"
+
+--START--
+image: /tmp/fedora-28-8G-docker-base-20181016.qcow
+file format: qcow2
+virtual size: 8.0G (8589934592 bytes)
+disk size: 1.0G
+cluster_size: 65536
+Format specific information:
+    compat: 1.1
+    lazy refcounts: false
+    refcount bits: 16
+    corrupt: false
+--END--
+
+
+#---------------------------------------------------------------------
+# Get the fully allocated size.
+#[user@work02]
+
+    basesize=$(
+        qemu-img \
+            measure \
+                "/tmp/${basefile:?}" \
+        | sed -n '
+            2 s/^[^:]*:[[:space:]]*\([^[:space:]]*\)/\1/p
+            '
+        )
+
+    echo "Size [${basesize}]"
+
+--START--
+Size [8589934592]
+--END--
+
+
+#---------------------------------------------------------------------
+# Delete any existing volume.
+#[user@work02]
+
+    virsh \
+        --connect "${connection:?}" \
+        vol-delete \
+            --pool "${basepool}" \
+            "${basefile:?}"
+
+--START--
+error: failed to get vol 'fedora-28-8G-docker-base-20181016.qcow'
+error: Storage volume not found: no storage vol with matching path 'fedora-28-8G-docker-base-20181016.qcow'
+--END--
+
+
+#---------------------------------------------------------------------
+# Create a new (empty) volume.
+#[user@work02]
+
+    virsh \
+        --connect "${connection:?}" \
+        vol-create-as \
+            "${basepool:?}" \
+            "${basefile:?}" \
+            "${basesize:?}" \
+            --format qcow2
+
+--START--
+Vol fedora-28-8G-docker-base-20181016.qcow created
+--END--
+
+
+#---------------------------------------------------------------------
+# Upload the image into the new volume.
+#[user@work02]
+
+    virsh \
+        --connect "${connection:?}" \
+        vol-upload \
+            --pool "${basepool:?}" \
+            "${basefile:?}" \
+            "/tmp/${basefile:?}"
+
+
+#---------------------------------------------------------------------
+# Try creating a virtual machine.
+#[user@work02]
+
+    createvm
+
+--START--
+INFO : Node name [Ybigorid]
+INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+INFO : Disc name [Ybigorid.qcow]
+INFO : Disc size [8GiB]
+--END--
+
+
+#---------------------------------------------------------------------
+# Try login to the virtual machine.
+#[user@work02]
+
+    ssh -A Ybigorid
+
+--START--
+The authenticity of host 'ybigorid (172.16.2.17)' can't be established.
+ECDSA key fingerprint is SHA256:QWSV47sBfstnbxj5j0ylSP/ZLDhwW9UsiYMX4uvJams.
+Are you sure you want to continue connecting (yes/no)? yes
+Warning: Permanently added 'ybigorid,172.16.2.17' (ECDSA) to the list of known hosts.
+[dmr@Ybigorid ~]$
+--END--
+
+
+#---------------------------------------------------------------------
+# Try access an external resource.
+#[user@work02]
+
+    curl --head 'http://data.metagrid.co.uk/temp/'
+
+--START--
+HTTP/1.1 200 OK
+Date: Wed, 05 Jun 2019 03:46:25 GMT
+Server: Apache/2.2.15 (CentOS)
+Connection: close
+Content-Type: text/html;charset=UTF-8
+--END--
+
+
+#---------------------------------------------------------------------
+# Try access local resources.
+#[user@work02]
+
+    ssh -A Stevedore@Umiawyth \
+        '
+        date
+        hostname
+        '
+
+--START--
+Wed  5 Jun 04:52:08 BST 2019
+Umiawyth
+--END--
+
+
+    ssh -A Stevedore@Wumar \
+        '
+        date
+        hostname
+        '
+
+--START--
+Wed  5 Jun 04:52:31 BST 2019
+Wumar
 --END--
 
 
 
 
 
-
-
-
-
-
-Better way to create the pools ...
-/home/Zarquan/Desktop/projects/edinburgh/phymatopus/github-zrq/doc/notes/zrq/20190106-02-libvirt-pools.txt
-
-
-
-
+#
+# Create the data pools ..
+# /home/Zarquan/Desktop/projects/edinburgh/phymatopus/github-zrq/doc/notes/zrq/20190106-02-libvirt-pools.txt
+#
 
