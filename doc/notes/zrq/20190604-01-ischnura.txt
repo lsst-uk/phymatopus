@@ -1,0 +1,503 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+# -----------------------------------------------------
+# Configure our ssh options.
+#[user@work02]
+
+    cat > "${HOME}/ssh-options" << 'EOF'
+
+sshuser=Stevedore
+
+sshopts=(
+    '-A'
+    '-o LogLevel=ERROR'
+    )
+
+scpopts=(
+    '-o LogLevel=ERROR'
+    '-o CheckHostIP=no'
+    '-o UserKnownHostsFile=/dev/null'
+    '-o StrictHostKeyChecking=no'
+    )
+
+EOF
+
+
+#---------------------------------------------------------------------
+# Install the KVM and libvirt tools.
+# https://www.cyberciti.biz/faq/install-kvm-server-debian-linux-9-headless-server/
+#[user@work02]
+
+    sudo apt-get update
+
+    sudo apt install \
+        bridge-utils \
+        genisoimage \
+        libosinfo-bin \
+        libvirt-clients \
+        libvirt-daemon-system \
+        libguestfs-tools \
+        qemu-kvm \
+        virtinst
+
+--START--
+--END--
+
+
+#---------------------------------------------------------------------
+# Check the libvirt service.
+#[user@work02]
+
+    sudo systemctl status libvirtd
+
+--START--
+--END--
+
+
+#---------------------------------------------------------------------
+# Add our user to the libvirt group.
+# https://www.cyberciti.biz/faq/install-kvm-server-debian-linux-9-headless-server/
+#[user@work02]
+
+    sudo adduser $(id -un) libvirt
+
+    sudo adduser $(id -un) libvirt-qemu
+
+--START--
+--END--
+
+
+
+
+
+
+
+
+
+
+
+# -----------------------------------------------------
+# Configure our project settings.
+#[user@work02]
+
+    cat > "${HOME}/projects.settings" << 'EOF'
+PROJECTS_BASE="/var/local/projects/"
+EOF
+
+
+# -----------------------------------------------------
+# Configure our libvirt settings.
+#[user@work02]
+
+    cat > "${HOME}/libvirt.settings" << 'EOF'
+connection='qemu:///system'
+EOF
+
+
+# -----------------------------------------------------
+# Configure our ischnura settings.
+#[user@work02]
+
+    cat > "${HOME}/ischnura.settings" << 'EOF'
+source "${HOME}/projects.settings"
+source "${HOME}/libvirt.settings"
+
+tempdir='/tmp'
+
+basepool='base'
+basepath='/var/lib/libvirt/images/base'
+
+livepool='live'
+livepath='/var/lib/libvirt/images/live'
+
+initpool='init'
+initpath='/var/lib/libvirt/images/init'
+
+ischname='ischnura'
+ischbase="${PROJECTS_BASE:?}/${ischname:?}"
+ischcode="${ischbase:?}/github"
+
+ischrepo='git@github.com:Zarquan/ischnura-kvm.git'
+EOF
+
+
+# -----------------------------------------------------
+# Create our projects directory.
+#[user@work02]
+
+    source "${HOME}/projects.settings"
+
+    if [ ! -e "${PROJECTS_BASE:?}" ]
+    then
+        sudo mkdir "${PROJECTS_BASE:?}"
+    fi
+
+    sudo chgrp users  "${PROJECTS_BASE:?}"
+    sudo chmod g=rwxs "${PROJECTS_BASE:?}"
+    sudo chmod u=rwx  "${PROJECTS_BASE:?}"
+    sudo chmod o=rx   "${PROJECTS_BASE:?}"
+
+
+# -----------------------------------------------------
+# Install the Ischnura source code.
+#[user@work02]
+
+    source "${HOME}/ischnura.settings"
+
+    if [  -e "${ischcode:?}" ]
+    then
+        pushd "${ischcode:?}"
+
+            echo "Updating Ischnura source code"
+            git pull
+
+        popd
+    else
+        pushd "$(dirname ${ischcode:?})"
+
+            echo "Cloning Ischnura source code from [${ftpygit:?}]"
+            git clone "${ischrepo:?}" "$(basename ${ischcode:?})"
+
+        popd
+    fi
+
+
+# -----------------------------------------------------
+# Configure the Ischnura data files.
+#[user@work02]
+
+    source "${HOME}/ischnura.settings"
+
+    pushd "${ischcode:?}"
+
+        pushd 'src'
+
+            cat > config << 'EOF'
+
+machines=${datpath:?}/lsst-machines.txt
+template=${datpath:?}/lsst-template.xml
+
+EOF
+        popd
+    popd
+
+
+# -----------------------------------------------------
+# Sed script to convert the list of Ischnura machines into a list of dnsmasq DCHP hosts.
+# (*) only needed to configure dnsmasq on work01.
+
+    sed '
+        /^[[:space:]]*$/ !{
+            s/^\([[:alnum:]]*\)[[:space:]]*\([[:alnum:]]*\)[[:space:]]*\([:[:alnum:]]*\)[[:space:]]*\([.[:alnum:]]*\)$/dhcp-host=\3,\4,\2/
+            }
+        ' lsst-machines.txt \
+        | tee lsst-dnsmasq.txt
+
+
+
+
+#---------------------------------------------------------------------
+# List the storage pools.
+#[user@work02]
+
+    virsh \
+        --connect "${connection:?}" \
+        pool-list
+
+--START--
+--END--
+
+
+#---------------------------------------------------------------------
+# Create our base pool.
+#[user@work02]
+
+    source "${HOME}/ischnura.settings"
+
+    poolname=${basepool:?}
+    poolpath=${basepath:?}
+    poolfile=/tmp/${poolname:?}.xml
+
+    cat > "${poolfile:?}" << EOF
+<pool type="dir">
+    <name>${poolname:?}</name>
+    <target>
+        <path>${poolpath:?}</path>
+    </target>
+</pool>
+EOF
+
+
+    virsh \
+        --connect "${connection:?}" \
+        pool-define \
+            "${poolfile:?}"
+
+--START--
+--END--
+
+
+    virsh \
+        --connect "${connection:?}" \
+        pool-build \
+            "${poolname:?}"
+
+--START--
+--END--
+
+
+    virsh \
+        --connect "${connection:?}" \
+        pool-start \
+            "${poolname:?}"
+
+--START--
+--END--
+
+
+    virsh \
+        --connect "${connection:?}" \
+        pool-autostart \
+            "${poolname:?}"
+
+--START--
+--END--
+
+
+#---------------------------------------------------------------------
+# Create our live pool.
+#[user@work02]
+
+    livepath=/var/lib/libvirt/images/live
+
+    poolname=${livepool:?}
+    poolpath=${livepath:?}
+    poolfile=/tmp/${poolname:?}.xml
+
+    cat > "${poolfile:?}" << EOF
+<pool type="dir">
+    <name>${poolname:?}</name>
+    <target>
+        <path>${poolpath:?}</path>
+    </target>
+</pool>
+EOF
+
+
+    virsh \
+        --connect "${connection:?}" \
+        pool-define \
+            "${poolfile:?}"
+
+--START--
+--END--
+
+
+    virsh \
+        --connect "${connection:?}" \
+        pool-build \
+            "${poolname:?}"
+
+--START--
+--END--
+
+
+    virsh \
+        --connect "${connection:?}" \
+        pool-start \
+            "${poolname:?}"
+
+--START--
+--END--
+
+
+    virsh \
+        --connect "${connection:?}" \
+        pool-autostart \
+            "${poolname:?}"
+
+--START--
+--END--
+
+
+#---------------------------------------------------------------------
+# List the storage pools.
+#[user@work02]
+
+    virsh \
+        --connect "${connection:?}" \
+        pool-list
+
+--START--
+--END--
+
+
+
+
+
+
+
+# -----------------------------------------------------
+# Check the udev rules are in place ..
+# https://bugzilla.redhat.com/show_bug.cgi?id=512206
+
+# https://wiki.libvirt.org/page/Networking#Debian.2FUbuntu_Bridging
+# https://wiki.debian.org/BridgeNetworkConnections
+
+#[user@trop04]
+
+    vi /etc/sysctl.d/98-bridge.conf
+
+        ###################################################################
+        # Netfilter bridge settings.
+        #
+        # http://wiki.libvirt.org/page/Net.bridge.bridge-nf-call_and_sysctl.conf
+        # http://ebtables.netfilter.org/misc/brnf-faq.html
+        # http://unix.stackexchange.com/questions/136918/why-does-my-firewall-iptables-interfere-in-my-bridge-brctl
+        # http://manpages.ubuntu.com/manpages/zesty/man5/sysctl.d.5.html
+
+        net.bridge.bridge-nf-call-iptables  = 0
+        net.bridge.bridge-nf-call-arptables = 0
+        net.bridge.bridge-nf-call-ip6tables = 0
+
+        # Enable packet forwarding for IPv4
+        net.ipv4.ip_forward = 1
+
+        # Enable packet forwarding for IPv6
+        net.ipv6.conf.all.forwarding = 1
+
+    vi /etc/udev/rules.d/98-bridge.rules
+
+        # Load the net.bridge rules when the ip_tables module is loaded.
+        # http://manpages.ubuntu.com/manpages/zesty/man5/sysctl.d.5.html
+        #
+
+        ACTION=="add", SUBSYSTEM=="module", KERNEL=="ip_tables", RUN+="/sbin/sysctl --load /etc/sysctl.d/98-bridge.conf"
+
+
+
+
+
+# -----------------------------------------------------
+# Check if forwarded packets are filtered by iptables ..
+#[user@work02]
+
+    sudo sysctl 'net.bridge'
+
+--START--
+--END--
+
+    PASS : call-iptables is set to 0 (false).
+
+
+#---------------------------------------------------------------------
+# List the networks.
+#[user@work02]
+
+    virsh \
+        --connect "${connection:?}" \
+        net-list --all
+
+--START--
+--END--
+
+
+# -----------------------------------------------------
+# Remove the default network configuration.
+#[user@work02]
+
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        --connect ${connection:?} \
+        net-destroy \
+            'default'
+
+--START--
+--END--
+
+
+    virsh \
+        --connect ${connection:?} \
+        net-undefine \
+            'default'
+
+
+# -----------------------------------------------------
+# Create the bridged network configuration.
+#[user@work02]
+
+    source "${HOME}/libvirt.settings"
+
+cat > /tmp/bridged.xml << EOF
+<network ipv6='yes'>
+    <name>bridged</name>
+    <uuid/>
+    <forward mode='bridge'/>
+    <bridge name='br0'/>
+</network>
+EOF
+
+    virsh \
+        --connect ${connection:?} \
+        net-define \
+            'bridged.xml'
+
+
+--START--
+--END--
+
+
+    virsh \
+        --connect "${connection:?}" \
+        net-start \
+            'bridged'
+
+--START--
+--END--
+
+
+    virsh \
+        --connect "${connection:?}" \
+        net-autostart \
+            'bridged'
+
+--START--
+--END--
+
+
+
+
+
+
+
+
+
+
+Better way to create the pools ...
+/home/Zarquan/Desktop/projects/edinburgh/phymatopus/github-zrq/doc/notes/zrq/20190106-02-libvirt-pools.txt
+
+
+
+
+
