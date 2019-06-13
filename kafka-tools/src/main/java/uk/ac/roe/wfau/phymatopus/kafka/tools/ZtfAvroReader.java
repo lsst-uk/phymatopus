@@ -281,8 +281,11 @@ implements ConsumerRebalanceListener
                 }
             while (pollrecords > 0);
 
-            log.trace("Loop commit");
-            consumer.commitSync();
+            if ((this.autocommit == false) && (uncommitted > 0))
+                {
+                log.trace("Committing [{}]", uncommitted);
+                consumer.commitSync();
+                }
 
             long loopnano  = polldone - loopstart;
             long loopmicro = loopnano / 1000 ;
