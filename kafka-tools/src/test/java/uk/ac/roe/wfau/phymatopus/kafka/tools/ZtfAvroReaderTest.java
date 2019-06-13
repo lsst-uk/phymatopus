@@ -147,6 +147,12 @@ extends KafkaTestBase
             );        
         try{
             List<Future<Long>> futures = executor.invokeAll(readers);
+            long totalrecords = 0 ;
+            for (Future<Long> future : futures)
+                {
+                totalrecords += future.get();
+                }
+            log.debug("Total records[{}]", totalrecords);
             }
         finally {
             executor.shutdown();

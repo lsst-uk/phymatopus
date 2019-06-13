@@ -175,6 +175,7 @@ implements ConsumerRebalanceListener
                     for (ConsumerRecord<Long, byte[]> record : records)
                         {
                         pollrecords++;
+                        looprecords++;
                         totalrecords++;
                         uncommitted++;
                         log.trace("Record [{}][{}]", pollrecords, totalrecords);
