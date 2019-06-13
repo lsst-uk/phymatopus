@@ -66,8 +66,8 @@ extends KafkaTestBase
      * Flag to reset the stream.
      * 
      */
-    @Value("${phymatopus.kafka.reset:true}")
-    private Boolean reset ;
+    @Value("${phymatopus.kafka.rewind:true}")
+    private Boolean rewind ;
 
     /**
      *
@@ -100,7 +100,7 @@ extends KafkaTestBase
                 );
             }
         
-        if (reset)
+        if (rewind)
             {
             log.debug("Rewinding consumer group");
             readers.get(0).rewind();
