@@ -20,7 +20,6 @@ package uk.ac.roe.wfau.phymatopus.kafka.tools;
 
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.test.context.ContextConfiguration;

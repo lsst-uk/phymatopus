@@ -28,6 +28,8 @@ import java.util.concurrent.Future;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 import lombok.extern.slf4j.Slf4j;
 import uk.ac.roe.wfau.phymatopus.kafka.tools.ZtfAvroReader.CallableReader;
@@ -38,7 +40,14 @@ import uk.ac.roe.wfau.phymatopus.kafka.tools.ZtfAvroReader.Statistics;
  *
  */
 @Slf4j
-@RunWith(JUnit4.class)
+@RunWith(
+        SpringJUnit4ClassRunner.class
+        )
+@ContextConfiguration(
+    locations = {
+        "classpath:component-config.xml"
+        }
+    )
 public class ZtfAvroReaderTest
 extends KafkaTestBase
     {
@@ -74,11 +83,11 @@ extends KafkaTestBase
             {
             readers.add(
                 new CallableReader(
-                    timeout,
-                    servers,
-                    group,
-                    topic,
-                    loops
+                    this.timeout,
+                    this.servers,
+                    this.group,
+                    this.topic,
+                    this.loops
                     )
                 );
             }
