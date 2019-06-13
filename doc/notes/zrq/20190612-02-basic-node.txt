@@ -139,6 +139,10 @@ Status: Downloaded newer image for firethorn/builder:latest
                         s/threads=.*$/threads=4/
                         ' src/test/conf/test.properties
 
+                    sed -i '
+                        s/rewind=.*$/rewind=TRUE/
+                        ' src/test/conf/test.properties
+
                     mvn test -D 'test=ZtfAvroReaderTest'
 
 
@@ -152,9 +156,64 @@ Status: Downloaded newer image for firethorn/builder:latest
 2019-06-13 04:24:12,651 INFO  [main] [ZtfAvroReaderTest] Group [ooleigher7eiXooZ] with [6] threads read [278279] rows in [129895.0]ms at [0.46677974]ms per row
 2019-06-13 04:27:39,223 INFO  [main] [ZtfAvroReaderTest] Group [ooleigher7eiXooZ] with [6] threads read [278279] rows in [129698.0]ms at [0.4660718]ms per row
 
+2019-06-13 04:30:51,189 INFO  [main] [ZtfAvroReaderTest] Group [ooleigher7eiXooZ] with [4] threads read [278279] rows in [127123.0]ms at [0.45681852]ms per row
+201
+
 2019-06-13 04:10:54,925 INFO  [main] [ZtfAvroReaderTest] Group [oiPhoe1ohPhie0fo] with [6] threads read [278279] rows in [140165.0]ms at [0.5036852]ms per row
 2019-06-13 04:15:12,374 INFO  [main] [ZtfAvroReaderTest] Group [oiPhoe1ohPhie0fo] with [6] threads read [278279] rows in [143685.0]ms at [0.51633435]ms per row
 2019-06-13 04:19:18,490 INFO  [main] [ZtfAvroReaderTest] Group [oiPhoe1ohPhie0fo] with [6] threads read [278279] rows in [143739.0]ms at [0.51652837]ms per row
 
 
+2019-06-13 04:48:43,258 INFO  [main] [ZtfAvroReaderTest] Group [Ieth1queiYuxeiy8] with [4] threads read [278279] rows in [138491.0]ms at [0.4976696]ms per row
+
+2019-06-13 04:52:48,869 INFO  [main] [ZtfAvroReaderTest] Group [Xijeigoh5rie0wie] with [4] threads read [278279] rows in [126245.0]ms at [0.4536634]ms per row
+
+
+        # -----------------------------------------------------
+        # Run two instances on different servers.
+
+                    sed -i '
+                        s/group=.*$/group=wumble/
+                        ' src/test/conf/test.properties
+
+                    sed -i '
+                        s/rewind=.*$/rewind=TRUE/
+                        ' src/test/conf/test.properties
+
+                    mvn test -D 'test=ZtfAvroReaderTest'
+
+
+
+                    sed -i '
+                        s/group=.*$/group=wumble/
+                        ' src/test/conf/test.properties
+
+                    sed -i '
+                        s/rewind=.*$/rewind=FALSE/
+                        ' src/test/conf/test.properties
+
+                    mvn test -D 'test=ZtfAvroReaderTest'
+
+
+
+        # -----------------------------------------------------
+        # Very informative EXception message.
+
+            java.util.concurrent.ExecutionException: org.apache.kafka.clients.consumer.CommitFailedException:
+                Commit cannot be completed since the group has already rebalanced and assigned the partitions to another member.
+                This means that the time between subsequent calls to poll() was longer than the configured max.poll.interval.ms,
+                which typically implies that the poll loop is spending too much time message processing.
+                You can address this either by increasing the session timeout or by reducing the maximum size of batches returned
+                in poll() with max.poll.records.
+
+            2019-06-13 04:55:59,065 INFO  [pool-1-thread-4] [ConsumerConfig] ConsumerConfig values:
+
+                auto.commit.interval.ms = 1000
+                ....
+            	heartbeat.interval.ms = 3000
+                ....
+	            max.poll.interval.ms = 300000
+	            max.poll.records = 500
+                ....
+            	session.timeout.ms = 10000
 

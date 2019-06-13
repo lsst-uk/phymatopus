@@ -105,8 +105,6 @@ implements ConsumerRebalanceListener
             return this.time;
             }
         }
-
-    
     
     /**
      * Public constructor.
@@ -115,11 +113,12 @@ implements ConsumerRebalanceListener
      * @param topic The Kafka topic name.
      *
      */
-    public ZtfAvroReader(final Duration timeout, final String servers, final String group, final String topic, final int loops)
+    public ZtfAvroReader(final boolean autocommit, final Duration timeout, final String servers, final String group, final String topic, final int retries)
         {
         super(servers, group, topic);
-        this.timeout = timeout;
-        this.loops   = loops;
+        this.timeout    = timeout;
+        this.autocommit = autocommit;
+        this.loops      = retries;
         }
 
     private Duration timeout ;
@@ -133,7 +132,13 @@ implements ConsumerRebalanceListener
         {
         return this.loops;
         }
-    
+
+    private boolean autocommit;
+    protected boolean autocommit()
+        {
+        return this.autocommit;
+        }
+
     /**
      * Create our {@link Consumer}.
      *
@@ -157,7 +162,7 @@ implements ConsumerRebalanceListener
         // https://community.hortonworks.com/questions/73895/any-experience-based-tips-to-optimize-kafka-broker.html
         properties.put(
             ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG,
-            "false"
+            (this.autocommit() ? "true" : "false")
             );
         properties.put(
             ConsumerConfig.FETCH_MAX_BYTES_CONFIG,
@@ -248,7 +253,7 @@ implements ConsumerRebalanceListener
                             bytes
                             );
                         }
-                    if (uncommitted > 1000)
+                    if ((this.autocommit == false) && (uncommitted > 1000))
                         {
                         log.trace("Committing [{}]", uncommitted);
                         consumer.commitSync();
@@ -551,10 +556,11 @@ implements ConsumerRebalanceListener
     public static class CallableReader
     implements Callable<Statistics>
         {
-        public CallableReader(final Duration timeout, final String servers, final String group, final String topic, final int loops)
+        public CallableReader(final boolean autocommit, final Duration timeout, final String servers, final String group, final String topic, final int loops)
             {
             this(
                 new ZtfAvroReader(
+                    autocommit,
                     timeout,
                     servers,
                     group,

@@ -70,6 +70,13 @@ extends KafkaTestBase
     private Boolean rewind ;
 
     /**
+     * Flag to enable auto comit.
+     * 
+     */
+    @Value("${phymatopus.kafka.autocomit:true}")
+    private Boolean autocomit ;
+
+    /**
      *
      */
     public ZtfAvroReaderTest()
@@ -91,6 +98,7 @@ extends KafkaTestBase
             {
             readers.add(
                 new CallableReader(
+                    this.autocomit,
                     this.timeout,
                     this.servers,
                     this.group,
