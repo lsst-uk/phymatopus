@@ -27,7 +27,7 @@ import java.util.concurrent.Future;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
@@ -54,8 +54,14 @@ extends KafkaTestBase
 
     private int loops = 1 ;
     private Duration timeout = Duration.ofSeconds(5);
-    private int threadcount = 4 ;
 
+    /**
+     * The target kafka servers.
+     * 
+     */
+    @Value("${phymatopus.kafka.threads:4}")
+    private Integer threadcount ;
+    
     /**
      *
      */
