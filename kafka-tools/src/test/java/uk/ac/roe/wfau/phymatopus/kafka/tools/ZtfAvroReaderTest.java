@@ -146,6 +146,7 @@ extends KafkaTestBase
             readers.size()
             );        
         try{
+            long startnano = System.nanoTime();
             List<Future<Statistics>> futures = executor.invokeAll(readers);
             long totalrows  = 0 ;
             long totalbytes = 0 ;
@@ -157,7 +158,8 @@ extends KafkaTestBase
                 totalbytes += result.bytes();
                 totaltime  += result.time();
                 }
-            float totalmilli = totaltime / 1000000 ;
+            long donenano = System.nanoTime();
+            float totalmilli = (donenano - startnano) / 1000000 ;
             log.info("Test total [{}] rows [{}] bytes in [{}]ms", totalrows, totalbytes, totalmilli);
             log.info("Data rate [{}]ms per row", (totalmilli / totalrows));
             
