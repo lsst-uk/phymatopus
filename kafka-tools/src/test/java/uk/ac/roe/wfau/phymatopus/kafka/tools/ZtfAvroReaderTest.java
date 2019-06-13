@@ -68,11 +68,6 @@ extends KafkaTestBase
     public ZtfAvroReaderTest()
         {
         super();
-
-        //this.group   = "java-test-001" ;
-        //this.topic   = "ztf_20190612_programid1" ;
-        //this.servers = "Stedigo:9092" ;
-
         }
 
     /**
@@ -119,7 +114,7 @@ extends KafkaTestBase
             long donenano = System.nanoTime();
             float totalmilli = (donenano - startnano) / 1000000 ;
             float meanmilli = totalmilli / totalrows ;
-            log.info("Group [{}] with [{}] threads read [{}] rows in [{}]ms = [{}]ms per row", threadcount, this.group, totalrows, totalmilli, meanmilli);
+            log.info("Group [{}] with [{}] threads read [{}] rows in [{}]ms at [{}]ms per row", this.group, threadcount, totalrows, totalmilli, meanmilli);
             
             }
         finally {
