@@ -303,7 +303,7 @@ implements ConsumerRebalanceListener
         return new LoopResult(
             totalrecords,
             totalbytes,
-            totaltime
+            totalnano
             ) ;
         }
 
