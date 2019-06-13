@@ -142,10 +142,12 @@ implements ConsumerRebalanceListener
         long totalbytes   = 0;
         long totalrecords = 0;
         long totalstart   = System.nanoTime();
-
+        long polldone     = 0;
+        
         long loopcount = 0;
         for (int i = 0 ; i < loops ; i++)
             {
+            loopcount++;
             log.trace("Loop [{}]", loopcount);
 
             long loopstart   = System.nanoTime();
@@ -165,29 +167,36 @@ implements ConsumerRebalanceListener
                 ConsumerRecords<Long, byte[]> records = consumer.poll(
                     timeout
                     );
-                for (ConsumerRecord<Long, byte[]> record : records)
+                if (records.isEmpty())
                     {
-                    pollrecords++;
-                    totalrecords++;
-                    uncommitted++;
-                    log.trace("Record [{}][{}]", pollrecords, totalrecords);
-                    log.trace("Offset [{}]", record.offset());
-                    log.trace("Key    [{}]", record.key());
-                    byte[] bytes = record.value();
-                    pollbytes  += bytes.length;
-                    loopbytes  += bytes.length;
-                    totalbytes += bytes.length;
-                    process(
-                        bytes
-                        );
+                    polldone = pollstart;
                     }
-                if (uncommitted > 1000)
-                    {
-                    log.trace("Committing [{}]", uncommitted);
-                    consumer.commitSync();
-                    uncommitted = 0;
+                else {
+                    for (ConsumerRecord<Long, byte[]> record : records)
+                        {
+                        pollrecords++;
+                        totalrecords++;
+                        uncommitted++;
+                        log.trace("Record [{}][{}]", pollrecords, totalrecords);
+                        log.trace("Offset [{}]", record.offset());
+                        log.trace("Key    [{}]", record.key());
+                        byte[] bytes = record.value();
+                        pollbytes  += bytes.length;
+                        loopbytes  += bytes.length;
+                        totalbytes += bytes.length;
+                        process(
+                            bytes
+                            );
+                        }
+                    if (uncommitted > 1000)
+                        {
+                        log.trace("Committing [{}]", uncommitted);
+                        consumer.commitSync();
+                        uncommitted = 0;
+                        }
+                    polldone = System.nanoTime();
                     }
-                long pollnano  = (System.nanoTime() - pollstart);
+                long pollnano = polldone - pollstart;
                 long pollmicro = pollnano / 1000 ;
                 long pollmilli = pollnano / 1000000 ;
                 log.debug("Poll [{}] done [{}:{}] records [{}:{}] bytes in [{}]ns [{}]µs [{}]ms => [{}]ns [{}]µs [{}]ms per event",
@@ -207,10 +216,10 @@ implements ConsumerRebalanceListener
                 }
             while (pollrecords > 0);
 
-            log.trace("After loop commit");
+            log.trace("Loop commit");
             consumer.commitSync();
 
-            long loopnano  = (System.nanoTime() - loopstart);
+            long loopnano  = polldone - loopstart;
             long loopmicro = loopnano / 1000 ;
             long loopmilli = loopnano / 1000000 ;
             log.debug("Loop [{}] done [{}:{}] records [{}:{}] bytes in [{}]ns [{}]µs [{}]ms => [{}]ns [{}]µs [{}]ms per event",
@@ -226,10 +235,9 @@ implements ConsumerRebalanceListener
                 (loopmicro/((looprecords > 0) ? looprecords : 1)),
                 (loopmilli/((looprecords > 0) ? looprecords : 1))
                 );
-            loopcount++;
             }
 
-        long totalnano = (System.nanoTime() - totalstart);
+        long totalnano  = polldone - totalstart;
         long totalmicro = totalnano / 1000 ;
         long totalmilli = totalnano / 1000000 ;
         long totaltime  = totalnano / 1000000000 ;
@@ -245,7 +253,7 @@ implements ConsumerRebalanceListener
             (totalmicro/((totalrecords > 0) ? totalrecords : 1)),
             (totalmilli/((totalrecords > 0) ? totalrecords : 1))
             );
-        
+
         return totalrecords ;
         }
 
