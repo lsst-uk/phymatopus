@@ -1,0 +1,145 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+    Kafka consumer listening in a loop.
+    Decode events based on their schema ?
+    Perform <action> on each event.
+    Write stuff to Kafka producer(s).
+
+    Write up issues with decoding the schema.
+      1) Schema with message is slow.
+      2) Schema registry is local only.
+
+    Propose XML/JSON format for schema + metadata.
+    Metadata contains connection info.
+    Connect to the stream via the URL which responds with metadata containing the Kafka endpoint(s).
+
+    First sub-project - really simple listener.
+    Command line executable.
+    Configured using properties file.
+    Packaged as a jar file.
+    Packaged as a war file webapp to create a webservice.
+
+
+# -----------------------------------------------------
+# Create a VM.
+#[user@work02]
+
+    createvm
+
+--START--
+INFO : Node name [Nydiabaen]
+INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+INFO : Disc name [Nydiabaen.qcow]
+INFO : Disc size [8GiB]
+
+INFO : MAC  [06:00:AC:10:02:01]
+INFO : IPv4 [172.16.2.1]
+--END--
+
+
+# -----------------------------------------------------
+# Login to the VM.
+#[user@work02]
+
+    ssh Nydiabaen
+
+    # -----------------------------------------------------
+    # Create a container to work with.
+    #[user@virtual]
+
+        docker run \
+            --rm \
+            --tty \
+            --interactive \
+            --hostname builder \
+            --env SSH_AUTH_SOCK=/tmp/ssh_auth_sock \
+            --volume ${SSH_AUTH_SOCK}:/tmp/ssh_auth_sock \
+            firethorn/builder \
+            bash
+
+--START--
+Unable to find image 'firethorn/builder:latest' locally
+latest: Pulling from firethorn/builder
+....
+....
+Digest: sha256:8f984115c8ae158ba3ed45d28ffe656278cd3f2429f7af87cd3ffa3679237f1f
+Status: Downloaded newer image for firethorn/builder:latest
+--END--
+
+        # -----------------------------------------------------
+        # Checkout a copy of our source code.
+        #[user@builder]
+
+            PHYMATOPUS_REPO=https://github.com/Zarquan/phymatopus
+            PHYMATOPUS_CODE=/var/local/build/phymatopus
+
+            if [ ! -e "${PHYMATOPUS_CODE:?}" ]
+            then
+                if [ ! -e "$(dirname ${PHYMATOPUS_CODE:?})" ]
+                then
+                    mkdir -p "$(dirname ${PHYMATOPUS_CODE:?})"
+                fi
+                pushd "$(dirname ${PHYMATOPUS_CODE:?})"
+                    git clone "${PHYMATOPUS_REPO:?}" "$(basename ${PHYMATOPUS_CODE:?})"
+
+                popd
+            else
+                pushd "${PHYMATOPUS_CODE:?}"
+                    git pull
+                popd
+            fi
+
+        # -----------------------------------------------------
+        # Build and run our tests.
+        #[user@builder]
+
+            pushd "${PHYMATOPUS_CODE:?}"
+                pushd kafka-tools
+
+                    mkdir logs
+
+                    sed -i '
+                        s/this.topic *=.*/this.topic = "ztf_20190612_programid1";/
+                        s/this.servers =.*/this.servers = "Stedigo:9092";/
+                        ' \
+                        src/test/java/uk/ac/roe/wfau/phymatopus/kafka/tools/ZtfAvroReaderTest.java
+
+                    sed -i '
+                        /<logger name="uk.ac.roe.wfau.phymatopus">/,/<\/logger>/ {
+                            s/value="[^"]*"/value="DEBUG"/
+                            }
+                        ' \
+                        src/test/conf/logback.xml
+
+                    mvn test -D 'test=ZtfAvroReaderTest' | tee "logs/$(date +%Y%m%d%H%M%S)-test.log"
+
+                    mvn clean test -D 'test=ZtfAvroReaderTest' | tee "logs/$(date +%Y%m%d%H%M%S)-test.log"
+
+                popd
+            popd
+
+
+
+
+
