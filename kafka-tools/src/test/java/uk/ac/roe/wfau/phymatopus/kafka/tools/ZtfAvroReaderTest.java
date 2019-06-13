@@ -21,16 +21,16 @@ package uk.ac.roe.wfau.phymatopus.kafka.tools;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.Future;
-import java.util.concurrent.Callable;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import lombok.extern.slf4j.Slf4j;
+import uk.ac.roe.wfau.phymatopus.kafka.tools.ZtfAvroReader.CallableReader;
 import uk.ac.roe.wfau.phymatopus.kafka.tools.ZtfAvroReader.Statistics;
 
 /**
@@ -43,8 +43,8 @@ public class ZtfAvroReaderTest
 extends KafkaTestBase
     {
 
-    private int loopcount = 1 ;
-    private Duration loopwait = Duration.ofSeconds(5);
+    private int loops = 1 ;
+    private Duration timeout = Duration.ofSeconds(5);
     private int threadcount = 4 ;
 
     /**
@@ -54,73 +54,10 @@ extends KafkaTestBase
         {
         super();
 
-        this.group   = "java-test-001" ;
-        this.topic   = "ztf_20190612_programid1" ;
-        this.servers = "Stedigo:9092" ;
+        //this.group   = "java-test-001" ;
+        //this.topic   = "ztf_20190612_programid1" ;
+        //this.servers = "Stedigo:9092" ;
 
-        }
-
-    /**
-     * Test we can read some messages.
-     *
-     */
-    public void testLoop()
-        {
-        final ZtfAvroReader reader = new ZtfAvroReader(
-            servers,
-            group,
-            topic
-            );
-        reader.rewind();
-        reader.loop(
-            loopcount,
-            loopwait
-            );
-        }
-
-
-    /**
-     * Callable Reader.
-     *
-     */
-    public class CallableReader
-    implements Callable<Statistics>
-        {
-        public CallableReader()
-            {
-            this(
-                new ZtfAvroReader(
-                    servers,
-                    group,
-                    topic
-                    )
-                );
-            }
-        
-        public CallableReader(final ZtfAvroReader reader)
-            {
-            this.reader = reader;
-            }
-
-        private final ZtfAvroReader reader ;
-
-        public ZtfAvroReader reader()
-            {
-            return this.reader ;
-            }
-
-        public void rewind()
-            {
-            this.reader.rewind();
-            }
-
-        public Statistics call()
-            {
-            return reader.loop(
-                loopcount,
-                loopwait
-                );
-            }
         }
 
     /**
@@ -136,7 +73,13 @@ extends KafkaTestBase
         for (int i = 0 ; i < threadcount ; i++)   
             {
             readers.add(
-                new CallableReader()
+                new CallableReader(
+                    timeout,
+                    servers,
+                    group,
+                    topic,
+                    loops
+                    )
                 );
             }
         
@@ -160,8 +103,8 @@ extends KafkaTestBase
                 }
             long donenano = System.nanoTime();
             float totalmilli = (donenano - startnano) / 1000000 ;
-            log.info("Test total [{}] rows [{}] bytes in [{}]ms", totalrows, totalbytes, totalmilli);
-            log.info("Data rate [{}]ms per row", (totalmilli / totalrows));
+            float meanmilli = totalmilli / totalrows ;
+            log.info("Test total [{}] rows [{}] bytes in [{}]ms = [{}]ms per row", totalrows, totalbytes, totalmilli, meanmilli);
             
             }
         finally {

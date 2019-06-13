@@ -28,6 +28,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.concurrent.Callable;
 
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaNormalization;
@@ -42,7 +43,6 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
-
 import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
@@ -115,11 +115,25 @@ implements ConsumerRebalanceListener
      * @param topic The Kafka topic name.
      *
      */
-    public ZtfAvroReader(final String servers, final String group, final String topic)
+    public ZtfAvroReader(final Duration timeout, final String servers, final String group, final String topic, final int loops)
         {
         super(servers, group, topic);
+        this.timeout = timeout;
+        this.loops   = loops;
         }
 
+    private Duration timeout ;
+    protected Duration timeout()
+        {
+        return this.timeout;
+        }
+    
+    private int loops;
+    protected int loops()
+        {
+        return this.loops;
+        }
+    
     /**
      * Create our {@link Consumer}.
      *
@@ -171,7 +185,7 @@ implements ConsumerRebalanceListener
         return consumer;
         }
 
-    public Statistics loop(int loops, Duration timeout)
+    public Statistics loop()
         {
         log.trace("Creating consumer");
         Consumer<Long, byte[]> consumer = consumer();
@@ -190,7 +204,7 @@ implements ConsumerRebalanceListener
         long polldone     = 0;
         
         long loopcount = 0;
-        for (int i = 0 ; i < loops ; i++)
+        for (int i = 0 ; i < this.loops ; i++)
             {
             loopcount++;
             log.trace("Loop [{}]", loopcount);
@@ -210,7 +224,7 @@ implements ConsumerRebalanceListener
                 pollbytes = 0;
                 pollrecords = 0;
                 ConsumerRecords<Long, byte[]> records = consumer.poll(
-                    timeout
+                    this.timeout
                     );
                 if (records.isEmpty())
                     {
@@ -526,6 +540,50 @@ implements ConsumerRebalanceListener
                 }
             formatter.close();
             log.trace("ASCII [{}]", string.toString());
+            }
+        }
+
+    
+    /**
+     * Callable Reader class.
+     *
+     */
+    public static class CallableReader
+    implements Callable<Statistics>
+        {
+        public CallableReader(final Duration timeout, final String servers, final String group, final String topic, final int loops)
+            {
+            this(
+                new ZtfAvroReader(
+                    timeout,
+                    servers,
+                    group,
+                    topic,
+                    loops
+                    )
+                );
+            }
+        
+        public CallableReader(final ZtfAvroReader reader)
+            {
+            this.reader = reader;
+            }
+
+        private final ZtfAvroReader reader ;
+
+        public ZtfAvroReader reader()
+            {
+            return this.reader ;
+            }
+
+        public void rewind()
+            {
+            this.reader.rewind();
+            }
+
+        public Statistics call()
+            {
+            return reader.loop();
             }
         }
     }
