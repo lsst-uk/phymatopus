@@ -54,9 +54,8 @@ extends KafkaTestBase
         super();
 
         this.group   = "java-test-001" ;
-        //this.topic   = "ztf_20181120_programid1" ;
-        this.topic   = "ztf_20181113_programid1" ;
-        this.servers = "172.16.49.217:9092,172.16.49.214:9092,172.16.49.12:9092,172.16.49.208:9092" ;
+        this.topic   = "ztf_20190612_programid1" ;
+        this.servers = "Stedigo:9092" ;
 
         }
 
