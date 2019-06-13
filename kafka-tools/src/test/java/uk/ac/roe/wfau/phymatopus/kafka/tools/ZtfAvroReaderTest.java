@@ -158,8 +158,8 @@ extends KafkaTestBase
                 totaltime  += result.time();
                 }
             float totalmilli = totaltime / 1000000 ;
-            log.debug("Test total [{}] rows [{}] bytes in [{}]ms", totalrows, totalbytes, totalmilli);
-            log.debug("Data rate [{}]ms per row", (totalmilli / totalrows));
+            log.info("Test total [{}] rows [{}] bytes in [{}]ms", totalrows, totalbytes, totalmilli);
+            log.info("Data rate [{}]ms per row", (totalmilli / totalrows));
             
             }
         finally {

@@ -288,7 +288,7 @@ implements ConsumerRebalanceListener
         long totalmilli = totalnano / 1000000 ;
         long totaltime  = totalnano / 1000000000 ;
 
-        log.debug("Total done [{}] [{}] in [{}]ns [{}]µs [{}]ms [{}]s => [{}]ns [{}]µs [{}]ms per event",
+        log.info("Total done [{}] [{}] in [{}]ns [{}]µs [{}]ms [{}]s => [{}]ns [{}]µs [{}]ms per event",
             totalrecords,
             totalbytes,
             totalnano,
