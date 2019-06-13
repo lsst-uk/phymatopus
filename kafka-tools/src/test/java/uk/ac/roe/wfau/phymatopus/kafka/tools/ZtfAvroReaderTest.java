@@ -31,6 +31,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import lombok.extern.slf4j.Slf4j;
+import uk.ac.roe.wfau.phymatopus.kafka.tools.ZtfAvroReader.Statistics;
 
 /**
  *
@@ -83,7 +84,7 @@ extends KafkaTestBase
      *
      */
     public class CallableReader
-    implements Callable<Long>
+    implements Callable<Statistics>
         {
         public CallableReader()
             {
@@ -113,7 +114,7 @@ extends KafkaTestBase
             this.reader.rewind();
             }
 
-        public Long call()
+        public Statistics call()
             {
             return reader.loop(
                 loopcount,
@@ -145,13 +146,21 @@ extends KafkaTestBase
             readers.size()
             );        
         try{
-            List<Future<Long>> futures = executor.invokeAll(readers);
-            long totalrecords = 0 ;
-            for (Future<Long> future : futures)
+            List<Future<Statistics>> futures = executor.invokeAll(readers);
+            long totalrows  = 0 ;
+            long totalbytes = 0 ;
+            long totaltime  = 0 ;
+            for (Future<Statistics> future : futures)
                 {
-                totalrecords += future.get();
+                Statistics result = future.get();
+                totalrows  += result.rows();
+                totalbytes += result.bytes();
+                totaltime  += result.time();
                 }
-            log.debug("Total records[{}]", totalrecords);
+            float totalmilli = totaltime / 1000000 ;
+            log.debug("Test total [{}] rows [{}] bytes in [{}]ms", totalrows, totalbytes, totalmilli);
+            log.debug("Data rate [{}]ms per row", (totalmilli / totalrows));
+            
             }
         finally {
             executor.shutdown();

@@ -64,6 +64,51 @@ implements ConsumerRebalanceListener
     {
 
     /**
+     * Interface for the loop statistics.
+     * 
+     */
+    public static interface Statistics
+        {
+        public long rows();
+        public long bytes();
+        public long time();
+        }
+    /**
+     * Bean class for the loop statistics.
+     * 
+     */
+    public static class LoopResult
+    implements Statistics
+        {
+        public LoopResult(long rows, long bytes, long time)
+            {
+            this.rows  = rows;
+            this.bytes = bytes;
+            this.time  = time;
+            }
+        long rows;
+        @Override
+        public long rows()
+            {
+            return this.rows;
+            }
+        long bytes ;
+        @Override
+        public long bytes()
+            {
+            return this.bytes;
+            }
+        long time ;
+        @Override
+        public long time()
+            {
+            return this.time;
+            }
+        }
+
+    
+    
+    /**
      * Public constructor.
      * @param servers The list of bootstrap Kafka server names.
      * @param group The Kafka client group identifier.
@@ -126,7 +171,7 @@ implements ConsumerRebalanceListener
         return consumer;
         }
 
-    public long loop(int loops, Duration timeout)
+    public Statistics loop(int loops, Duration timeout)
         {
         log.trace("Creating consumer");
         Consumer<Long, byte[]> consumer = consumer();
@@ -255,7 +300,11 @@ implements ConsumerRebalanceListener
             (totalmilli/((totalrecords > 0) ? totalrecords : 1))
             );
 
-        return totalrecords ;
+        return new LoopResult(
+            totalrecords,
+            totalbytes,
+            totaltime
+            ) ;
         }
 
     public long process(final byte[] bytes)
