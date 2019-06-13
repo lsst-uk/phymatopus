@@ -56,12 +56,19 @@ extends KafkaTestBase
     private Duration timeout = Duration.ofSeconds(5);
 
     /**
-     * The target kafka servers.
+     * The number of concurrent threads.
      * 
      */
     @Value("${phymatopus.kafka.threads:4}")
     private Integer threadcount ;
-    
+
+    /**
+     * Flag to reset the stream.
+     * 
+     */
+    @Value("${phymatopus.kafka.reset:false}")
+    private Boolean reset ;
+
     /**
      *
      */
@@ -93,7 +100,10 @@ extends KafkaTestBase
                 );
             }
         
-        readers.get(0).rewind();
+        if (reset)
+            {
+            readers.get(0).rewind();
+            }
 
         final ExecutorService executor = Executors.newFixedThreadPool(
             readers.size()
