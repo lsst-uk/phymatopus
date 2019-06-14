@@ -360,12 +360,13 @@ implements ConsumerRebalanceListener
                 loopnano,
                 loopmicro,
                 loopmilli,
-                (loopnano/(( looprecords > 0) ? looprecords : 1)),
-                (loopmicro/((looprecords > 0) ? looprecords : 1)),
-                (loopmilli/((looprecords > 0) ? looprecords : 1))
+                ((looprecords > 0) ? (loopnano/looprecords)  : 0),
+                ((looprecords > 0) ? (loopmicro/looprecords) : 0),
+                ((looprecords > 0) ? (loopmilli/looprecords) : 0)
                 );
+            log.debug("Loop wait [{}] loop timeout [{}]", loopwait, looptimeout);
             }
-        while (loopwait > looptimeout);
+        while (loopwait < looptimeout);
         
         if ((this.config.getAutocommit() == false) && (uncommitted > 0))
             {
@@ -398,7 +399,7 @@ implements ConsumerRebalanceListener
     
     public long process(final byte[] bytes)
         {
-        log.trace("Processing ....");
+        log.trace("Processing byte[]");
         long count = 0 ;
 
         Schema schema = schema(bytes);
@@ -429,6 +430,7 @@ implements ConsumerRebalanceListener
                 {
                 log.error("Exception hydrating alert [{}]", ouch.getMessage());
                 }
+            count++;
             }
         return count ;
         }
