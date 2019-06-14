@@ -76,77 +76,153 @@ implements ConsumerRebalanceListener
         }
 
     /**
-     * Bean class for the loop statistics.
+     * Statistics bean implementation.
      * 
      */
     public static class StatisticsBean
     implements Statistics
         {
-        public StatisticsBean(long rows, long bytes, long time)
+        public StatisticsBean(final long rows, final long bytes, final long time)
             {
             this.rows  = rows;
             this.bytes = bytes;
             this.time  = time;
             }
-        long rows;
+        private final long rows;
         @Override
         public long rows()
             {
             return this.rows;
             }
-        long bytes ;
+        private final long bytes ;
         @Override
         public long bytes()
             {
             return this.bytes;
             }
-        long time ;
+        private final long time ;
         @Override
         public long time()
             {
             return this.time;
             }
         }
-    
+
+    /**
+     * Public interface for a reader configuration.
+     * 
+     */
+    public static interface Configuration extends BaseReader.Configuration
+        {
+        /**
+         * The auto-commit flag.
+         *
+         */
+        public Boolean getAutocommit();
+
+        /**
+         * The timeout for waiting for new messages.
+         * 
+         */
+        public Duration getLoopTimeout();
+
+        /**
+         * The timeout for polling the server.
+         * 
+         */
+        public Duration getPollTimeout();
+
+        }
+
+    /**
+     * Configuration bean implementation.
+     * 
+     */
+    public static class ConfigurationBean extends BaseReader.ConfigurationBean implements Configuration 
+        {
+        static final Boolean  DEFAULT_AUTOCOMIT = true ;
+        static final Duration DEFAULT_LOOPTIMEOUT = Duration.ofMinutes(10);
+        static final Duration DEFAULT_POLLTIMEOUT = Duration.ofSeconds(10);
+        
+        /**
+         * Public constructor.
+         * 
+         */
+        public ConfigurationBean(final String servers, final String topic, final String group)
+            {
+            this(
+                DEFAULT_AUTOCOMIT,
+                DEFAULT_LOOPTIMEOUT,
+                DEFAULT_POLLTIMEOUT,
+                servers,
+                topic,
+                group
+                );
+            }
+
+        /**
+         * Public constructor.
+         * 
+         */
+        public ConfigurationBean(final Boolean autocommit, final Duration looptimeout, final Duration polltimeout, final String servers, final String topic, final String group)
+            {
+            super(
+                servers,
+                topic,
+                group
+                );
+            this.autocommit  = autocommit;
+            this.polltimeout = polltimeout;
+            this.looptimeout = looptimeout;
+            }
+
+        private final Boolean autocommit;
+        @Override
+        public Boolean getAutocommit()
+            {
+            return this.autocommit;
+            }
+
+        private final Duration looptimeout;
+        @Override
+        public Duration getLoopTimeout()
+            {
+            return this.looptimeout;
+            }
+
+        private final Duration polltimeout;
+        @Override
+        public Duration getPollTimeout()
+            {
+            return this.polltimeout;
+            }
+        }
+
+
     /**
      * Public constructor.
-     * @param servers The list of bootstrap Kafka server names.
-     * @param group The Kafka client group identifier.
-     * @param topic The Kafka topic name.
+     * @param processor The alert processor.
+     * @param config The reader configuration.
      *
      */
-    public ZtfTestAlertReader(final ZtfAlert.Processor processor, final boolean autocommit, final Duration timeout, final String servers, final String group, final String topic, final int retries)
+    public ZtfTestAlertReader(final ZtfAlert.Processor processor, final Configuration config)
         {
-        super(servers, group, topic);
+        super(config);
         this.processor = processor ;
-        this.timeout    = timeout;
-        this.autocommit = autocommit;
-        this.loops      = retries;
+        this.config = config;
         }
 
-    private ZtfAlert.Processor processor;
-    protected ZtfAlert.Processor processor()
-        {
-        return this.processor;
-        }
-    
-    private Duration timeout ;
-    protected Duration timeout()
-        {
-        return this.timeout;
-        }
-    
-    private int loops;
-    protected int loops()
-        {
-        return this.loops;
-        }
+    /**
+     * Our reader configuration.
+     * 
+     */
+    protected Configuration config;
 
-    private boolean autocommit;
-    protected boolean autocommit()
-        {
-        return this.autocommit;
-        }
+    /**
+     * Our alert processor.
+     * 
+     */
+    protected ZtfAlert.Processor processor;
 
     /**
      * Create our {@link Consumer}.
@@ -157,11 +233,11 @@ implements ConsumerRebalanceListener
         final Properties properties = new Properties();
         properties.put(
             ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
-            servers()
+            this.config.getServers()
             );
         properties.put(
             ConsumerConfig.GROUP_ID_CONFIG,
-            group()
+            this.config.getGroup()
             );
         properties.put(
             ConsumerConfig.AUTO_COMMIT_INTERVAL_MS_CONFIG,
@@ -171,7 +247,7 @@ implements ConsumerRebalanceListener
         // https://community.hortonworks.com/questions/73895/any-experience-based-tips-to-optimize-kafka-broker.html
         properties.put(
             ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG,
-            (this.autocommit() ? "true" : "false")
+            this.config.getAutocommit().toString()
             );
         properties.put(
             ConsumerConfig.FETCH_MAX_BYTES_CONFIG,
@@ -207,7 +283,7 @@ implements ConsumerRebalanceListener
         log.trace("Subscribing ..");
         consumer.subscribe(
                 Collections.singletonList(
-                    topic()
+                    this.config.getTopic()
                     ),
                 this
                 );
@@ -215,90 +291,62 @@ implements ConsumerRebalanceListener
         long totalbytes   = 0;
         long totalrecords = 0;
         long totalstart   = System.nanoTime();
-        long polldone     = 0;
-        
-        long loopcount = 0;
-        for (int i = 0 ; i < this.loops ; i++)
-            {
-            loopcount++;
-            log.trace("Loop [{}]", loopcount);
 
-            long loopstart   = System.nanoTime();
+        long loopstart = 0 ;
+        long loopcount = 0 ;
+        long loopwait  = 0;
+
+        long looptimeout = config.getLoopTimeout().toNanos();
+        long uncommitted = 0 ;
+
+        do {
+            loopcount++;
+            if (loopwait == 0)
+                {
+                loopstart = System.nanoTime();
+                }
+            log.trace("Loop [{}][{}]", loopcount, loopwait);
+
             long loopbytes   = 0;
             long looprecords = 0;
-            long uncommitted = 0;
 
-            long pollstart   = 0;
-            long pollbytes   = 0;
-            long pollcount   = 0;
-            long pollrecords = 0;
-            do {
-                log.trace("Poll [{}]", pollcount);
-                pollstart = System.nanoTime();
-                pollbytes = 0;
-                pollrecords = 0;
-                ConsumerRecords<Long, byte[]> records = consumer.poll(
-                    this.timeout
-                    );
-                if (records.isEmpty())
+            ConsumerRecords<Long, byte[]> records = consumer.poll(
+                this.config.getPollTimeout()
+                );
+
+            if (records.isEmpty())
+                {
+                loopwait = System.nanoTime() - loopstart ; 
+                }
+
+            else {
+                loopwait = 0 ;
+
+                for (ConsumerRecord<Long, byte[]> record : records)
                     {
-                    polldone = pollstart;
-                    }
-                else {
-                    for (ConsumerRecord<Long, byte[]> record : records)
-                        {
-                        pollrecords++;
-                        looprecords++;
-                        totalrecords++;
-                        uncommitted++;
-                        log.trace("Record [{}][{}]", pollrecords, totalrecords);
-                        log.trace("Offset [{}]", record.offset());
-                        log.trace("Key    [{}]", record.key());
-                        byte[] bytes = record.value();
-                        pollbytes  += bytes.length;
-                        loopbytes  += bytes.length;
-                        totalbytes += bytes.length;
-                        process(
-                            bytes
-                            );
-                        }
-                    if ((this.autocommit == false) && (uncommitted > 1000))
+                    looprecords++;
+                    totalrecords++;
+                    uncommitted++;
+                    log.trace("Record [{}][{}]", looprecords, totalrecords);
+                    log.trace("Offset [{}]", record.offset());
+                    log.trace("Key    [{}]", record.key());
+
+                    process(
+                        record.value()
+                        );
+
+                    if ((this.config.getAutocommit() == false) && (uncommitted > 1000))
                         {
                         log.trace("Committing [{}]", uncommitted);
                         consumer.commitSync();
                         uncommitted = 0;
                         }
-                    polldone = System.nanoTime();
                     }
-                long pollnano = polldone - pollstart;
-                long pollmicro = pollnano / 1000 ;
-                long pollmilli = pollnano / 1000000 ;
-                log.debug("Poll [{}] done [{}:{}] records [{}:{}] bytes in [{}]ns [{}]µs [{}]ms => [{}]ns [{}]µs [{}]ms per event",
-                    pollcount,
-                    pollrecords,
-                    totalrecords,
-                    pollbytes,
-                    totalbytes,
-                    pollnano,
-                    pollmicro,
-                    pollmilli,
-                    (pollnano/(( pollrecords > 0) ? pollrecords : 1)),
-                    (pollmicro/((pollrecords > 0) ? pollrecords : 1)),
-                    (pollmilli/((pollrecords > 0) ? pollrecords : 1))
-                    );
-                pollcount++;
-                }
-            while (pollrecords > 0);
-
-            if ((this.autocommit == false) && (uncommitted > 0))
-                {
-                log.trace("Committing [{}]", uncommitted);
-                consumer.commitSync();
                 }
 
-            long loopnano  = polldone - loopstart;
+            long loopnano  = System.nanoTime() - loopstart;
             long loopmicro = loopnano / 1000 ;
-            long loopmilli = loopnano / 1000000 ;
+            float loopmilli = loopnano / 1000000 ;
             log.debug("Loop [{}] done [{}:{}] records [{}:{}] bytes in [{}]ns [{}]µs [{}]ms => [{}]ns [{}]µs [{}]ms per event",
                 loopcount,
                 looprecords,
@@ -313,19 +361,24 @@ implements ConsumerRebalanceListener
                 (loopmilli/((looprecords > 0) ? looprecords : 1))
                 );
             }
+        while (loopwait > looptimeout);
+        
+        if ((this.config.getAutocommit() == false) && (uncommitted > 0))
+            {
+            log.trace("Committing [{}]", uncommitted);
+            consumer.commitSync();
+            }
+        
+        long  totalnano  = System.nanoTime() - totalstart;
+        long  totalmicro = totalnano / 1000 ;
+        float totalmilli = totalnano / 1000000 ;
 
-        long totalnano  = polldone - totalstart;
-        long totalmicro = totalnano / 1000 ;
-        long totalmilli = totalnano / 1000000 ;
-        long totaltime  = totalnano / 1000000000 ;
-
-        log.info("Total done [{}] [{}] in [{}]ns [{}]µs [{}]ms [{}]s => [{}]ns [{}]µs [{}]ms per event",
+        log.info("Total done [{}] [{}] in [{}]ns [{}]µs [{}]ms  => [{}]ns [{}]µs [{}]ms per event",
             totalrecords,
             totalbytes,
             totalnano,
             totalmicro,
             totalmilli,
-            totaltime,
             (totalnano/(( totalrecords > 0) ? totalrecords : 1)),
             (totalmicro/((totalrecords > 0) ? totalrecords : 1)),
             (totalmilli/((totalrecords > 0) ? totalrecords : 1))
@@ -438,7 +491,7 @@ implements ConsumerRebalanceListener
 
         log.trace("Fetching PartitionInfo for topic");
         List<PartitionInfo> partitions = consumer.partitionsFor(
-            topic()
+            this.config.getTopic()
             );
 
         log.trace("Creating TopicPartitions");
@@ -555,17 +608,12 @@ implements ConsumerRebalanceListener
     public static class CallableReader
     implements Callable<Statistics>
         {
-        public CallableReader(final ZtfAlert.Processor processor, final boolean autocommit, final Duration timeout, final String servers, final String group, final String topic, final int loops)
+        public CallableReader(final ZtfAlert.Processor processor, final Configuration config)
             {
             this(
                 new ZtfTestAlertReader(
                     processor,
-                    autocommit,
-                    timeout,
-                    servers,
-                    group,
-                    topic,
-                    loops
+                    config
                     )
                 );
             }

@@ -54,8 +54,10 @@ extends KafkaTestBase
         {
         log.debug("Write test ..");
         final StringWriter writer = new StringWriter(
-            servers,
-            topic
+            new BaseClient.ConfigurationBean(
+                servers,
+                topic
+                )
             ); 
         writer.write(
             10000

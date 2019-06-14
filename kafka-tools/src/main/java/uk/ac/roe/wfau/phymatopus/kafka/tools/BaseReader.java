@@ -25,28 +25,61 @@ package uk.ac.roe.wfau.phymatopus.kafka.tools;
  */
 public class BaseReader extends BaseClient
     {
+    /**
+     * Public interface for a Reader configuration.
+     * 
+     */
+    public static interface Configuration extends BaseClient.Configuration
+        {
+        /**
+         * The client group name to subscribe as.
+         * 
+         */
+        public String getGroup();
+        }
+
+    /**
+     * Configuration bean implementation.
+     * 
+     */
+    public static class ConfigurationBean extends BaseClient.ConfigurationBean implements Configuration 
+        {
+        /**
+         * Public constructor.
+         * 
+         */
+        public ConfigurationBean(final String servers, final String topic, final String group)
+            {
+            super(
+                servers,
+                topic
+                );
+            this.group   = group;
+            }
+
+        private final String group;
+        @Override
+        public String getGroup()
+            {
+            return this.group;
+            }
+        }
+
+    /**
+     * Our reader configuration..
+     * 
+     */
+    protected Configuration config;
 
     /**
      * Public constructor.
-     * @param servers The list of bootstrap Kafka server names.
-     * @param group The Kafka client group identifier.
-     * @param topic The Kafka topic name.
+     * @param config The reader configuration. 
      * 
      */
-    public BaseReader(final String servers, final String group, final String topic)
+    public BaseReader(final Configuration config)
         {
-        super(servers, topic);
-        this.group = group ;
+        super(config);
+        this.config = config;
         }
 
-    /**
-     * Our Kafka client group identifier.
-     * 
-     */
-    protected String group;
-    protected String group()
-        {
-        return this.group.trim();
-        }
-    
     }

@@ -34,6 +34,7 @@ import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import lombok.extern.slf4j.Slf4j;
 import uk.ac.roe.wfau.phymatopus.kafka.alert.ZtfAlert;
 import uk.ac.roe.wfau.phymatopus.kafka.alert.ZtfCutout;
+import uk.ac.roe.wfau.phymatopus.kafka.tools.ZtfTestAlertReader.ConfigurationBean;
 import uk.ac.roe.wfau.phymatopus.kafka.tools.ZtfTestAlertReader.CallableReader;
 import uk.ac.roe.wfau.phymatopus.kafka.tools.ZtfTestAlertReader.Statistics;
 
@@ -54,8 +55,11 @@ public class ZtfTestAlertReaderTest
 extends KafkaTestBase
     {
 
-    private int loops = 1 ;
-    private Duration timeout = Duration.ofSeconds(5);
+    @Value("${phymatopus.kafka.looptimeout:10}")
+    private Duration looptimeout = Duration.ofMinutes(10);
+
+    @Value("${phymatopus.kafka.polltimeout:10}")
+    private Duration polltimeout = Duration.ofSeconds(10);
 
     /**
      * The number of concurrent threads.
@@ -141,12 +145,14 @@ extends KafkaTestBase
             readers.add(
                 new CallableReader(
                     new AlertProcessor(),
-                    this.autocomit,
-                    this.timeout,
-                    this.servers,
-                    this.group,
-                    this.topic,
-                    this.loops
+                    new ConfigurationBean(
+                        false,
+                        this.looptimeout,
+                        this.polltimeout,
+                        this.servers,
+                        this.topic,
+                        this.group
+                        ) 
                     )
                 );
             }

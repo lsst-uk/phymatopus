@@ -46,11 +46,10 @@ extends BaseClient
      * Public constructor.
      * 
      */
-    public StringWriter(final String servers, final String topic)
+    public StringWriter(final Configuration config)
         {
         super(
-            servers,
-            topic
+            config
             );
         }
 
@@ -63,7 +62,7 @@ extends BaseClient
         Properties properties = new Properties();
         properties.put(
             ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
-            this.servers()
+            this.config.getServers()
             );
         properties.put(
             ProducerConfig.CLIENT_ID_CONFIG,
@@ -93,7 +92,7 @@ extends BaseClient
                 {
                 log.debug("Loop [{}]", index);
                 final ProducerRecord<Long, String> record = new ProducerRecord<Long, String>(
-                    topic(),
+                    this.config.getTopic(),
                     (start + index),
                     "Hello Mum [" + index + "]"
                     );

@@ -36,6 +36,7 @@ import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import io.confluent.kafka.serializers.KafkaAvroSerializer;
 import lombok.extern.slf4j.Slf4j;
+import uk.ac.roe.wfau.phymatopus.kafka.tools.BaseClient.Configuration;
 
 /**
  * First attempt at a schema structure writer.
@@ -50,11 +51,10 @@ extends BaseClient
      * Public constructor.
      * 
      */
-    public RecordWriter(final String servers, final String topic)
+    public RecordWriter(final Configuration config)
         {
         super(
-            servers,
-            topic
+            config
             );
         }
     
@@ -67,7 +67,7 @@ extends BaseClient
         Properties properties = new Properties();
         properties.put(
             ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
-            this.servers()
+            this.config.getServers()
             );
         properties.put(
             ProducerConfig.CLIENT_ID_CONFIG,
@@ -144,7 +144,7 @@ extends BaseClient
                 {
                 log.debug("Loop [{}]", index);
                 final ProducerRecord<Long, Object> record = new ProducerRecord<Long, Object>(
-                    topic(),
+                    this.config.getTopic(),
                     (start + index),
                     record()
                     );

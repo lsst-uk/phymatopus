@@ -24,26 +24,61 @@ package uk.ac.roe.wfau.phymatopus.kafka.tools;
  */
 public class BaseClient
     {
-
     /**
-     * Our target Kafka server name(s).
+     * Public interface for a Kafka client configuration.
      * 
      */
-    protected String servers;
-    protected String servers()
+    public static interface Configuration
         {
-        return this.servers.trim();
+        /**
+         * The bootstrap list of servers.
+         * 
+         */
+        public String getServers();
+
+        /**
+         * The topic name.
+         * 
+         */
+        public String getTopic();
         }
 
     /**
-     * Our target Kafka topic.
+     * Configuration bean implementation.
      * 
      */
-    protected String topic;
-    protected String topic()
+    public static class ConfigurationBean implements Configuration 
         {
-        return this.topic.trim();
+        /**
+         * Public constructor.
+         * 
+         */
+        public ConfigurationBean(final String servers, final String topic)
+            {
+            this.servers = servers;
+            this.topic   = topic;
+            }
+
+        private final String servers;
+        @Override
+        public String getServers()
+            {
+            return this.servers;
+            }
+
+        private final String topic;
+        @Override
+        public String getTopic()
+            {
+            return this.topic;
+            }
         }
+
+    /**
+     * Our client configuration.
+     * 
+     */
+    protected Configuration config;
 
     /**
      * Public constructor.
@@ -51,9 +86,8 @@ public class BaseClient
      * @param topic The Kafka topic name.
      *  
      */
-    public BaseClient(final String servers, final String topic)
+    public BaseClient(final Configuration config)
         {
-        this.topic   = topic;
-        this.servers = servers;
+        this.config = config;
         }
     }
