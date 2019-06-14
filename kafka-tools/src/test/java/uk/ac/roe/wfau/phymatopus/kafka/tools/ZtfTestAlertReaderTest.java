@@ -190,7 +190,7 @@ extends KafkaTestBase
             long donenano = System.nanoTime();
             float totalmilli = (donenano - startnano) / 1000000 ;
             float meanmilli = totalmilli / totalalerts ;
-            log.info("Group [{}] with [{}] threads read [{}] alerts in [{}]ms at [{}]ms per row", this.group, threadcount, totalalerts, totalmilli, meanmilli);
+            log.info("Group [{}] with [{}] threads read [{}] alerts in [{}]ms at [{}]ms per alert", this.group, threadcount, totalalerts, totalmilli, meanmilli);
             
             }
         finally {
