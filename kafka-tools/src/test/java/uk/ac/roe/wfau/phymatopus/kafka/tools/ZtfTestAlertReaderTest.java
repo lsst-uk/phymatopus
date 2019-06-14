@@ -177,20 +177,20 @@ extends KafkaTestBase
         try{
             long startnano = System.nanoTime();
             List<Future<Statistics>> futures = executor.invokeAll(readers);
-            long totalrows  = 0 ;
-            long totalbytes = 0 ;
-            long totaltime  = 0 ;
+            long totalalerts = 0 ;
+            long totalbytes  = 0 ;
+            long totaltime   = 0 ;
             for (Future<Statistics> future : futures)
                 {
                 Statistics result = future.get();
-                totalrows  += result.rows();
-                totalbytes += result.bytes();
-                totaltime  += result.time();
+                totalalerts += result.alerts();
+                totalbytes  += result.bytes();
+                totaltime   += result.time();
                 }
             long donenano = System.nanoTime();
             float totalmilli = (donenano - startnano) / 1000000 ;
-            float meanmilli = totalmilli / totalrows ;
-            log.info("Group [{}] with [{}] threads read [{}] rows in [{}]ms at [{}]ms per row", this.group, threadcount, totalrows, totalmilli, meanmilli);
+            float meanmilli = totalmilli / totalalerts ;
+            log.info("Group [{}] with [{}] threads read [{}] alerts in [{}]ms at [{}]ms per row", this.group, threadcount, totalalerts, totalmilli, meanmilli);
             
             }
         finally {

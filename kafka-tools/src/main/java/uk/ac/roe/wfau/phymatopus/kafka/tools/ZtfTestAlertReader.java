@@ -70,7 +70,7 @@ implements ConsumerRebalanceListener
      */
     public static interface Statistics
         {
-        public long rows();
+        public long alerts();
         public long bytes();
         public long time();
         }
@@ -82,17 +82,17 @@ implements ConsumerRebalanceListener
     public static class StatisticsBean
     implements Statistics
         {
-        public StatisticsBean(final long rows, final long bytes, final long time)
+        public StatisticsBean(final long alerts, final long bytes, final long time)
             {
-            this.rows  = rows;
-            this.bytes = bytes;
-            this.time  = time;
+            this.alerts = alerts;
+            this.bytes  = bytes;
+            this.time   = time;
             }
-        private final long rows;
+        private final long alerts;
         @Override
-        public long rows()
+        public long alerts()
             {
-            return this.rows;
+            return this.alerts;
             }
         private final long bytes ;
         @Override
@@ -421,7 +421,6 @@ implements ConsumerRebalanceListener
             totalnano
             ) ;
         }
-
     
     public long process(final byte[] bytes)
         {
@@ -433,13 +432,13 @@ implements ConsumerRebalanceListener
 
         DataFileReader<alert> reader = reader(bytes);
 
-        long count = 0 ;
+        long alertcount = 0 ;
         while (reader.hasNext())
             {
             try {
-                log.trace("Hydrating alert [{}]", count);
+                log.trace("Hydrating alert [{}]", alertcount);
                 ztf.alert alert = reader.next();
-                log.trace("Processing alert [{}]", count);
+                log.trace("Processing alert [{}]", alertcount);
                 try {
                     processor.process(
                         new ZtfAlertWrapper(
@@ -456,9 +455,9 @@ implements ConsumerRebalanceListener
                 {
                 log.error("Exception hydrating alert [{}]", ouch.getMessage());
                 }
-            count++;
+            alertcount++;
             }
-        return count ;
+        return alertcount ;
         }
 
     public Schema schema(final byte[] bytes)
