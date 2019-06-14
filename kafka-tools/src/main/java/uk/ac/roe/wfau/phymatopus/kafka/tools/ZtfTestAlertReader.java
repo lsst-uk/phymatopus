@@ -352,6 +352,8 @@ implements ConsumerRebalanceListener
             }
         while (lastwait < looptimeout);
 
+        consumer.close();
+        
         long  totaltime  = (System.nanoTime() - totalstart) - totalwait ;
         long  totalmicro = totaltime / 1000 ;
         float totalmilli = totaltime / (1000 * 1000) ;
