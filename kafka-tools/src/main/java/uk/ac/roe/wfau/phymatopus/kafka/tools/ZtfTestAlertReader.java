@@ -71,8 +71,7 @@ implements ConsumerRebalanceListener
     public static interface Statistics
         {
         public long alerts();
-        public long bytes();
-        public long time();
+        public long runtime();
         }
 
     /**
@@ -82,11 +81,10 @@ implements ConsumerRebalanceListener
     public static class StatisticsBean
     implements Statistics
         {
-        public StatisticsBean(final long alerts, final long bytes, final long time)
+        public StatisticsBean(final long alerts, final long runtime)
             {
-            this.alerts = alerts;
-            this.bytes  = bytes;
-            this.time   = time;
+            this.alerts  = alerts;
+            this.runtime = runtime;
             }
         private final long alerts;
         @Override
@@ -94,17 +92,11 @@ implements ConsumerRebalanceListener
             {
             return this.alerts;
             }
-        private final long bytes ;
+        private final long runtime ;
         @Override
-        public long bytes()
+        public long runtime()
             {
-            return this.bytes;
-            }
-        private final long time ;
-        @Override
-        public long time()
-            {
-            return this.time;
+            return this.runtime;
             }
         }
 
@@ -292,16 +284,15 @@ implements ConsumerRebalanceListener
                 this
                 );
 
-        long totalbytes   = 0;
-        long totalalerts  = 0;
-        //long totalrecords = 0;
-        long totalstart   = System.nanoTime();
-        long totalwait    = 0;
+        long totalalerts = 0;
+        long totalstart  = System.nanoTime();
+        long totalwait   = 0;
 
-        long loopstart  = 0 ;
-        long loopalerts = 0 ;
-        long loopcount  = 0 ;
-        long loopwait   = 0;
+        long loopalerts  = 0;
+        long loopstart   = System.nanoTime();
+        long loopcount   = 0;
+        //long thiswait    = 0;
+        long lastwait    = 0;
 
         long looptimeout = config.getLoopTimeout().toNanos();
         Duration polltimeout = config.getLoopTimeout();
@@ -309,14 +300,10 @@ implements ConsumerRebalanceListener
 
         do {
             loopcount++;
-            if (loopwait == 0)
-                {
-                loopstart = System.nanoTime();
-                }
-            log.trace("Loop [{}][{}]", loopcount, loopwait);
+            loopalerts = 0 ;
+            loopstart  = System.nanoTime() ; 
 
-            long loopbytes = 0;
-            //long looprecords = 0;
+            log.trace("Loop [{}][{}]", loopcount, lastwait);
 
             ConsumerRecords<Long, byte[]> records = consumer.poll(
                 polltimeout 
@@ -324,92 +311,63 @@ implements ConsumerRebalanceListener
 
             if (records.isEmpty())
                 {
-                loopwait = System.nanoTime() - loopstart ; 
+                long thiswait = System.nanoTime() - loopstart ; 
+                lastwait  += thiswait ; 
+                totalwait += thiswait ; 
+                log.debug("Loop wait [{}][{}][{}]", thiswait, lastwait, totalwait );
                 }
 
             else {
-                totalwait += loopwait ; 
-                loopwait   = 0 ;
+                lastwait = 0 ;
                 for (ConsumerRecord<Long, byte[]> record : records)
                     {
-                    //looprecords++;
-                    //totalrecords++;
-                    //log.trace("Record [{}][{}]", looprecords, totalrecords);
-                    //log.trace("Offset [{}]", record.offset());
-                    //log.trace("Key    [{}]", record.key());
-
-                    byte[] bytearray = record.value(); 
-                    loopbytes   = bytearray.length; 
-                    totalbytes += loopbytes ;
-                    
-                    loopalerts = process(
-                        bytearray 
+                    long alertcount = process(
+                        record.value()
                         );
+                    loopalerts  += alertcount;
+                    totalalerts += alertcount;
+                    }
 
-                    totalalerts += loopalerts ;
-                    uncommitted += loopalerts ;
-                    
-                    if ((this.config.getAutocommit() == false) && (uncommitted > 1000))
-                        {
-                        log.trace("Committing [{}]", uncommitted);
-                        consumer.commitSync();
-                        uncommitted = 0;
-                        }
+                if (loopalerts > 0)
+                    {
+                    long  loopnano  = System.nanoTime() - loopstart;
+                    long  loopmicro = loopnano / 1000 ;
+                    float loopmilli = loopnano / 1000000 ;
+                    log.debug("Loop [{}] completed [{}:{}] alerts in [{}]ns [{}]µs [{}]ms => [{}]ns [{}]µs [{}]ms per alert",
+                        loopcount,
+                        loopalerts,
+                        totalalerts,
+                        loopnano,
+                        loopmicro,
+                        loopmilli,
+                        (loopnano/loopalerts),
+                        (loopmicro/loopalerts),
+                        (loopmilli/loopalerts)
+                        );
+                    }
+                else {
+                    log.debug("Loop wait [{}][{}]", lastwait, totalwait);
                     }
                 }
-
-            if (loopalerts > 0)
-                {
-                long  loopnano  = System.nanoTime() - loopstart;
-                long  loopmicro = loopnano / 1000 ;
-                float loopmilli = loopnano / 1000000 ;
-                log.debug("Loop [{}] completed [{}:{}] alerts [{}:{}] bytes in [{}]ns [{}]µs [{}]ms => [{}]ns [{}]µs [{}]ms per alert",
-                    loopcount,
-                    loopalerts,
-                    totalalerts,
-                    loopbytes,
-                    totalbytes,
-                    loopnano,
-                    loopmicro,
-                    loopmilli,
-                    (loopnano/loopalerts),
-                    (loopmicro/loopalerts),
-                    (loopmilli/loopalerts)
-                    );
-                }
-            else {
-                log.debug("Loop wait [{}] loop timeout [{}]", loopwait, looptimeout);
-                }
             }
-        while (loopwait < looptimeout);
+        while (lastwait < looptimeout);
 
-        totalwait += loopwait ; 
-
-        if ((this.config.getAutocommit() == false) && (uncommitted > 0))
-            {
-            log.trace("Committing [{}]", uncommitted);
-            consumer.commitSync();
-            }
-
-        long  totalnano  = System.nanoTime() - (totalstart + totalwait) ;
-        long  totalmicro = totalnano / 1000 ;
-        float totalmilli = totalnano / 1000000 ;
+        long  totaltime  = (System.nanoTime() - totalstart) - totalwait ;
+        long  totalmicro = totaltime / 1000 ;
+        float totalmilli = totaltime / (1000 * 1000) ;
         if (totalalerts > 0)
             {
-            log.info("Total : [{}] alerts in [{}]ns [{}]µs [{}]ms  => [{}]ns [{}]µs [{}]ms per alert",
+            log.info("Total : [{}] alerts in [{}]µs [{}]ms  => [{}]µs [{}]ms per alert",
                 totalalerts,
-                totalnano,
                 totalmicro,
                 totalmilli,
-                (totalnano/totalalerts),
                 (totalmicro/totalalerts),
                 (totalmilli/totalalerts)
                 );
             }
         else {
-            log.info("Total : [{}] alerts in [{}]ns [{}]µs [{}]ms",
+            log.info("Total : [{}] alerts in [{}]µs [{}]ms",
                 totalalerts,
-                totalnano,
                 totalmicro,
                 totalmilli
                 );
@@ -417,8 +375,7 @@ implements ConsumerRebalanceListener
             }
         return new StatisticsBean(
             totalalerts,
-            totalbytes,
-            totalnano
+            totaltime
             ) ;
         }
     

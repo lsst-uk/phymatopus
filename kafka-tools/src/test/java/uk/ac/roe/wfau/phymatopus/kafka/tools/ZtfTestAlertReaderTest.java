@@ -175,21 +175,19 @@ extends KafkaTestBase
             readers.size()
             );        
         try{
-            long startnano = System.nanoTime();
+
             List<Future<Statistics>> futures = executor.invokeAll(readers);
             long totalalerts = 0 ;
-            long totalbytes  = 0 ;
             long totaltime   = 0 ;
             for (Future<Statistics> future : futures)
                 {
                 Statistics result = future.get();
                 totalalerts += result.alerts();
-                totalbytes  += result.bytes();
-                totaltime   += result.time();
+                totaltime   += result.runtime();
                 }
-            long donenano = System.nanoTime();
-            float totalmilli = (donenano - startnano) / 1000000 ;
-            float meanmilli = totalmilli / totalalerts ;
+            
+            float totalmilli = totaltime / (1000 * 1000);
+            float meanmilli  = totalmilli / totalalerts;
             log.info("Group [{}] with [{}] threads read [{}] alerts in [{}]ms at [{}]ms per alert", this.group, threadcount, totalalerts, totalmilli, meanmilli);
             
             }
