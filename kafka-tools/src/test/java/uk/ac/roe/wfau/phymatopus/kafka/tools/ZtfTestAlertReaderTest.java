@@ -55,11 +55,19 @@ public class ZtfTestAlertReaderTest
 extends KafkaTestBase
     {
 
-    @Value("${phymatopus.kafka.looptimeout:10}")
-    private Duration looptimeout = Duration.ofMinutes(10);
+    @Value("${phymatopus.kafka.looptimeout:T10M}")
+    private String   looptimeoutstr ;
+    private Duration looptimeout()
+        {
+        return Duration.parse(looptimeoutstr);
+        }
 
-    @Value("${phymatopus.kafka.polltimeout:10}")
-    private Duration polltimeout = Duration.ofSeconds(10);
+    @Value("${phymatopus.kafka.polltimeout:T10S}")
+    private String   polltimeoutstr;
+    private Duration polltimeout()
+        {
+        return Duration.parse(polltimeoutstr);
+        }
 
     /**
      * The number of concurrent threads.
@@ -147,8 +155,8 @@ extends KafkaTestBase
                     new AlertProcessor(),
                     new ConfigurationBean(
                         false,
-                        this.looptimeout,
-                        this.polltimeout,
+                        this.looptimeout(),
+                        this.polltimeout(),
                         this.servers,
                         this.topic,
                         this.group
