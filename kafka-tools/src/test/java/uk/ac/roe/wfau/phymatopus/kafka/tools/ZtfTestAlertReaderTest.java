@@ -148,13 +148,13 @@ extends KafkaTestBase
         {
         final List<CallableReader> readers = new ArrayList<CallableReader>(); 
 
-        for (int i = 0 ; i < threadcount ; i++)   
+        for (int i = 0 ; i < this.threadcount ; i++)   
             {
             readers.add(
                 new CallableReader(
                     new AlertProcessor(),
                     new ConfigurationBean(
-                        false,
+                        this.autocomit,
                         this.looptimeout(),
                         this.polltimeout(),
                         this.servers,
@@ -165,7 +165,7 @@ extends KafkaTestBase
                 );
             }
         
-        if (rewind)
+        if (this.rewind)
             {
             log.debug("Rewinding consumer group");
             readers.get(0).rewind();
