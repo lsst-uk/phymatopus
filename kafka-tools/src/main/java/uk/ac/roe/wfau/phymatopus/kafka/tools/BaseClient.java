@@ -18,6 +18,8 @@
 
 package uk.ac.roe.wfau.phymatopus.kafka.tools;
 
+import lombok.extern.slf4j.Slf4j;
+
 /**
  * Common base class for Kafka clients.
  * 
@@ -47,6 +49,7 @@ public class BaseClient
      * Configuration bean implementation.
      * 
      */
+    @Slf4j
     public static class ConfigurationBean implements Configuration 
         {
         /**
@@ -57,6 +60,8 @@ public class BaseClient
             {
             this.servers = servers;
             this.topic   = topic;
+            log.debug("servers [{}]", servers);
+            log.debug("topic   [{}]", topic);
             }
 
         private final String servers;

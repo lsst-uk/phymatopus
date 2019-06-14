@@ -18,6 +18,8 @@
 
 package uk.ac.roe.wfau.phymatopus.kafka.tools;
 
+import lombok.extern.slf4j.Slf4j;
+
 /**
  * Common base class for Kafka readers.
  * 
@@ -42,6 +44,7 @@ public class BaseReader extends BaseClient
      * Configuration bean implementation.
      * 
      */
+    @Slf4j
     public static class ConfigurationBean extends BaseClient.ConfigurationBean implements Configuration 
         {
         /**
@@ -54,7 +57,8 @@ public class BaseReader extends BaseClient
                 servers,
                 topic
                 );
-            this.group   = group;
+            this.group = group;
+            log.debug("group   [{}]", group);
             }
 
         private final String group;

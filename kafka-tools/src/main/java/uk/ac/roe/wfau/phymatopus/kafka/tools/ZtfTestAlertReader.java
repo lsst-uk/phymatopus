@@ -138,6 +138,7 @@ implements ConsumerRebalanceListener
      * Configuration bean implementation.
      * 
      */
+    @Slf4j
     public static class ConfigurationBean extends BaseReader.ConfigurationBean implements Configuration 
         {
         static final Boolean  DEFAULT_AUTOCOMIT = true ;
@@ -174,6 +175,9 @@ implements ConsumerRebalanceListener
             this.autocommit  = autocommit;
             this.polltimeout = polltimeout;
             this.looptimeout = looptimeout;
+            log.debug("autocommit  [{}]", autocommit);
+            log.debug("polltimeout [{}]", polltimeout);
+            log.debug("looptimeout [{}]", looptimeout);
             }
 
         private final Boolean autocommit;
