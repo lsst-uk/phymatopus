@@ -49,16 +49,17 @@ import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.LongDeserializer;
 
 import lombok.extern.slf4j.Slf4j;
+import uk.ac.roe.wfau.phymatopus.kafka.alert.ZtfAlert;
+import uk.ac.roe.wfau.phymatopus.kafka.alert.ZtfAlertWrapper;
 import ztf.alert;
-import ztf.cutout;
 
 
 /**
- *
+ * Reads a series on ZtfAlerts from a stream and stops when there are no more alerts and the poll timeout is reached.
  *
  */
 @Slf4j
-public class ZtfAvroReader
+public class ZtfTestAlertReader
 extends BaseReader
 implements ConsumerRebalanceListener
     {
@@ -73,14 +74,15 @@ implements ConsumerRebalanceListener
         public long bytes();
         public long time();
         }
+
     /**
      * Bean class for the loop statistics.
      * 
      */
-    public static class LoopResult
+    public static class StatisticsBean
     implements Statistics
         {
-        public LoopResult(long rows, long bytes, long time)
+        public StatisticsBean(long rows, long bytes, long time)
             {
             this.rows  = rows;
             this.bytes = bytes;
@@ -113,14 +115,21 @@ implements ConsumerRebalanceListener
      * @param topic The Kafka topic name.
      *
      */
-    public ZtfAvroReader(final boolean autocommit, final Duration timeout, final String servers, final String group, final String topic, final int retries)
+    public ZtfTestAlertReader(final ZtfAlert.Processor processor, final boolean autocommit, final Duration timeout, final String servers, final String group, final String topic, final int retries)
         {
         super(servers, group, topic);
+        this.processor = processor ;
         this.timeout    = timeout;
         this.autocommit = autocommit;
         this.loops      = retries;
         }
 
+    private ZtfAlert.Processor processor;
+    protected ZtfAlert.Processor processor()
+        {
+        return this.processor;
+        }
+    
     private Duration timeout ;
     protected Duration timeout()
         {
@@ -322,16 +331,17 @@ implements ConsumerRebalanceListener
             (totalmilli/((totalrecords > 0) ? totalrecords : 1))
             );
 
-        return new LoopResult(
+        return new StatisticsBean(
             totalrecords,
             totalbytes,
             totalnano
             ) ;
         }
 
+    
     public long process(final byte[] bytes)
         {
-        log.trace("Hydrating ....");
+        log.trace("Processing ....");
         long count = 0 ;
 
         Schema schema = schema(bytes);
@@ -343,38 +353,24 @@ implements ConsumerRebalanceListener
         while (reader.hasNext())
             {
             try {
-                log.trace("Hydrating alert [{}]", count++);
-
-                //
-                // Select the implementation type based on the schema fingerprint ...
-                //
-
-                final alert frog = reader.next();
-
-                log.trace("candId    [{}]", frog.getCandid());
-                log.trace("objectId  [{}]", frog.getObjectId());
-                log.trace("schemavsn [{}]", frog.getSchemavsn().toString());
-
-                final cutout science    = frog.getCutoutScience();
-                final cutout template   = frog.getCutoutTemplate();
-                final cutout difference = frog.getCutoutDifference();
-
-                if (null != science)
-                    {
-                    log.trace("science    [{}][{}][{}]", science.getFileName(), science.getStampData().limit(), science.getStampData().capacity());
+                log.trace("Hydrating alert [{}]", count);
+                ztf.alert alert = reader.next();
+                log.trace("Processing alert [{}]", count);
+                try {
+                    processor.process(
+                        new ZtfAlertWrapper(
+                            alert
+                            )
+                        );
                     }
-                if (null != template)
+                catch (Exception ouch)
                     {
-                    log.trace("template   [{}][{}][{}]", template.getFileName(), template.getStampData().limit(), template.getStampData().capacity());
-                    }
-                if (null != difference)
-                    {
-                    log.trace("difference [{}][{}][{}]", difference.getFileName(), difference.getStampData().limit(), difference.getStampData().capacity());
+                    log.error("Exception processing alert [{}]", ouch.getMessage());
                     }
                 }
-            catch (RuntimeException ouch)
+            catch (Exception ouch)
                 {
-                log.error("RuntimeException hydrating alert [{}]", ouch.getMessage());
+                log.error("Exception hydrating alert [{}]", ouch.getMessage());
                 }
             }
         return count ;
@@ -553,16 +549,17 @@ implements ConsumerRebalanceListener
 
     
     /**
-     * Callable Reader class.
+     * Callable Reader wrapper class.
      *
      */
     public static class CallableReader
     implements Callable<Statistics>
         {
-        public CallableReader(final boolean autocommit, final Duration timeout, final String servers, final String group, final String topic, final int loops)
+        public CallableReader(final ZtfAlert.Processor processor, final boolean autocommit, final Duration timeout, final String servers, final String group, final String topic, final int loops)
             {
             this(
-                new ZtfAvroReader(
+                new ZtfTestAlertReader(
+                    processor,
                     autocommit,
                     timeout,
                     servers,
@@ -573,14 +570,14 @@ implements ConsumerRebalanceListener
                 );
             }
         
-        public CallableReader(final ZtfAvroReader reader)
+        public CallableReader(final ZtfTestAlertReader reader)
             {
             this.reader = reader;
             }
 
-        private final ZtfAvroReader reader ;
+        private final ZtfTestAlertReader reader ;
 
-        public ZtfAvroReader reader()
+        public ZtfTestAlertReader reader()
             {
             return this.reader ;
             }

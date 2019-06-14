@@ -32,8 +32,10 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 import lombok.extern.slf4j.Slf4j;
-import uk.ac.roe.wfau.phymatopus.kafka.tools.ZtfAvroReader.CallableReader;
-import uk.ac.roe.wfau.phymatopus.kafka.tools.ZtfAvroReader.Statistics;
+import uk.ac.roe.wfau.phymatopus.kafka.alert.ZtfAlert;
+import uk.ac.roe.wfau.phymatopus.kafka.alert.ZtfCutout;
+import uk.ac.roe.wfau.phymatopus.kafka.tools.ZtfTestAlertReader.CallableReader;
+import uk.ac.roe.wfau.phymatopus.kafka.tools.ZtfTestAlertReader.Statistics;
 
 /**
  *
@@ -48,7 +50,7 @@ import uk.ac.roe.wfau.phymatopus.kafka.tools.ZtfAvroReader.Statistics;
         "classpath:component-config.xml"
         }
     )
-public class ZtfAvroReaderTest
+public class ZtfTestAlertReaderTest
 extends KafkaTestBase
     {
 
@@ -70,7 +72,7 @@ extends KafkaTestBase
     private Boolean rewind ;
 
     /**
-     * Flag to enable auto comit.
+     * Flag to enable auto-commit.
      * 
      */
     @Value("${phymatopus.kafka.autocomit:true}")
@@ -79,11 +81,51 @@ extends KafkaTestBase
     /**
      *
      */
-    public ZtfAvroReaderTest()
+    public ZtfTestAlertReaderTest()
         {
         super();
         }
 
+    /**
+     * Our Alert processor.
+     * 
+     */
+    public class AlertProcessor implements ZtfAlert.Processor
+        {
+        /**
+         * Public constructor.
+         * 
+         */
+        public AlertProcessor()
+            {
+            }
+
+        @Override
+        public void process(final ZtfAlert alert)
+            {
+            log.trace("candId    [{}]", alert.getCandid());
+            log.trace("objectId  [{}]", alert.getObjectId());
+            log.trace("schemavsn [{}]", alert.getSchemavsn().toString());
+
+            final ZtfCutout science    = alert.getCutoutScience();
+            final ZtfCutout template   = alert.getCutoutTemplate();
+            final ZtfCutout difference = alert.getCutoutDifference();
+
+            if (null != science)
+                {
+                log.trace("science    [{}][{}][{}]", science.getFileName(), science.getStampData().limit(), science.getStampData().capacity());
+                }
+            if (null != template)
+                {
+                log.trace("template   [{}][{}][{}]", template.getFileName(), template.getStampData().limit(), template.getStampData().capacity());
+                }
+            if (null != difference)
+                {
+                log.trace("difference [{}][{}][{}]", difference.getFileName(), difference.getStampData().limit(), difference.getStampData().capacity());
+                }
+            }
+        }
+    
     /**
      * Test multiple threads.
      *
@@ -98,6 +140,7 @@ extends KafkaTestBase
             {
             readers.add(
                 new CallableReader(
+                    new AlertProcessor(),
                     this.autocomit,
                     this.timeout,
                     this.servers,
