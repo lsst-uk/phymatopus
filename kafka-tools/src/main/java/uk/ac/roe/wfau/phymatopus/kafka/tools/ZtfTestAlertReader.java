@@ -280,7 +280,6 @@ implements ConsumerRebalanceListener
 
         long looptimeout = config.getLoopTimeout().toNanos();
         Duration polltimeout = config.getLoopTimeout();
-        long uncommitted = 0 ;
 
         do {
             loopcount++;
@@ -336,8 +335,6 @@ implements ConsumerRebalanceListener
             }
         while (lastwait < looptimeout);
 
-        consumer.close();
-        
         long  totaltime  = (System.nanoTime() - totalstart) - totalwait ;
         long  totalmicro = totaltime / 1000 ;
         float totalmilli = totaltime / (1000 * 1000) ;
@@ -359,6 +356,9 @@ implements ConsumerRebalanceListener
                 );
         
             }
+
+        consumer.close();
+        
         return new StatisticsBean(
             totalalerts,
             totaltime
