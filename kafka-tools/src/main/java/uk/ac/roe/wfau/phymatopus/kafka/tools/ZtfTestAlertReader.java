@@ -295,6 +295,7 @@ implements ConsumerRebalanceListener
         long totalbytes   = 0;
         long totalrecords = 0;
         long totalstart   = System.nanoTime();
+        long totalwait    = 0;
 
         long loopstart = 0 ;
         long loopcount = 0 ;
@@ -324,8 +325,8 @@ implements ConsumerRebalanceListener
                 }
 
             else {
-                loopwait = 0 ;
-
+                totalwait += loopwait ; 
+                loopwait  = 0 ;
                 for (ConsumerRecord<Long, byte[]> record : records)
                     {
                     looprecords++;
@@ -335,9 +336,12 @@ implements ConsumerRebalanceListener
                     log.trace("Offset [{}]", record.offset());
                     log.trace("Key    [{}]", record.key());
 
-                    process(
+                    long bytecount = process(
                         record.value()
                         );
+
+                    loopbytes  += bytecount;
+                    totalbytes += bytecount;
 
                     if ((this.config.getAutocommit() == false) && (uncommitted > 1000))
                         {
@@ -348,8 +352,8 @@ implements ConsumerRebalanceListener
                     }
                 }
 
-            long loopnano  = System.nanoTime() - loopstart;
-            long loopmicro = loopnano / 1000 ;
+            long  loopnano  = System.nanoTime() - loopstart;
+            long  loopmicro = loopnano / 1000 ;
             float loopmilli = loopnano / 1000000 ;
             log.debug("Loop [{}] done [{}:{}] records [{}:{}] bytes in [{}]ns [{}]µs [{}]ms => [{}]ns [{}]µs [{}]ms per event",
                 loopcount,
@@ -367,18 +371,20 @@ implements ConsumerRebalanceListener
             log.debug("Loop wait [{}] loop timeout [{}]", loopwait, looptimeout);
             }
         while (loopwait < looptimeout);
-        
+
+        totalwait += loopwait ; 
+
         if ((this.config.getAutocommit() == false) && (uncommitted > 0))
             {
             log.trace("Committing [{}]", uncommitted);
             consumer.commitSync();
             }
         
-        long  totalnano  = System.nanoTime() - totalstart;
+        long  totalnano  = System.nanoTime() - (totalstart + totalwait) ;
         long  totalmicro = totalnano / 1000 ;
         float totalmilli = totalnano / 1000000 ;
 
-        log.info("Total done [{}] [{}] in [{}]ns [{}]µs [{}]ms  => [{}]ns [{}]µs [{}]ms per event",
+        log.info("Total [{}] records [{}] bytes in [{}]ns [{}]µs [{}]ms  => [{}]ns [{}]µs [{}]ms per event",
             totalrecords,
             totalbytes,
             totalnano,
