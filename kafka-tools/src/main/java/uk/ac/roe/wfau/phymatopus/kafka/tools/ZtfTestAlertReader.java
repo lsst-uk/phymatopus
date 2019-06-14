@@ -107,12 +107,6 @@ implements ConsumerRebalanceListener
     public static interface Configuration extends BaseReader.Configuration
         {
         /**
-         * The auto-commit flag.
-         *
-         */
-        public Boolean getAutocommit();
-
-        /**
          * The timeout for waiting for new messages.
          * 
          */
@@ -144,7 +138,6 @@ implements ConsumerRebalanceListener
         public ConfigurationBean(final String servers, final String topic, final String group)
             {
             this(
-                DEFAULT_AUTOCOMIT,
                 DEFAULT_LOOPTIMEOUT,
                 DEFAULT_POLLTIMEOUT,
                 servers,
@@ -157,26 +150,17 @@ implements ConsumerRebalanceListener
          * Public constructor.
          * 
          */
-        public ConfigurationBean(final Boolean autocommit, final Duration looptimeout, final Duration polltimeout, final String servers, final String topic, final String group)
+        public ConfigurationBean(final Duration looptimeout, final Duration polltimeout, final String servers, final String topic, final String group)
             {
             super(
                 servers,
                 topic,
                 group
                 );
-            this.autocommit  = autocommit;
             this.polltimeout = polltimeout;
             this.looptimeout = looptimeout;
-            log.debug("autocommit  [{}]", autocommit);
             log.debug("polltimeout [{}]", polltimeout);
             log.debug("looptimeout [{}]", looptimeout);
-            }
-
-        private final Boolean autocommit;
-        @Override
-        public Boolean getAutocommit()
-            {
-            return this.autocommit;
             }
 
         private final Duration looptimeout;
@@ -243,7 +227,7 @@ implements ConsumerRebalanceListener
         // https://community.hortonworks.com/questions/73895/any-experience-based-tips-to-optimize-kafka-broker.html
         properties.put(
             ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG,
-            this.config.getAutocommit().toString()
+            Boolean.TRUE.toString()
             );
         properties.put(
             ConsumerConfig.FETCH_MAX_BYTES_CONFIG,

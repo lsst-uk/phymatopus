@@ -84,13 +84,6 @@ extends KafkaTestBase
     private Boolean rewind ;
 
     /**
-     * Flag to enable auto-commit.
-     * 
-     */
-    @Value("${phymatopus.kafka.autocomit:true}")
-    private Boolean autocomit ;
-
-    /**
      *
      */
     public ZtfTestAlertReaderTest()
@@ -154,7 +147,6 @@ extends KafkaTestBase
                 new CallableReader(
                     new AlertProcessor(),
                     new ConfigurationBean(
-                        this.autocomit,
                         this.looptimeout(),
                         this.polltimeout(),
                         this.servers,
