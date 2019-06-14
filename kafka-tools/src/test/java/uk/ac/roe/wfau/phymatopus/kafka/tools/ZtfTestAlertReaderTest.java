@@ -176,19 +176,23 @@ extends KafkaTestBase
             );        
         try{
 
+            long teststart = System.nanoTime();
+
             List<Future<Statistics>> futures = executor.invokeAll(readers);
-            long totalalerts = 0 ;
-            long totaltime   = 0 ;
+            long alerts  = 0 ;
+            long runtime = 0 ;
             for (Future<Statistics> future : futures)
                 {
                 Statistics result = future.get();
-                totalalerts += result.alerts();
-                totaltime   += result.runtime();
+                alerts  += result.alerts();
+                runtime += result.runtime();
                 }
+
+            long testtime  = (System.nanoTime() - teststart) - looptimeout().toNanos() ;
             
-            float totalmilli = totaltime / (1000 * 1000);
-            float meanmilli  = totalmilli / totalalerts;
-            log.info("Group [{}] with [{}] threads read [{}] alerts in [{}]ms at [{}]ms per alert", this.group, threadcount, totalalerts, totalmilli, meanmilli);
+            float testmilli = testtime / (1000 * 1000);
+            float meanmilli  = testmilli / alerts;
+            log.info("Group [{}] with [{}] threads read [{}] alerts in [{}]ms at [{}]ms per alert", this.group, threadcount, alerts, testmilli, meanmilli);
             
             }
         finally {
