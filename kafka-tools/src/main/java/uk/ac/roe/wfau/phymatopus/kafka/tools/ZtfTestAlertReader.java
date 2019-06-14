@@ -352,23 +352,28 @@ implements ConsumerRebalanceListener
                     }
                 }
 
-            long  loopnano  = System.nanoTime() - loopstart;
-            long  loopmicro = loopnano / 1000 ;
-            float loopmilli = loopnano / 1000000 ;
-            log.debug("Loop [{}] done [{}:{}] records [{}:{}] bytes in [{}]ns [{}]µs [{}]ms => [{}]ns [{}]µs [{}]ms per event",
-                loopcount,
-                looprecords,
-                totalrecords,
-                loopbytes,
-                totalbytes,
-                loopnano,
-                loopmicro,
-                loopmilli,
-                ((looprecords > 0) ? (loopnano/looprecords)  : 0),
-                ((looprecords > 0) ? (loopmicro/looprecords) : 0),
-                ((looprecords > 0) ? (loopmilli/looprecords) : 0)
-                );
-            log.debug("Loop wait [{}] loop timeout [{}]", loopwait, looptimeout);
+            if (looprecords > 0)
+                {
+                long  loopnano  = System.nanoTime() - loopstart;
+                long  loopmicro = loopnano / 1000 ;
+                float loopmilli = loopnano / 1000000 ;
+                log.debug("Loop [{}] done [{}:{}] records [{}:{}] bytes in [{}]ns [{}]µs [{}]ms => [{}]ns [{}]µs [{}]ms per event",
+                    loopcount,
+                    looprecords,
+                    totalrecords,
+                    loopbytes,
+                    totalbytes,
+                    loopnano,
+                    loopmicro,
+                    loopmilli,
+                    (loopnano/looprecords),
+                    (loopmicro/looprecords),
+                    (loopmilli/looprecords)
+                    );
+                }
+            else {
+                log.debug("Loop wait [{}] loop timeout [{}]", loopwait, looptimeout);
+                }
             }
         while (loopwait < looptimeout);
 
