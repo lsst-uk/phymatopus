@@ -108,6 +108,7 @@ extends KafkaTestBase
         public AlertProcessor()
             {
             this.count = 0 ;
+            manager.init();
             }
 
         @Override
