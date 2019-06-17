@@ -38,15 +38,50 @@ public class SimpleCandiateManager
     protected static CqlSession session ; 
     protected static PreparedStatement prepared ;        
     
+    protected static final Integer DEFAULT_PORT = 9042 ;
+
+    protected InetSocketAddress endpoint ;
+
+    protected String dcname ;
+    
     /**
      * Public constructor. 
      * 
      */
-    public SimpleCandiateManager()
+    public SimpleCandiateManager(final String hostname, final String dcname)
         {
-        
+        this(
+            hostname,
+            DEFAULT_PORT,
+            dcname
+            );
         }
-    
+
+    /**
+     * Public constructor. 
+     * 
+     */
+    public SimpleCandiateManager(final String hostname, final Integer port, final String dcname)
+        {
+        this(
+            new InetSocketAddress(
+                hostname,
+                port
+                ),
+            dcname
+            );
+        }
+
+    /**
+     * Public constructor. 
+     * 
+     */
+    public SimpleCandiateManager(final InetSocketAddress endpoint, final String dcname)
+        {
+        this.endpoint = endpoint; 
+        this.dcname   = dcname; 
+        }
+
     /**
      * Initialise our cluster.
      * 
@@ -59,12 +94,9 @@ public class SimpleCandiateManager
             if (SimpleCandiateManager.session == null)
                 {
                 CqlSessionBuilder builder = CqlSession.builder().addContactPoint(
-                    new InetSocketAddress(
-                        "Umiwiel",
-                        9042
-                        )
+                    this.endpoint
                     ).withLocalDatacenter(
-                        "datacenter1"
+                        this.dcname
                         );
                 SimpleCandiateManager.session = builder.build();
                 }

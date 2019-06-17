@@ -84,6 +84,20 @@ extends KafkaTestBase
     private Boolean rewind ;
 
     /**
+     * Cassandrda connection hostname.
+     * 
+     */
+    @Value("${phymatopus.cassandrda.hostname:}")
+    private String hostname ;
+    
+    /**
+     * Cassandrda datacenter name.
+     * 
+     */
+    @Value("${phymatopus.cassandrda.dcname:}")
+    private String dcname;
+    
+    /**
      *
      */
     public CassandraCandidateWriterTest()
@@ -99,7 +113,7 @@ extends KafkaTestBase
         {
         private long count ;
 
-        private SimpleCandiateManager manager = new SimpleCandiateManager();
+        private SimpleCandiateManager manager;
         
         /**
          * Public constructor.
@@ -108,6 +122,10 @@ extends KafkaTestBase
         public AlertProcessor()
             {
             this.count = 0 ;
+            manager = new SimpleCandiateManager(
+                CassandraCandidateWriterTest.this.hostname,
+                CassandraCandidateWriterTest.this.dcname
+                );
             manager.init();
             }
 
