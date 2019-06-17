@@ -41,8 +41,11 @@ services:
             cassandra:3.11
         ports:
             - "7000:7000"
+            - "7001:7001"
+            - "9042:9042"
         environment:
             - CASSANDRA_SEEDS=${CASSANDRA_SEEDS}
+            - CASSANDRA_CLUSTER_NAME=${CASSANDRA_CLUSTER_NAME}
             - CASSANDRA_BROADCAST_ADDRESS=${CASSANDRA_BROADCAST_ADDRESS}
         networks:
             - cassandra
@@ -65,7 +68,7 @@ EOYML
 
 # -----------------------------------------------------
 # Deploy our compose YAML file to each node.
-#[user@trop03]
+#[user@work02]
 
     source "${HOME}/nodenames.txt"
     source "${HOME}/libvirt.settings"
@@ -97,14 +100,13 @@ cassandra.yml       100%  763     1.0MB/s   00:00
 
 # -----------------------------------------------------
 # Deploy a compose ENV file to each node.
-#[user@trop03]
+#[user@work02]
 
     source "${HOME}/ssh-options"
 
     for vmname in ${canames[@]}
         do
             echo "---- ----"
-            echo "Node [${vmname}]"
             ssh \
                 ${sshopts[*]} \
                 ${sshuser:?}@${vmname:?} \
@@ -114,6 +116,7 @@ cassandra.yml       100%  763     1.0MB/s   00:00
 
 cat > cassandra.env << EOF
 CASSANDRA_SEEDS=${canames[0]}
+CASSANDRA_CLUSTER_NAME=${cacluster}
 CASSANDRA_BROADCAST_ADDRESS=${vmname:?}
 EOF
 ln -sf cassandra.env .env
@@ -121,19 +124,24 @@ ln -sf cassandra.env .env
         done
 
 --START--
-Node [Umiwiel]
 ---- ----
-Node [Waresean]
+Umiwiel
+Mon 17 Jun 01:56:55 BST 2019
 ---- ----
-Node [Meng]
+Waresean
+Mon 17 Jun 01:56:55 BST 2019
 ---- ----
-Node [Tromader]
+Meng
+Mon 17 Jun 01:56:56 BST 2019
+---- ----
+Tromader
+Mon 17 Jun 01:56:56 BST 2019
 --END--
 
 
 # -----------------------------------------------------
 # Login to each node and extract a Cassandra config file from the container image.
-#[user@trop03]
+#[user@work02]
 
     source "${HOME}/ssh-options"
 
@@ -162,8 +170,8 @@ Node [Tromader]
         done
 
 --START--
----- ----
-Node [Umiwiel]
+Umiwiel
+Mon 17 Jun 01:57:24 BST 2019
 Unable to find image 'cassandra:3.11' locally
 3.11: Pulling from library/cassandra
 ....
@@ -173,7 +181,8 @@ Status: Downloaded newer image for cassandra:3.11
 4a3361b1e04840c28bab014df7e05ca744e569b99f52ee2080e0add1b02e0bad
 config-temp
 ---- ----
-Node [Waresean]
+Waresean
+Mon 17 Jun 01:57:25 BST 2019
 Unable to find image 'cassandra:3.11' locally
 3.11: Pulling from library/cassandra
 ....
@@ -183,7 +192,8 @@ Status: Downloaded newer image for cassandra:3.11
 6eb58bc8020cbf6e7afc0bb1567d6a417e9db4923d9144b4429476af1ce7cd12
 config-temp
 ---- ----
-Node [Meng]
+Meng
+Mon 17 Jun 01:57:26 BST 2019
 Unable to find image 'cassandra:3.11' locally
 3.11: Pulling from library/cassandra
 ....
@@ -193,7 +203,8 @@ Status: Downloaded newer image for cassandra:3.11
 a527fd763e6fd26493e0ab4f0d90f54df0c17fc218f4f2df85b8b8091893179b
 config-temp
 ---- ----
-Node [Tromader]
+Tromader
+Mon 17 Jun 01:57:27 BST 2019
 Unable to find image 'cassandra:3.11' locally
 3.11: Pulling from library/cassandra
 ....
@@ -206,7 +217,7 @@ config-temp
 
 # -----------------------------------------------------
 # Login to each node and update the Cassandra config file.
-#[user@trop03]
+#[user@work02]
 
     source "${HOME}/ssh-options"
 
@@ -254,28 +265,32 @@ config-temp
 
 --START--
 ---- ----
-Node [Umiwiel]
+Umiwiel
+Mon 17 Jun 01:58:27 BST 2019
 data_file_directories:
     - /data1-01/cassandra/data
     - /data2-01/cassandra/data
 
 commitlog_directory: /data3-01/cassandra/commitlog/
 ---- ----
-Node [Waresean]
+Waresean
+Mon 17 Jun 01:58:28 BST 2019
 data_file_directories:
     - /data1-01/cassandra/data
     - /data2-01/cassandra/data
 
 commitlog_directory: /data3-01/cassandra/commitlog/
 ---- ----
-Node [Meng]
+Meng
+Mon 17 Jun 01:58:28 BST 2019
 data_file_directories:
     - /data1-01/cassandra/data
     - /data2-01/cassandra/data
 
 commitlog_directory: /data3-01/cassandra/commitlog/
 ---- ----
-Node [Tromader]
+Tromader
+Mon 17 Jun 01:58:29 BST 2019
 data_file_directories:
     - /data1-01/cassandra/data
     - /data2-01/cassandra/data
@@ -286,7 +301,7 @@ commitlog_directory: /data3-01/cassandra/commitlog/
 
 # -----------------------------------------------------
 # Check our deployed config files.
-#[user@trop03]
+#[user@work02]
 
     source "${HOME}/nodenames.txt"
     source "${HOME}/ssh-options"
@@ -322,10 +337,11 @@ commitlog_directory: /data3-01/cassandra/commitlog/
 --START--
 ---- ----
 Umiwiel
-Mon 17 Jun 00:18:06 BST 2019
-lrwxrwxrwx. 1 Stevedore Stevedore 13 Jun 16 17:00 .env -> cassandra.env
+Mon 17 Jun 01:59:44 BST 2019
+lrwxrwxrwx. 1 Stevedore Stevedore 13 Jun 17 01:56 .env -> cassandra.env
 ----
 CASSANDRA_SEEDS=Umiwiel
+CASSANDRA_CLUSTER_NAME=Hofmannophila
 CASSANDRA_BROADCAST_ADDRESS=Umiwiel
 ----
 
@@ -341,8 +357,11 @@ services:
             cassandra:3.11
         ports:
             - "7000:7000"
+            - "7001:7001"
+            - "9042:9042"
         environment:
             - CASSANDRA_SEEDS=${CASSANDRA_SEEDS}
+            - CASSANDRA_CLUSTER_NAME=${CASSANDRA_CLUSTER_NAME}
             - CASSANDRA_BROADCAST_ADDRESS=${CASSANDRA_BROADCAST_ADDRESS}
         networks:
             - cassandra
@@ -369,10 +388,11 @@ data_file_directories:
 commitlog_directory: /data3-01/cassandra/commitlog/
 ---- ----
 Waresean
-Mon 17 Jun 00:18:07 BST 2019
-lrwxrwxrwx. 1 Stevedore Stevedore 13 Jun 16 17:00 .env -> cassandra.env
+Mon 17 Jun 01:59:45 BST 2019
+lrwxrwxrwx. 1 Stevedore Stevedore 13 Jun 17 01:56 .env -> cassandra.env
 ----
 CASSANDRA_SEEDS=Umiwiel
+CASSANDRA_CLUSTER_NAME=Hofmannophila
 CASSANDRA_BROADCAST_ADDRESS=Waresean
 ----
 
@@ -388,8 +408,11 @@ services:
             cassandra:3.11
         ports:
             - "7000:7000"
+            - "7001:7001"
+            - "9042:9042"
         environment:
             - CASSANDRA_SEEDS=${CASSANDRA_SEEDS}
+            - CASSANDRA_CLUSTER_NAME=${CASSANDRA_CLUSTER_NAME}
             - CASSANDRA_BROADCAST_ADDRESS=${CASSANDRA_BROADCAST_ADDRESS}
         networks:
             - cassandra
@@ -416,10 +439,11 @@ data_file_directories:
 commitlog_directory: /data3-01/cassandra/commitlog/
 ---- ----
 Meng
-Mon 17 Jun 00:18:07 BST 2019
-lrwxrwxrwx. 1 Stevedore Stevedore 13 Jun 16 17:00 .env -> cassandra.env
+Mon 17 Jun 01:59:46 BST 2019
+lrwxrwxrwx. 1 Stevedore Stevedore 13 Jun 17 01:56 .env -> cassandra.env
 ----
 CASSANDRA_SEEDS=Umiwiel
+CASSANDRA_CLUSTER_NAME=Hofmannophila
 CASSANDRA_BROADCAST_ADDRESS=Meng
 ----
 
@@ -435,8 +459,11 @@ services:
             cassandra:3.11
         ports:
             - "7000:7000"
+            - "7001:7001"
+            - "9042:9042"
         environment:
             - CASSANDRA_SEEDS=${CASSANDRA_SEEDS}
+            - CASSANDRA_CLUSTER_NAME=${CASSANDRA_CLUSTER_NAME}
             - CASSANDRA_BROADCAST_ADDRESS=${CASSANDRA_BROADCAST_ADDRESS}
         networks:
             - cassandra
@@ -463,10 +490,11 @@ data_file_directories:
 commitlog_directory: /data3-01/cassandra/commitlog/
 ---- ----
 Tromader
-Mon 17 Jun 00:18:08 BST 2019
-lrwxrwxrwx. 1 Stevedore Stevedore 13 Jun 16 17:00 .env -> cassandra.env
+Mon 17 Jun 01:59:46 BST 2019
+lrwxrwxrwx. 1 Stevedore Stevedore 13 Jun 17 01:56 .env -> cassandra.env
 ----
 CASSANDRA_SEEDS=Umiwiel
+CASSANDRA_CLUSTER_NAME=Hofmannophila
 CASSANDRA_BROADCAST_ADDRESS=Tromader
 ----
 
@@ -482,8 +510,11 @@ services:
             cassandra:3.11
         ports:
             - "7000:7000"
+            - "7001:7001"
+            - "9042:9042"
         environment:
             - CASSANDRA_SEEDS=${CASSANDRA_SEEDS}
+            - CASSANDRA_CLUSTER_NAME=${CASSANDRA_CLUSTER_NAME}
             - CASSANDRA_BROADCAST_ADDRESS=${CASSANDRA_BROADCAST_ADDRESS}
         networks:
             - cassandra
@@ -513,7 +544,7 @@ commitlog_directory: /data3-01/cassandra/commitlog/
 
 # -----------------------------------------------------
 # Create our data directories.
-#[user@trop03]
+#[user@work02]
 
     # Issue - uid and gid missmatch.
     # In the Debian based container, cassandra has uid 999 and gid 999.
@@ -597,22 +628,23 @@ Mon 17 Jun 00:37:04 BST 2019
 
 # -----------------------------------------------------
 # Start Cassandra on each node - slowly.
-#[user@trop03]
+#[user@work02]
 
     source "${HOME}/nodenames.txt"
     source "${HOME}/ssh-options"
 
+    delay=30
+
     for i in {0..3}
         do
             vmname=${canames[${i}]}
-            echo "---- ----"
-            echo "Node [${vmname}]"
 
             if [ ${i} -ne 0 ]
             then
-                delay=$((${i} * 20))
+                echo "----"
                 echo "Sleeping [${delay}]"
                 sleep ${delay}
+                echo "----"
             fi
 
             ssh \
@@ -628,25 +660,27 @@ Mon 17 Jun 00:37:04 BST 2019
         done
 
 --START--
----- ----
-Node [Umiwiel]
-Creating network "stevedore_cassandra" with the default driver
-Creating stevedore_claire_1 ... done
----- ----
-Node [Waresean]
+Umiwiel
+Mon 17 Jun 02:09:58 BST 2019
+Starting stevedore_claire_1 ... done
+----
 Sleeping [20]
-Creating network "stevedore_cassandra" with the default driver
-Creating stevedore_claire_1 ... done
----- ----
-Node [Meng]
+----
+Waresean
+Mon 17 Jun 02:10:20 BST 2019
+Starting stevedore_claire_1 ... done
+----
 Sleeping [40]
-Creating network "stevedore_cassandra" with the default driver
-Creating stevedore_claire_1 ... done
----- ----
-Node [Tromader]
+----
+Meng
+Mon 17 Jun 02:11:02 BST 2019
+Starting stevedore_claire_1 ... done
+----
 Sleeping [60]
-Creating network "stevedore_cassandra" with the default driver
-Creating stevedore_claire_1 ... done
+----
+Tromader
+Mon 17 Jun 02:12:04 BST 2019
+Starting stevedore_claire_1 ... done
 --END--
 
 
@@ -756,7 +790,7 @@ INFO  [STREAM-IN-/172.16.2.10:53166] 2019-06-16 23:55:39,149 StreamResultFuture.
 # -----------------------------------------------------
 # -----------------------------------------------------
 # Shutdown our Cassandra containers.
-#[user@trop03]
+#[user@work02]
 
     source "${HOME}/nodenames.txt"
     source "${HOME}/ssh-options"
@@ -764,7 +798,6 @@ INFO  [STREAM-IN-/172.16.2.10:53166] 2019-06-16 23:55:39,149 StreamResultFuture.
     for vmname in ${canames[@]}
         do
             echo "---- ----"
-            echo "Node [${vmname}]"
             ssh \
                 ${scpopts[*]} \
                 ${sshuser:?}@${vmname:?} \
@@ -778,28 +811,24 @@ INFO  [STREAM-IN-/172.16.2.10:53166] 2019-06-16 23:55:39,149 StreamResultFuture.
         done
 
 --START--
----- ----
-Node [Umiwiel]
 Umiwiel
 Mon 17 Jun 00:11:04 BST 2019
 Removing stevedore_claire_1 ... done
 Removing network stevedore_cassandra
 ---- ----
-Node [Waresean]
 Waresean
 Mon 17 Jun 00:11:06 BST 2019
 Removing stevedore_claire_1 ... done
 Removing network stevedore_cassandra
 ---- ----
-Node [Meng]
 Meng
 Mon 17 Jun 00:11:08 BST 2019
 Removing stevedore_claire_1 ... done
 Removing network stevedore_cassandra
 ---- ----
-Node [Tromader]
 Tromader
 Mon 17 Jun 00:11:10 BST 2019
 Removing stevedore_claire_1 ... done
 Removing network stevedore_cassandra
 --END--
+

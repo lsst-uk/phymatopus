@@ -1,0 +1,241 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+
+    # Create the objects table.
+    # Create the candidates table.
+
+    # Java code to write to the objects table.
+    # Java code to write to the candidates table.
+
+
+# -----------------------------------------------------
+# Create a virtual machine to run the Cassandra client.
+#[user@trop03]
+
+    createvm
+
+--START--
+INFO : Node name [Haosien]
+INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+INFO : Disc name [Haosien.qcow]
+INFO : Disc size [8GiB]
+
+INFO : MAC  [06:00:AC:10:02:0C]
+INFO : IPv4 [172.16.2.12]
+INFO : IPv6 []
+--END--
+
+# -----------------------------------------------------
+# Define a host lookup function.
+# https://askubuntu.com/questions/627906/why-is-my-etc-hosts-file-not-queried-when-nslookup-tries-to-resolve-an-address#comment1536517_627909
+# TODO Add this to a toolit script.
+#[user@work02]
+
+    getipv4()
+        {
+        getent hosts "${1:?}" | cut -d ' ' -f 1
+        }
+
+
+#---------------------------------------------------------------------
+# Update the ssh keys for the new node.
+# TODO Add this to a toolit script.
+#[user@work02]
+
+    source "${HOME}/nodenames.txt"
+    source "${HOME}/libvirt.settings"
+
+    vmname=${caclient}
+
+    ssh-keygen \
+        -q -R \
+            "${vmname:?}"
+
+--START--
+Host Haosien not found in /home/dmr/.ssh/known_hosts
+--END--
+
+
+    ssh-keyscan \
+        "${vmname:?}" \
+        >> "${HOME}/.ssh/known_hosts"
+
+--START--
+# Haosien:22 SSH-2.0-OpenSSH_7.8
+# Haosien:22 SSH-2.0-OpenSSH_7.8
+# Haosien:22 SSH-2.0-OpenSSH_7.8
+--END--
+
+
+    ssh-keyscan \
+        -t ecdsa $(getipv4 "${vmname:?}") \
+        >> "${HOME}/.ssh/known_hosts"
+
+--START--
+# 172.16.2.12:22 SSH-2.0-OpenSSH_7.8
+--END--
+
+
+#---------------------------------------------------------------------
+# Login and run the Cassandra client.
+#[user@work02]
+
+    source "${HOME}/nodenames.txt"
+    source "${HOME}/ssh-options"
+
+    vmname=${caclient}
+
+    ssh \
+        ${sshopts[*]} \
+        ${sshuser:?}@${vmname:?}
+
+            docker run \
+                --rm \
+                --tty \
+                --interactive \
+                cassandra:3.11 \
+                    cqlsh \
+                        Umiwiel
+
+
+--START--
+Connected to Hofmannophila at Umiwiel:9042.
+[cqlsh 5.0.1 | Cassandra 3.11.4 | CQL spec 3.4.4 | Native protocol v4]
+Use HELP for help.
+cqlsh>
+--END--
+
+    // Create our keyspace.
+    CREATE KEYSPACE IF NOT EXISTS ztftest WITH REPLICATION = { 'class' : 'NetworkTopologyStrategy', 'datacenter1' : 3 };
+
+    // Create a simple table.
+    CREATE TABLE ztftest.simple_candidates (
+        candid           bigint PRIMARY KEY,
+        field            int,
+        ra               double,
+        dec              double,
+        jd               double,
+        fid              int,
+        pid              bigint,
+        diffmaglim       float,
+        pdiffimfilename  text,
+        programpi        text,
+        programid        int,
+        isdiffpos        text,
+        tblid            bigint,
+        nid              int,
+        rcid             int,
+        xpos             float,
+        ypos             float,
+        magpsf           float,
+        sigmapsf         float,
+        chipsf           float,
+        magap            float,
+        sigmagap         float,
+        distnr           float,
+        magnr            float,
+        sigmagnr         float,
+        chinr            float,
+        sharpnr          float,
+        sky              float,
+        magdiff          float,
+        fwhm             float,
+        classtar         float,
+        mindtoedge       float,
+        magfromlim       float,
+        seeratio         float,
+        aimage           float,
+        bimage           float,
+        aimagerat        float,
+        bimagerat        float,
+        ebigint          float,
+        nneg             int,
+        nbad             int,
+        rb               float,
+        ssdistnr         float,
+        ssmagnr          float,
+        ssnamenr         text,
+        sumrat           float,
+        magapbig         float,
+        sigmagapbig      float,
+        ranr             double,
+        decnr            double,
+        scorr            double,
+        rbversion        text,
+        sgmag1           float,
+        srmag1           float,
+        simag1           float,
+        szmag1           float,
+        sgscore1         float,
+        distpsnr1        float,
+        ndethist         int,
+        ncovhist         int,
+        jdstarthist      double,
+        jdendhist        double,
+        tooflag          int,
+        objectidps1      bigint,
+        objectidps2      bigint,
+        sgmag2           float,
+        srmag2           float,
+        simag2           float,
+        szmag2           float,
+        sgscore2         float,
+        distpsnr2        float,
+        objectidps3      bigint,
+        sgmag3           float,
+        srmag3           float,
+        simag3           float,
+        szmag3           float,
+        sgscore3         float,
+        distpsnr3        float,
+        nmtchps          int,
+        rfid             bigint,
+        jdstartref       double,
+        jdendref         double,
+        nframesref       int,
+        dsnrms           float,
+        ssnrms           float,
+        dsdiff           float,
+        magzpsci         float,
+        magzpsciunc      float,
+        magzpscirms      float,
+        nmatches         int,
+        clrcoeff         float,
+        clrcounc         float,
+        zpclrcov         float,
+        zpmed            float,
+        clrmed           float,
+        clrrms           float,
+        neargaia         float,
+        neargaiabright   float,
+        maggaia          float,
+        maggaiabright    float
+        );
+
+
+
+
+
+
+
