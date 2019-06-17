@@ -72,6 +72,7 @@ public class SimpleCandiateManager
                 {
                 SimpleCandiateManager.prepared = session.prepare(
                     "INSERT INTO ztftest.simple_candidates ("
+                        + "candid,"
                         + "field,"
                         + "ra,"
                         + "dec,"
@@ -83,6 +84,7 @@ public class SimpleCandiateManager
                         + "programpi,"
                         + "programid"
                     + ") values ("
+                        + "?,"
                         + "?,"
                         + "?,"
                         + "?,"
@@ -125,6 +127,7 @@ public class SimpleCandiateManager
     public void insert(final ZtfAlertCandidate candidate)
         {
         BoundStatement bound = prepared.bind(
+            candidate.getCandid(),
             candidate.getField(),
             candidate.getRa(),
             candidate.getDec(),
