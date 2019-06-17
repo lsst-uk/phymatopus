@@ -391,12 +391,22 @@ implements ConsumerRebalanceListener
                     }
                 catch (Exception ouch)
                     {
-                    log.error("Exception processing alert [{}]", ouch.getMessage());
+                    log.error("Exception processing alert [{}][{}]", ouch.getClass().getName(), ouch.getMessage());
+                    if (ouch.getCause() != null)
+                        {
+                        Throwable cause = ouch.getCause();
+                        log.error("Exception cause [{}][{}]", cause.getClass().getName(), cause.getMessage());
+                        }
                     }
                 }
             catch (Exception ouch)
                 {
-                log.error("Exception hydrating alert [{}]", ouch.getMessage());
+                log.error("Exception hydrating alert [{}][{}]", ouch.getClass().getName(), ouch.getMessage());
+                if (ouch.getCause() != null)
+                    {
+                    Throwable cause = ouch.getCause();
+                    log.error("Exception cause [{}][{}]", cause.getClass().getName(), cause.getMessage());
+                    }
                 }
             alertcount++;
             }
