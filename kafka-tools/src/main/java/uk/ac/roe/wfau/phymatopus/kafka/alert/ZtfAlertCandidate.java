@@ -309,4 +309,10 @@ extends ZtfCandidate
      */
     public Float getMaggaiabright();
 
+    /**
+     * The Kafka topic this alert was read from.
+     *  
+     */
+    public String getTopic();
+
     }

@@ -87,4 +87,10 @@ public interface ZtfAlert
      */
     public ZtfCutout getCutoutDifference();
 
+    /**
+     * The Kafka topic this alert was read from.
+     *  
+     */
+    public String getTopic();
+    
     }

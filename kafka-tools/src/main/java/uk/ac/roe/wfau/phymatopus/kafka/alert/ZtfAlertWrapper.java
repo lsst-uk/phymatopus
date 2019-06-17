@@ -31,11 +31,12 @@ public class ZtfAlertWrapper implements ZtfAlert
      * Public constructor.
      * 
      */    
-    public ZtfAlertWrapper(final ztf.alert bean)
+    public ZtfAlertWrapper(final ztf.alert bean, final String topic)
         {
-        this.bean = bean ;
+        this.bean  = bean ;
+        this.topic = topic;
         }
-
+    
     /**
      * An Iterable implementation.
      * 
@@ -43,16 +44,19 @@ public class ZtfAlertWrapper implements ZtfAlert
     public static class IterableWrapper
     implements Iterable<ZtfAlert>
         {
-        public IterableWrapper(final Iterable<ztf.alert> inner)
+        private String topic;
+        public IterableWrapper(final Iterable<ztf.alert> inner, final String topic)
             {
             this.inner = inner ;
+            this.topic = topic;
             }
         private Iterable<ztf.alert> inner;
         @Override
         public Iterator<ZtfAlert> iterator()
             {
             return new IteratorWrapper(
-                inner.iterator()
+                inner.iterator(),
+                this.topic
                 );
             }
         }
@@ -64,9 +68,11 @@ public class ZtfAlertWrapper implements ZtfAlert
     public static class IteratorWrapper
     implements Iterator<ZtfAlert>
         {
-        public IteratorWrapper(final Iterator<ztf.alert> inner)
+        private String topic;
+        public IteratorWrapper(final Iterator<ztf.alert> inner, final String topic)
             {
             this.inner = inner ;
+            this.topic = topic;
             }
         private Iterator<ztf.alert> inner;
         @Override
@@ -78,7 +84,8 @@ public class ZtfAlertWrapper implements ZtfAlert
         public ZtfAlert next()
             {
             return new ZtfAlertWrapper(
-                inner.next()
+                inner.next(),
+                this.topic
                 );
             }
         }
@@ -111,7 +118,8 @@ public class ZtfAlertWrapper implements ZtfAlert
     public ZtfAlertCandidate getCandidate()
         {
         return new ZtfAlertCandidateWrapper(
-            bean.getCandidate()
+            bean.getCandidate(),
+            this.topic
             );        
         }
         
@@ -145,5 +153,12 @@ public class ZtfAlertWrapper implements ZtfAlert
         return new ZtfCutoutWrapper(
             bean.getCutoutDifference()
             );
+        }
+
+    private String topic;
+    @Override
+    public String getTopic()
+        {
+        return this.topic;
         }
     }

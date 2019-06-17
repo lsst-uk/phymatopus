@@ -105,6 +105,7 @@ public class SimpleCandiateManager
                 SimpleCandiateManager.prepared = session.prepare(
                     "INSERT INTO ztftest.simple_candidates ("
                         + "candid,"
+                        + "topic,"
                         + "field,"
                         + "ra,"
                         + "dec,"
@@ -116,6 +117,7 @@ public class SimpleCandiateManager
                         + "programpi,"
                         + "programid"
                     + ") values ("
+                        + "?,"
                         + "?,"
                         + "?,"
                         + "?,"
@@ -160,6 +162,7 @@ public class SimpleCandiateManager
         {
         BoundStatement bound = prepared.bind(
             candidate.getCandid(),
+            candidate.getTopic(),
             candidate.getField(),
             candidate.getRa(),
             candidate.getDec(),

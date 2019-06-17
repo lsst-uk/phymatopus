@@ -27,10 +27,12 @@ public class ZtfAlertCandidateWrapper implements ZtfAlertCandidate
 
     /**
      * Public constructor.
+     * 
      */    
-    public ZtfAlertCandidateWrapper(final ztf.candidate bean)
+    public ZtfAlertCandidateWrapper(final ztf.candidate bean, final String topic)
         {
-        this.bean = bean ;
+        this.bean  = bean;
+        this.topic = topic;
         }
 
     @Override
@@ -631,5 +633,12 @@ public class ZtfAlertCandidateWrapper implements ZtfAlertCandidate
     public Float getMaggaiabright()
         {
         return bean.getMaggaiabright();
+        }
+
+    private String topic;
+    @Override
+    public String getTopic()
+        {
+        return this.topic;
         }
     }

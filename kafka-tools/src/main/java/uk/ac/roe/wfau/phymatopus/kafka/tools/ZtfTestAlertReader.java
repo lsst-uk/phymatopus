@@ -385,7 +385,8 @@ implements ConsumerRebalanceListener
                 try {
                     processor.process(
                         new ZtfAlertWrapper(
-                            alert
+                            alert,
+                            this.config.getTopic()
                             )
                         );
                     }
