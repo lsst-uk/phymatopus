@@ -64,7 +64,7 @@ public class SimpleCandiateManager
                         9042
                         )
                     ).withLocalDatacenter(
-                        "Hofmannophila"
+                        "datacenter1"
                         );
                 SimpleCandiateManager.session = builder.build();
                 }
