@@ -187,8 +187,42 @@ public class SimpleCandiateManager
                         + "rfid,"
                         + "jdstartref,"
                         + "jdendref,"
-                        + "nframesref"
+                        + "nframesref,"
+                        + "dsnrms,"
+                        + "ssnrms,"
+                        + "dsdiff,"
+                        + "magzpsci,"
+                        + "magzpsciunc,"
+                        + "magzpscirms,"
+                        + "nmatches,"
+                        + "clrcoeff,"
+                        + "clrcounc,"
+                        + "zpclrcov,"
+                        + "zpmed,"
+                        + "clrmed,"
+                        + "clrrms,"
+                        + "neargaia,"
+                        + "neargaiabright,"
+                        + "maggaia,"
+                        + "maggaiabright"
                     + ") values ("
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
                         + "?,"
                         + "?,"
                         + "?,"
@@ -388,7 +422,24 @@ public class SimpleCandiateManager
             candidate.getRfid(),
             candidate.getJdstartref(),
             candidate.getJdendref(),
-            candidate.getNframesref()
+            candidate.getNframesref(),
+            candidate.getDsnrms(),
+            candidate.getSsnrms(),
+            candidate.getDsdiff(),
+            candidate.getMagzpsci(),
+            candidate.getMagzpsciunc(),
+            candidate.getMagzpscirms(),
+            candidate.getNmatches(),
+            candidate.getClrcoeff(),
+            candidate.getClrcounc(),
+            candidate.getZpclrcov(),
+            candidate.getZpmed(),
+            candidate.getClrmed(),
+            candidate.getClrrms(),
+            candidate.getNeargaia(),
+            candidate.getNeargaiabright(),
+            candidate.getMaggaia(),
+            candidate.getMaggaiabright()
             );
         session.execute(bound);        
         }
