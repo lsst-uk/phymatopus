@@ -80,7 +80,7 @@ extends AbstractCassandraWriter
             {
             this.update = this.session().prepare(
                 "UPDATE "
-                    + "objectid ztftest.simple_objects "
+                    + "ztftest.simple_objects "
                 + "SET "
                     + "ncand       = :ncand "
                     + "ramean      = :ramean "
