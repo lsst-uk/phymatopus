@@ -123,6 +123,10 @@ extends AbstractCassandraWriter
         for (ZtfCandidate prev : alert.getPrvCandidates())
             {
             count++ ;
+            
+            log.trace("jd [{}][{}]", jd, prev.getJd());
+            log.trace("ra [{}][{}]", ra, prev.getRa());
+
             jd.addValue(prev.getJd());
             ra.addValue(prev.getRa());
             dec.addValue(prev.getDec());
