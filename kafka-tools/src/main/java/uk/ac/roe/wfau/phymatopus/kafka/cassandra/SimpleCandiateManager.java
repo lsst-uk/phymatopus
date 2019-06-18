@@ -140,8 +140,7 @@ public class SimpleCandiateManager
                         + "?,"
                         + "?,"
                         + "?,"
-                        + "?"
-
+                        + "?,"
                         + "?,"
                         + "?,"
                         + "?,"
