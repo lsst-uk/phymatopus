@@ -28,12 +28,25 @@ public class ZtfCandidateWrapper implements ZtfCandidate
     private ztf.prv_candidate bean ;
 
     /**
+     * The corresponding objectId.
+     * 
+     */
+    private CharSequence objectid ;
+
+    @Override
+    public CharSequence getObjectId()
+        {
+        return this.objectid;
+        }
+    
+    /**
      * Public constructor.
      * 
      */    
-    public ZtfCandidateWrapper(final ztf.prv_candidate bean)
+    public ZtfCandidateWrapper(final CharSequence objectid, final ztf.prv_candidate bean)
         {
         this.bean = bean ;
+        this.objectid = objectid ;
         }
 
     /**
@@ -43,8 +56,10 @@ public class ZtfCandidateWrapper implements ZtfCandidate
     public static class IterableWrapper
     implements Iterable<ZtfCandidate>
         {
-        public IterableWrapper(final Iterable<ztf.prv_candidate> inner)
+        private CharSequence objectid ;
+        public IterableWrapper(final CharSequence objectid, final Iterable<ztf.prv_candidate> inner)
             {
+            this.objectid = objectid;
             this.inner = inner ;
             }
         private Iterable<ztf.prv_candidate> inner;
@@ -52,7 +67,8 @@ public class ZtfCandidateWrapper implements ZtfCandidate
         public Iterator<ZtfCandidate> iterator()
             {
             return new IteratorWrapper(
-                inner.iterator()
+                this.objectid,
+                this.inner.iterator()
                 );
             }
         }
@@ -64,8 +80,10 @@ public class ZtfCandidateWrapper implements ZtfCandidate
     public static class IteratorWrapper
     implements Iterator<ZtfCandidate>
         {
-        public IteratorWrapper(final Iterator<ztf.prv_candidate> inner)
+        private CharSequence objectid ;
+        public IteratorWrapper(final CharSequence objectid, final Iterator<ztf.prv_candidate> inner)
             {
+            this.objectid = objectid;
             this.inner = inner ;
             }
         private Iterator<ztf.prv_candidate> inner;
@@ -78,7 +96,8 @@ public class ZtfCandidateWrapper implements ZtfCandidate
         public ZtfCandidate next()
             {
             return new ZtfCandidateWrapper(
-                inner.next()
+                this.objectid,
+                this.inner.next()
                 );
             }
         }

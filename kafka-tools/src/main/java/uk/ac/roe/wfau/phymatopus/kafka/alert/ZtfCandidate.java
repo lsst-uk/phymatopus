@@ -20,6 +20,18 @@ package uk.ac.roe.wfau.phymatopus.kafka.alert;
 public interface ZtfCandidate
     {
     /**
+     * Gets the value of the 'candid' field.
+     * @return Candidate ID from operations DB
+     */
+    public java.lang.Long getCandid();
+
+    /**
+     * Gets the value of the 'objectId' field.
+     * @return object identifier or name
+     */
+    public CharSequence getObjectId();
+    
+    /**
      * Gets the value of the 'jd' field.
      * @return Observation Julian date at start of exposure [days]
      */
@@ -60,12 +72,6 @@ public interface ZtfCandidate
      * @return Program ID: encodes either public, collab, or caltech mode
      */
     public java.lang.Integer getProgramid();
-
-    /**
-     * Gets the value of the 'candid' field.
-     * @return Candidate ID from operations DB
-     */
-    public java.lang.Long getCandid();
 
     /**
      * Gets the value of the 'isdiffpos' field.

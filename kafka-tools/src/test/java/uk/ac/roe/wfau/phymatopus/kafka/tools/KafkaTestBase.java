@@ -18,6 +18,8 @@
 
 package uk.ac.roe.wfau.phymatopus.kafka.tools;
 
+import java.time.Duration;
+
 import org.junit.After;
 import org.junit.Before;
 import org.junit.runner.RunWith;
@@ -26,6 +28,7 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 import lombok.extern.slf4j.Slf4j;
+import uk.ac.roe.wfau.phymatopus.kafka.alert.ZtfAlert;
 
 /**
  * 
@@ -40,7 +43,7 @@ import lombok.extern.slf4j.Slf4j;
         "classpath:component-config.xml"
         }
     )
-public class KafkaTestBase
+public abstract class KafkaTestBase
     {
 
     /**
@@ -63,6 +66,41 @@ public class KafkaTestBase
      */
     @Value("${phymatopus.kafka.group:}")
     protected String group;
+
+    @Value("${phymatopus.kafka.looptimeout:T10M}")
+    private String   looptimeoutstr ;
+    protected Duration looptimeout()
+        {
+        return Duration.parse(looptimeoutstr);
+        }
+
+    @Value("${phymatopus.kafka.polltimeout:T10S}")
+    private String   polltimeoutstr;
+    protected Duration polltimeout()
+        {
+        return Duration.parse(polltimeoutstr);
+        }
+
+    /**
+     * The number of concurrent threads.
+     * 
+     */
+    @Value("${phymatopus.kafka.threads:4}")
+    private Integer threadcount ;
+
+    /**
+     * Flag to reset the stream.
+     * 
+     */
+    @Value("${phymatopus.kafka.rewind:true}")
+    private Boolean rewind ;
+
+    /**
+     * Our Cassandrda connection hostname.
+     * 
+     */
+    @Value("${phymatopus.cassandrda.hostname:}")
+    private String hostname ;
     
     /**
      * 
@@ -90,4 +128,12 @@ public class KafkaTestBase
         {
         log.debug("After test ..");
         }
+
+    
+    /**
+     * Create our alert processor.
+     * 
+     */
+    public abstract ZtfAlert.Processor processor();
+    
     }

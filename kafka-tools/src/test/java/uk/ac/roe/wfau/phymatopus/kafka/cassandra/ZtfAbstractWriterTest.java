@@ -16,7 +16,7 @@
  *
  */
 
-package uk.ac.roe.wfau.phymatopus.kafka.tools;
+package uk.ac.roe.wfau.phymatopus.kafka.cassandra;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -26,16 +26,13 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
 import org.junit.Test;
-import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 import lombok.extern.slf4j.Slf4j;
 import uk.ac.roe.wfau.phymatopus.kafka.alert.ZtfAlert;
-import uk.ac.roe.wfau.phymatopus.kafka.alert.ZtfCutout;
-import uk.ac.roe.wfau.phymatopus.kafka.tools.ZtfTestAlertReader.ConfigurationBean;
+import uk.ac.roe.wfau.phymatopus.kafka.tools.KafkaTestBase;
 import uk.ac.roe.wfau.phymatopus.kafka.tools.ZtfTestAlertReader.CallableReader;
+import uk.ac.roe.wfau.phymatopus.kafka.tools.ZtfTestAlertReader.ConfigurationBean;
 import uk.ac.roe.wfau.phymatopus.kafka.tools.ZtfTestAlertReader.Statistics;
 
 /**
@@ -43,28 +40,20 @@ import uk.ac.roe.wfau.phymatopus.kafka.tools.ZtfTestAlertReader.Statistics;
  *
  */
 @Slf4j
-@RunWith(
-        SpringJUnit4ClassRunner.class
-        )
-@ContextConfiguration(
-    locations = {
-        "classpath:component-config.xml"
-        }
-    )
-public class ZtfTestAlertReaderTest
+public abstract class ZtfAbstractWriterTest
 extends KafkaTestBase
     {
 
     @Value("${phymatopus.kafka.looptimeout:T10M}")
     private String   looptimeoutstr ;
-    private Duration looptimeout()
+    protected Duration looptimeout()
         {
         return Duration.parse(looptimeoutstr);
         }
 
     @Value("${phymatopus.kafka.polltimeout:T10S}")
     private String   polltimeoutstr;
-    private Duration polltimeout()
+    protected Duration polltimeout()
         {
         return Duration.parse(polltimeoutstr);
         }
@@ -84,53 +73,98 @@ extends KafkaTestBase
     private Boolean rewind ;
 
     /**
-     *
+     * Our Cassandrda connection hostname.
+     * 
      */
-    public ZtfTestAlertReaderTest()
+    @Value("${phymatopus.cassandrda.hostname:}")
+    private String hostname ;
+
+    /**
+     * Our Cassandrda connection hostname.
+     * 
+     */
+    public String hostname()
         {
-        super();
+        return this.hostname;
         }
 
     /**
-     * Our Alert processor.
+     * Our Cassandrda datacenter name.
      * 
      */
-    public class AlertProcessor implements ZtfAlert.Processor
+    @Value("${phymatopus.cassandrda.dcname:}")
+    private String dcname;
+
+    /**
+     * Our Cassandrda datacenter name.
+     * 
+     */
+    public String dcname()
         {
+        return this.dcname;
+        }
+    
+    /**
+     * Public constructor.
+     *
+     */
+    public ZtfAbstractWriterTest()
+        {
+        super();
+        }
+    
+    /**
+     * Our Alert processor class.
+     * 
+     */
+    public class Processor implements ZtfAlert.Processor
+        {
+        private long count ;
+        public long count()
+            {
+            return this.count;
+            }
+
+        private AbstractCassandraWriter writer;
+        
         /**
          * Public constructor.
          * 
          */
-        public AlertProcessor()
+        public Processor(AbstractCassandraWriter writer)
             {
+            this.writer = writer;
+            writer.init();
             }
 
         @Override
         public void process(final ZtfAlert alert)
             {
-            log.trace("candId    [{}]", alert.getCandid());
-            log.trace("objectId  [{}]", alert.getObjectId());
-            log.trace("schemavsn [{}]", alert.getSchemavsn().toString());
-
-            final ZtfCutout science    = alert.getCutoutScience();
-            final ZtfCutout template   = alert.getCutoutTemplate();
-            final ZtfCutout difference = alert.getCutoutDifference();
-
-            if (null != science)
-                {
-                log.trace("science    [{}][{}][{}]", science.getFileName(), science.getStampData().limit(), science.getStampData().capacity());
-                }
-            if (null != template)
-                {
-                log.trace("template   [{}][{}][{}]", template.getFileName(), template.getStampData().limit(), template.getStampData().capacity());
-                }
-            if (null != difference)
-                {
-                log.trace("difference [{}][{}][{}]", difference.getFileName(), difference.getStampData().limit(), difference.getStampData().capacity());
-                }
+            this.count++;
+            log.trace("Candidate [{}][{}]", this.count, alert.getCandid());
+            writer.insert(
+                alert
+                );
             }
         }
-    
+
+    /**
+     * Create a new alert processor.
+     * 
+     */
+    public Processor processor()
+        {
+        return new Processor(
+            this.writer()
+            ); 
+        }
+
+    /**
+     * Create a new alert writer.
+     * 
+     */
+    public abstract AbstractCassandraWriter writer();
+
     /**
      * Test multiple threads.
      *
@@ -145,7 +179,7 @@ extends KafkaTestBase
             {
             readers.add(
                 new CallableReader(
-                    new AlertProcessor(),
+                    this.processor(),
                     new ConfigurationBean(
                         this.looptimeout(),
                         this.polltimeout(),
@@ -184,7 +218,7 @@ extends KafkaTestBase
             
             float testmilli = testtime / (1000 * 1000);
             float meanmilli  = testmilli / alerts;
-            log.info("Group [{}] with [{}] threads read [{}] alerts in [{}]ms at [{}]ms per alert", this.group, threadcount, alerts, testmilli, meanmilli);
+            log.info("Group [{}] with [{}] threads read [{}] alerts from topic [{}] in [{}]ms at [{}]ms per alert", this.group, threadcount, alerts, this.topic, testmilli, meanmilli);
             
             }
         finally {

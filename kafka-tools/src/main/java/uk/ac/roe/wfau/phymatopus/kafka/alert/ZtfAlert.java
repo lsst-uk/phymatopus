@@ -20,6 +20,7 @@ package uk.ac.roe.wfau.phymatopus.kafka.alert;
 
 public interface ZtfAlert
     {
+   
     /**
      * Alert processor interface.
      * 
@@ -31,6 +32,13 @@ public interface ZtfAlert
          * 
          */
         public void process(final ZtfAlert alert);
+
+        /**
+         * The number of alerts this processor has handled. 
+         * 
+         */
+        public long count();
+
         }
 
     /**

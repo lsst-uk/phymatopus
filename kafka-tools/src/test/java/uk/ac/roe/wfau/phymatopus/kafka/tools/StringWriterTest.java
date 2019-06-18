@@ -27,6 +27,7 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 import lombok.extern.slf4j.Slf4j;
+import uk.ac.roe.wfau.phymatopus.kafka.alert.ZtfAlert.Processor;
 
 /**
  * 
@@ -62,5 +63,11 @@ extends KafkaTestBase
         writer.write(
             10000
             );
+        }
+
+    @Override
+    public Processor processor()
+        {
+        return null;
         }
     }

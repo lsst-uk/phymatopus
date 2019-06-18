@@ -45,18 +45,18 @@ public class ZtfAlertWrapper implements ZtfAlert
     implements Iterable<ZtfAlert>
         {
         private String topic;
-        public IterableWrapper(final Iterable<ztf.alert> inner, final String topic)
+        public IterableWrapper(final String topic, final Iterable<ztf.alert> inner)
             {
-            this.inner = inner ;
             this.topic = topic;
+            this.inner = inner;
             }
         private Iterable<ztf.alert> inner;
         @Override
         public Iterator<ZtfAlert> iterator()
             {
             return new IteratorWrapper(
-                inner.iterator(),
-                this.topic
+                this.topic,
+                inner.iterator()
                 );
             }
         }
@@ -69,10 +69,10 @@ public class ZtfAlertWrapper implements ZtfAlert
     implements Iterator<ZtfAlert>
         {
         private String topic;
-        public IteratorWrapper(final Iterator<ztf.alert> inner, final String topic)
+        public IteratorWrapper(final String topic, final Iterator<ztf.alert> inner)
             {
-            this.inner = inner ;
             this.topic = topic;
+            this.inner = inner ;
             }
         private Iterator<ztf.alert> inner;
         @Override
@@ -118,8 +118,9 @@ public class ZtfAlertWrapper implements ZtfAlert
     public ZtfAlertCandidate getCandidate()
         {
         return new ZtfAlertCandidateWrapper(
-            bean.getCandidate(),
-            this.topic
+            this.topic,
+            bean.getObjectId(),
+            bean.getCandidate()
             );        
         }
         
@@ -127,6 +128,7 @@ public class ZtfAlertWrapper implements ZtfAlert
     public Iterable<ZtfCandidate> getPrvCandidates()
         {
         return new ZtfCandidateWrapper.IterableWrapper(
+            bean.getObjectId(),
             bean.getPrvCandidates()
             );
         }

@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2018 Royal Observatory, University of Edinburgh, UK
+ *  Copyright (C) 2019 Royal Observatory, University of Edinburgh, UK
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -15,50 +15,43 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
+package uk.ac.roe.wfau.phymatopus.kafka.cassandra;
 
-package uk.ac.roe.wfau.phymatopus.kafka.tools;
 
-import org.junit.Test;
+import com.datastax.oss.driver.api.core.cql.BoundStatement;
+import com.datastax.oss.driver.api.core.cql.PreparedStatement;
 
 import lombok.extern.slf4j.Slf4j;
-import uk.ac.roe.wfau.phymatopus.kafka.alert.ZtfAlert.Processor;
+import uk.ac.roe.wfau.phymatopus.kafka.alert.ZtfAlert;
 
 /**
- * 
- * 
+ * Simple writer for the objects table.
+ *
  */
 @Slf4j
-public class StringReaderTest
-extends KafkaTestBase 
+public class ZtfObjectWriter
+extends AbstractCassandraWriter
     {
-
     /**
+     * Public constructor. 
      * 
      */
-    public StringReaderTest()
+    public ZtfObjectWriter(final String hostname, final String dcname)
         {
-        super();
-        }
-
-    /**
-     * Test our {@link StringReader}.
-     * 
-     */
-    @Test
-    public void read()
-        {
-        log.debug("Read test ..");
-        final StringReader reader = new StringReader(
-            servers,
-            topic
-            ); 
-        reader.read(
-            1000
+        super(
+            hostname,
+            dcname
             );
         }
 
     @Override
-    public Processor processor()
+    public String statement()
+        {
+        return null;
+        }
+
+    @Override
+    public BoundStatement bind(PreparedStatement prepared, ZtfAlert object)
         {
         return null;
         }

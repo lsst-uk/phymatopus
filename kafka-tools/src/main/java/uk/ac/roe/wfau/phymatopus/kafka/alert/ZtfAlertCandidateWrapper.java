@@ -26,13 +26,26 @@ public class ZtfAlertCandidateWrapper implements ZtfAlertCandidate
     private ztf.candidate bean ;
 
     /**
+     * The corresponding objectId.
+     * 
+     */
+    private CharSequence objectid ;
+
+    @Override
+    public CharSequence getObjectId()
+        {
+        return this.objectid;
+        }
+    
+    /**
      * Public constructor.
      * 
      */    
-    public ZtfAlertCandidateWrapper(final ztf.candidate bean, final String topic)
+    public ZtfAlertCandidateWrapper(final String topic, final CharSequence objectid, final ztf.candidate bean)
         {
-        this.bean  = bean;
         this.topic = topic;
+        this.objectid = objectid;
+        this.bean  = bean;
         }
 
     @Override

@@ -16,50 +16,47 @@
  *
  */
 
-package uk.ac.roe.wfau.phymatopus.kafka.tools;
+package uk.ac.roe.wfau.phymatopus.kafka.cassandra;
 
-import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 import lombok.extern.slf4j.Slf4j;
-import uk.ac.roe.wfau.phymatopus.kafka.alert.ZtfAlert.Processor;
 
 /**
- * 
- * 
+ *
+ *
  */
 @Slf4j
-public class StringReaderTest
-extends KafkaTestBase 
+@RunWith(
+        SpringJUnit4ClassRunner.class
+        )
+@ContextConfiguration(
+    locations = {
+        "classpath:component-config.xml"
+        }
+    )
+public class ZtfObjectWriterTest
+extends ZtfAbstractWriterTest
     {
 
     /**
+     * Public constructor.
      * 
      */
-    public StringReaderTest()
+    public ZtfObjectWriterTest()
         {
         super();
         }
 
-    /**
-     * Test our {@link StringReader}.
-     * 
-     */
-    @Test
-    public void read()
+    @Override
+    public AbstractCassandraWriter writer()
         {
-        log.debug("Read test ..");
-        final StringReader reader = new StringReader(
-            servers,
-            topic
-            ); 
-        reader.read(
-            1000
+        return new ZtfObjectWriter(
+            this.hostname(),
+            this.dcname()
             );
         }
-
-    @Override
-    public Processor processor()
-        {
-        return null;
-        }
     }
+
