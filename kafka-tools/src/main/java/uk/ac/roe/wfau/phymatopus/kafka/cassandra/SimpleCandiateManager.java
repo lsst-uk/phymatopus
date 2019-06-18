@@ -115,8 +115,33 @@ public class SimpleCandiateManager
                         + "diffmaglim,"
                         + "pdiffimfilename,"
                         + "programpi,"
-                        + "programid"
+                        + "programid,"
+                        + "isdiffpos,"
+                        + "tblid,"
+                        + "nid,"
+                        + "rcid,"
+                        + "xpos,"
+                        + "ypos,"
+                        + "magpsf,"
+                        + "sigmapsf,"
+                        + "chipsf,"
+                        + "magap,"
+                        + "sigmagap,"
+                        + "distnr"
                     + ") values ("
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?"
+
                         + "?,"
                         + "?,"
                         + "?,"
@@ -172,7 +197,19 @@ public class SimpleCandiateManager
             candidate.getDiffmaglim(),
             candidate.getPdiffimfilename(),
             candidate.getProgrampi(),
-            candidate.getProgramid()
+            candidate.getProgramid(),
+            candidate.getIsdiffpos(),
+            candidate.getTblid(),
+            candidate.getNid(),
+            candidate.getRcid(),
+            candidate.getXpos(),
+            candidate.getYpos(),
+            candidate.getMagpsf(),
+            candidate.getSigmapsf(),
+            candidate.getChipsf(),
+            candidate.getMagap(),
+            candidate.getSigmagap(),
+            candidate.getDistnr()
             );
         session.execute(bound);        
         }
