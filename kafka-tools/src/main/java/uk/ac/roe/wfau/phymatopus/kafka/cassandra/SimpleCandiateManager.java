@@ -163,8 +163,32 @@ public class SimpleCandiateManager
                         + "szmag1,"
                         + "sgscore1,"
                         + "distpsnr1,"
-                        + "ndethist"
+                        + "ndethist,"
+                        + "ncovhist,"
+                        + "jdstarthist,"
+                        + "jdendhist,"
+                        + "tooflag,"
+                        + "objectidps1,"
+                        + "objectidps2,"
+                        + "sgmag2,"
+                        + "srmag2,"
+                        + "simag2,"
+                        + "szmag2,"
+                        + "sgscore2,"
+                        + "distpsnr2"
                     + ") values ("
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
                         + "?,"
                         + "?,"
                         + "?,"
@@ -316,7 +340,19 @@ public class SimpleCandiateManager
             candidate.getSzmag1(),
             candidate.getSgscore1(),
             candidate.getDistpsnr1(),
-            candidate.getNdethist()
+            candidate.getNdethist(),
+            candidate.getNcovhist(),
+            candidate.getJdstarthist(),
+            candidate.getJdendhist(),
+            candidate.getTooflag(),
+            candidate.getObjectidps1(),
+            candidate.getObjectidps2(),
+            candidate.getSgmag2(),
+            candidate.getSrmag2(),
+            candidate.getSimag2(),
+            candidate.getSzmag2(),
+            candidate.getSgscore2(),
+            candidate.getDistpsnr2()
             );
         session.execute(bound);        
         }
