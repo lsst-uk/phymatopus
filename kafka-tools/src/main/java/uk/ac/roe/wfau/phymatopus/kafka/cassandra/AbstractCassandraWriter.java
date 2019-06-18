@@ -85,12 +85,6 @@ public abstract class AbstractCassandraWriter
         return this.session;
         }
 
-    private   PreparedStatement prepared ;        
-    protected PreparedStatement prepared()
-        {
-        return this.prepared;
-        }
-
     /**
      * Initialise our writer.
      * 
@@ -98,24 +92,16 @@ public abstract class AbstractCassandraWriter
     public void init()
         {
         log.debug("init - start");
-        synchronized(this)
+        if (this.session == null)
             {
-            if (this.session == null)
-                {
-                CqlSessionBuilder builder = CqlSession.builder().addContactPoint(
-                    this.endpoint
-                    ).withLocalDatacenter(
-                        this.dcname
-                        );
-                this.session = builder.build();
-                }
-            if (this.prepared == null)
-                {
-                this.prepared = session.prepare(
-                    this.statement()
+            CqlSessionBuilder builder = CqlSession.builder().addContactPoint(
+                this.endpoint
+                ).withLocalDatacenter(
+                    this.dcname
                     );
-                }
+            this.session = builder.build();
             }
+        this.prepare();
         log.debug("init - done");
         }
 
@@ -126,41 +112,24 @@ public abstract class AbstractCassandraWriter
     public void done()
         {
         log.debug("done- start");
-        synchronized (this)
+        if (this.session != null)
             {
-            if (this.session != null)
-                {
-                session.close();
-                session = null ;
-                }
+            session.close();
+            session = null ;
             }
         log.debug("init - done");
         }
 
     /**
-     * Insert a candidate into the database.
+     * Prepare our CQL statements.
      * 
      */
-    public void insert(final ZtfAlert alert)
-        {
-        session.execute(
-            bind(
-                this.prepared,
-                alert
-                )
-            );        
-        }
+    protected abstract void prepare();
 
     /**
-     * The CQL prepared statement as a String.
+     * Process an alert.
      * 
      */
-    public abstract String statement();
-    
-    /**
-     * Bind values to a prepared statement.
-     * 
-     */
-    public abstract BoundStatement bind(final PreparedStatement prepared, final ZtfAlert alert);
-    
-    }
+    protected abstract void process(final ZtfAlert alert);
+
+   }

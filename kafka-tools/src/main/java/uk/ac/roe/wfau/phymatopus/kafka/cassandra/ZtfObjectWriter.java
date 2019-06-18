@@ -18,11 +18,18 @@
 package uk.ac.roe.wfau.phymatopus.kafka.cassandra;
 
 
+import java.util.Iterator;
+
+import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
+import org.apache.commons.math3.stat.descriptive.SummaryStatistics;
+
 import com.datastax.oss.driver.api.core.cql.BoundStatement;
 import com.datastax.oss.driver.api.core.cql.PreparedStatement;
+import com.google.common.math.StatsAccumulator;
 
 import lombok.extern.slf4j.Slf4j;
 import uk.ac.roe.wfau.phymatopus.kafka.alert.ZtfAlert;
+import uk.ac.roe.wfau.phymatopus.kafka.alert.ZtfCandidate;
 
 /**
  * Simple writer for the objects table.
@@ -44,15 +51,169 @@ extends AbstractCassandraWriter
             );
         }
 
+    private PreparedStatement select ;        
+    private PreparedStatement insert ;        
+    private PreparedStatement update ;        
+
     @Override
-    public String statement()
+    protected void prepare()
         {
-        return null;
+        if (null == this.select)
+            {
+            this.select = this.session().prepare(
+                "SELECT objectid FROM ztftest.simple_objects WHERE objectid = ?"
+                );
+            }
+        
+        if (null == this.insert)
+            {
+            this.insert = this.session().prepare(
+                "INSERT INTO objectid ztftest.simple_objects () VALUES ()"
+                );
+            }
+
+        if (null == this.update)
+            {
+            this.update = this.session().prepare(
+                "UPDATE "
+                    + "objectid ztftest.simple_objects "
+                + "SET "
+                    + "ncand       = :ncand "
+                    + "ramean      = :ramean "
+                    + "rastd       = :rastd "
+                    + "decmean     = :decmean "
+                    + "decstd      = :decstd "
+                    + "maggmin     = :maggmin "
+                    + "maggmax     = :maggmax "
+                    + "maggmedian  = :maggmedian "
+                    + "maggmean    = :maggmean "
+                    + "magrmin     = :magrmin "
+                    + "magrmax     = :magrmax "
+                    + "magrmedian  = :magrmedian "
+                    + "magrmean    = :magrmean "
+                    + "latestgmag  = :latestgmag "
+                    + "latestrmag  = :latestrmag "
+                    + "jdmin       = :jdmin "
+                    + "jdmax       = :jdmax "
+                    + "glatmean    = :glatmean "
+                    + "glonmean    = :glonmean "
+                + "WHERE "
+                    + "objectid = :objectid"
+                );
+            }
         }
 
     @Override
-    public BoundStatement bind(PreparedStatement prepared, ZtfAlert object)
+    protected void process(final ZtfAlert alert)
         {
-        return null;
+        DescriptiveStatistics ra   = new DescriptiveStatistics();        
+        DescriptiveStatistics jd   = new DescriptiveStatistics();        
+        DescriptiveStatistics dec  = new DescriptiveStatistics();        
+        DescriptiveStatistics magg = new DescriptiveStatistics();        
+        DescriptiveStatistics magr = new DescriptiveStatistics();        
+
+        //double  glat;
+        //double  glon;
+        Float lastg = null;
+        Float lastr = null;
+
+        int count = 1 ;
+        
+        //
+        // Add the previous candidates.
+        for (ZtfCandidate prev : alert.getPrvCandidates())
+            {
+            count++ ;
+            jd.addValue(prev.getJd());
+            ra.addValue(prev.getRa());
+            dec.addValue(prev.getDec());
+
+            if (prev.getFid() == 1)
+                {
+                magg.addValue(prev.getMagpsf());
+                lastg = prev.getMagpsf();
+                }
+            else {
+                magr.addValue(prev.getMagpsf());
+                lastr = prev.getMagpsf();
+                }
+            }
+
+        //
+        // Add this candidate.
+        ZtfCandidate cand = alert.getCandidate();
+
+        jd.addValue(cand.getJd());
+        ra.addValue(cand.getRa());
+        dec.addValue(cand.getDec());
+
+        if (cand.getFid() == 1)
+            {
+            magg.addValue(cand.getMagpsf());
+            lastg = cand.getMagpsf();
+            }
+        else {
+            magr.addValue(cand.getMagpsf());
+            lastr = cand.getMagpsf();
+            }
+
+        Double maggmin  = null ;
+        Double maggmax  = null ;
+        Double maggmed  = null ;
+        Double maggmean = null ;
+
+        Double magrmin  = null ;
+        Double magrmax  = null ;
+        Double magrmed  = null ;
+        Double magrmean = null ;
+
+        if (magg.getN() > 0)
+            {
+            maggmin  = magg.getMin();
+            maggmax  = magg.getMax();
+            maggmean = magg.getMean();
+            maggmed  = magg.getPercentile(50.0);
+            }
+        
+        if (magr.getN() > 0)
+            {
+            magrmin  = magr.getMin();
+            magrmax  = magr.getMax();
+            magrmean = magr.getMean();
+            magrmed  = magr.getPercentile(50.0);
+            }
+
+        Double jdmin  = jd.getMin();
+        Double jdmax  = jd.getMax();
+
+        Double ramean = ra.getMean(); 
+        Double rastd  = 3600 * ra.getStandardDeviation(); 
+
+        Double decmean = dec.getMean(); 
+        Double decstd  = 3600 * dec.getStandardDeviation(); 
+
+        this.session().execute(
+            this.update.bind(
+                count,
+                ramean,
+                rastd,
+                decmean,
+                decstd,
+                maggmin,
+                maggmax,
+                maggmed,
+                maggmean,
+                magrmin,
+                magrmax,
+                magrmed,
+                magrmean,
+                lastg,
+                lastr,
+                jdmin,
+                jdmax,
+                null,
+                null
+                )
+            );
         }
     }

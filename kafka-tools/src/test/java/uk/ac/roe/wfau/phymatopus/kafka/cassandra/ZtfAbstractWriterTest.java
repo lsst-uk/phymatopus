@@ -142,7 +142,7 @@ extends KafkaTestBase
             {
             this.count++;
             log.trace("Candidate [{}][{}]", this.count, alert.getCandid());
-            writer.insert(
+            writer.process(
                 alert
                 );
             }
