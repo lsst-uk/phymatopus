@@ -393,6 +393,7 @@ implements ConsumerRebalanceListener
                 catch (Exception ouch)
                     {
                     log.error("Exception processing alert [{}][{}]", ouch.getClass().getName(), ouch.getMessage());
+                    log.error("Exception processing alert ", ouch);
                     if (ouch.getCause() != null)
                         {
                         Throwable cause = ouch.getCause();
