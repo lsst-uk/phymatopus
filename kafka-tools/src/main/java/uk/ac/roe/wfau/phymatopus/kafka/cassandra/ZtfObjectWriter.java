@@ -58,19 +58,23 @@ extends AbstractCassandraWriter
     @Override
     protected void prepare()
         {
+        /*
+         * 
         if (null == this.select)
             {
             this.select = this.session().prepare(
                 "SELECT objectid FROM ztftest.simple_objects WHERE objectid = ?"
                 );
             }
-        
+
         if (null == this.insert)
             {
             this.insert = this.session().prepare(
-                "INSERT INTO objectid ztftest.simple_objects () VALUES ()"
+                "INSERT INTO ztftest.simple_objects () VALUES ()"
                 );
             }
+         * 
+         */
 
         if (null == this.update)
             {
