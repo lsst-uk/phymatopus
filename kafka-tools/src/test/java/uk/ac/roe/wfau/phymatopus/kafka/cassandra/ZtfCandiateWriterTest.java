@@ -18,6 +18,7 @@
 
 package uk.ac.roe.wfau.phymatopus.kafka.cassandra;
 
+import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
@@ -56,6 +57,17 @@ extends ZtfAbstractWriterTest
             this.hostname(),
             this.dcname()
             );
+        }
+
+    /**
+     * Test multiple threads.
+     *
+     */
+    @Test
+    public void testThreads()
+    throws Exception
+        {
+        super.testThreads();
         }
     }
 
