@@ -127,8 +127,56 @@ public class SimpleCandiateManager
                         + "chipsf,"
                         + "magap,"
                         + "sigmagap,"
-                        + "distnr"
+                        + "distnr,"
+                        + "magnr,"
+                        + "sigmagnr,"
+                        + "chinr,"
+                        + "sharpnr,"
+                        + "sky,"
+                        + "magdiff,"
+                        + "fwhm,"
+                        + "classtar,"
+                        + "mindtoedge,"
+                        + "magfromlim,"
+                        + "seeratio,"
+                        + "aimage,"
+                        + "bimage,"
+                        + "aimagerat,"
+                        + "bimagerat,"
+                        + "elong,"
+                        + "nneg,"
+                        + "nbad,"
+                        + "rb,"
+                        + "ssdistnr,"
+                        + "ssmagnr,"
+                        + "ssnamenr,"
+                        + "sumrat,"
+                        + "magapbig"
                     + ") values ("
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
                         + "?,"
                         + "?,"
                         + "?,"
@@ -208,7 +256,31 @@ public class SimpleCandiateManager
             candidate.getChipsf(),
             candidate.getMagap(),
             candidate.getSigmagap(),
-            candidate.getDistnr()
+            candidate.getDistnr(),
+            candidate.getMagnr(),
+            candidate.getSigmagnr(),
+            candidate.getChinr(),
+            candidate.getSharpnr(),
+            candidate.getSky(),
+            candidate.getMagdiff(),
+            candidate.getFwhm(),
+            candidate.getClasstar(),
+            candidate.getMindtoedge(),
+            candidate.getMagfromlim(),
+            candidate.getSeeratio(),
+            candidate.getAimage(),
+            candidate.getBimage(),
+            candidate.getAimagerat(),
+            candidate.getBimagerat(),
+            candidate.getElong(),
+            candidate.getNneg(),
+            candidate.getNbad(),
+            candidate.getRb(),
+            candidate.getSsdistnr(),
+            candidate.getSsmagnr(),
+            candidate.getSsnamenr(),
+            candidate.getSumrat(),
+            candidate.getMagapbig()
             );
         session.execute(bound);        
         }

@@ -193,7 +193,7 @@ extends KafkaTestBase
             
             float testmilli = testtime / (1000 * 1000);
             float meanmilli  = testmilli / alerts;
-            log.info("Group [{}] with [{}] threads read [{}] alerts in [{}]ms at [{}]ms per alert", this.group, threadcount, alerts, testmilli, meanmilli);
+            log.info("Group [{}] with [{}] threads read [{}] alerts from topic [{}] in [{}]ms at [{}]ms per alert", this.group, threadcount, alerts, this.topic, testmilli, meanmilli);
             
             }
         finally {
