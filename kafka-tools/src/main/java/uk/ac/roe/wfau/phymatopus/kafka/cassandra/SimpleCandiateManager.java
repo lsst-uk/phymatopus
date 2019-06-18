@@ -151,8 +151,32 @@ public class SimpleCandiateManager
                         + "ssmagnr,"
                         + "ssnamenr,"
                         + "sumrat,"
-                        + "magapbig"
+                        + "magapbig,"
+                        + "sigmagapbig,"
+                        + "ranr,"
+                        + "decnr,"
+                        + "scorr,"
+                        + "rbversion,"
+                        + "sgmag1,"
+                        + "srmag1,"
+                        + "simag1,"
+                        + "szmag1,"
+                        + "sgscore1,"
+                        + "distpsnr1,"
+                        + "ndethist"
                     + ") values ("
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
                         + "?,"
                         + "?,"
                         + "?,"
@@ -280,7 +304,19 @@ public class SimpleCandiateManager
             candidate.getSsmagnr(),
             candidate.getSsnamenr(),
             candidate.getSumrat(),
-            candidate.getMagapbig()
+            candidate.getMagapbig(),
+            candidate.getSigmagapbig(),
+            candidate.getRanr(),
+            candidate.getDecnr(),
+            candidate.getScorr(),
+            candidate.getRbversion(),
+            candidate.getSgmag1(),
+            candidate.getSrmag1(),
+            candidate.getSimag1(),
+            candidate.getSzmag1(),
+            candidate.getSgscore1(),
+            candidate.getDistpsnr1(),
+            candidate.getNdethist()
             );
         session.execute(bound);        
         }
