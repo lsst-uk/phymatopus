@@ -175,8 +175,32 @@ public class SimpleCandiateManager
                         + "simag2,"
                         + "szmag2,"
                         + "sgscore2,"
-                        + "distpsnr2"
+                        + "distpsnr2,"
+                        + "objectidps3,"
+                        + "sgmag3,"
+                        + "srmag3,"
+                        + "simag3,"
+                        + "szmag3,"
+                        + "sgscore3,"
+                        + "distpsnr3,"
+                        + "nmtchps,"
+                        + "rfid,"
+                        + "jdstartref,"
+                        + "jdendref,"
+                        + "nframesref"
                     + ") values ("
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
+                        + "?,"
                         + "?,"
                         + "?,"
                         + "?,"
@@ -352,7 +376,19 @@ public class SimpleCandiateManager
             candidate.getSimag2(),
             candidate.getSzmag2(),
             candidate.getSgscore2(),
-            candidate.getDistpsnr2()
+            candidate.getDistpsnr2(),
+            candidate.getObjectidps3(),
+            candidate.getSgmag3(),
+            candidate.getSrmag3(),
+            candidate.getSimag3(),
+            candidate.getSzmag3(),
+            candidate.getSgscore3(),
+            candidate.getDistpsnr3(),
+            candidate.getNmtchps(),
+            candidate.getRfid(),
+            candidate.getJdstartref(),
+            candidate.getJdendref(),
+            candidate.getNframesref()
             );
         session.execute(bound);        
         }
