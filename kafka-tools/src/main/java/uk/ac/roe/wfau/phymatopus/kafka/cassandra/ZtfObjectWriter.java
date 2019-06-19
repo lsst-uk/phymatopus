@@ -136,11 +136,11 @@ extends AbstractCassandraWriter
     @Override
     protected void process(final ZtfAlert alert)
         {
-        DescriptiveStatistics ra   = new DescriptiveStatistics();        
-        DescriptiveStatistics jd   = new DescriptiveStatistics();        
-        DescriptiveStatistics dec  = new DescriptiveStatistics();        
-        DescriptiveStatistics magg = new DescriptiveStatistics();        
-        DescriptiveStatistics magr = new DescriptiveStatistics();        
+        SafeDescriptiveStatistics ra   = new SafeDescriptiveStatistics();        
+        SafeDescriptiveStatistics jd   = new SafeDescriptiveStatistics();        
+        SafeDescriptiveStatistics dec  = new SafeDescriptiveStatistics();        
+        SafeDescriptiveStatistics magg = new SafeDescriptiveStatistics();        
+        SafeDescriptiveStatistics magr = new SafeDescriptiveStatistics();        
 
         //double  glat;
         //double  glon;
