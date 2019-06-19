@@ -19,8 +19,6 @@ package uk.ac.roe.wfau.phymatopus.kafka.alert;
 
 import java.util.Iterator;
 
-import org.apache.commons.collections.iterators.EmptyIterator;
-
 public class ZtfCandidateWrapper implements ZtfCandidate
     {
     /**

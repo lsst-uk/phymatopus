@@ -163,13 +163,23 @@ extends AbstractCassandraWriter
             {
             count++ ;
             log.trace("count [{}]", count);
-            log.trace("candidate [{}]", prev.getCandid());
+            log.trace("candid [{}]", prev.getCandid());
             log.trace("jd  [{}]", prev.getJd());
             log.trace("ra  [{}]", prev.getRa());
             log.trace("dec [{}]", prev.getDec());
 
             // If the previous candidate has a candid, then insert into the candidates table.
             // If it doesn't have a candid, then insert into the non-candidates table.
+
+            if (null == prev.getCandid())
+                {
+                log.debug("Null candid => non-candidate");
+                log.debug("objectid [{}]", objectid);
+                log.debug("jd  [{}]", prev.getJd());
+                log.debug("ra  [{}]", prev.getRa());
+                log.debug("dec [{}]", prev.getDec());
+                log.debug("psf [{}]", prev.getMagpsf());
+                }
             
             jd.addValue(prev.getJd());
             ra.addValue(prev.getRa());
@@ -203,7 +213,7 @@ extends AbstractCassandraWriter
         // Add this candidate.
         ZtfCandidate cand = alert.getCandidate();
 
-        log.trace("candidate [{}]", cand.getCandid());
+        log.trace("candid [{}]", cand.getCandid());
         log.trace("jd  [{}]", cand.getJd());
         log.trace("ra  [{}]", cand.getRa());
         log.trace("dec [{}]", cand.getDec());
