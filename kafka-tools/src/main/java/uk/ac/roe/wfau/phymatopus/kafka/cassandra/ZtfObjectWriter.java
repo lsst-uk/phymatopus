@@ -148,7 +148,7 @@ extends AbstractCassandraWriter
         Double lastr = null;
         Double lasti = null;
 
-        int count = 1 ;
+        int count = 0 ;
         
         //
         // Add the previous candidates.
@@ -157,7 +157,6 @@ extends AbstractCassandraWriter
         for (ZtfCandidate prev : alert.getPrvCandidates())
             {
             count++ ;
-            
             log.trace("count [{}]", count);
             log.trace("jd  [{}]", prev.getJd());
             log.trace("ra  [{}]", prev.getRa());
@@ -167,22 +166,27 @@ extends AbstractCassandraWriter
             ra.addValue(prev.getRa());
             dec.addValue(prev.getDec());
 
-            switch (prev.getFid())
+            Float magpsf = prev.getMagpsf();
+            if (null != magpsf)
                 {
-                case 1 :
-                    magg.addValue(prev.getMagpsf());
-                    lastg = prev.getMagpsf().doubleValue();
-                    break ;
-                case 2 :
-                    magr.addValue(prev.getMagpsf());
-                    lastr = prev.getMagpsf().doubleValue();
-                    break ;
-                case 3 :
-                    magi.addValue(prev.getMagpsf());
-                    lasti = prev.getMagpsf().doubleValue();
-                    break ;
-                default:
-                    break ;
+                double magpsfd = magpsf.doubleValue();
+                switch (prev.getFid())
+                    {
+                    case 1 :
+                        magg.addValue(magpsfd);
+                        lastg = magpsfd;
+                        break ;
+                    case 2 :
+                        magr.addValue(magpsfd);
+                        lastr = magpsfd;
+                        break ;
+                    case 3 :
+                        magi.addValue(magpsfd);
+                        lasti = magpsfd;
+                        break ;
+                    default:
+                        break ;
+                    }
                 }
             }
 
@@ -190,6 +194,7 @@ extends AbstractCassandraWriter
         // Add this candidate.
         ZtfCandidate cand = alert.getCandidate();
 
+        log.trace("candidate");
         log.trace("jd  [{}]", cand.getJd());
         log.trace("ra  [{}]", cand.getRa());
         log.trace("dec [{}]", cand.getDec());
@@ -198,22 +203,27 @@ extends AbstractCassandraWriter
         ra.addValue(cand.getRa());
         dec.addValue(cand.getDec());
 
-        switch (cand.getFid())
+        Float magpsf = cand.getMagpsf();
+        if (null != magpsf)
             {
-            case 1 :
-                magg.addValue(cand.getMagpsf());
-                lastg = cand.getMagpsf().doubleValue();
-                break ;
-            case 2 :
-                magr.addValue(cand.getMagpsf());
-                lastr = cand.getMagpsf().doubleValue();
-                break ;
-            case 3 :
-                magi.addValue(cand.getMagpsf());
-                lasti = cand.getMagpsf().doubleValue();
-                break ;
-            default:
-                break ;
+            double magpsfd = magpsf.doubleValue();
+            switch (cand.getFid())
+                {
+                case 1 :
+                    magg.addValue(magpsfd);
+                    lastg = magpsfd;
+                    break ;
+                case 2 :
+                    magr.addValue(magpsfd);
+                    lastr = magpsfd;
+                    break ;
+                case 3 :
+                    magi.addValue(magpsfd);
+                    lasti = magpsfd;
+                    break ;
+                default:
+                    break ;
+                }
             }
 
         Double maggmin  = null ;
@@ -225,6 +235,11 @@ extends AbstractCassandraWriter
         Double magrmax  = null ;
         Double magrmed  = null ;
         Double magrmean = null ;
+
+        Double magimin  = null ;
+        Double magimax  = null ;
+        Double magimed  = null ;
+        Double magimean = null ;
 
         if (magg.getN() > 0)
             {
@@ -240,6 +255,14 @@ extends AbstractCassandraWriter
             magrmax  = magr.getMax();
             magrmean = magr.getMean();
             magrmed  = magr.getPercentile(50.0);
+            }
+
+        if (magi.getN() > 0)
+            {
+            magimin  = magi.getMin();
+            magimax  = magi.getMax();
+            magimean = magi.getMean();
+            magimed  = magi.getPercentile(50.0);
             }
 
         Double jdmin  = jd.getMin();
