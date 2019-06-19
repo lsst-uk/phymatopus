@@ -149,7 +149,8 @@ extends AbstractCassandraWriter
         Double lasti = null;
 
         int count = 0 ;
-        
+        CharSequence objectid = alert.getObjectId();
+        log.debug("Object [{}]", objectid);
         //
         // Add the previous candidates.
         // Initially this uses to 30 day history from the alert.
@@ -194,7 +195,7 @@ extends AbstractCassandraWriter
         // Add this candidate.
         ZtfCandidate cand = alert.getCandidate();
 
-        log.trace("candidate");
+        log.trace("candidate [{}]", cand.getCandid());
         log.trace("jd  [{}]", cand.getJd());
         log.trace("ra  [{}]", cand.getRa());
         log.trace("dec [{}]", cand.getDec());
@@ -295,7 +296,8 @@ extends AbstractCassandraWriter
                 jdmin,
                 jdmax,
                 null,
-                null
+                null,
+                objectid
                 )
             );
         }
