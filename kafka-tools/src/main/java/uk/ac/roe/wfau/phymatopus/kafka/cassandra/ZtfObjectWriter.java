@@ -144,9 +144,9 @@ extends AbstractCassandraWriter
         SafeDescriptiveStatistics magr = new SafeDescriptiveStatistics();        
         SafeDescriptiveStatistics magi = new SafeDescriptiveStatistics();        
 
-        Double lastg = null;
-        Double lastr = null;
-        Double lasti = null;
+        Double lastg = Double.NaN;
+        Double lastr = Double.NaN;
+        Double lasti = Double.NaN;
 
         int count = 0 ;
         CharSequence objectid = alert.getObjectId();
@@ -154,15 +154,19 @@ extends AbstractCassandraWriter
         //
         // Add the previous candidates.
         // Initially this uses to 30 day history from the alert.
-        // Eventually this should load the full history from the database. 
+        // Eventually this should load the full history from the database.
         for (ZtfCandidate prev : alert.getPrvCandidates())
             {
             count++ ;
             log.trace("count [{}]", count);
+            log.trace("candidate [{}]", prev.getCandid());
             log.trace("jd  [{}]", prev.getJd());
             log.trace("ra  [{}]", prev.getRa());
             log.trace("dec [{}]", prev.getDec());
 
+            // If the previous candidate has a candid, then insert into the candidates table.
+            // If it doesn't have a candid, then insert into the non-candidates table.
+            
             jd.addValue(prev.getJd());
             ra.addValue(prev.getRa());
             dec.addValue(prev.getDec());
@@ -227,20 +231,20 @@ extends AbstractCassandraWriter
                 }
             }
 
-        Double maggmin  = null ;
-        Double maggmax  = null ;
-        Double maggmed  = null ;
-        Double maggmean = null ;
+        Double maggmin  = Double.NaN;
+        Double maggmax  = Double.NaN;
+        Double maggmed  = Double.NaN;
+        Double maggmean = Double.NaN;
 
-        Double magrmin  = null ;
-        Double magrmax  = null ;
-        Double magrmed  = null ;
-        Double magrmean = null ;
+        Double magrmin  = Double.NaN;
+        Double magrmax  = Double.NaN;
+        Double magrmed  = Double.NaN;
+        Double magrmean = Double.NaN;
 
-        Double magimin  = null ;
-        Double magimax  = null ;
-        Double magimed  = null ;
-        Double magimean = null ;
+        Double magimin  = Double.NaN;
+        Double magimax  = Double.NaN;
+        Double magimed  = Double.NaN;
+        Double magimean = Double.NaN;
 
         if (magg.getN() > 0)
             {
