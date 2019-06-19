@@ -124,8 +124,9 @@ extends AbstractCassandraWriter
             {
             count++ ;
             
-            log.trace("jd [{}][{}]", jd, prev.getJd());
-            log.trace("ra [{}][{}]", ra, prev.getRa());
+            log.trace("jd  [{}][{}]", prev.getJd(),  jd);
+            log.trace("ra  [{}][{}]", prev.getRa(),  ra);
+            log.trace("dec [{}][{}]", prev.getDec(), dec);
 
             jd.addValue(prev.getJd());
             ra.addValue(prev.getRa());
