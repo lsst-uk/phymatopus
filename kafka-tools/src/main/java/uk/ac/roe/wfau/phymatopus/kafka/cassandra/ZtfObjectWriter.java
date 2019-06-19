@@ -102,6 +102,37 @@ extends AbstractCassandraWriter
             }
         }
 
+    public static class SafeDescriptiveStatistics
+    extends DescriptiveStatistics
+        {
+        private static final long serialVersionUID = 1L;
+
+        public SafeDescriptiveStatistics()
+            {
+            super();
+            }
+
+        public void addValue(final Double value)
+            {
+            if (null != value)
+                {
+                super.addValue(
+                    value
+                    );
+                }
+            }
+
+        public void addValue(final Float value)
+            {
+            if (null != value)
+                {
+                super.addValue(
+                    value
+                    );
+                }
+            }
+        }
+    
     @Override
     protected void process(final ZtfAlert alert)
         {
@@ -124,9 +155,10 @@ extends AbstractCassandraWriter
             {
             count++ ;
             
-            log.trace("jd  [{}][{}]", prev.getJd(),  jd);
-            log.trace("ra  [{}][{}]", prev.getRa(),  ra);
-            log.trace("dec [{}][{}]", prev.getDec(), dec);
+            log.trace("count [{}]", count);
+            log.trace("jd  [{}][{}]", prev.getJd());
+            log.trace("ra  [{}][{}]", prev.getRa());
+            log.trace("dec [{}][{}]", prev.getDec());
 
             jd.addValue(prev.getJd());
             ra.addValue(prev.getRa());
@@ -147,6 +179,10 @@ extends AbstractCassandraWriter
         // Add this candidate.
         ZtfCandidate cand = alert.getCandidate();
 
+        log.trace("jd  [{}][{}]", cand.getJd());
+        log.trace("ra  [{}][{}]", cand.getRa());
+        log.trace("dec [{}][{}]", cand.getDec());
+        
         jd.addValue(cand.getJd());
         ra.addValue(cand.getRa());
         dec.addValue(cand.getDec());
