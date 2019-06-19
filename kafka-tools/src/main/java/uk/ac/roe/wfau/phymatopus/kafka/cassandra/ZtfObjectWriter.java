@@ -92,6 +92,7 @@ extends AbstractCassandraWriter
                     + "magrmean    = :magrmean, "
                     + "latestgmag  = :latestgmag, "
                     + "latestrmag  = :latestrmag, "
+                    + "latestimag  = :latestimag, "
                     + "jdmin       = :jdmin, "
                     + "jdmax       = :jdmax, "
                     + "glatmean    = :glatmean, "
@@ -141,37 +142,47 @@ extends AbstractCassandraWriter
         SafeDescriptiveStatistics dec  = new SafeDescriptiveStatistics();        
         SafeDescriptiveStatistics magg = new SafeDescriptiveStatistics();        
         SafeDescriptiveStatistics magr = new SafeDescriptiveStatistics();        
+        SafeDescriptiveStatistics magi = new SafeDescriptiveStatistics();        
 
-        //double  glat;
-        //double  glon;
-        Float lastg = null;
-        Float lastr = null;
+        Double lastg = null;
+        Double lastr = null;
+        Double lasti = null;
 
         int count = 1 ;
         
         //
         // Add the previous candidates.
+        // Initially this uses to 30 day history from the alert.
+        // Eventually this should load the full history from the database. 
         for (ZtfCandidate prev : alert.getPrvCandidates())
             {
             count++ ;
             
             log.trace("count [{}]", count);
-            log.trace("jd  [{}][{}]", prev.getJd());
-            log.trace("ra  [{}][{}]", prev.getRa());
-            log.trace("dec [{}][{}]", prev.getDec());
+            log.trace("jd  [{}]", prev.getJd());
+            log.trace("ra  [{}]", prev.getRa());
+            log.trace("dec [{}]", prev.getDec());
 
             jd.addValue(prev.getJd());
             ra.addValue(prev.getRa());
             dec.addValue(prev.getDec());
 
-            if (prev.getFid() == 1)
+            switch (prev.getFid())
                 {
-                magg.addValue(prev.getMagpsf());
-                lastg = prev.getMagpsf();
-                }
-            else {
-                magr.addValue(prev.getMagpsf());
-                lastr = prev.getMagpsf();
+                case 1 :
+                    magg.addValue(prev.getMagpsf());
+                    lastg = prev.getMagpsf().doubleValue();
+                    break ;
+                case 2 :
+                    magr.addValue(prev.getMagpsf());
+                    lastr = prev.getMagpsf().doubleValue();
+                    break ;
+                case 3 :
+                    magi.addValue(prev.getMagpsf());
+                    lasti = prev.getMagpsf().doubleValue();
+                    break ;
+                default:
+                    break ;
                 }
             }
 
@@ -179,22 +190,30 @@ extends AbstractCassandraWriter
         // Add this candidate.
         ZtfCandidate cand = alert.getCandidate();
 
-        log.trace("jd  [{}][{}]", cand.getJd());
-        log.trace("ra  [{}][{}]", cand.getRa());
-        log.trace("dec [{}][{}]", cand.getDec());
+        log.trace("jd  [{}]", cand.getJd());
+        log.trace("ra  [{}]", cand.getRa());
+        log.trace("dec [{}]", cand.getDec());
         
         jd.addValue(cand.getJd());
         ra.addValue(cand.getRa());
         dec.addValue(cand.getDec());
 
-        if (cand.getFid() == 1)
+        switch (cand.getFid())
             {
-            magg.addValue(cand.getMagpsf());
-            lastg = cand.getMagpsf();
-            }
-        else {
-            magr.addValue(cand.getMagpsf());
-            lastr = cand.getMagpsf();
+            case 1 :
+                magg.addValue(cand.getMagpsf());
+                lastg = cand.getMagpsf().doubleValue();
+                break ;
+            case 2 :
+                magr.addValue(cand.getMagpsf());
+                lastr = cand.getMagpsf().doubleValue();
+                break ;
+            case 3 :
+                magi.addValue(cand.getMagpsf());
+                lasti = cand.getMagpsf().doubleValue();
+                break ;
+            default:
+                break ;
             }
 
         Double maggmin  = null ;
@@ -249,6 +268,7 @@ extends AbstractCassandraWriter
                 magrmean,
                 lastg,
                 lastr,
+                lasti,
                 jdmin,
                 jdmax,
                 null,
