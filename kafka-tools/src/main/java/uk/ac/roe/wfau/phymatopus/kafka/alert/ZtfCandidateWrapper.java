@@ -19,6 +19,8 @@ package uk.ac.roe.wfau.phymatopus.kafka.alert;
 
 import java.util.Iterator;
 
+import org.apache.commons.collections.iterators.EmptyIterator;
+
 public class ZtfCandidateWrapper implements ZtfCandidate
     {
     /**
@@ -90,15 +92,29 @@ public class ZtfCandidateWrapper implements ZtfCandidate
         @Override
         public boolean hasNext()
             {
-            return inner.hasNext();
+            if (null != inner)
+                {
+                return inner.hasNext();
+                }
+            else {
+                return false ;
+                }
             }
         @Override
         public ZtfCandidate next()
             {
-            return new ZtfCandidateWrapper(
-                this.objectid,
-                this.inner.next()
-                );
+            if (null != inner)
+                {
+                return new ZtfCandidateWrapper(
+                    this.objectid,
+                    this.inner.next()
+                    );
+                }
+            else {
+                throw new RuntimeException(
+                    "Call to next() on an empty (null) Iterator."
+                    );
+                }
             }
         }
     
