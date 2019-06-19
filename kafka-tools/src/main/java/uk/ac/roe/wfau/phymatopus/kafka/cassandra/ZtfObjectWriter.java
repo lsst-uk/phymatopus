@@ -78,6 +78,7 @@ extends AbstractCassandraWriter
                     + "ztftest.simple_objects "
                 + "SET "
                     + "ncand       = :ncand, "
+                    + "stale       = :stale, "
                     + "ramean      = :ramean, "
                     + "rastd       = :rastd, "
                     + "decmean     = :decmean, "
@@ -144,6 +145,8 @@ extends AbstractCassandraWriter
         SafeDescriptiveStatistics magr = new SafeDescriptiveStatistics();        
         SafeDescriptiveStatistics magi = new SafeDescriptiveStatistics();        
 
+        Integer stale = 0 ;
+        
         Double lastg = Double.NaN;
         Double lastr = Double.NaN;
         Double lasti = Double.NaN;
@@ -151,6 +154,7 @@ extends AbstractCassandraWriter
         int count = 0 ;
         CharSequence objectid = alert.getObjectId();
         log.debug("Object [{}]", objectid);
+        
         //
         // Add the previous candidates.
         // Initially this uses to 30 day history from the alert.
@@ -282,6 +286,7 @@ extends AbstractCassandraWriter
         this.session().execute(
             this.update.bind(
                 count,
+                stale,
                 ramean,
                 rastd,
                 decmean,
@@ -299,8 +304,8 @@ extends AbstractCassandraWriter
                 lasti,
                 jdmin,
                 jdmax,
-                null,
-                null,
+                Double.NaN,
+                Double.NaN,
                 objectid
                 )
             );
