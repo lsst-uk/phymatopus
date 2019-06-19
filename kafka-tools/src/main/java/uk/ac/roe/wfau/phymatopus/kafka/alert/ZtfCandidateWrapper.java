@@ -68,10 +68,19 @@ public class ZtfCandidateWrapper implements ZtfCandidate
         @Override
         public Iterator<ZtfCandidate> iterator()
             {
-            return new IteratorWrapper(
-                this.objectid,
-                this.inner.iterator()
-                );
+            if (null != inner)
+                {
+                return new IteratorWrapper(
+                    this.objectid,
+                    this.inner.iterator()
+                    );
+                }
+            else {
+                return new IteratorWrapper(
+                    this.objectid,
+                    null
+                    );
+                }
             }
         }
 
