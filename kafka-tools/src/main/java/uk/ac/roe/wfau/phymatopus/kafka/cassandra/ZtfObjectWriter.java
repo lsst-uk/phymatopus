@@ -179,6 +179,7 @@ extends AbstractCassandraWriter
                 log.debug("ra  [{}]", prev.getRa());
                 log.debug("dec [{}]", prev.getDec());
                 log.debug("psf [{}]", prev.getMagpsf());
+                log.debug("dml [{}]", prev.getDiffmaglim());
                 }
             
             jd.addValue(prev.getJd());
