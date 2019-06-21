@@ -119,4 +119,94 @@
 
 ---- ---- ---- ----
 
+    candidate
+        pkey : candid
+        select one  (candid)
+        select list (objectid)
+
+    non-candidate
+        candid = null
+        ra,dec = null
+        pkey   : (objectid, jd)
+        fields : diffmaglim
+
+        select one  (objectid, jd)
+        select list (objectid)
+
+    candidate
+
+        object = objects.select(objectid)
+        if (null == object)
+            {
+            object = new Object()
+            }
+
+        Map<Long,   Candidate>    matches    = candidates.select(objectid), key(candid))
+        Map<String, NonCandidate> nonmatches = noncandidates.select(objectid), key(objectid, jd))
+
+        for(prev : candidate.prev())
+            {
+            // Candidate
+            if (null != prev.candid)
+                {
+                // Check for an existing match
+                match = matches(
+                    key(
+                        prev.candid
+                        )
+                    )
+                // If not in list - add&insert
+                if (null == match)
+                    {
+                    matches.add(
+                        key(
+                            prev.candid
+                            ),
+                        prev
+                        )
+                    candidates.insert(
+                        key(
+                            prev.candid
+                            )
+                        )
+                    }
+                }
+            // Non-candidate
+            else {
+                // Check for an existing match
+                nonmatch = nonmatches(
+                    key(
+                        prev.objectid,
+                        prev.jd
+                        )
+                    )
+                // If not in list - add&insert
+                if (null == nonmatch)
+                    {
+                    nonmatches.add(
+                        key(
+                            prev.objectid,
+                            prev.jd
+                            ),
+                        prev
+                        )
+                    noncandidates.insert(
+                        key(
+                            prev.objectid,
+                            prev.jd
+                            ),
+                        )
+                    }
+                }
+            }
+
+        for (candidate : matches.values())
+            {
+            stats ....
+            }
+
+        object.stats()
+
+        objects.update(object, key(objectid))
+
 
