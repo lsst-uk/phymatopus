@@ -369,10 +369,14 @@ implements ConsumerRebalanceListener
         {
         log.trace("Processing byte[]");
 
+        DebugFormatter debug = new DebugFormatter();
+        debug.asciiBytes(bytes);
+        
         Schema schema = schema(bytes);
         final Long fingerprint = SchemaNormalization.parsingFingerprint64(schema);
-
         log.trace("Schema fingerprint [{}]", fingerprint);
+
+        debug.asciiBytes(bytes);
         DataFileReader<alert> reader = reader(bytes);
 
         long alertcount = 0 ;
