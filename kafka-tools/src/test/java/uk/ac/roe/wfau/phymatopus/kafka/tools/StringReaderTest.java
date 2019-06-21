@@ -21,7 +21,6 @@ package uk.ac.roe.wfau.phymatopus.kafka.tools;
 import org.junit.Test;
 
 import lombok.extern.slf4j.Slf4j;
-import uk.ac.roe.wfau.phymatopus.kafka.alert.ZtfAlert.Processor;
 
 /**
  * 
@@ -55,11 +54,5 @@ extends KafkaTestBase
         reader.read(
             1000
             );
-        }
-
-    @Override
-    public Processor processor()
-        {
-        return null;
         }
     }

@@ -16,7 +16,7 @@
  *
  */
 
-package uk.ac.roe.wfau.phymatopus.kafka.cassandra;
+package uk.ac.roe.wfau.phymatopus.kafka.tools;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -24,6 +24,8 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 import lombok.extern.slf4j.Slf4j;
+import uk.ac.roe.wfau.phymatopus.kafka.alert.ZtfAlert;
+import uk.ac.roe.wfau.phymatopus.kafka.alert.ZtfCutout;
 
 /**
  *
@@ -38,26 +40,51 @@ import lombok.extern.slf4j.Slf4j;
         "classpath:component-config.xml"
         }
     )
-public class ZtfObjectWriterTest
-extends ZtfCassandraWriterTest
+public class ZtfAlertWriterTest
+extends ZtfAbstractReaderTest
     {
-
     /**
-     * Public constructor.
-     * 
+     *
      */
-    public ZtfObjectWriterTest()
+    public ZtfAlertWriterTest()
         {
         super();
         }
 
-    @Override
-    public AbstractCassandraWriter writer()
+    /**
+     * Our Alert processor.
+     * 
+     */
+    public class Processor implements ZtfAlert.Processor
         {
-        return new ZtfObjectWriter(
-            this.hostname(),
-            this.dcname()
-            );
+        private long count ;
+        public long count()
+            {
+            return this.count;
+            }
+
+        /**
+         * Public constructor.
+         * 
+         */
+        public Processor()
+            {
+            }
+
+        @Override
+        public void process(final ZtfAlert alert)
+            {
+            count++;
+            log.trace("candId    [{}]", alert.getCandid());
+            log.trace("objectId  [{}]", alert.getObjectId());
+            log.trace("schemavsn [{}]", alert.getSchemavsn().toString());
+
+            }
+        }
+
+    public Processor processor()
+        {
+        return new Processor();
         }
 
     /**

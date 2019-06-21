@@ -16,7 +16,7 @@
  *
  */
 
-package uk.ac.roe.wfau.phymatopus.kafka.cassandra;
+package uk.ac.roe.wfau.phymatopus.kafka.tools;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -29,29 +29,48 @@ import org.junit.Test;
 import org.springframework.beans.factory.annotation.Value;
 
 import lombok.extern.slf4j.Slf4j;
-import uk.ac.roe.wfau.phymatopus.kafka.alert.ZtfAlert;
-import uk.ac.roe.wfau.phymatopus.kafka.tools.KafkaTestBase;
-import uk.ac.roe.wfau.phymatopus.kafka.tools.ZtfTestAlertReader.CallableReader;
-import uk.ac.roe.wfau.phymatopus.kafka.tools.ZtfTestAlertReader.ConfigurationBean;
-import uk.ac.roe.wfau.phymatopus.kafka.tools.ZtfTestAlertReader.Statistics;
+import uk.ac.roe.wfau.phymatopus.kafka.alert.ZtfAlert.Processor;
+import uk.ac.roe.wfau.phymatopus.kafka.tools.ZtfAlertReader.CallableReader;
+import uk.ac.roe.wfau.phymatopus.kafka.tools.ZtfAlertReader.ConfigurationBean;
+import uk.ac.roe.wfau.phymatopus.kafka.tools.ZtfAlertReader.Statistics;
 
 /**
  *
  *
  */
 @Slf4j
-public abstract class ZtfAbstractWriterTest
+public abstract class ZtfAbstractReaderTest
 extends KafkaTestBase
     {
+    /**
+     * The target kafka servers.
+     * 
+     */
+    @Value("${phymatopus.kafka.reader.servers:}")
+    protected String servers;
 
-    @Value("${phymatopus.kafka.looptimeout:T10M}")
+    /**
+     * The target kafka topic.
+     * 
+     */
+    @Value("${phymatopus.kafka.reader.topic:}")
+    protected String topic;
+
+    /**
+     * The target kafka group.
+     * 
+     */
+    @Value("${phymatopus.kafka.reader.group:}")
+    protected String group;
+    
+    @Value("${phymatopus.kafka.reader.looptimeout:T10M}")
     private String   looptimeoutstr ;
     protected Duration looptimeout()
         {
         return Duration.parse(looptimeoutstr);
         }
 
-    @Value("${phymatopus.kafka.polltimeout:T10S}")
+    @Value("${phymatopus.kafka.reader.polltimeout:T10S}")
     private String   polltimeoutstr;
     protected Duration polltimeout()
         {
@@ -62,109 +81,31 @@ extends KafkaTestBase
      * The number of concurrent threads.
      * 
      */
-    @Value("${phymatopus.kafka.threads:4}")
+    @Value("${phymatopus.kafka.reader.threads:4}")
     private Integer threadcount ;
 
     /**
      * Flag to reset the stream.
      * 
      */
-    @Value("${phymatopus.kafka.rewind:true}")
+    @Value("${phymatopus.kafka.reader.rewind:true}")
     private Boolean rewind ;
 
-    /**
-     * Our Cassandrda connection hostname.
-     * 
-     */
-    @Value("${phymatopus.cassandrda.hostname:}")
-    private String hostname ;
-
-    /**
-     * Our Cassandrda connection hostname.
-     * 
-     */
-    public String hostname()
-        {
-        return this.hostname;
-        }
-
-    /**
-     * Our Cassandrda datacenter name.
-     * 
-     */
-    @Value("${phymatopus.cassandrda.dcname:}")
-    private String dcname;
-
-    /**
-     * Our Cassandrda datacenter name.
-     * 
-     */
-    public String dcname()
-        {
-        return this.dcname;
-        }
-    
     /**
      * Public constructor.
      *
      */
-    public ZtfAbstractWriterTest()
+    public ZtfAbstractReaderTest()
         {
         super();
-        }
-    
-    /**
-     * Our Alert processor class.
-     * 
-     */
-    public class Processor implements ZtfAlert.Processor
-        {
-        private long count ;
-        public long count()
-            {
-            return this.count;
-            }
-
-        private AbstractCassandraWriter writer;
-        
-        /**
-         * Public constructor.
-         * 
-         */
-        public Processor(AbstractCassandraWriter writer)
-            {
-            this.writer = writer;
-            writer.init();
-            }
-
-        @Override
-        public void process(final ZtfAlert alert)
-            {
-            this.count++;
-            log.trace("Candidate [{}][{}]", this.count, alert.getCandid());
-            writer.process(
-                alert
-                );
-            }
         }
 
     /**
      * Create a new alert processor.
      * 
      */
-    public Processor processor()
-        {
-        return new Processor(
-            this.writer()
-            ); 
-        }
-
-    /**
-     * Create a new alert writer.
-     * 
-     */
-    public abstract AbstractCassandraWriter writer();
-
+    public abstract Processor processor() ;
+    
     /**
      * Test multiple threads.
      *

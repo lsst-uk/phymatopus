@@ -59,7 +59,7 @@ import ztf.alert;
  *
  */
 @Slf4j
-public class ZtfTestAlertReader
+public class ZtfAlertReader
 extends BaseReader
 implements ConsumerRebalanceListener
     {
@@ -185,7 +185,7 @@ implements ConsumerRebalanceListener
      * @param config The reader configuration.
      *
      */
-    public ZtfTestAlertReader(final ZtfAlert.Processor processor, final Configuration config)
+    public ZtfAlertReader(final ZtfAlert.Processor processor, final Configuration config)
         {
         super(config);
         this.processor = processor ;
@@ -247,10 +247,10 @@ implements ConsumerRebalanceListener
             );
 
         final KafkaConsumer<Long, byte[]> consumer = new KafkaConsumer<Long, byte[]>(
-                properties,
-                new LongDeserializer(),
-                new ByteArrayDeserializer()
-                );
+            properties,
+            new LongDeserializer(),
+            new ByteArrayDeserializer()
+            );
 
         return consumer;
         }
@@ -371,8 +371,8 @@ implements ConsumerRebalanceListener
 
         Schema schema = schema(bytes);
         final Long fingerprint = SchemaNormalization.parsingFingerprint64(schema);
-        log.trace("Schema fingerprint [{}]", fingerprint);
 
+        log.trace("Schema fingerprint [{}]", fingerprint);
         DataFileReader<alert> reader = reader(bytes);
 
         long alertcount = 0 ;
@@ -538,53 +538,6 @@ implements ConsumerRebalanceListener
             }
         }
 
-    public void hexBytes(byte[] bytes)
-        {
-        for (int i = 0 ; i < 0x10 ; i++)
-            {
-            StringBuffer string = new StringBuffer();
-            Formatter formatter = new Formatter(string);
-            for (int j = 0 ; j < 0x10 ; j++)
-                {
-                int k = (i * 0x10) + j;
-                formatter.format(
-                    "%s%02X",
-                    ((j > 0) ? " " : ""),
-                    bytes[k]
-                    );
-                }
-            formatter.close();
-            log.trace("Bytes [{}]", string.toString());
-            }
-        }
-
-    public void asciiBytes(byte[] bytes)
-        {
-        for (int i = 0 ; i < 0x10 ; i++)
-            {
-            StringBuffer string = new StringBuffer();
-            Formatter formatter = new Formatter(string);
-            for (int j = 0 ; j < 0x10 ; j++)
-                {
-                int k = (i * 0x10) + j;
-                char ascii ;
-                if ((k < bytes.length) && (bytes[k] >= ' ') && (bytes[k] <= '~'))
-                    {
-                    ascii = (char) bytes[k];
-                    }
-                else {
-                    ascii = '.';
-                    }
-                formatter.format(
-                    "%s%c",
-                    ((j > 0) ? " " : ""),
-                    ascii
-                    );
-                }
-            formatter.close();
-            log.trace("ASCII [{}]", string.toString());
-            }
-        }
 
     
     /**
@@ -597,21 +550,21 @@ implements ConsumerRebalanceListener
         public CallableReader(final ZtfAlert.Processor processor, final Configuration config)
             {
             this(
-                new ZtfTestAlertReader(
+                new ZtfAlertReader(
                     processor,
                     config
                     )
                 );
             }
         
-        public CallableReader(final ZtfTestAlertReader reader)
+        public CallableReader(final ZtfAlertReader reader)
             {
             this.reader = reader;
             }
 
-        private final ZtfTestAlertReader reader ;
+        private final ZtfAlertReader reader ;
 
-        public ZtfTestAlertReader reader()
+        public ZtfAlertReader reader()
             {
             return this.reader ;
             }

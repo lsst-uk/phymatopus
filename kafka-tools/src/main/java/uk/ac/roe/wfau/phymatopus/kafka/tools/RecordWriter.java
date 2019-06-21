@@ -21,22 +21,21 @@ package uk.ac.roe.wfau.phymatopus.kafka.tools;
 import java.util.Properties;
 import java.util.concurrent.ExecutionException;
 
+import org.apache.avro.Schema;
+import org.apache.avro.SchemaBuilder ;
+import org.apache.avro.generic.GenericData;
+import org.apache.avro.generic.GenericRecordBuilder;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
-
-import org.apache.avro.Schema; 
-import org.apache.avro.SchemaBuilder ;
-import org.apache.avro.generic.GenericData;
-import org.apache.avro.generic.GenericRecordBuilder;
 import org.apache.kafka.common.serialization.LongSerializer;
+
 import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import io.confluent.kafka.serializers.KafkaAvroSerializer;
 import lombok.extern.slf4j.Slf4j;
-import uk.ac.roe.wfau.phymatopus.kafka.tools.BaseClient.Configuration;
 
 /**
  * First attempt at a schema structure writer.

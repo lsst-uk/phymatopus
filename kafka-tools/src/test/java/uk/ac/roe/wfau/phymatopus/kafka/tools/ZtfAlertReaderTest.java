@@ -18,6 +18,7 @@
 
 package uk.ac.roe.wfau.phymatopus.kafka.tools;
 
+import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
@@ -25,8 +26,6 @@ import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import lombok.extern.slf4j.Slf4j;
 import uk.ac.roe.wfau.phymatopus.kafka.alert.ZtfAlert;
 import uk.ac.roe.wfau.phymatopus.kafka.alert.ZtfCutout;
-import uk.ac.roe.wfau.phymatopus.kafka.cassandra.AbstractCassandraWriter;
-import uk.ac.roe.wfau.phymatopus.kafka.cassandra.ZtfAbstractWriterTest;
 
 /**
  *
@@ -42,7 +41,7 @@ import uk.ac.roe.wfau.phymatopus.kafka.cassandra.ZtfAbstractWriterTest;
         }
     )
 public class ZtfAlertReaderTest
-extends KafkaTestBase
+extends ZtfAbstractReaderTest
     {
     /**
      *
@@ -99,10 +98,20 @@ extends KafkaTestBase
             }
         }
 
-    @Override
     public Processor processor()
         {
         return new Processor();
+        }
+
+    /**
+     * Test multiple threads.
+     *
+     */
+    @Test
+    public void testThreads()
+    throws Exception
+        {
+        super.testThreads();
         }
     }
 
