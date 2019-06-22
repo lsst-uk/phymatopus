@@ -18,6 +18,7 @@
 
 package uk.ac.roe.wfau.phymatopus.kafka.tools;
 
+import java.io.IOException;
 import java.util.Properties;
 import java.util.concurrent.ExecutionException;
 
@@ -32,7 +33,9 @@ import org.apache.kafka.common.serialization.Serializer;
 
 import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
+import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException;
 import io.confluent.kafka.serializers.KafkaAvroSerializer;
+import io.confluent.kafka.serializers.KafkaAvroSerializerConfig;
 import lombok.extern.slf4j.Slf4j;
 import uk.ac.roe.wfau.phymatopus.kafka.alert.ZtfAlert;
 import ztf.alert;
@@ -136,6 +139,14 @@ extends BaseClient
             properties.put(
                 ProducerConfig.CLIENT_ID_CONFIG,
                 this.config.getGroup()
+                );
+            properties.put(
+                KafkaAvroSerializerConfig.SCHEMA_REGISTRY_URL_CONFIG,
+                "urn:mock"
+                );
+            properties.put(
+                KafkaAvroSerializerConfig.AUTO_REGISTER_SCHEMAS,
+                true
                 );
             producer = new KafkaProducer<Long, Object>(
                 properties,
