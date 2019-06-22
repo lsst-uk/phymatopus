@@ -50,7 +50,8 @@ extends ZtfAbstractReaderTest
         final RecordWriter writer = new RecordWriter(
             new BaseClient.ConfigurationBean(
                 servers,
-                topic
+                topic,
+                group
                 )
             ); 
         writer.write(

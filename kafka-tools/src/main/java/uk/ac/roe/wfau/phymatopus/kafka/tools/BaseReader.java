@@ -33,11 +33,6 @@ public class BaseReader extends BaseClient
      */
     public static interface Configuration extends BaseClient.Configuration
         {
-        /**
-         * The client group name to subscribe as.
-         * 
-         */
-        public String getGroup();
         }
 
     /**
@@ -55,17 +50,9 @@ public class BaseReader extends BaseClient
             {
             super(
                 servers,
-                topic
+                topic,
+                group
                 );
-            this.group = group;
-            log.debug("group   [{}]", group);
-            }
-
-        private final String group;
-        @Override
-        public String getGroup()
-            {
-            return this.group;
             }
         }
 

@@ -51,7 +51,8 @@ extends ZtfAbstractReaderTest
         final StringWriter writer = new StringWriter(
             new BaseClient.ConfigurationBean(
                 servers,
-                topic
+                topic,
+                group
                 )
             ); 
         writer.write(

@@ -43,6 +43,13 @@ public class BaseClient
          * 
          */
         public String getTopic();
+
+        /**
+         * The client group name.
+         * 
+         */
+        public String getGroup();
+
         }
 
     /**
@@ -56,12 +63,14 @@ public class BaseClient
          * Public constructor.
          * 
          */
-        public ConfigurationBean(final String servers, final String topic)
+        public ConfigurationBean(final String servers, final String topic, final String group)
             {
             this.servers = servers;
             this.topic   = topic;
+            this.group   = group;
             log.debug("servers [{}]", servers);
             log.debug("topic   [{}]", topic);
+            log.debug("group   [{}]", group);
             }
 
         private final String servers;
@@ -76,6 +85,13 @@ public class BaseClient
         public String getTopic()
             {
             return this.topic;
+            }
+
+        private final String group;
+        @Override
+        public String getGroup()
+            {
+            return this.group;
             }
         }
 

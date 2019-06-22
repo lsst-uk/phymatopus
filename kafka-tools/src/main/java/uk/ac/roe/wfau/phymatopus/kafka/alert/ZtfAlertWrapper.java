@@ -167,15 +167,15 @@ public class ZtfAlertWrapper implements ZtfAlert
         }
 
     @Override
-    public Object get(int field)
+    public Object get(int key)
         {
-        return bean.get(field);
+        return bean.get(key);
         }
 
     @Override
-    public void put(int arg0, Object arg1)
+    public void put(int key, Object value)
         {
-        // TODO Auto-generated method stub
+        bean.put(key, value);
         }
 
     @Override
