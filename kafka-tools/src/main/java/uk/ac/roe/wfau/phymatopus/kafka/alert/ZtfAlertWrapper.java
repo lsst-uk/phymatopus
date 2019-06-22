@@ -19,6 +19,8 @@ package uk.ac.roe.wfau.phymatopus.kafka.alert;
 
 import java.util.Iterator;
 
+import org.apache.avro.Schema;
+
 public class ZtfAlertWrapper implements ZtfAlert
     {
     /**
@@ -162,5 +164,23 @@ public class ZtfAlertWrapper implements ZtfAlert
     public String getTopic()
         {
         return this.topic;
+        }
+
+    @Override
+    public Object get(int field)
+        {
+        return bean.get(field);
+        }
+
+    @Override
+    public void put(int arg0, Object arg1)
+        {
+        // TODO Auto-generated method stub
+        }
+
+    @Override
+    public Schema getSchema()
+        {
+        return bean.getSchema();
         }
     }

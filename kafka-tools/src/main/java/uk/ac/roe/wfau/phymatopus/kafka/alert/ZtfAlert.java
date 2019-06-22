@@ -18,7 +18,10 @@
 
 package uk.ac.roe.wfau.phymatopus.kafka.alert;
 
+import org.apache.avro.specific.SpecificRecord;
+
 public interface ZtfAlert
+extends SpecificRecord
     {
    
     /**

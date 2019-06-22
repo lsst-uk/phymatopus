@@ -18,15 +18,12 @@
 
 package uk.ac.roe.wfau.phymatopus.kafka.tools;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Properties;
 import java.util.concurrent.ExecutionException;
 
 import org.apache.avro.Schema;
-import org.apache.avro.file.DataFileWriter;
-import org.apache.avro.generic.GenericDatumWriter;
 import org.apache.avro.message.BinaryMessageEncoder;
 import org.apache.avro.specific.SpecificData;
 import org.apache.kafka.clients.producer.KafkaProducer;
@@ -39,7 +36,6 @@ import org.apache.kafka.common.serialization.LongSerializer;
 
 import lombok.extern.slf4j.Slf4j;
 import uk.ac.roe.wfau.phymatopus.kafka.alert.ZtfAlert;
-import ztf.alert;
 
 /**
  * First attempt at an alert writer.
@@ -154,51 +150,6 @@ extends BaseClient
         {
         log.debug("Starting write alert");
 
-/*
- * 
-        log.debug("Creating OutputStream");
-        ByteArrayOutputStream buffer = new ByteArrayOutputStream(1024 * 1024);
-        
-        log.debug("Creating initial DataFileWriter");
-        DataFileWriter<ZtfAlert> writerone = new DataFileWriter<ZtfAlert>(
-            new GenericDatumWriter<ZtfAlert>(schema)
-            ); 
-                
-        log.debug("Creating inner DataFileWriter");
-        DataFileWriter<ZtfAlert> writertwo = null ;
-        try {
-            writertwo = writerone.create(
-                schema,
-                buffer
-                );
-            }
-        catch (IOException ouch)
-            {
-            log.error("IOException creating DataFileWriter [{}]", ouch.getMessage());
-            log.error("IOException", ouch);
-            }
-
-        log.debug("Writing an alert to the DataFileWriter");
-        try {
-            writertwo.append(alert);
-            }
-        catch (IOException ouch)
-            {
-            log.error("IOException writing alert [{}]", ouch.getMessage());
-            log.error("IOException", ouch);
-            }
-
-        log.debug("Flushing the DataFileWriter");
-        try {
-            writertwo.flush();
-            }
-        catch (IOException ouch)
-            {
-            log.error("IOException flushing writer [{}]", ouch.getMessage());
-            log.error("IOException", ouch);
-            }
- *         
- */
         
         ByteBuffer buffer = null;
         try {
