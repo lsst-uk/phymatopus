@@ -19,6 +19,8 @@
 package uk.ac.roe.wfau.phymatopus.kafka.tools;
 
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.ExecutionException;
 
@@ -90,21 +92,24 @@ extends BaseClient
      * A Serializer for our index type.
      *
      */
-    public Serializer<Long> indexSerializer()
+    public Serializer<Long> indexSerializer(final Map<String, Object> config)
         {
-        return new LongSerializer();
+        LongSerializer  result = new LongSerializer();
+        result.configure(config, true); // True because this is the Serializer for keys. 
+        return result ;
         }
 
     /**
      * A Serializer for our data type.
      *
      */
-    public Serializer<Object> dataSerializer()
+    public Serializer<Object> dataSerializer(final Map<String, Object> config)
         {
         SchemaRegistryClient reg = new MockSchemaRegistryClient();
         KafkaAvroSerializer  ser = new KafkaAvroSerializer(
             reg
             );
+        ser.configure(config, false); // False because this is the Serializer for data.
         return ser;
         }
 
@@ -131,27 +136,31 @@ extends BaseClient
         {
         if (null == producer)
             {
-            final Properties properties = new Properties();
-            properties.put(
+            final Map<String, Object> config = new HashMap<>();
+            config.put(
                 ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
                 this.config.getServers()
                 );
-            properties.put(
+            config.put(
                 ProducerConfig.CLIENT_ID_CONFIG,
                 this.config.getGroup()
                 );
-            properties.put(
+            config.put(
                 KafkaAvroSerializerConfig.SCHEMA_REGISTRY_URL_CONFIG,
                 "urn:mock"
                 );
-            properties.put(
+            config.put(
                 KafkaAvroSerializerConfig.AUTO_REGISTER_SCHEMAS,
                 true
                 );
             producer = new KafkaProducer<Long, Object>(
-                properties,
-                indexSerializer(),
-                dataSerializer()
+                config,
+                indexSerializer(
+                    config
+                    ),
+                dataSerializer(
+                    config
+                    )
                 );
             }
         }
