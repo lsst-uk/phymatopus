@@ -66,6 +66,8 @@ extends ZtfAbstractReaderTest
 
     protected ZtfAlertWriter writer ;
 
+    protected ZtfAlertWriter.Configuration config ;
+    
     /**
      *
      */
@@ -73,11 +75,7 @@ extends ZtfAbstractReaderTest
         {
         super();
         writer = new ZtfAlertWriter(
-            new ZtfAlertWriter.ConfigurationBean(
-                servers,
-                topic,
-                group
-                )
+            this.config
             );
         writer.init();
         }
