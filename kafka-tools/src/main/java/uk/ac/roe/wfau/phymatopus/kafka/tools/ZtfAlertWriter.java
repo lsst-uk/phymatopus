@@ -20,7 +20,6 @@ package uk.ac.roe.wfau.phymatopus.kafka.tools;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.time.Duration;
 import java.util.Properties;
 import java.util.concurrent.ExecutionException;
 
@@ -36,7 +35,7 @@ import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.apache.kafka.common.serialization.LongSerializer;
 
 import lombok.extern.slf4j.Slf4j;
-import ztf.alert;
+import uk.ac.roe.wfau.phymatopus.kafka.alert.ZtfAlert;
 
 /**
  * First attempt at an alert writer.
@@ -64,9 +63,43 @@ extends BaseClient
      */
     public static interface Configuration extends BaseReader.Configuration
         {
-
         }
-    
+
+    /**
+     * Configuration implementation.
+     * 
+     */
+    public static class ConfigurationBean
+    implements Configuration
+        {
+        public ConfigurationBean(final String servers, final String topic, final String group)
+            {
+            this.servers = servers;
+            this.topic   = topic;
+            this.group   = group;
+            }
+
+        private String servers;
+        @Override
+        public String getServers()
+            {
+            return this.servers;
+            }
+
+        private String topic;
+        @Override
+        public String getTopic()
+            {
+            return this.topic;
+            }
+
+        private String group;
+        @Override
+        public String getGroup()
+            {
+            return this.group;
+            }
+        }
     
     /**
      * Our {@link Producer}. 
@@ -106,7 +139,7 @@ extends BaseClient
      * Write a an alert to the stream. 
      * 
      */
-    public void write(final alert alert)
+    public void write(final ZtfAlert alert)
         {
         log.debug("Starting write alert");
 
@@ -116,12 +149,12 @@ extends BaseClient
         ByteArrayOutputStream buffer = new ByteArrayOutputStream(1024 * 1024);
         
         log.debug("Creating initial DataFileWriter");
-        DataFileWriter<alert> writerone = new DataFileWriter<alert>(
-            new GenericDatumWriter<alert>(schema)
+        DataFileWriter<ZtfAlert> writerone = new DataFileWriter<ZtfAlert>(
+            new GenericDatumWriter<ZtfAlert>(schema)
             ); 
                 
         log.debug("Creating inner DataFileWriter");
-        DataFileWriter<alert> writertwo = null ;
+        DataFileWriter<ZtfAlert> writertwo = null ;
         try {
             writertwo = writerone.create(
                 schema,

@@ -20,12 +20,12 @@ package uk.ac.roe.wfau.phymatopus.kafka.tools;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 import lombok.extern.slf4j.Slf4j;
 import uk.ac.roe.wfau.phymatopus.kafka.alert.ZtfAlert;
-import uk.ac.roe.wfau.phymatopus.kafka.alert.ZtfCutout;
 
 /**
  *
@@ -44,13 +44,44 @@ public class ZtfAlertWriterTest
 extends ZtfAbstractReaderTest
     {
     /**
+     * The target kafka servers.
+     * 
+     */
+    @Value("${phymatopus.kafka.writer.servers:}")
+    protected String servers;
+
+    /**
+     * The target kafka topic.
+     * 
+     */
+    @Value("${phymatopus.kafka.writer.topic:}")
+    protected String topic;
+
+    /**
+     * The target kafka group.
+     * 
+     */
+    @Value("${phymatopus.kafka.writer.group:}")
+    protected String group;
+
+    protected ZtfAlertWriter writer ;
+
+    /**
      *
      */
     public ZtfAlertWriterTest()
         {
         super();
+        writer = new ZtfAlertWriter(
+            new ZtfAlertWriter.ConfigurationBean(
+                servers,
+                topic,
+                group
+                )
+            );
+        writer.init();
         }
-
+    
     /**
      * Our Alert processor.
      * 
@@ -79,6 +110,8 @@ extends ZtfAbstractReaderTest
             log.trace("objectId  [{}]", alert.getObjectId());
             log.trace("schemavsn [{}]", alert.getSchemavsn().toString());
 
+            writer.write(alert);
+            
             }
         }
 
