@@ -18,6 +18,7 @@
 
 package uk.ac.roe.wfau.phymatopus.kafka.tools;
 
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Value;
@@ -74,9 +75,23 @@ extends ZtfAbstractReaderTest
     public ZtfAlertWriterTest()
         {
         super();
-        writer = new ZtfAlertWriter(
-            this.config
+        }
+    
+    @Before
+    @Override
+    public void before()
+        {
+        log.debug("Creating config");
+        config = new ZtfAlertWriter.ConfigurationBean(
+            servers,
+            topic,
+            group
             );
+        log.debug("Creating writer");
+        writer = new ZtfAlertWriter(
+            config
+            );
+        log.debug("Initialising writer");
         writer.init();
         }
     
