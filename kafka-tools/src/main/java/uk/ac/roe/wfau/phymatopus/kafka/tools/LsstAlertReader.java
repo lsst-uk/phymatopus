@@ -201,9 +201,8 @@ implements AlertReader
         try {
             alertcount++;
             processor.process(
-                new ZtfAlertWrapper(
-                    (alert) object,
-                    this.config.getTopic()
+                new Wrapper(
+                    (GenericData.Record) object
                     )
                 );
             }
