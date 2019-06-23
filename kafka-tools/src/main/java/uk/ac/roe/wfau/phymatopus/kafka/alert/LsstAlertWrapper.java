@@ -17,8 +17,6 @@
  */
 package uk.ac.roe.wfau.phymatopus.kafka.alert;
 
-import java.util.ArrayList;
-
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.mortbay.log.Log;
@@ -84,9 +82,6 @@ public class LsstAlertWrapper implements ZtfAlert
     @Override
     public Iterable<ZtfCandidate> getPrvCandidates()
         {
-        //Log.debug("getPrvCandidates() [{}]", record.get(5).getClass().getName());
-        //return (Iterable<ZtfCandidate>) record.get(5);
-        //return new ArrayList<ZtfCandidate>(0);
         return new LsstCandidateWrapper.IterableWrapper(
             (GenericData.Array<GenericData.Record>) record.get(5),
             this.getObjectId()

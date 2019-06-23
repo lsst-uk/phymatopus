@@ -16,7 +16,7 @@
  *
  */
 
-package uk.ac.roe.wfau.phymatopus.kafka.tools;
+package uk.ac.roe.wfau.phymatopus.kafka.cassandra;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -24,9 +24,14 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 import lombok.extern.slf4j.Slf4j;
-import uk.ac.roe.wfau.phymatopus.kafka.alert.AlertProcessor;
-import uk.ac.roe.wfau.phymatopus.kafka.alert.ZtfAlert;
+import uk.ac.roe.wfau.phymatopus.kafka.tools.CallableAlertReader;
+import uk.ac.roe.wfau.phymatopus.kafka.tools.LsstAlertReader;
+import uk.ac.roe.wfau.phymatopus.kafka.tools.ZtfAlertReader;
 
+/**
+ *
+ *
+ */
 @Slf4j
 @RunWith(
         SpringJUnit4ClassRunner.class
@@ -36,39 +41,16 @@ import uk.ac.roe.wfau.phymatopus.kafka.alert.ZtfAlert;
         "classpath:component-config.xml"
         }
     )
-public class LsstAlertReaderTest
-extends KafkaReaderTestBase
+public class LsstCandiateWriterTest
+extends CassandraWriterTestBase
     {
     /**
-     *
+     * Public constructor.
+     * 
      */
-    public LsstAlertReaderTest()
+    public LsstCandiateWriterTest()
         {
         super();
-        }
-
-    @Override
-    protected AlertProcessor<ZtfAlert> processor()
-        {
-        return new AlertProcessor<ZtfAlert>()
-            {
-            private long count ;
-            @Override
-            public long count()
-                {
-                return this.count;
-                }
-            @Override
-            public void process(final ZtfAlert alert)
-                {
-                count++;
-                log.debug("candId    [{}]", alert.getCandid());
-                log.debug("objectId  [{}]", alert.getObjectId());
-                log.debug("schemavsn [{}]", alert.getSchemavsn().toString());
-                log.debug("candidate [{}]", alert.getCandidate().getClass().getName());
-                log.debug("previous  [{}]", alert.getPrvCandidates().getClass().getName());
-                }
-            };
         }
 
     @Override
@@ -80,6 +62,15 @@ extends KafkaReaderTestBase
             );
         }
 
+    @Override
+    public AbstractCassandraWriter writer()
+        {
+        return new ZtfCandiateWriter(
+            this.hostname(),
+            this.dcname()
+            );
+        }
+    
     @Test
     @Override
     public void testThreads()
