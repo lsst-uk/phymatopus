@@ -19,34 +19,22 @@
 package uk.ac.roe.wfau.phymatopus.kafka.tools;
 
 import java.io.IOException;
-import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.Properties;
-import java.util.concurrent.Callable;
 
 import org.apache.avro.Schema;
-import org.apache.avro.SchemaNormalization;
-import org.apache.avro.file.DataFileReader;
-import org.apache.avro.file.SeekableByteArrayInput;
-import org.apache.avro.generic.GenericDatumReader;
-import org.apache.avro.reflect.ReflectDatumReader;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
-import org.apache.kafka.clients.consumer.ConsumerRebalanceListener;
-import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
-import org.apache.kafka.clients.consumer.OffsetAndMetadata;
-import org.apache.kafka.common.PartitionInfo;
-import org.apache.kafka.common.TopicPartition;
-import org.apache.kafka.common.serialization.ByteArrayDeserializer;
+import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.common.serialization.Deserializer;
 import org.apache.kafka.common.serialization.LongDeserializer;
 
+import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
+import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
+import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException;
+import io.confluent.kafka.serializers.KafkaAvroDeserializer;
+import io.confluent.kafka.serializers.KafkaAvroSerializerConfig;
 import lombok.extern.slf4j.Slf4j;
 import uk.ac.roe.wfau.phymatopus.kafka.alert.AlertProcessor;
 import uk.ac.roe.wfau.phymatopus.kafka.alert.ZtfAlert;
@@ -60,38 +48,9 @@ import ztf.alert;
  */
 @Slf4j
 public class LsstAlertReader
-extends BaseReader
-implements ConsumerRebalanceListener
+extends GenericAlertReader<Long, Object, ZtfAlert>
+implements AlertReader
     {
-
-    /**
-     * Public interface for a reader configuration.
-     * 
-     */
-    public static interface Configuration extends BaseReader.Configuration
-        {
-        }
-
-    /**
-     * Configuration bean implementation.
-     * 
-     */
-    public static class ConfigurationBean extends BaseReader.ConfigurationBean implements Configuration 
-        {
-        /**
-         * Public constructor.
-         * 
-         */
-        public ConfigurationBean(final String servers, final String topic, final String group)
-            {
-            super(
-                servers,
-                topic,
-                group
-                );
-            }
-        }
-
 
     /**
      * Public constructor.
@@ -101,386 +60,172 @@ implements ConsumerRebalanceListener
      */
     public LsstAlertReader(final AlertProcessor<ZtfAlert> processor, final Configuration config)
         {
-        super(config);
-        this.processor = processor ;
-        this.config = config;
+        super(
+            processor,
+            config
+            );
         }
 
     /**
-     * Our reader configuration.
-     * 
+     * A Deserializer for our index type.
+     *
      */
-    protected Configuration config;
+    public Deserializer<Long> indexDeserializer(final Map<String, Object> config)
+        {
+        LongDeserializer  result = new LongDeserializer();
+        result.configure(config, true); // True because this is the Deserializer for keys. 
+        return result ;
+        }
 
     /**
-     * Our alert processor.
-     * 
+     * A Deserializer for our data type.
+     *
      */
-    protected AlertProcessor<ZtfAlert> processor;
+    public Deserializer<Object> dataDeserializer(final Map<String, Object> config)
+        {
+        SchemaRegistryClient  reg = new MockSchemaRegistryClient();
+        try {
+            reg.register(
+                "alert-schema",
+                alert.SCHEMA$
+                );
+            }
+        catch (IOException ouch)
+            {
+            log.error("IOException registering schema [{}]", ouch.getMessage());
+            log.error("IOException registering schema ", ouch);
+            }
+        catch (RestClientException ouch)
+            {
+            log.error("RestClientException registering schema [{}]", ouch.getMessage());
+            log.error("RestClientException registering schema ", ouch);
+            }
+        KafkaAvroDeserializer ser = new KafkaAvroDeserializer(
+            reg
+            );
+        ser.configure(config, false); // False because this is the Deserializer for data.
+        return ser;
+        }
 
+    /**
+     * Access our Schema.
+     *
+     */
+    protected Schema schema()
+        {
+        return alert.SCHEMA$;
+        }
+    
+    
     /**
      * Create our {@link Consumer}.
      *
      */
-    public Consumer<Long, byte[]> consumer()
+    public Consumer<Long, Object> consumer()
         {
-        final Properties properties = new Properties();
-        properties.put(
-            ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
+        final Map<String, Object> config = new HashMap<>();
+        config.put(
+            ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
             this.config.getServers()
             );
-        properties.put(
-            ConsumerConfig.GROUP_ID_CONFIG,
+        config.put(
+            ProducerConfig.CLIENT_ID_CONFIG,
             this.config.getGroup()
             );
-        properties.put(
+        config.put(
+            KafkaAvroSerializerConfig.SCHEMA_REGISTRY_URL_CONFIG,
+            "urn:mock"
+            );
+        config.put(
+            KafkaAvroSerializerConfig.AUTO_REGISTER_SCHEMAS,
+            true
+            );
+        config.put(
             ConsumerConfig.AUTO_COMMIT_INTERVAL_MS_CONFIG,
             "1000"
             );
         // Optimise for large messages.
         // https://community.hortonworks.com/questions/73895/any-experience-based-tips-to-optimize-kafka-broker.html
-        properties.put(
+        config.put(
             ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG,
             Boolean.TRUE.toString()
             );
-        properties.put(
+        config.put(
             ConsumerConfig.FETCH_MAX_BYTES_CONFIG,
             Integer.toString(
                 52428800 * 4
                 )
             );
-        properties.put(
+        config.put(
             ConsumerConfig.MAX_PARTITION_FETCH_BYTES_CONFIG,
             Integer.toString(
                 1048576 * 4
                 )
             );
-        properties.put(
+        config.put(
             ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,
             "earliest"
             );
-
-        final KafkaConsumer<Long, byte[]> consumer = new KafkaConsumer<Long, byte[]>(
-            properties,
-            new LongDeserializer(),
-            new ByteArrayDeserializer()
+        KafkaConsumer<Long, Object> consumer = new KafkaConsumer<Long, Object>(
+            config,
+            indexDeserializer(
+                config
+                ),
+            dataDeserializer(
+                config
+                )
             );
-
         return consumer;
         }
 
-    public ReaderStatistics loop()
+    public long process(final Object object)
         {
-        log.trace("Creating consumer");
-        Consumer<Long, byte[]> consumer = consumer();
-
-        log.trace("Subscribing ..");
-        consumer.subscribe(
-                Collections.singletonList(
-                    this.config.getTopic()
-                    ),
-                this
-                );
-
-        long totalalerts = 0;
-        long totalstart  = System.nanoTime();
-        long totalwait   = 0;
-
-        long loopalerts  = 0;
-        long loopstart   = System.nanoTime();
-        long loopcount   = 0;
-        long lastwait    = 0;
-
-        long looptimeout = config.getLoopTimeout().toNanos();
-        Duration polltimeout = config.getLoopTimeout();
-
-        do {
-            loopcount++;
-            loopalerts = 0 ;
-            loopstart  = System.nanoTime() ; 
-
-            log.trace("Loop [{}][{}]", loopcount, lastwait);
-
-            ConsumerRecords<Long, byte[]> records = consumer.poll(
-                polltimeout 
-                );
-
-            if (records.isEmpty())
-                {
-                long thiswait = System.nanoTime() - loopstart ; 
-                lastwait  += thiswait ; 
-                totalwait += thiswait ; 
-                log.debug("Loop wait [{}][{}][{}]", thiswait, lastwait, totalwait );
-                }
-
-            else {
-                lastwait = 0 ;
-                for (ConsumerRecord<Long, byte[]> record : records)
-                    {
-                    long alertcount = process(
-                        record.value()
-                        );
-                    loopalerts  += alertcount;
-                    totalalerts += alertcount;
-                    }
-
-                if (loopalerts > 0)
-                    {
-                    long  loopnano  = System.nanoTime() - loopstart;
-                    long  loopmicro = loopnano / 1000 ;
-                    float loopmilli = loopnano / 1000000 ;
-                    log.debug("Loop [{}] completed [{}:{}] alerts in [{}]ns [{}]µs [{}]ms => [{}]ns [{}]µs [{}]ms per alert",
-                        loopcount,
-                        loopalerts,
-                        totalalerts,
-                        loopnano,
-                        loopmicro,
-                        loopmilli,
-                        (loopnano/loopalerts),
-                        (loopmicro/loopalerts),
-                        (loopmilli/loopalerts)
-                        );
-                    }
-                else {
-                    log.debug("Loop wait [{}][{}]", lastwait, totalwait);
-                    }
-                }
-            }
-        while (lastwait < looptimeout);
-
-        long  totaltime  = (System.nanoTime() - totalstart) - totalwait ;
-        long  totalmicro = totaltime / 1000 ;
-        float totalmilli = totaltime / (1000 * 1000) ;
-        if (totalalerts > 0)
-            {
-            log.info("Total : [{}] alerts in [{}]µs [{}]ms  => [{}]µs [{}]ms per alert",
-                totalalerts,
-                totalmicro,
-                totalmilli,
-                (totalmicro/totalalerts),
-                (totalmilli/totalalerts)
-                );
-            }
-        else {
-            log.info("Total : [{}] alerts in [{}]µs [{}]ms",
-                totalalerts,
-                totalmicro,
-                totalmilli
-                );
-        
-            }
-
-        consumer.close();
-        
-        return new ReaderStatistics.Bean(
-            totalalerts,
-            totaltime
-            ) ;
-        }
-    
-    public long process(final byte[] bytes)
-        {
-        log.trace("Processing byte[]");
-
-        DebugFormatter debug = new DebugFormatter();
-        debug.asciiBytes(bytes);
-        
-        Schema schema = schema(bytes);
-        final Long fingerprint = SchemaNormalization.parsingFingerprint64(schema);
-        log.trace("Schema fingerprint [{}]", fingerprint);
-
-        debug.asciiBytes(bytes);
-        DataFileReader<alert> reader = reader(bytes);
-
+        log.trace("Processing Object");
         long alertcount = 0 ;
-        while (reader.hasNext())
-            {
-            try {
-                log.trace("Hydrating alert [{}]", alertcount);
-                ztf.alert alert = reader.next();
-                log.trace("Processing alert [{}]", alertcount);
-                try {
-                    processor.process(
-                        new ZtfAlertWrapper(
-                            alert,
-                            this.config.getTopic()
-                            )
-                        );
-                    }
-                catch (Exception ouch)
-                    {
-                    log.error("Exception processing alert [{}][{}]", ouch.getClass().getName(), ouch.getMessage());
-                    log.error("Exception processing alert ", ouch);
-                    if (ouch.getCause() != null)
-                        {
-                        Throwable cause = ouch.getCause();
-                        log.error("Exception cause [{}][{}]", cause.getClass().getName(), cause.getMessage());
-                        }
-                    }
-                }
-            catch (Exception ouch)
-                {
-                log.error("Exception hydrating alert [{}][{}]", ouch.getClass().getName(), ouch.getMessage());
-                if (ouch.getCause() != null)
-                    {
-                    Throwable cause = ouch.getCause();
-                    log.error("Exception cause [{}][{}]", cause.getClass().getName(), cause.getMessage());
-                    }
-                }
+        try {
             alertcount++;
+            processor.process(
+                new ZtfAlertWrapper(
+                    (alert) object,
+                    this.config.getTopic()
+                    )
+                );
+            }
+        catch (Exception ouch)
+            {
+            log.error("Exception processing alert [{}][{}]", ouch.getClass().getName(), ouch.getMessage());
+            log.error("Exception processing alert ", ouch);
+            if (ouch.getCause() != null)
+                {
+                Throwable cause = ouch.getCause();
+                log.error("Exception cause [{}][{}]", cause.getClass().getName(), cause.getMessage());
+                }
             }
         return alertcount ;
         }
 
-    public Schema schema(final byte[] bytes)
-        {
-        log.trace("Extracting message schema");
-        DataFileReader<Object> reader = null;
-        Schema schema = null ;
-        try {
-            reader = new DataFileReader<Object>(
-                new SeekableByteArrayInput(
-                    bytes
-                    ),
-                new GenericDatumReader<Object>()
-                );
-            schema = reader.getSchema();
-            log.trace("Message schema [{}][{}]", schema.getFullName(), schema.getDoc());
-            }
-        catch (IOException ouch)
-            {
-            log.error("IOException creating reader [{}]", ouch.getMessage());
-            return null ;
-            }
-        finally {
-            if (null != reader)
-                {
-                try {
-                    reader.close();
-                    }
-                catch (Exception ouch)
-                    {
-                    log.error("Exception closing reader [{}]", ouch.getMessage());
-                    }
-                }
-            }
-        return schema;
-        }
-
-    public DataFileReader<alert> reader(final byte[] bytes)
-        {
-        log.trace("Creating alert reader");
-        try {
-            return new DataFileReader<alert>(
-                new SeekableByteArrayInput(
-                    bytes
-                    ),
-                new ReflectDatumReader<alert>(
-                    alert.class
-                    )
-                );
-            }
-        catch (IOException ouch)
-            {
-            log.error("IOException creating reader [{}]", ouch.getMessage());
-            return null ;
-            }
-        }
-
-    public void rewind()
-        {
-        log.trace("Creating consumer");
-        Consumer<Long, byte[]> consumer = consumer();
-
-        log.trace("Fetching PartitionInfo for topic");
-        List<PartitionInfo> partitions = consumer.partitionsFor(
-            this.config.getTopic()
-            );
-
-        log.trace("Creating TopicPartitions");
-        List<TopicPartition> topicpartitions = new ArrayList<TopicPartition>();
-        for(PartitionInfo partition : partitions)
-            {
-            log.trace("Partition [{}][{}]", partition.topic(), partition.partition());
-            topicpartitions.add(
-                new TopicPartition(
-                    partition.topic(),
-                    partition.partition()
-                    )
-                );
-            }
-        log.trace("Fetching beginning offsets for partitions");
-        Map<TopicPartition,Long> offsets = consumer.beginningOffsets(
-            topicpartitions
-            );
-
-        log.trace("Creating TopicPartition map");
-        Map<TopicPartition, OffsetAndMetadata> offsetmeta = new HashMap<TopicPartition, OffsetAndMetadata>();
-        for (TopicPartition partition : offsets.keySet())
-            {
-            offsetmeta.put(
-                partition,
-                new OffsetAndMetadata(
-                    offsets.get(
-                        partition
-                        )
-                    )
-                );
-            }
-
-        log.trace("Committing ...");
-        consumer.commitSync(offsetmeta);
-
-        log.trace("Closing ...");
-        consumer.close();
-        }
-
-    @Override
-    public void onPartitionsAssigned(Collection<TopicPartition> partitions)
-        {
-        log.trace("PartitionsAssigned()");
-        for (TopicPartition partition : partitions)
-            {
-            log.trace("Partition [{}],[{}]", partition.topic(), partition.partition());
-            }
-        }
-
-    @Override
-    public void onPartitionsRevoked(Collection<TopicPartition> partitions)
-        {
-        log.trace("PartitionsRevoked()");
-        for (TopicPartition partition : partitions)
-            {
-            log.trace("Partition [{}],[{}]", partition.topic(), partition.partition());
-            }
-        }
-    
     /**
-     * Callable Reader wrapper class.
-     *
+     * Create a Callable reader.
+     * 
      */
-    public static class CallableReader
-    implements Callable<ReaderStatistics>
+    public static CallableAlertReader callable(final AlertProcessor<ZtfAlert> processor, final Configuration config)
         {
-        public CallableReader(final AlertProcessor<ZtfAlert> processor, final Configuration config)
+        return new CallableAlertReader()
             {
-            this.reader = new LsstAlertReader(
+            private final LsstAlertReader reader = new LsstAlertReader(
                 processor,
                 config
-                );
-            }
-        
-        private final LsstAlertReader reader ;
-
-        public void rewind()
-            {
-            this.reader.rewind();
-            }
-
-        @Override
-        public ReaderStatistics call()
-            {
-            return reader.loop();
-            }
+                ); 
+            @Override
+            public ReaderStatistics call()
+                {
+                return reader.loop();
+                }
+            @Override
+            public void rewind()
+                {
+                reader.rewind();
+                }
+            };
         }
     }
