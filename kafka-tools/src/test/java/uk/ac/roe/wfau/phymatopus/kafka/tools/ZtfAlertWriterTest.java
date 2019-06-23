@@ -119,11 +119,13 @@ extends KafkaTestBase
      *
      */
     @Test
-    public void testThreads()
+    public void testSimpleWrite()
     throws Exception
         {
+        log.debug("Starting test ....");
         for (int candid = 0 ; candid < 1000 ; candid++)
             {
+            log.debug("Sending alert [{}]", candid);
             ZtfAlert alert = new ZtfAlertWrapper(
                 new alert (
                     "schemavsn",

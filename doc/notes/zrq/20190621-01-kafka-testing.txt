@@ -98,10 +98,10 @@
 
                     cat src/test/conf/test.properties
 
-                    mvn test -D 'test=ZtfAlertReaderTest' -D 'phymatopus.kafka.topic=ztf_20190119_programid1'
-                    mvn test -D 'test=ZtfCandiateWriterTest' -D 'phymatopus.kafka.topic=ztf_20190119_programid1'
+                    mvn test -D 'test=ZtfAlertReaderTest'    -D 'phymatopus.kafka.reader.topic=ztf_20190119_programid1'
+                    mvn test -D 'test=ZtfCandiateWriterTest' -D 'phymatopus.kafka.reader.topic=ztf_20190119_programid1'
 
-                    mvn test -D 'test=ZtfAlertWriterTest' -D 'phymatopus.kafka.topic=ztf_20190119_programid1'
+                    mvn test -D 'test=ZtfAlertWriterTest'    -D "phymatopus.kafka.writer.topic=test-$(date +%Y%m%d%H%M%S)"
 
 
 
@@ -115,4 +115,73 @@
 org.apache.avro.file.DataFileWriter$AppendWriteException: java.lang.ClassCastException
 	at org.apache.avro.file.DataFileWriter.append(DataFileWriter.java:308)
 	at uk.ac.roe.wfau.phymatopus.kafka.tools.ZtfAlertWriter.write(ZtfAlertWriter.java:172)
+
+
+
+# -----------------------------------------------------
+# Install tcpdump network monitoring tool.
+#[user@Nydiabaen]
+
+    sudo dnf install tcpdump
+
+    #
+    # tcpdump - Linux man page
+    # https://linux.die.net/man/8/tcpdump
+
+    #
+    # Capturing with tcpdump for viewing with Wireshark
+    # https://www.wireshark.org/docs/wsug_html_chunked/AppToolstcpdump.html
+
+    #
+    # Get the IP addresses of our kafka and client containers.
+    docker ps
+
+--START--
+CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS               NAMES
+fde047a53238        firethorn/builder   "bash"              38 seconds ago      Up 36 seconds                           angry_blackburn
+--END--
+
+    clientip=$(
+        docker inspect \
+            'fde047a53238' \
+            | jq -r '.[].NetworkSettings.Networks.bridge.IPAddress'
+            )
+
+    echo "clientip [${clientip:?}]"
+
+    #
+    # Dump network traffic to/from the client.
+    # http://www.tcpdump.org/manpages/tcpdump.1.html#lbAF
+    sudo tcpdump \
+        --interface any \
+        host  ${clientip:?}
+
+    #
+    # Dump network traffic to/from the client.
+    # Save the data for analysis by WireShark.
+    # https://www.wireshark.org/docs/wsug_html_chunked/AppToolstcpdump.html
+    sudo tcpdump \
+        --interface any \
+        host ${clientip:?} \
+        -w "tcpdump-$(date +%Y%m%d%H%M%S).log"
+
+    ls -al
+
+--START--
+--END--
+
+# -----------------------------------------------------
+# Copy the capture file back to laptop.
+#[user@desktop]
+
+    scp Nydiabaen:tcpdump-20180921163116.log .
+
+--START--
+--END--
+
+# -----------------------------------------------------
+# Analyse the capture file with WireShark.
+#[user@desktop]
+
+    wireshark tcpdump-20180921163116.log
 
