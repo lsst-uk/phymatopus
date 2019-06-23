@@ -41,7 +41,7 @@ import uk.ac.roe.wfau.phymatopus.kafka.alert.ZtfAlert;
         "classpath:component-config.xml"
         }
     )
-public class ZtfAlertCopierTest
+public class AlertConversionTest
 extends ZtfAbstractReaderTest
     {
     /**
@@ -65,14 +65,14 @@ extends ZtfAbstractReaderTest
     @Value("${phymatopus.kafka.writer.group:}")
     protected String group;
 
-    protected ZtfAlertWriter writer ;
+    protected LsstAlertWriter writer ;
 
-    protected ZtfAlertWriter.Configuration config ;
+    protected LsstAlertWriter.Configuration config ;
     
     /**
      *
      */
-    public ZtfAlertCopierTest()
+    public AlertConversionTest()
         {
         super();
         }
@@ -82,13 +82,13 @@ extends ZtfAbstractReaderTest
     public void before()
         {
         log.debug("Creating config");
-        config = new ZtfAlertWriter.ConfigurationBean(
+        config = new LsstAlertWriter.ConfigurationBean(
             servers,
             topic,
             group
             );
         log.debug("Creating writer");
-        writer = new ZtfAlertWriter(
+        writer = new LsstAlertWriter(
             config
             );
         log.debug("Initialising writer");

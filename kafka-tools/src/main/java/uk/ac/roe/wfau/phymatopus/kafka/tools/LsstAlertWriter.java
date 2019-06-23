@@ -18,10 +18,8 @@
 
 package uk.ac.roe.wfau.phymatopus.kafka.tools;
 
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Properties;
 import java.util.concurrent.ExecutionException;
 
 import org.apache.avro.Schema;
@@ -35,7 +33,6 @@ import org.apache.kafka.common.serialization.Serializer;
 
 import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
-import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException;
 import io.confluent.kafka.serializers.KafkaAvroSerializer;
 import io.confluent.kafka.serializers.KafkaAvroSerializerConfig;
 import lombok.extern.slf4j.Slf4j;
@@ -43,11 +40,11 @@ import uk.ac.roe.wfau.phymatopus.kafka.alert.ZtfAlert;
 import ztf.alert;
 
 /**
- * First attempt at an alert writer.
+ * MockSchema registry writer.
  * 
  */
 @Slf4j
-public class ZtfAlertWriter
+public class LsstAlertWriter
 extends BaseClient
     {
 
@@ -55,7 +52,7 @@ extends BaseClient
      * Public constructor.
      * 
      */
-    public ZtfAlertWriter(final Configuration config)
+    public LsstAlertWriter(final Configuration config)
         {
         super(
             config

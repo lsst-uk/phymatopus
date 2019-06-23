@@ -20,8 +20,6 @@ package uk.ac.roe.wfau.phymatopus.kafka.tools;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
 
 import org.junit.After;
 import org.junit.Before;
@@ -52,7 +50,7 @@ import ztf.prv_candidate;
         "classpath:component-config.xml"
         }
     )
-public class ZtfAlertWriterTest
+public class LsstAlertWriterTest
 extends KafkaTestBase
     {
     /**
@@ -76,14 +74,14 @@ extends KafkaTestBase
     @Value("${phymatopus.kafka.writer.group:}")
     protected String group;
 
-    protected ZtfAlertWriter writer ;
+    protected LsstAlertWriter writer ;
 
-    protected ZtfAlertWriter.Configuration config ;
+    protected LsstAlertWriter.Configuration config ;
     
     /**
      *
      */
-    public ZtfAlertWriterTest()
+    public LsstAlertWriterTest()
         {
         super();
         }
@@ -93,13 +91,13 @@ extends KafkaTestBase
     public void before()
         {
         log.debug("Creating config");
-        config = new ZtfAlertWriter.ConfigurationBean(
+        config = new LsstAlertWriter.ConfigurationBean(
             servers,
             topic,
             group
             );
         log.debug("Creating writer");
-        writer = new ZtfAlertWriter(
+        writer = new LsstAlertWriter(
             config
             );
         log.debug("Initialising writer");
