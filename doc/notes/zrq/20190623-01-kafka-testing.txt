@@ -1,0 +1,109 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+# -----------------------------------------------------
+# Login to the VM.
+#[user@work02]
+
+    ssh Nydiabaen
+    ssh Eraullan
+    ssh Dwerader
+    ssh Koiclya
+
+
+    # -----------------------------------------------------
+    # Create a container to work with.
+    #[user@virtual]
+
+        docker run \
+            --rm \
+            --tty \
+            --interactive \
+            --hostname builder \
+            --env SSH_AUTH_SOCK=/tmp/ssh_auth_sock \
+            --volume ${SSH_AUTH_SOCK}:/tmp/ssh_auth_sock \
+            firethorn/builder \
+            bash
+
+            >   Unable to find image 'firethorn/builder:latest' locally
+            >   latest: Pulling from firethorn/builder
+            >   ....
+            >   ....
+            >   Digest: sha256:8f984115c8ae158ba3ed45d28ffe656278cd3f2429f7af87cd3ffa3679237f1f
+            >   Status: Downloaded newer image for firethorn/builder:latest
+
+        # -----------------------------------------------------
+        # Checkout a copy of our source code.
+        #[user@builder]
+
+            PHYMATOPUS_REPO=https://github.com/Zarquan/phymatopus
+            PHYMATOPUS_CODE=/var/local/build/phymatopus
+
+            if [ ! -e "${PHYMATOPUS_CODE:?}" ]
+            then
+                if [ ! -e "$(dirname ${PHYMATOPUS_CODE:?})" ]
+                then
+                    mkdir -p "$(dirname ${PHYMATOPUS_CODE:?})"
+                fi
+                pushd "$(dirname ${PHYMATOPUS_CODE:?})"
+                    git clone "${PHYMATOPUS_REPO:?}" "$(basename ${PHYMATOPUS_CODE:?})"
+
+                popd
+            else
+                pushd "${PHYMATOPUS_CODE:?}"
+                    git pull
+                popd
+            fi
+
+        # -----------------------------------------------------
+        # Build and run our tests.
+        #[user@builder]
+
+            pushd "${PHYMATOPUS_CODE:?}"
+                pushd kafka-tools
+
+                    git pull
+
+                    mvn clean compile
+
+                    ztftopic=ztf_20190612_programid1,
+                    lssttopic=test-20190623171007
+
+                    mvn test -D 'test=AlertConversionTest'   -D "phymatopus.kafka.reader.topic=${ztftopic}" -D "phymatopus.kafka.writer.topic=${lssttopic}"
+
+                    mvn test -D 'test=LsstAlertReaderTest'   -D "phymatopus.kafka.reader.topic=${lssttopic}"
+
+--START--
+2019-06-23 19:38:28,048 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [4] threads read [278279] alerts from topic [test-20190623171007] in [136613.0]ms at [0.490921]ms per alert
+--END--
+
+                    mvn test -D 'test=ZtfCandiateWriterTest'  -D "phymatopus.kafka.reader.topic=${ztftopic}"
+
+--START--
+--END--
+
+                    mvn test -D 'test=LsstCandiateWriterTest' -D "phymatopus.kafka.reader.topic=${lssttopic}"
+
+--START--
+--END--
+
+
