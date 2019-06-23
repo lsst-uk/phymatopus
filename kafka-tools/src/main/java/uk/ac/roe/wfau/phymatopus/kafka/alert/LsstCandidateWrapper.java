@@ -22,12 +22,12 @@ import org.apache.avro.generic.GenericData;
 public class LsstCandidateWrapper implements ZtfCandidate
     {
     private GenericData.Record record;
-    public LsstCandidateWrapper(final GenericData.Record record, final String objectid)
+    public LsstCandidateWrapper(final GenericData.Record record, final CharSequence objectid)
         {
         this.record = record;
         }
     
-    private String objectid;
+    private CharSequence objectid;
     @Override
     public CharSequence getObjectId()
         {

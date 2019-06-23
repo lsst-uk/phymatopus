@@ -75,8 +75,8 @@ public class LsstAlertWrapper implements ZtfAlert
         {
         return new LsstAlertCandidateWrapper(
             (GenericData.Record) record.get(4),
-            this.topic,
-            (String) record.get(2)
+            this.getObjectId(),
+            this.getTopic()
             );
         }
     

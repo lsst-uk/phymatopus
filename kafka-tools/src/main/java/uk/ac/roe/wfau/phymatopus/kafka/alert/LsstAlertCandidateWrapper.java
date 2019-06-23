@@ -24,7 +24,7 @@ extends LsstCandidateWrapper
 implements ZtfAlertCandidate
     {
     private GenericData.Record record;
-    public LsstAlertCandidateWrapper(final GenericData.Record record, final String objectid, final String topic)
+    public LsstAlertCandidateWrapper(final GenericData.Record record, final CharSequence objectid, final String topic)
         {
         super(
             record,
