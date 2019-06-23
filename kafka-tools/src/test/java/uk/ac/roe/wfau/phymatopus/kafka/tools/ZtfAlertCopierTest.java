@@ -18,11 +18,6 @@
 
 package uk.ac.roe.wfau.phymatopus.kafka.tools;
 
-import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -32,11 +27,6 @@ import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 import lombok.extern.slf4j.Slf4j;
 import uk.ac.roe.wfau.phymatopus.kafka.alert.ZtfAlert;
-import uk.ac.roe.wfau.phymatopus.kafka.alert.ZtfAlertWrapper;
-import ztf.alert;
-import ztf.candidate;
-import ztf.cutout;
-import ztf.prv_candidate;
 
 /**
  *
@@ -51,8 +41,8 @@ import ztf.prv_candidate;
         "classpath:component-config.xml"
         }
     )
-public class ZtfAlertWriterTest
-extends KafkaTestBase
+public class ZtfAlertCopierTest
+extends ZtfAbstractReaderTest
     {
     /**
      * The target kafka servers.
@@ -82,7 +72,7 @@ extends KafkaTestBase
     /**
      *
      */
-    public ZtfAlertWriterTest()
+    public ZtfAlertCopierTest()
         {
         super();
         }
@@ -104,35 +94,54 @@ extends KafkaTestBase
         log.debug("Initialising writer");
         writer.init();
         }
+    
+    /**
+     * Our Alert processor.
+     * 
+     */
+    public class Processor implements ZtfAlert.Processor
+        {
+        private long count ;
+        public long count()
+            {
+            return this.count;
+            }
+
+        /**
+         * Public constructor.
+         * 
+         */
+        public Processor()
+            {
+            }
+
+        @Override
+        public void process(final ZtfAlert alert)
+            {
+            count++;
+            log.trace("candId    [{}]", alert.getCandid());
+            log.trace("objectId  [{}]", alert.getObjectId());
+            log.trace("schemavsn [{}]", alert.getSchemavsn().toString());
+
+            writer.write(alert);
+            
+            }
+        }
+
+    public Processor processor()
+        {
+        return new Processor();
+        }
 
     /**
-     * Test a simple write.
+     * Test multiple threads.
      *
      */
     @Test
     public void testThreads()
     throws Exception
         {
-        for (int candid = 0 ; candid < 1000 ; candid++)
-            {
-            ZtfAlert alert = new ZtfAlertWrapper(
-                new alert (
-                    "schemavsn",
-                    "publisher",
-                    "objectId",
-                    new Long(candid),
-                    new candidate(),
-                    new ArrayList<prv_candidate>(),
-                    new cutout("science", ByteBuffer.allocate(1024)),
-                    new cutout("template", ByteBuffer.allocate(1024)),
-                    new cutout("difference", ByteBuffer.allocate(1024))
-                    ),
-                topic
-                );
-            writer.write(
-                alert
-                );
-            }
+        super.testThreads();
         }
     }
 
