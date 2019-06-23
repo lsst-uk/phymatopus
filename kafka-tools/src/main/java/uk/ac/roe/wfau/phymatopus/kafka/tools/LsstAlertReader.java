@@ -19,14 +19,15 @@
 package uk.ac.roe.wfau.phymatopus.kafka.tools;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.avro.Schema;
+import org.apache.avro.generic.GenericData;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
-import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.Deserializer;
 import org.apache.kafka.common.serialization.LongDeserializer;
 
@@ -34,11 +35,14 @@ import io.confluent.kafka.schemaregistry.client.MockSchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException;
 import io.confluent.kafka.serializers.KafkaAvroDeserializer;
-import io.confluent.kafka.serializers.KafkaAvroSerializerConfig;
+import io.confluent.kafka.serializers.KafkaAvroDeserializerConfig;
 import lombok.extern.slf4j.Slf4j;
 import uk.ac.roe.wfau.phymatopus.kafka.alert.AlertProcessor;
 import uk.ac.roe.wfau.phymatopus.kafka.alert.ZtfAlert;
+import uk.ac.roe.wfau.phymatopus.kafka.alert.ZtfAlertCandidate;
 import uk.ac.roe.wfau.phymatopus.kafka.alert.ZtfAlertWrapper;
+import uk.ac.roe.wfau.phymatopus.kafka.alert.ZtfCandidate;
+import uk.ac.roe.wfau.phymatopus.kafka.alert.ZtfCutout;
 import ztf.alert;
 
 
@@ -141,11 +145,11 @@ implements AlertReader
             this.config.getGroup()
             );
         config.put(
-            KafkaAvroSerializerConfig.SCHEMA_REGISTRY_URL_CONFIG,
+            KafkaAvroDeserializerConfig.SCHEMA_REGISTRY_URL_CONFIG,
             "urn:mock"
             );
         config.put(
-            KafkaAvroSerializerConfig.AUTO_REGISTER_SCHEMAS,
+            KafkaAvroDeserializerConfig.AUTO_REGISTER_SCHEMAS,
             true
             );
 /*
@@ -239,5 +243,92 @@ implements AlertReader
                 reader.rewind();
                 }
             };
+        }
+    
+    class Wrapper implements ZtfAlert
+        {
+        private GenericData.Record record;
+        public Wrapper(final GenericData.Record record)
+            {
+            this.record = record;
+            }
+
+        @Override
+        public Object get(int key)
+            {
+            return record.get(key);
+            }
+
+        @Override
+        public void put(int key, Object value)
+            {
+            record.put(key, value);
+            }
+
+        @Override
+        public Schema getSchema()
+            {
+            return alert.SCHEMA$;
+            }
+
+        @Override
+        public CharSequence getSchemavsn()
+            {
+            return (CharSequence) get(0);
+            }
+
+        @Override
+        public CharSequence getPublisher()
+            {
+            return (CharSequence) get(1);
+            }
+
+        @Override
+        public CharSequence getObjectId()
+            {
+            return (CharSequence) get(2);
+            }
+
+        @Override
+        public Long getCandid()
+            {
+            return (Long) get(3);
+            }
+
+        @Override
+        public ZtfAlertCandidate getCandidate()
+            {
+            return null ;
+            }
+
+        @Override
+        public Iterable<ZtfCandidate> getPrvCandidates()
+            {
+            return new ArrayList<ZtfCandidate>(0);
+            }
+
+        @Override
+        public ZtfCutout getCutoutScience()
+            {
+            return null;
+            }
+
+        @Override
+        public ZtfCutout getCutoutTemplate()
+            {
+            return null;
+            }
+
+        @Override
+        public ZtfCutout getCutoutDifference()
+            {
+            return null;
+            }
+
+        @Override
+        public String getTopic()
+            {
+            return config.getTopic();
+            }
         }
     }
