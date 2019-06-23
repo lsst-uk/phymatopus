@@ -51,7 +51,6 @@ import ztf.prv_candidate;
         }
     )
 public class LsstAlertWriterTest
-extends KafkaTestBase
     {
     /**
      * The target kafka servers.
@@ -87,7 +86,6 @@ extends KafkaTestBase
         }
     
     @Before
-    @Override
     public void before()
         {
         log.debug("Creating config");
@@ -105,7 +103,6 @@ extends KafkaTestBase
         }
 
     @After
-    @Override
     public void after()
         {
         log.debug("Closing writer");
@@ -244,6 +241,5 @@ extends KafkaTestBase
                 );
             }
         }
-
     }
 
