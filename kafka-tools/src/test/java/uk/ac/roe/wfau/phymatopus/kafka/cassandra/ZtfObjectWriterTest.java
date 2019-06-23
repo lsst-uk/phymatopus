@@ -24,6 +24,8 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 import lombok.extern.slf4j.Slf4j;
+import uk.ac.roe.wfau.phymatopus.kafka.tools.CallableAlertReader;
+import uk.ac.roe.wfau.phymatopus.kafka.tools.ZtfAlertReader;
 
 /**
  *
@@ -39,7 +41,7 @@ import lombok.extern.slf4j.Slf4j;
         }
     )
 public class ZtfObjectWriterTest
-extends ZtfCassandraWriterTest
+extends CassandraWriterTestBase
     {
 
     /**
@@ -52,6 +54,15 @@ extends ZtfCassandraWriterTest
         }
 
     @Override
+    protected CallableAlertReader reader()
+        {
+        return ZtfAlertReader.callable(
+            this.processor(),
+            this.configuration()
+            );
+        }
+
+    @Override
     public AbstractCassandraWriter writer()
         {
         return new ZtfObjectWriter(
@@ -59,12 +70,9 @@ extends ZtfCassandraWriterTest
             this.dcname()
             );
         }
-
-    /**
-     * Test multiple threads.
-     *
-     */
+    
     @Test
+    @Override
     public void testThreads()
     throws Exception
         {

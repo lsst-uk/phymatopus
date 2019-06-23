@@ -18,6 +18,8 @@
 
 package uk.ac.roe.wfau.phymatopus.kafka.tools;
 
+import java.time.Duration;
+
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -33,6 +35,18 @@ public class BaseReader extends BaseClient
      */
     public static interface Configuration extends BaseClient.Configuration
         {
+        /**
+         * The timeout for waiting for new messages.
+         * 
+         */
+        public Duration getLoopTimeout();
+
+        /**
+         * The timeout for polling the server.
+         * 
+         */
+        public Duration getPollTimeout();
+        
         }
 
     /**
@@ -42,17 +56,53 @@ public class BaseReader extends BaseClient
     @Slf4j
     public static class ConfigurationBean extends BaseClient.ConfigurationBean implements Configuration 
         {
+        static final Boolean  DEFAULT_AUTOCOMIT = true ;
+        static final Duration DEFAULT_LOOPTIMEOUT = Duration.ofMinutes(10);
+        static final Duration DEFAULT_POLLTIMEOUT = Duration.ofSeconds(10);
+        
         /**
          * Public constructor.
          * 
          */
         public ConfigurationBean(final String servers, final String topic, final String group)
             {
+            this(
+                DEFAULT_LOOPTIMEOUT,
+                DEFAULT_POLLTIMEOUT,
+                servers,
+                topic,
+                group
+                );
+            }
+        /**
+         * Public constructor.
+         * 
+         */
+        public ConfigurationBean(final Duration looptimeout, final Duration polltimeout, final String servers, final String topic, final String group)
+            {
             super(
                 servers,
                 topic,
                 group
                 );
+            this.polltimeout = polltimeout;
+            this.looptimeout = looptimeout;
+            log.debug("polltimeout [{}]", polltimeout);
+            log.debug("looptimeout [{}]", looptimeout);
+            }
+
+        private final Duration looptimeout;
+        @Override
+        public Duration getLoopTimeout()
+            {
+            return this.looptimeout;
+            }
+
+        private final Duration polltimeout;
+        @Override
+        public Duration getPollTimeout()
+            {
+            return this.polltimeout;
             }
         }
 

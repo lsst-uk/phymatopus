@@ -24,13 +24,9 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 import lombok.extern.slf4j.Slf4j;
+import uk.ac.roe.wfau.phymatopus.kafka.alert.AlertProcessor;
 import uk.ac.roe.wfau.phymatopus.kafka.alert.ZtfAlert;
-import uk.ac.roe.wfau.phymatopus.kafka.alert.ZtfCutout;
 
-/**
- *
- *
- */
 @Slf4j
 @RunWith(
         SpringJUnit4ClassRunner.class
@@ -41,7 +37,7 @@ import uk.ac.roe.wfau.phymatopus.kafka.alert.ZtfCutout;
         }
     )
 public class ZtfAlertReaderTest
-extends ZtfAbstractReaderTest
+extends KafkaReaderTestBase
     {
     /**
      *
@@ -51,63 +47,39 @@ extends ZtfAbstractReaderTest
         super();
         }
 
-    /**
-     * Our Alert processor.
-     * 
-     */
-    public class Processor implements ZtfAlert.Processor
+    @Override
+    protected AlertProcessor<ZtfAlert> processor()
         {
-        private long count ;
-        public long count()
+        return new AlertProcessor<ZtfAlert>()
             {
-            return this.count;
-            }
-
-        /**
-         * Public constructor.
-         * 
-         */
-        public Processor()
-            {
-            }
-
-        @Override
-        public void process(final ZtfAlert alert)
-            {
-            count++;
-            log.trace("candId    [{}]", alert.getCandid());
-            log.trace("objectId  [{}]", alert.getObjectId());
-            log.trace("schemavsn [{}]", alert.getSchemavsn().toString());
-
-            final ZtfCutout science    = alert.getCutoutScience();
-            final ZtfCutout template   = alert.getCutoutTemplate();
-            final ZtfCutout difference = alert.getCutoutDifference();
-
-            if (null != science)
+            private long count ;
+            @Override
+            public long count()
                 {
-                log.trace("science    [{}][{}][{}]", science.getFileName(), science.getStampData().limit(), science.getStampData().capacity());
+                return this.count;
                 }
-            if (null != template)
+            @Override
+            public void process(final ZtfAlert alert)
                 {
-                log.trace("template   [{}][{}][{}]", template.getFileName(), template.getStampData().limit(), template.getStampData().capacity());
+                count++;
+                log.trace("candId    [{}]", alert.getCandid());
+                log.trace("objectId  [{}]", alert.getObjectId());
+                log.trace("schemavsn [{}]", alert.getSchemavsn().toString());
                 }
-            if (null != difference)
-                {
-                log.trace("difference [{}][{}][{}]", difference.getFileName(), difference.getStampData().limit(), difference.getStampData().capacity());
-                }
-            }
+            };
         }
 
-    public Processor processor()
+    @Override
+    protected CallableAlertReader reader()
         {
-        return new Processor();
+        return ZtfAlertReader.callable(
+            this.processor(),
+            this.configuration()
+            );
         }
 
-    /**
-     * Test multiple threads.
-     *
-     */
     @Test
+    @Override
     public void testThreads()
     throws Exception
         {

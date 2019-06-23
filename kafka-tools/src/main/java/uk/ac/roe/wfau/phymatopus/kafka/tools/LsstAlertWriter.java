@@ -63,7 +63,7 @@ extends BaseClient
      * Public interface for a writer configuration.
      * 
      */
-    public static interface Configuration extends BaseReader.Configuration
+    public static interface Configuration extends BaseClient.Configuration
         {
         }
 

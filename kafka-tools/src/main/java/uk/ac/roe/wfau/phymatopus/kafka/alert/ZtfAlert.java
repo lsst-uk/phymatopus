@@ -25,26 +25,6 @@ extends SpecificRecord
     {
    
     /**
-     * Alert processor interface.
-     * 
-     */
-    public static interface Processor
-        {
-        /**
-         * Process an Alert.
-         * 
-         */
-        public void process(final ZtfAlert alert);
-
-        /**
-         * The number of alerts this processor has handled. 
-         * 
-         */
-        public long count();
-
-        }
-
-    /**
      * Gets the value of the 'schemavsn' field.
      * @return schema version used
      */

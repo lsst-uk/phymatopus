@@ -21,16 +21,17 @@ package uk.ac.roe.wfau.phymatopus.kafka.cassandra;
 import org.springframework.beans.factory.annotation.Value;
 
 import lombok.extern.slf4j.Slf4j;
+import uk.ac.roe.wfau.phymatopus.kafka.alert.AlertProcessor;
 import uk.ac.roe.wfau.phymatopus.kafka.alert.ZtfAlert;
-import uk.ac.roe.wfau.phymatopus.kafka.tools.ZtfAbstractReaderTest;
+import uk.ac.roe.wfau.phymatopus.kafka.tools.KafkaReaderTestBase;
 
 /**
  *
  *
  */
 @Slf4j
-public abstract class ZtfCassandraWriterTest
-extends ZtfAbstractReaderTest
+public abstract class CassandraWriterTestBase
+extends KafkaReaderTestBase
     {
     /**
      * Our Cassandrda connection hostname.
@@ -68,55 +69,41 @@ extends ZtfAbstractReaderTest
      * Public constructor.
      *
      */
-    public ZtfCassandraWriterTest()
+    public CassandraWriterTestBase()
         {
         super();
         }
     
     /**
-     * Our Alert processor class.
-     * 
-     */
-    public class Processor implements ZtfAlert.Processor
-        {
-        private long count ;
-        public long count()
-            {
-            return this.count;
-            }
-
-        private AbstractCassandraWriter writer;
-        
-        /**
-         * Public constructor.
-         * 
-         */
-        public Processor(AbstractCassandraWriter writer)
-            {
-            this.writer = writer;
-            writer.init();
-            }
-
-        @Override
-        public void process(final ZtfAlert alert)
-            {
-            this.count++;
-            log.trace("Candidate [{}][{}]", this.count, alert.getCandid());
-            writer.process(
-                alert
-                );
-            }
-        }
-
-    /**
      * Create a new alert processor.
      * 
      */
-    public Processor processor()
+    public AlertProcessor<ZtfAlert> processor()
         {
-        return new Processor(
-            this.writer()
-            ); 
+        return new AlertProcessor<ZtfAlert>()
+            {
+            private long count ;
+            public long count()
+                {
+                return this.count;
+                }
+
+            private AbstractCassandraWriter writer;
+                {
+                writer = CassandraWriterTestBase.this.writer();
+                writer.init();
+                }
+
+            @Override
+            public void process(final ZtfAlert alert)
+                {
+                this.count++;
+                log.trace("Candidate [{}][{}]", this.count, alert.getCandid());
+                writer.process(
+                    alert
+                    );
+                }
+            };
         }
 
     /**

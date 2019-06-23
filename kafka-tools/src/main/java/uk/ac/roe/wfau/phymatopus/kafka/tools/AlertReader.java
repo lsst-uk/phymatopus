@@ -18,56 +18,17 @@
 
 package uk.ac.roe.wfau.phymatopus.kafka.tools;
 
-import org.junit.Test;
-
-import lombok.extern.slf4j.Slf4j;
-import uk.ac.roe.wfau.phymatopus.kafka.alert.AlertProcessor;
-
-/**
- * 
- * 
- */
-@Slf4j
-public class StringReaderTest
-extends KafkaReaderTestBase 
+public interface AlertReader
     {
-
     /**
+     * Read alerts until the loop timeout is exceeded. 
      * 
      */
-    public StringReaderTest()
-        {
-        super();
-        }
-
+    public ReaderStatistics loop();
+    
     /**
-     * Test our {@link StringReader}.
+     * Rewind to the start of the topic.
      * 
      */
-    @Test
-    public void read()
-        {
-        log.debug("Read test ..");
-        final StringReader reader = new StringReader(
-            servers,
-            topic
-            ); 
-        reader.read(
-            1000
-            );
-        }
-
-    @Override
-    public AlertProcessor processor()
-        {
-        // TODO Auto-generated method stub
-        return null;
-        }
-
-    @Override
-    public CallableAlertReader reader()
-        {
-        // TODO Auto-generated method stub
-        return null;
-        }
+    public void rewind();
     }

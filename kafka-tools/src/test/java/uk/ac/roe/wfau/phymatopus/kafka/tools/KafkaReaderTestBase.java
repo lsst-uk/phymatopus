@@ -25,22 +25,18 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
-import org.junit.Test;
 import org.springframework.beans.factory.annotation.Value;
 
 import lombok.extern.slf4j.Slf4j;
-import uk.ac.roe.wfau.phymatopus.kafka.alert.ZtfAlert.Processor;
-import uk.ac.roe.wfau.phymatopus.kafka.tools.ZtfAlertReader.CallableReader;
-import uk.ac.roe.wfau.phymatopus.kafka.tools.ZtfAlertReader.ConfigurationBean;
-import uk.ac.roe.wfau.phymatopus.kafka.tools.ZtfAlertReader.Statistics;
+import uk.ac.roe.wfau.phymatopus.kafka.alert.AlertProcessor;
+import uk.ac.roe.wfau.phymatopus.kafka.alert.ZtfAlert;
 
 /**
  *
  *
  */
 @Slf4j
-public abstract class ZtfAbstractReaderTest
-extends KafkaTestBase
+public abstract class KafkaReaderTestBase
     {
     /**
      * The target kafka servers.
@@ -95,40 +91,51 @@ extends KafkaTestBase
      * Public constructor.
      *
      */
-    public ZtfAbstractReaderTest()
+    public KafkaReaderTestBase()
         {
         super();
+        }
+
+    /**
+     * Create a new reader configuration.
+     * 
+     */
+    public ZtfAlertReader.Configuration configuration()
+        {
+        return new ZtfAlertReader.ConfigurationBean(
+            this.looptimeout(),
+            this.polltimeout(),
+            this.servers,
+            this.topic,
+            this.group
+            );
         }
 
     /**
      * Create a new alert processor.
      * 
      */
-    public abstract Processor processor() ;
+    protected abstract AlertProcessor<ZtfAlert> processor() ;
+
+    /**
+     * Create a new alert reader.
+     * 
+     */
+    protected abstract CallableAlertReader reader();
     
     /**
      * Test multiple threads.
      *
      */
-    @Test
-    public void testThreads()
+    protected void testThreads()
     throws Exception
         {
-        final List<CallableReader> readers = new ArrayList<CallableReader>(); 
+        final List<CallableAlertReader> readers = new ArrayList<CallableAlertReader>(); 
 
         for (int i = 0 ; i < this.threadcount ; i++)   
             {
             readers.add(
-                new CallableReader(
-                    this.processor(),
-                    new ConfigurationBean(
-                        this.looptimeout(),
-                        this.polltimeout(),
-                        this.servers,
-                        this.topic,
-                        this.group
-                        ) 
-                    )
+                reader()
                 );
             }
         
@@ -145,14 +152,14 @@ extends KafkaTestBase
 
             long teststart = System.nanoTime();
 
-            List<Future<Statistics>> futures = executor.invokeAll(readers);
+            List<Future<ReaderStatistics>> futures = executor.invokeAll(readers);
             long alerts  = 0 ;
             long runtime = 0 ;
-            for (Future<Statistics> future : futures)
+            for (Future<ReaderStatistics> future : futures)
                 {
-                Statistics result = future.get();
-                alerts  += result.alerts();
-                runtime += result.runtime();
+                ReaderStatistics result = future.get();
+                alerts  += result.count();
+                runtime += result.time();
                 }
 
             long testtime  = (System.nanoTime() - teststart) - looptimeout().toNanos() ;

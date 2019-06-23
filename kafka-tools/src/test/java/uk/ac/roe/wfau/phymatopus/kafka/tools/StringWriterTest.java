@@ -21,7 +21,7 @@ package uk.ac.roe.wfau.phymatopus.kafka.tools;
 import org.junit.Test;
 
 import lombok.extern.slf4j.Slf4j;
-import uk.ac.roe.wfau.phymatopus.kafka.alert.ZtfAlert.Processor;
+import uk.ac.roe.wfau.phymatopus.kafka.alert.AlertProcessor;
 
 /**
  * 
@@ -29,7 +29,7 @@ import uk.ac.roe.wfau.phymatopus.kafka.alert.ZtfAlert.Processor;
  */
 @Slf4j
 public class StringWriterTest
-extends ZtfAbstractReaderTest 
+extends KafkaReaderTestBase 
     {
 
     /**
@@ -61,7 +61,14 @@ extends ZtfAbstractReaderTest
         }
 
     @Override
-    public Processor processor()
+    public AlertProcessor processor()
+        {
+        // TODO Auto-generated method stub
+        return null;
+        }
+
+    @Override
+    public CallableAlertReader reader()
         {
         // TODO Auto-generated method stub
         return null;

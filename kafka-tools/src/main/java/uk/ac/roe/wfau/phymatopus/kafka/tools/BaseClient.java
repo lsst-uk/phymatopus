@@ -103,8 +103,6 @@ public class BaseClient
 
     /**
      * Public constructor.
-     * @param servers The list of bootstrap Kafka server names.
-     * @param topic The Kafka topic name.
      *  
      */
     public BaseClient(final Configuration config)

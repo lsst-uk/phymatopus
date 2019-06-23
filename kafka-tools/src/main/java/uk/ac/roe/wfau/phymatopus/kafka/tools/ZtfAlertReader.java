@@ -19,15 +19,7 @@
 package uk.ac.roe.wfau.phymatopus.kafka.tools;
 
 import java.io.IOException;
-import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import java.util.Properties;
-import java.util.concurrent.Callable;
 
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaNormalization;
@@ -37,21 +29,15 @@ import org.apache.avro.generic.GenericDatumReader;
 import org.apache.avro.reflect.ReflectDatumReader;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
-import org.apache.kafka.clients.consumer.ConsumerRebalanceListener;
-import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
-import org.apache.kafka.clients.consumer.OffsetAndMetadata;
-import org.apache.kafka.common.PartitionInfo;
-import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.LongDeserializer;
 
 import lombok.extern.slf4j.Slf4j;
+import uk.ac.roe.wfau.phymatopus.kafka.alert.AlertProcessor;
 import uk.ac.roe.wfau.phymatopus.kafka.alert.ZtfAlert;
 import uk.ac.roe.wfau.phymatopus.kafka.alert.ZtfAlertWrapper;
 import ztf.alert;
-
 
 /**
  * Reads a series on ZtfAlerts from a stream and stops when there are no more alerts and the poll timeout is reached.
@@ -59,124 +45,9 @@ import ztf.alert;
  */
 @Slf4j
 public class ZtfAlertReader
-extends BaseReader
-implements ConsumerRebalanceListener
+extends GenericAlertReader<Long, byte[], ZtfAlert>
+implements AlertReader
     {
-
-    /**
-     * Interface for the loop statistics.
-     * 
-     */
-    public static interface Statistics
-        {
-        public long alerts();
-        public long runtime();
-        }
-
-    /**
-     * Statistics bean implementation.
-     * 
-     */
-    public static class StatisticsBean
-    implements Statistics
-        {
-        public StatisticsBean(final long alerts, final long runtime)
-            {
-            this.alerts  = alerts;
-            this.runtime = runtime;
-            }
-        private final long alerts;
-        @Override
-        public long alerts()
-            {
-            return this.alerts;
-            }
-        private final long runtime ;
-        @Override
-        public long runtime()
-            {
-            return this.runtime;
-            }
-        }
-
-    /**
-     * Public interface for a reader configuration.
-     * 
-     */
-    public static interface Configuration extends BaseReader.Configuration
-        {
-        /**
-         * The timeout for waiting for new messages.
-         * 
-         */
-        public Duration getLoopTimeout();
-
-        /**
-         * The timeout for polling the server.
-         * 
-         */
-        public Duration getPollTimeout();
-
-        }
-
-    /**
-     * Configuration bean implementation.
-     * 
-     */
-    @Slf4j
-    public static class ConfigurationBean extends BaseReader.ConfigurationBean implements Configuration 
-        {
-        static final Boolean  DEFAULT_AUTOCOMIT = true ;
-        static final Duration DEFAULT_LOOPTIMEOUT = Duration.ofMinutes(10);
-        static final Duration DEFAULT_POLLTIMEOUT = Duration.ofSeconds(10);
-        
-        /**
-         * Public constructor.
-         * 
-         */
-        public ConfigurationBean(final String servers, final String topic, final String group)
-            {
-            this(
-                DEFAULT_LOOPTIMEOUT,
-                DEFAULT_POLLTIMEOUT,
-                servers,
-                topic,
-                group
-                );
-            }
-
-        /**
-         * Public constructor.
-         * 
-         */
-        public ConfigurationBean(final Duration looptimeout, final Duration polltimeout, final String servers, final String topic, final String group)
-            {
-            super(
-                servers,
-                topic,
-                group
-                );
-            this.polltimeout = polltimeout;
-            this.looptimeout = looptimeout;
-            log.debug("polltimeout [{}]", polltimeout);
-            log.debug("looptimeout [{}]", looptimeout);
-            }
-
-        private final Duration looptimeout;
-        @Override
-        public Duration getLoopTimeout()
-            {
-            return this.looptimeout;
-            }
-
-        private final Duration polltimeout;
-        @Override
-        public Duration getPollTimeout()
-            {
-            return this.polltimeout;
-            }
-        }
-
 
     /**
      * Public constructor.
@@ -184,30 +55,16 @@ implements ConsumerRebalanceListener
      * @param config The reader configuration.
      *
      */
-    public ZtfAlertReader(final ZtfAlert.Processor processor, final Configuration config)
+    public ZtfAlertReader(final AlertProcessor<ZtfAlert> processor, final Configuration config)
         {
-        super(config);
-        this.processor = processor ;
-        this.config = config;
+        super(
+            processor,
+            config
+            );
         }
 
-    /**
-     * Our reader configuration.
-     * 
-     */
-    protected Configuration config;
-
-    /**
-     * Our alert processor.
-     * 
-     */
-    protected ZtfAlert.Processor processor;
-
-    /**
-     * Create our {@link Consumer}.
-     *
-     */
-    public Consumer<Long, byte[]> consumer()
+    @Override
+    protected Consumer<Long, byte[]> consumer()
         {
         final Properties properties = new Properties();
         properties.put(
@@ -254,117 +111,8 @@ implements ConsumerRebalanceListener
         return consumer;
         }
 
-    public Statistics loop()
-        {
-        log.trace("Creating consumer");
-        Consumer<Long, byte[]> consumer = consumer();
-
-        log.trace("Subscribing ..");
-        consumer.subscribe(
-                Collections.singletonList(
-                    this.config.getTopic()
-                    ),
-                this
-                );
-
-        long totalalerts = 0;
-        long totalstart  = System.nanoTime();
-        long totalwait   = 0;
-
-        long loopalerts  = 0;
-        long loopstart   = System.nanoTime();
-        long loopcount   = 0;
-        //long thiswait    = 0;
-        long lastwait    = 0;
-
-        long looptimeout = config.getLoopTimeout().toNanos();
-        Duration polltimeout = config.getLoopTimeout();
-
-        do {
-            loopcount++;
-            loopalerts = 0 ;
-            loopstart  = System.nanoTime() ; 
-
-            log.trace("Loop [{}][{}]", loopcount, lastwait);
-
-            ConsumerRecords<Long, byte[]> records = consumer.poll(
-                polltimeout 
-                );
-
-            if (records.isEmpty())
-                {
-                long thiswait = System.nanoTime() - loopstart ; 
-                lastwait  += thiswait ; 
-                totalwait += thiswait ; 
-                log.debug("Loop wait [{}][{}][{}]", thiswait, lastwait, totalwait );
-                }
-
-            else {
-                lastwait = 0 ;
-                for (ConsumerRecord<Long, byte[]> record : records)
-                    {
-                    long alertcount = process(
-                        record.value()
-                        );
-                    loopalerts  += alertcount;
-                    totalalerts += alertcount;
-                    }
-
-                if (loopalerts > 0)
-                    {
-                    long  loopnano  = System.nanoTime() - loopstart;
-                    long  loopmicro = loopnano / 1000 ;
-                    float loopmilli = loopnano / 1000000 ;
-                    log.debug("Loop [{}] completed [{}:{}] alerts in [{}]ns [{}]µs [{}]ms => [{}]ns [{}]µs [{}]ms per alert",
-                        loopcount,
-                        loopalerts,
-                        totalalerts,
-                        loopnano,
-                        loopmicro,
-                        loopmilli,
-                        (loopnano/loopalerts),
-                        (loopmicro/loopalerts),
-                        (loopmilli/loopalerts)
-                        );
-                    }
-                else {
-                    log.debug("Loop wait [{}][{}]", lastwait, totalwait);
-                    }
-                }
-            }
-        while (lastwait < looptimeout);
-
-        long  totaltime  = (System.nanoTime() - totalstart) - totalwait ;
-        long  totalmicro = totaltime / 1000 ;
-        float totalmilli = totaltime / (1000 * 1000) ;
-        if (totalalerts > 0)
-            {
-            log.info("Total : [{}] alerts in [{}]µs [{}]ms  => [{}]µs [{}]ms per alert",
-                totalalerts,
-                totalmicro,
-                totalmilli,
-                (totalmicro/totalalerts),
-                (totalmilli/totalalerts)
-                );
-            }
-        else {
-            log.info("Total : [{}] alerts in [{}]µs [{}]ms",
-                totalalerts,
-                totalmicro,
-                totalmilli
-                );
-        
-            }
-
-        consumer.close();
-        
-        return new StatisticsBean(
-            totalalerts,
-            totaltime
-            ) ;
-        }
-    
-    public long process(final byte[] bytes)
+    @Override
+    protected long process(final byte[] bytes)
         {
         log.trace("Processing byte[]");
 
@@ -418,7 +166,11 @@ implements ConsumerRebalanceListener
         return alertcount ;
         }
 
-    public Schema schema(final byte[] bytes)
+    /**
+     * Extract our schema from an array of bytes.
+     * 
+     */
+    protected Schema schema(final byte[] bytes)
         {
         log.trace("Extracting message schema");
         DataFileReader<Object> reader = null;
@@ -453,7 +205,11 @@ implements ConsumerRebalanceListener
         return schema;
         }
 
-    public DataFileReader<alert> reader(final byte[] bytes)
+    /**
+     * Create a DataFileReader for the alert data type.
+     * 
+     */
+    protected DataFileReader<alert> reader(final byte[] bytes)
         {
         log.trace("Creating alert reader");
         try {
@@ -473,113 +229,28 @@ implements ConsumerRebalanceListener
             }
         }
 
-    public void rewind()
-        {
-        log.trace("Creating consumer");
-        Consumer<Long, byte[]> consumer = consumer();
-
-        log.trace("Fetching PartitionInfo for topic");
-        List<PartitionInfo> partitions = consumer.partitionsFor(
-            this.config.getTopic()
-            );
-
-        log.trace("Creating TopicPartitions");
-        List<TopicPartition> topicpartitions = new ArrayList<TopicPartition>();
-        for(PartitionInfo partition : partitions)
-            {
-            log.trace("Partition [{}][{}]", partition.topic(), partition.partition());
-            topicpartitions.add(
-                new TopicPartition(
-                    partition.topic(),
-                    partition.partition()
-                    )
-                );
-            }
-        log.trace("Fetching beginning offsets for partitions");
-        Map<TopicPartition,Long> offsets = consumer.beginningOffsets(
-            topicpartitions
-            );
-
-        log.trace("Creating TopicPartition map");
-        Map<TopicPartition, OffsetAndMetadata> offsetmeta = new HashMap<TopicPartition, OffsetAndMetadata>();
-        for (TopicPartition partition : offsets.keySet())
-            {
-            offsetmeta.put(
-                partition,
-                new OffsetAndMetadata(
-                    offsets.get(
-                        partition
-                        )
-                    )
-                );
-            }
-
-        log.trace("Committing ...");
-        consumer.commitSync(offsetmeta);
-
-        log.trace("Closing ...");
-        consumer.close();
-        }
-
-    @Override
-    public void onPartitionsAssigned(Collection<TopicPartition> partitions)
-        {
-        log.trace("PartitionsAssigned()");
-        for (TopicPartition partition : partitions)
-            {
-            log.trace("Partition [{}],[{}]", partition.topic(), partition.partition());
-            }
-        }
-
-    @Override
-    public void onPartitionsRevoked(Collection<TopicPartition> partitions)
-        {
-        log.trace("PartitionsRevoked()");
-        for (TopicPartition partition : partitions)
-            {
-            log.trace("Partition [{}],[{}]", partition.topic(), partition.partition());
-            }
-        }
-
-
-    
     /**
-     * Callable Reader wrapper class.
-     *
+     * Create a Callable reader.
+     * 
      */
-    public static class CallableReader
-    implements Callable<Statistics>
+    public static CallableAlertReader callable(final AlertProcessor<ZtfAlert> processor, final Configuration config)
         {
-        public CallableReader(final ZtfAlert.Processor processor, final Configuration config)
+        return new CallableAlertReader()
             {
-            this(
-                new ZtfAlertReader(
-                    processor,
-                    config
-                    )
-                );
-            }
-        
-        public CallableReader(final ZtfAlertReader reader)
-            {
-            this.reader = reader;
-            }
-
-        private final ZtfAlertReader reader ;
-
-        public ZtfAlertReader reader()
-            {
-            return this.reader ;
-            }
-
-        public void rewind()
-            {
-            this.reader.rewind();
-            }
-
-        public Statistics call()
-            {
-            return reader.loop();
-            }
+            private final ZtfAlertReader reader = new ZtfAlertReader(
+                processor,
+                config
+                ); 
+            @Override
+            public ReaderStatistics call()
+                {
+                return reader.loop();
+                }
+            @Override
+            public void rewind()
+                {
+                reader.rewind();
+                }
+            };
         }
     }

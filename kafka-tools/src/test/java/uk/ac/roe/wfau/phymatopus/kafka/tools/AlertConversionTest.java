@@ -26,6 +26,7 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 import lombok.extern.slf4j.Slf4j;
+import uk.ac.roe.wfau.phymatopus.kafka.alert.AlertProcessor;
 import uk.ac.roe.wfau.phymatopus.kafka.alert.ZtfAlert;
 
 /**
@@ -42,7 +43,7 @@ import uk.ac.roe.wfau.phymatopus.kafka.alert.ZtfAlert;
         }
     )
 public class AlertConversionTest
-extends ZtfAbstractReaderTest
+extends KafkaReaderTestBase
     {
     /**
      * The target kafka servers.
@@ -78,7 +79,6 @@ extends ZtfAbstractReaderTest
         }
     
     @Before
-    @Override
     public void before()
         {
         log.debug("Creating config");
@@ -95,49 +95,42 @@ extends ZtfAbstractReaderTest
         writer.init();
         }
     
-    /**
-     * Our Alert processor.
-     * 
-     */
-    public class Processor implements ZtfAlert.Processor
+    @Override
+    protected AlertProcessor<ZtfAlert> processor()
         {
-        private long count ;
-        public long count()
+        return new AlertProcessor<ZtfAlert> ()
             {
-            return this.count;
-            }
-
-        /**
-         * Public constructor.
-         * 
-         */
-        public Processor()
-            {
-            }
-
-        @Override
-        public void process(final ZtfAlert alert)
-            {
-            count++;
-            log.trace("candId    [{}]", alert.getCandid());
-            log.trace("objectId  [{}]", alert.getObjectId());
-            log.trace("schemavsn [{}]", alert.getSchemavsn().toString());
-
-            writer.write(alert);
-            
-            }
+            private long count ;
+            @Override
+            public long count()
+                {
+                return this.count;
+                }
+            @Override
+            public void process(final ZtfAlert alert)
+                {
+                count++;
+                log.trace("candId    [{}]", alert.getCandid());
+                log.trace("objectId  [{}]", alert.getObjectId());
+                log.trace("schemavsn [{}]", alert.getSchemavsn().toString());
+                writer.write(
+                    alert
+                    );
+                }
+            };
         }
 
-    public Processor processor()
+    @Override
+    protected CallableAlertReader reader()
         {
-        return new Processor();
+        return ZtfAlertReader.callable(
+            this.processor(),
+            this.configuration()
+            );
         }
 
-    /**
-     * Test multiple threads.
-     *
-     */
     @Test
+    @Override
     public void testThreads()
     throws Exception
         {
