@@ -140,8 +140,6 @@ implements AlertReader
             ConsumerConfig.GROUP_ID_CONFIG,
             this.config.getGroup()
             );
-/*
- * 
         config.put(
             KafkaAvroSerializerConfig.SCHEMA_REGISTRY_URL_CONFIG,
             "urn:mock"
@@ -150,6 +148,8 @@ implements AlertReader
             KafkaAvroSerializerConfig.AUTO_REGISTER_SCHEMAS,
             true
             );
+/*
+ * 
  * 
  */
         config.put(
