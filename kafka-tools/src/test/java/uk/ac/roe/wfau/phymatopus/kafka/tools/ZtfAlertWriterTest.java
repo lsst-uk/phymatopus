@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -105,6 +106,14 @@ extends KafkaTestBase
         writer.init();
         }
 
+    @After
+    @Override
+    public void after()
+        {
+        log.debug("Closing writer");
+        writer.close();
+        }
+    
     /**
      * Test a simple write.
      *
@@ -235,5 +244,6 @@ extends KafkaTestBase
                 );
             }
         }
+
     }
 
