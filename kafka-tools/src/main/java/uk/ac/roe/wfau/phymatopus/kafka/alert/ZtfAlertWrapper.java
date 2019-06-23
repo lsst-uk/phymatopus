@@ -42,7 +42,6 @@ public class ZtfAlertWrapper implements ZtfAlert
     /**
      * An Iterable implementation.
      * 
-     */
     public static class IterableWrapper
     implements Iterable<ZtfAlert>
         {
@@ -62,11 +61,11 @@ public class ZtfAlertWrapper implements ZtfAlert
                 );
             }
         }
+     */
 
     /**
      * An Iterator implementation.
      * 
-     */
     public static class IteratorWrapper
     implements Iterator<ZtfAlert>
         {
@@ -90,6 +89,19 @@ public class ZtfAlertWrapper implements ZtfAlert
                 this.topic
                 );
             }
+        }
+     */
+
+    public Schema getSchema()
+        {
+        return bean.getSchema();
+        }
+
+    private String topic;
+    @Override
+    public String getTopic()
+        {
+        return this.topic;
         }
     
     @Override
@@ -157,30 +169,5 @@ public class ZtfAlertWrapper implements ZtfAlert
         return new ZtfCutoutWrapper(
             bean.getCutoutDifference()
             );
-        }
-
-    private String topic;
-    @Override
-    public String getTopic()
-        {
-        return this.topic;
-        }
-
-    @Override
-    public Object get(int key)
-        {
-        return bean.get(key);
-        }
-
-    @Override
-    public void put(int key, Object value)
-        {
-        bean.put(key, value);
-        }
-
-    @Override
-    public Schema getSchema()
-        {
-        return bean.getSchema();
         }
     }

@@ -20,6 +20,7 @@ package uk.ac.roe.wfau.phymatopus.kafka.tools;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mortbay.log.Log;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
@@ -62,9 +63,11 @@ extends KafkaReaderTestBase
             public void process(final ZtfAlert alert)
                 {
                 count++;
-                log.trace("candId    [{}]", alert.getCandid());
-                log.trace("objectId  [{}]", alert.getObjectId());
-                log.trace("schemavsn [{}]", alert.getSchemavsn().toString());
+                log.debug("candId    [{}]", alert.getCandid());
+                log.debug("objectId  [{}]", alert.getObjectId());
+                log.debug("schemavsn [{}]", alert.getSchemavsn().toString());
+                log.debug("candidate [{}]", alert.getCandidate().getClass().getName());
+                log.debug("previous  [{}]", alert.getPrvCandidates().getClass().getName());
                 }
             };
         }

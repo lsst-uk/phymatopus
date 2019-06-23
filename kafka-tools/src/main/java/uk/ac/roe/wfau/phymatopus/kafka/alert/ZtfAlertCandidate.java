@@ -21,6 +21,12 @@ public interface ZtfAlertCandidate
 extends ZtfCandidate
     {
     /**
+     * The Kafka topic this alert was read from.
+     *  
+     */
+    public String getTopic();
+
+    /**
      * Gets the value of the 'sgmag1' field.
      * @return g-band PSF-fit magnitude of closest source from PS1 catalog; if exists within 30 arcsec [mag]
      */
@@ -308,11 +314,5 @@ extends ZtfCandidate
      * @return Gaia (G-band) magnitude of closest source from Gaia DR1 catalog brighter than magnitude 14; if exists within 90 arcsec [mag]
      */
     public Float getMaggaiabright();
-
-    /**
-     * The Kafka topic this alert was read from.
-     *  
-     */
-    public String getTopic();
 
     }
