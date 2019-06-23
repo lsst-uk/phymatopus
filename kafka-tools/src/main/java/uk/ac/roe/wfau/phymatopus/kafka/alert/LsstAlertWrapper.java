@@ -80,12 +80,17 @@ public class LsstAlertWrapper implements ZtfAlert
             );
         }
     
+    @SuppressWarnings("unchecked")
     @Override
     public Iterable<ZtfCandidate> getPrvCandidates()
         {
-        Log.debug("getPrvCandidates() [{}]", record.get(5).getClass().getName());
+        //Log.debug("getPrvCandidates() [{}]", record.get(5).getClass().getName());
         //return (Iterable<ZtfCandidate>) record.get(5);
-        return new ArrayList<ZtfCandidate>(0);
+        //return new ArrayList<ZtfCandidate>(0);
+        return new LsstCandidateWrapper.IterableWrapper(
+            (GenericData.Array<GenericData.Record>) record.get(5),
+            this.getObjectId()
+            );
         }
     
     @Override

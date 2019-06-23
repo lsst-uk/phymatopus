@@ -19,7 +19,6 @@
 package uk.ac.roe.wfau.phymatopus.kafka.alert;
 
 public interface ZtfAlert
-//extends SpecificRecord
     {
    
     /**

@@ -17,8 +17,6 @@
  */
 package uk.ac.roe.wfau.phymatopus.kafka.alert;
 
-import java.util.Iterator;
-
 import org.apache.avro.Schema;
 
 public class ZtfAlertWrapper implements ZtfAlert
@@ -38,59 +36,6 @@ public class ZtfAlertWrapper implements ZtfAlert
         this.bean  = bean ;
         this.topic = topic;
         }
-    
-    /**
-     * An Iterable implementation.
-     * 
-    public static class IterableWrapper
-    implements Iterable<ZtfAlert>
-        {
-        private String topic;
-        public IterableWrapper(final String topic, final Iterable<ztf.alert> inner)
-            {
-            this.topic = topic;
-            this.inner = inner;
-            }
-        private Iterable<ztf.alert> inner;
-        @Override
-        public Iterator<ZtfAlert> iterator()
-            {
-            return new IteratorWrapper(
-                this.topic,
-                inner.iterator()
-                );
-            }
-        }
-     */
-
-    /**
-     * An Iterator implementation.
-     * 
-    public static class IteratorWrapper
-    implements Iterator<ZtfAlert>
-        {
-        private String topic;
-        public IteratorWrapper(final String topic, final Iterator<ztf.alert> inner)
-            {
-            this.topic = topic;
-            this.inner = inner ;
-            }
-        private Iterator<ztf.alert> inner;
-        @Override
-        public boolean hasNext()
-            {
-            return inner.hasNext();
-            }
-        @Override
-        public ZtfAlert next()
-            {
-            return new ZtfAlertWrapper(
-                inner.next(),
-                this.topic
-                );
-            }
-        }
-     */
 
     public Schema getSchema()
         {
@@ -142,8 +87,8 @@ public class ZtfAlertWrapper implements ZtfAlert
     public Iterable<ZtfCandidate> getPrvCandidates()
         {
         return new ZtfCandidateWrapper.IterableWrapper(
-            bean.getObjectId(),
-            bean.getPrvCandidates()
+            bean.getPrvCandidates(),
+            bean.getObjectId()
             );
         }
         

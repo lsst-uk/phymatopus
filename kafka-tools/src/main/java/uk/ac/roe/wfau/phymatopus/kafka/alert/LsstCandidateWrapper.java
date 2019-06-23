@@ -17,6 +17,8 @@
  */
 package uk.ac.roe.wfau.phymatopus.kafka.alert;
 
+import java.util.Iterator;
+
 import org.apache.avro.generic.GenericData;
 
 public class LsstCandidateWrapper implements ZtfCandidate
@@ -346,5 +348,72 @@ public class LsstCandidateWrapper implements ZtfCandidate
     public CharSequence getRbversion()
         {
         return (CharSequence) record.get(51);
+        }
+
+    /**
+     * An Iterable implementation.
+     * 
+     */
+    public static class IterableWrapper
+    implements Iterable<ZtfCandidate>
+        {
+        private CharSequence objectid ;
+        public IterableWrapper(final Iterable<GenericData.Record> inner, final CharSequence objectid)
+            {
+            this.inner = inner ;
+            this.objectid = objectid;
+            }
+        private Iterable<GenericData.Record> inner;
+        @Override
+        public Iterator<ZtfCandidate> iterator()
+            {
+            return new IteratorWrapper(
+                ((this.inner != null) ? this.inner.iterator() : null),
+                this.objectid
+                );
+            }
+        }
+
+    /**
+     * An Iterator implementation.
+     * 
+     */
+    public static class IteratorWrapper
+    implements Iterator<ZtfCandidate>
+        {
+        private CharSequence objectid ;
+        public IteratorWrapper(final Iterator<GenericData.Record> inner, final CharSequence objectid)
+            {
+            this.objectid = objectid;
+            this.inner = inner ;
+            }
+        private Iterator<GenericData.Record> inner;
+        @Override
+        public boolean hasNext()
+            {
+            if (null != inner)
+                {
+                return inner.hasNext();
+                }
+            else {
+                return false ;
+                }
+            }
+        @Override
+        public ZtfCandidate next()
+            {
+            if (null != inner)
+                {
+                return new LsstCandidateWrapper(
+                    this.inner.next(),
+                    this.objectid
+                    );
+                }
+            else {
+                throw new RuntimeException(
+                    "Call to next() on an empty (null) Iterator."
+                    );
+                }
+            }
         }
     }
