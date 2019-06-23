@@ -125,13 +125,23 @@ implements AlertReader
         {
         final Map<String, Object> config = new HashMap<>();
         config.put(
-            ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
+            ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
             this.config.getServers()
             );
+/*
+ * 
         config.put(
-            ProducerConfig.CLIENT_ID_CONFIG,
+            ConsumerConfig.CLIENT_ID_CONFIG,
             this.config.getGroup()
             );
+ * 
+ */
+        config.put(
+            ConsumerConfig.GROUP_ID_CONFIG,
+            this.config.getGroup()
+            );
+/*
+ * 
         config.put(
             KafkaAvroSerializerConfig.SCHEMA_REGISTRY_URL_CONFIG,
             "urn:mock"
@@ -140,6 +150,8 @@ implements AlertReader
             KafkaAvroSerializerConfig.AUTO_REGISTER_SCHEMAS,
             true
             );
+ * 
+ */
         config.put(
             ConsumerConfig.AUTO_COMMIT_INTERVAL_MS_CONFIG,
             "1000"
