@@ -113,6 +113,7 @@ extends KafkaReaderTestBase
                 log.trace("candId    [{}]", alert.getCandid());
                 log.trace("objectId  [{}]", alert.getObjectId());
                 log.trace("schemavsn [{}]", alert.getSchemavsn().toString());
+                log.trace("class     [{}]", alert.getClass().getName());
                 writer.write(
                     alert
                     );
