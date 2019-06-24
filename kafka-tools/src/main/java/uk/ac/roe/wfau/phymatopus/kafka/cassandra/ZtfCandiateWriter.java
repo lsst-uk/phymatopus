@@ -262,11 +262,11 @@ extends AbstractCassandraWriter
             }
         }
 
-    protected CharSequence notNull(final CharSequence value)
+    protected String notNull(final CharSequence value)
         {
         if (null != value)
             {
-            return value ;
+            return value.toString() ;
             }
         else {
             return "";
