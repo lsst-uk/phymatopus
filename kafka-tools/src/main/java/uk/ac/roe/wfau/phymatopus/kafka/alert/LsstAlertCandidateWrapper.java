@@ -18,7 +18,6 @@
 package uk.ac.roe.wfau.phymatopus.kafka.alert;
 
 import org.apache.avro.generic.GenericData;
-import org.mortbay.log.Log;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -27,7 +26,6 @@ public class LsstAlertCandidateWrapper
 extends LsstCandidateWrapper
 implements ZtfAlertCandidate
     {
-    private GenericData.Record record;
     public LsstAlertCandidateWrapper(final GenericData.Record record, final CharSequence objectid, final String topic)
         {
         super(
@@ -103,16 +101,11 @@ implements ZtfAlertCandidate
         {
         return toDouble(record.get(59));
         }
-//ZRQ
+
     @Override
     public Double getScorr()
         {
-        log.debug("getScorr()");
-        log.debug("record [{}]", record);
-        Object object = record.get(60) ;
-        log.debug("object [{}]", object);
-        Double result = toDouble(object);
-        return result;
+        return toDouble(record.get(60));
         }
 
     @Override

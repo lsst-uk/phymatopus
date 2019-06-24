@@ -24,10 +24,15 @@ import org.apache.avro.generic.GenericData;
 public class LsstCandidateWrapper
 implements ZtfCandidate
     {
-    private GenericData.Record record;
     public LsstCandidateWrapper(final GenericData.Record record, final CharSequence objectid)
         {
         this.record = record;
+        }
+
+    protected GenericData.Record record;
+    protected GenericData.Record record()
+        {
+        return this.record;
         }
 
     protected CharSequence toChar(final Object value)
