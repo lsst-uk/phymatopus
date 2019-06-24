@@ -32,11 +32,24 @@ public class LsstAlertWrapper implements ZtfAlert
         this.record = record;
         }
 
+    @Override
+    public Object get(int key)
+        {
+        return record.get(key);
+        }
+
+    @Override
+    public void put(int key, final Object value)
+        {
+        record.put(key, value);        
+        }
+
+    @Override
     public Schema getSchema()
         {
         return alert.SCHEMA$;
         }
-
+    
     private String topic;
     @Override
     public String getTopic()
