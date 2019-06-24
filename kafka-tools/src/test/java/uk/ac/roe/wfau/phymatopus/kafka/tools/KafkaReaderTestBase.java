@@ -163,23 +163,25 @@ public abstract class KafkaReaderTestBase
             readers.size()
             );        
         try{
-
-            long teststart = System.nanoTime();
-
             List<Future<ReaderStatistics>> futures = executor.invokeAll(readers);
             long alerts  = 0 ;
-            long runtime = 0 ;
+            long sumtime = 0 ;
+            long maxtime = 0 ;
             for (Future<ReaderStatistics> future : futures)
                 {
                 ReaderStatistics result = future.get();
                 alerts  += result.count();
-                runtime += result.time();
+                sumtime += result.time();
+                if (result.time() > maxtime)
+                    {
+                    maxtime = result.time();
+                    }
                 }
 
-            long testtime  = (System.nanoTime() - teststart) - looptimeout().toNanos() ;
+            //long testtime  = (System.nanoTime() - teststart) - looptimeout().toNanos() ;
             
-            float testmilli = testtime / (1000 * 1000);
-            float meanmilli  = testmilli / alerts;
+            float testmilli = maxtime / (1000 * 1000);
+            float meanmilli = testmilli / alerts;
             log.info("Group [{}] with [{}] threads read [{}] alerts from topic [{}] in [{}]ms at [{}]ms per alert", this.group, threadcount, alerts, this.topic, testmilli, meanmilli);
             
             }
