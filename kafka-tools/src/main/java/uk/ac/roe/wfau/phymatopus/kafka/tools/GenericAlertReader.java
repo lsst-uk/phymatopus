@@ -85,10 +85,11 @@ implements ConsumerRebalanceListener, AlertReader
         log.trace("Subscribing ..");
         consumer.subscribe(
             Collections.singletonList(
-                this.config.getTopic()
+                config.getTopic()
                 ),
             this
             );
+        log.trace("Subscribed ..");
 
         long totalalerts = 0;
         long totalstart  = System.nanoTime();

@@ -162,7 +162,7 @@ public abstract class KafkaReaderTestBase
         final ExecutorService executor = Executors.newFixedThreadPool(
             readers.size()
             );        
-        try{
+        try {
             List<Future<ReaderStatistics>> futures = executor.invokeAll(readers);
             long alerts  = 0 ;
             long sumtime = 0 ;
@@ -184,6 +184,11 @@ public abstract class KafkaReaderTestBase
             float meanmilli = testmilli / alerts;
             log.info("Group [{}] with [{}] threads read [{}] alerts from topic [{}] in [{}]ms at [{}]ms per alert", this.group, threadcount, alerts, this.topic, testmilli, meanmilli);
             
+            }
+        catch (Exception ouch)
+            {
+            log.error("Exception executing Futures", ouch);
+            throw ouch ;
             }
         finally {
             executor.shutdown();
