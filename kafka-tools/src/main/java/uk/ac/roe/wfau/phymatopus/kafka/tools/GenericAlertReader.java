@@ -99,6 +99,7 @@ implements ConsumerRebalanceListener, AlertReader
         long loopcount   = 0;
         long lastwait    = 0;
 
+        long looplimit   = config.getLoopLimit();
         long looptimeout = config.getLoopTimeout().toNanos();
         Duration polltimeout = config.getLoopTimeout();
 
@@ -154,7 +155,7 @@ implements ConsumerRebalanceListener, AlertReader
                     }
                 }
             }
-        while (lastwait < looptimeout);
+        while ((lastwait < looptimeout) && (totalalerts < looplimit));
 
         long  totaltime  = (System.nanoTime() - totalstart) - totalwait ;
         long  totalmicro = totaltime / 1000 ;

@@ -347,7 +347,7 @@ public class ZtfAlertCandidateWrapper implements ZtfAlertCandidate
         {
         return bean.getDecnr();
         }
-
+//ZRQ
     @Override
     public Double getScorr()
         {

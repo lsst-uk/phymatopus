@@ -128,14 +128,6 @@ implements AlertReader
             ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG,
             this.config.getServers()
             );
-/*
- * 
-        config.put(
-            ConsumerConfig.CLIENT_ID_CONFIG,
-            this.config.getGroup()
-            );
- * 
- */
         config.put(
             ConsumerConfig.GROUP_ID_CONFIG,
             this.config.getGroup()
@@ -148,10 +140,6 @@ implements AlertReader
             KafkaAvroDeserializerConfig.AUTO_REGISTER_SCHEMAS,
             true
             );
-/*
- * 
- * 
- */
         config.put(
             ConsumerConfig.AUTO_COMMIT_INTERVAL_MS_CONFIG,
             "1000"

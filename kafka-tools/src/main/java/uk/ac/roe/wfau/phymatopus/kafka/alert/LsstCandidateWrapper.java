@@ -21,333 +21,389 @@ import java.util.Iterator;
 
 import org.apache.avro.generic.GenericData;
 
-public class LsstCandidateWrapper implements ZtfCandidate
+public class LsstCandidateWrapper
+implements ZtfCandidate
     {
     private GenericData.Record record;
     public LsstCandidateWrapper(final GenericData.Record record, final CharSequence objectid)
         {
         this.record = record;
         }
+
+    protected CharSequence toChar(final Object value)
+        {
+        if (null != value)
+            {
+            return (CharSequence) value ;
+            }
+        else {
+            return null;
+            }
+        }
+
+    protected Integer toInt(final Object value)
+        {
+        if (null != value)
+            {
+            return (Integer) value ;
+            }
+        else {
+            return null;
+            }
+        }
+
+    protected Long toLong(final Object value)
+        {
+        if (null != value)
+            {
+            return (Long) value ;
+            }
+        else {
+            return null;
+            }
+        }
+
+    protected Float toFloat(final Object value)
+        {
+        if (null != value)
+            {
+            return (Float) value ;
+            }
+        else {
+            return null;
+            }
+        }
+
+    protected Double toDouble(final Object value)
+        {
+        if (null != value)
+            {
+            return (Double) value ;
+            }
+        else {
+            return null;
+            }
+        }
     
     private CharSequence objectid;
     @Override
     public CharSequence getObjectId()
         {
-        return this.objectid;
+        return toChar(this.objectid);
         }
 
     @Override
     public Double getJd()
         {
-        return (Double) record.get(0);
+        return toDouble(record.get(0));
         }
 
     @Override
     public Integer getFid()
         {
-        return (Integer) record.get(1);
+        return toInt(record.get(1));
         }
 
     @Override
     public Long getPid()
         {
-        return (Long) record.get(2);
+        return toLong(record.get(2));
         }
 
     @Override
     public Float getDiffmaglim()
         {
-        return (Float) record.get(3);
+        return toFloat(record.get(3));
         }
 
     @Override
     public CharSequence getPdiffimfilename()
         {
-        return (CharSequence) record.get(4);
+        return toChar(record.get(4));
         }
 
     @Override
     public CharSequence getProgrampi()
         {
-        return (CharSequence) record.get(5);
+        return toChar(record.get(5));
         }
 
     @Override
     public Integer getProgramid()
         {
-        return (Integer) record.get(6);
+        return toInt(record.get(6));
         }
 
     @Override
     public Long getCandid()
         {
-        return (Long) record.get(7);
+        return toLong(record.get(7));
         }
     
     @Override
     public CharSequence getIsdiffpos()
         {
-        return (CharSequence) record.get(8);
+        return toChar(record.get(8));
         }
 
     @Override
     public Long getTblid()
         {
-        return (Long) record.get(9);
+        return toLong(record.get(9));
         }
 
     @Override
     public Integer getNid()
         {
-        return (Integer) record.get(10);
+        return toInt(record.get(10));
         }
 
     @Override
     public Integer getRcid()
         {
-        return (Integer) record.get(11);
+        return toInt(record.get(11));
         }
 
     @Override
     public Integer getField()
         {
-        return (Integer) record.get(12);
+        return toInt(record.get(12));
         }
 
     @Override
     public Float getXpos()
         {
-        return (Float) record.get(13);
+        return toFloat(record.get(13));
         }
 
     @Override
     public Float getYpos()
         {
-        return (Float) record.get(14);
+        return toFloat(record.get(14));
         }
 
     @Override
     public Double getRa()
         {
-        return (Double) record.get(15);
+        return toDouble(record.get(15));
         }
 
     @Override
     public Double getDec()
         {
-        return (Double) record.get(16);
+        return toDouble(record.get(16));
         }
 
     @Override
     public Float getMagpsf()
         {
-        return (Float) record.get(17);
+        return toFloat(record.get(17));
         }
 
     @Override
     public Float getSigmapsf()
         {
-        return (Float) record.get(18);
+        return toFloat(record.get(18));
         }
 
     @Override
     public Float getChipsf()
         {
-        return (Float) record.get(19);
+        return toFloat(record.get(19));
         }
 
     @Override
     public Float getMagap()
         {
-        return (Float) record.get(20);
+        return toFloat(record.get(20));
         }
 
     @Override
     public Float getSigmagap()
         {
-        return (Float) record.get(21);
+        return toFloat(record.get(21));
         }
 
     @Override
     public Float getDistnr()
         {
-        return (Float) record.get(22);
+        return toFloat(record.get(22));
         }
 
     @Override
     public Float getMagnr()
         {
-        return (Float) record.get(23);
+        return toFloat(record.get(23));
         }
 
     @Override
     public Float getSigmagnr()
         {
-        return (Float) record.get(24);
+        return toFloat(record.get(24));
         }
 
     @Override
     public Float getChinr()
         {
-        return (Float) record.get(25);
+        return toFloat(record.get(25));
         }
 
     @Override
     public Float getSharpnr()
         {
-        return (Float) record.get(26);
+        return toFloat(record.get(26));
         }
 
     @Override
     public Float getSky()
         {
-        return (Float) record.get(27);
+        return toFloat(record.get(27));
         }
 
     @Override
     public Float getMagdiff()
         {
-        return (Float) record.get(28);
+        return toFloat(record.get(28));
         }
 
     @Override
     public Float getFwhm()
         {
-        return (Float) record.get(29);
+        return toFloat(record.get(29));
         }
 
     @Override
     public Float getClasstar()
         {
-        return (Float) record.get(30);
+        return toFloat(record.get(30));
         }
 
     @Override
     public Float getMindtoedge()
         {
-        return (Float) record.get(31);
+        return toFloat(record.get(31));
         }
 
     @Override
     public Float getMagfromlim()
         {
-        return (Float) record.get(32);
+        return toFloat(record.get(32));
         }
 
     @Override
     public Float getSeeratio()
         {
-        return (Float) record.get(33);
+        return toFloat(record.get(33));
         }
 
     @Override
     public Float getAimage()
         {
-        return (Float) record.get(34);
+        return toFloat(record.get(34));
         }
 
     @Override
     public Float getBimage()
         {
-        return (Float) record.get(35);
+        return toFloat(record.get(35));
         }
 
     @Override
     public Float getAimagerat()
         {
-        return (Float) record.get(36);
+        return toFloat(record.get(36));
         }
 
     @Override
     public Float getBimagerat()
         {
-        return (Float) record.get(37);
+        return toFloat(record.get(37));
         }
 
     @Override
     public Float getElong()
         {
-        return (Float) record.get(38);
+        return toFloat(record.get(38));
         }
 
     @Override
     public Integer getNneg()
         {
-        return (Integer) record.get(39);
+        return toInt(record.get(39));
         }
 
     @Override
     public Integer getNbad()
         {
-        return (Integer) record.get(40);
+        return toInt(record.get(40));
         }
 
     @Override
     public Float getRb()
         {
-        return (Float) record.get(41);
+        return toFloat(record.get(41));
         }
 
     @Override
     public Float getSsdistnr()
         {
-        return (Float) record.get(42);
+        return toFloat(record.get(42));
         }
 
     @Override
     public Float getSsmagnr()
         {
-        return (Float) record.get(43);
+        return toFloat(record.get(43));
         }
 
     @Override
     public CharSequence getSsnamenr()
         {
-        return (CharSequence) record.get(44);
+        return toChar(record.get(44));
         }
 
     @Override
     public Float getSumrat()
         {
-        return (Float) record.get(45);
+        return toFloat(record.get(45));
         }
 
     @Override
     public Float getMagapbig()
         {
-        return (Float) record.get(46);
+        return toFloat(record.get(46));
         }
 
     @Override
     public Float getSigmagapbig()
         {
-        return (Float) record.get(47);
+        return toFloat(record.get(47));
         }
 
     @Override
     public Double getRanr()
         {
-        return (Double) record.get(48);
+        return toDouble(record.get(48));
         }
 
     @Override
     public Double getDecnr()
         {
-        return (Double) record.get(49);
+        return toDouble(record.get(49));
         }
 
     // Different to AlertCandidate
     @Override
     public Double getScorr()
         {
-        return (Double) record.get(50);
+        return toDouble(record.get(50));
         }
 
     // Different to AlertCandidate
     @Override
     public CharSequence getRbversion()
         {
-        return (CharSequence) record.get(51);
+        return toChar(record.get(51));
         }
 
     /**

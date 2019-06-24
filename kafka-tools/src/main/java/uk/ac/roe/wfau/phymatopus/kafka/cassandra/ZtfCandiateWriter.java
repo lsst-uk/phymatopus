@@ -262,114 +262,169 @@ extends AbstractCassandraWriter
             }
         }
 
+    protected CharSequence notNull(final CharSequence value)
+        {
+        if (null != value)
+            {
+            return value ;
+            }
+        else {
+            return "";
+            }
+        }
+
+    protected Integer notNull(final Integer value)
+        {
+        if (null != value)
+            {
+            return value ;
+            }
+        else {
+            return 0;
+            }
+        }
+
+    protected Long notNull(final Long value)
+        {
+        if (null != value)
+            {
+            return value ;
+            }
+        else {
+            return 0L;
+            }
+        }
+
+    protected Float notNull(final Float value)
+        {
+        if (null != value)
+            {
+            return value ;
+            }
+        else {
+            return Float.NaN;
+            }
+        }
+
+    protected Double notNull(final Double value)
+        {
+        if (null != value)
+            {
+            return value ;
+            }
+        else {
+            return Double.NaN;
+            }
+        }
+    
     @Override
     protected void process(final ZtfAlert alert)
         {
         ZtfAlertCandidate candidate = alert.getCandidate();
         this.session().execute(
             this.insert.bind(
-                candidate.getCandid(),
-                candidate.getObjectId(),
-                candidate.getTopic(),
-                candidate.getField(),
-                candidate.getRa(),
-                candidate.getDec(),
-                candidate.getJd(),
-                candidate.getFid(),
-                candidate.getPid(),
-                candidate.getDiffmaglim(),
-                candidate.getPdiffimfilename(),
-                candidate.getProgrampi(),
-                candidate.getProgramid(),
-                candidate.getIsdiffpos(),
-                candidate.getTblid(),
-                candidate.getNid(),
-                candidate.getRcid(),
-                candidate.getXpos(),
-                candidate.getYpos(),
-                candidate.getMagpsf(),
-                candidate.getSigmapsf(),
-                candidate.getChipsf(),
-                candidate.getMagap(),
-                candidate.getSigmagap(),
-                candidate.getDistnr(),
-                candidate.getMagnr(),
-                candidate.getSigmagnr(),
-                candidate.getChinr(),
-                candidate.getSharpnr(),
-                candidate.getSky(),
-                candidate.getMagdiff(),
-                candidate.getFwhm(),
-                candidate.getClasstar(),
-                candidate.getMindtoedge(),
-                candidate.getMagfromlim(),
-                candidate.getSeeratio(),
-                candidate.getAimage(),
-                candidate.getBimage(),
-                candidate.getAimagerat(),
-                candidate.getBimagerat(),
-                candidate.getElong(),
-                candidate.getNneg(),
-                candidate.getNbad(),
-                candidate.getRb(),
-                candidate.getSsdistnr(),
-                candidate.getSsmagnr(),
-                candidate.getSsnamenr(),
-                candidate.getSumrat(),
-                candidate.getMagapbig(),
-                candidate.getSigmagapbig(),
-                candidate.getRanr(),
-                candidate.getDecnr(),
-                candidate.getScorr(),
-                candidate.getRbversion(),
-                candidate.getSgmag1(),
-                candidate.getSrmag1(),
-                candidate.getSimag1(),
-                candidate.getSzmag1(),
-                candidate.getSgscore1(),
-                candidate.getDistpsnr1(),
-                candidate.getNdethist(),
-                candidate.getNcovhist(),
-                candidate.getJdstarthist(),
-                candidate.getJdendhist(),
-                candidate.getTooflag(),
-                candidate.getObjectidps1(),
-                candidate.getObjectidps2(),
-                candidate.getSgmag2(),
-                candidate.getSrmag2(),
-                candidate.getSimag2(),
-                candidate.getSzmag2(),
-                candidate.getSgscore2(),
-                candidate.getDistpsnr2(),
-                candidate.getObjectidps3(),
-                candidate.getSgmag3(),
-                candidate.getSrmag3(),
-                candidate.getSimag3(),
-                candidate.getSzmag3(),
-                candidate.getSgscore3(),
-                candidate.getDistpsnr3(),
-                candidate.getNmtchps(),
-                candidate.getRfid(),
-                candidate.getJdstartref(),
-                candidate.getJdendref(),
-                candidate.getNframesref(),
-                candidate.getDsnrms(),
-                candidate.getSsnrms(),
-                candidate.getDsdiff(),
-                candidate.getMagzpsci(),
-                candidate.getMagzpsciunc(),
-                candidate.getMagzpscirms(),
-                candidate.getNmatches(),
-                candidate.getClrcoeff(),
-                candidate.getClrcounc(),
-                candidate.getZpclrcov(),
-                candidate.getZpmed(),
-                candidate.getClrmed(),
-                candidate.getClrrms(),
-                candidate.getNeargaia(),
-                candidate.getNeargaiabright(),
-                candidate.getMaggaia(),
-                candidate.getMaggaiabright()
+                notNull(candidate.getCandid()),
+                notNull(candidate.getObjectId()),
+                notNull(candidate.getTopic()),
+                notNull(candidate.getField()),
+                notNull(candidate.getRa()),
+                notNull(candidate.getDec()),
+                notNull(candidate.getJd()),
+                notNull(candidate.getFid()),
+                notNull(candidate.getPid()),
+                notNull(candidate.getDiffmaglim()),
+                notNull(candidate.getPdiffimfilename()),
+                notNull(candidate.getProgrampi()),
+                notNull(candidate.getProgramid()),
+                notNull(candidate.getIsdiffpos()),
+                notNull(candidate.getTblid()),
+                notNull(candidate.getNid()),
+                notNull(candidate.getRcid()),
+                notNull(candidate.getXpos()),
+                notNull(candidate.getYpos()),
+                notNull(candidate.getMagpsf()),
+                notNull(candidate.getSigmapsf()),
+                notNull(candidate.getChipsf()),
+                notNull(candidate.getMagap()),
+                notNull(candidate.getSigmagap()),
+                notNull(candidate.getDistnr()),
+                notNull(candidate.getMagnr()),
+                notNull(candidate.getSigmagnr()),
+                notNull(candidate.getChinr()),
+                notNull(candidate.getSharpnr()),
+                notNull(candidate.getSky()),
+                notNull(candidate.getMagdiff()),
+                notNull(candidate.getFwhm()),
+                notNull(candidate.getClasstar()),
+                notNull(candidate.getMindtoedge()),
+                notNull(candidate.getMagfromlim()),
+                notNull(candidate.getSeeratio()),
+                notNull(candidate.getAimage()),
+                notNull(candidate.getBimage()),
+                notNull(candidate.getAimagerat()),
+                notNull(candidate.getBimagerat()),
+                notNull(candidate.getElong()),
+                notNull(candidate.getNneg()),
+                notNull(candidate.getNbad()),
+                notNull(candidate.getRb()),
+                notNull(candidate.getSsdistnr()),
+                notNull(candidate.getSsmagnr()),
+                notNull(candidate.getSsnamenr()),
+                notNull(candidate.getSumrat()),
+                notNull(candidate.getMagapbig()),
+                notNull(candidate.getSigmagapbig()),
+                notNull(candidate.getRanr()),
+                notNull(candidate.getDecnr()),
+                notNull(candidate.getScorr()),
+                notNull(candidate.getRbversion()),
+                notNull(candidate.getSgmag1()),
+                notNull(candidate.getSrmag1()),
+                notNull(candidate.getSimag1()),
+                notNull(candidate.getSzmag1()),
+                notNull(candidate.getSgscore1()),
+                notNull(candidate.getDistpsnr1()),
+                notNull(candidate.getNdethist()),
+                notNull(candidate.getNcovhist()),
+                notNull(candidate.getJdstarthist()),
+                notNull(candidate.getJdendhist()),
+                notNull(candidate.getTooflag()),
+                notNull(candidate.getObjectidps1()),
+                notNull(candidate.getObjectidps2()),
+                notNull(candidate.getSgmag2()),
+                notNull(candidate.getSrmag2()),
+                notNull(candidate.getSimag2()),
+                notNull(candidate.getSzmag2()),
+                notNull(candidate.getSgscore2()),
+                notNull(candidate.getDistpsnr2()),
+                notNull(candidate.getObjectidps3()),
+                notNull(candidate.getSgmag3()),
+                notNull(candidate.getSrmag3()),
+                notNull(candidate.getSimag3()),
+                notNull(candidate.getSzmag3()),
+                notNull(candidate.getSgscore3()),
+                notNull(candidate.getDistpsnr3()),
+                notNull(candidate.getNmtchps()),
+                notNull(candidate.getRfid()),
+                notNull(candidate.getJdstartref()),
+                notNull(candidate.getJdendref()),
+                notNull(candidate.getNframesref()),
+                notNull(candidate.getDsnrms()),
+                notNull(candidate.getSsnrms()),
+                notNull(candidate.getDsdiff()),
+                notNull(candidate.getMagzpsci()),
+                notNull(candidate.getMagzpsciunc()),
+                notNull(candidate.getMagzpscirms()),
+                notNull(candidate.getNmatches()),
+                notNull(candidate.getClrcoeff()),
+                notNull(candidate.getClrcounc()),
+                notNull(candidate.getZpclrcov()),
+                notNull(candidate.getZpmed()),
+                notNull(candidate.getClrmed()),
+                notNull(candidate.getClrrms()),
+                notNull(candidate.getNeargaia()),
+                notNull(candidate.getNeargaiabright()),
+                notNull(candidate.getMaggaia()),
+                notNull(candidate.getMaggaiabright())
                 )
             );        
         }

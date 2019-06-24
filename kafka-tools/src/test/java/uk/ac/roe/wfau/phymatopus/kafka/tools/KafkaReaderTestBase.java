@@ -59,6 +59,19 @@ public abstract class KafkaReaderTestBase
     @Value("${phymatopus.kafka.reader.group:}")
     protected String group;
     
+    @Value("${phymatopus.kafka.reader.looplimit:}")
+    protected Long looplimit;
+    protected Long looplimit()
+        {
+        if (null != looplimit)
+            {
+            return looplimit;
+            }
+        else {
+            return Long.MAX_VALUE;
+            }
+        }
+    
     @Value("${phymatopus.kafka.reader.looptimeout:T10M}")
     private String   looptimeoutstr ;
     protected Duration looptimeout()
@@ -103,6 +116,7 @@ public abstract class KafkaReaderTestBase
     public ZtfAlertReader.Configuration configuration()
         {
         return new ZtfAlertReader.ConfigurationBean(
+            this.looplimit,
             this.looptimeout(),
             this.polltimeout(),
             this.servers,

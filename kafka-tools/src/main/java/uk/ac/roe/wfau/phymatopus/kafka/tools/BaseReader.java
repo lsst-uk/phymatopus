@@ -47,6 +47,11 @@ public class BaseReader extends BaseClient
          */
         public Duration getPollTimeout();
         
+        /**
+         * The maximum number of alerts to process.
+         * 
+         */
+        public Long getLoopLimit();
         }
 
     /**
@@ -56,6 +61,7 @@ public class BaseReader extends BaseClient
     @Slf4j
     public static class ConfigurationBean extends BaseClient.ConfigurationBean implements Configuration 
         {
+        static final Long     DEFAULT_LOOPLIMIT = Long.MAX_VALUE;
         static final Boolean  DEFAULT_AUTOCOMIT = true ;
         static final Duration DEFAULT_LOOPTIMEOUT = Duration.ofMinutes(10);
         static final Duration DEFAULT_POLLTIMEOUT = Duration.ofSeconds(10);
@@ -67,6 +73,7 @@ public class BaseReader extends BaseClient
         public ConfigurationBean(final String servers, final String topic, final String group)
             {
             this(
+                DEFAULT_LOOPLIMIT,
                 DEFAULT_LOOPTIMEOUT,
                 DEFAULT_POLLTIMEOUT,
                 servers,
@@ -78,17 +85,25 @@ public class BaseReader extends BaseClient
          * Public constructor.
          * 
          */
-        public ConfigurationBean(final Duration looptimeout, final Duration polltimeout, final String servers, final String topic, final String group)
+        public ConfigurationBean(final Long looplimit, final Duration looptimeout, final Duration polltimeout, final String servers, final String topic, final String group)
             {
             super(
                 servers,
                 topic,
                 group
                 );
+            this.looplimit   = looplimit;
             this.polltimeout = polltimeout;
             this.looptimeout = looptimeout;
             log.debug("polltimeout [{}]", polltimeout);
             log.debug("looptimeout [{}]", looptimeout);
+            }
+
+        private final Long looplimit;
+        @Override
+        public Long getLoopLimit()
+            {
+            return this.looplimit;
             }
 
         private final Duration looptimeout;
