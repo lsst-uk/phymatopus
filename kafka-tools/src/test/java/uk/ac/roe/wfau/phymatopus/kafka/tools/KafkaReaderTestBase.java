@@ -116,7 +116,7 @@ public abstract class KafkaReaderTestBase
     public ZtfAlertReader.Configuration configuration()
         {
         return new ZtfAlertReader.ConfigurationBean(
-            this.looplimit,
+            this.looplimit(),
             this.looptimeout(),
             this.polltimeout(),
             this.servers,
