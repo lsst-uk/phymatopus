@@ -29,7 +29,9 @@ import org.springframework.beans.factory.annotation.Value;
 
 import lombok.extern.slf4j.Slf4j;
 import uk.ac.roe.wfau.phymatopus.kafka.alert.AlertProcessor;
-import uk.ac.roe.wfau.phymatopus.kafka.alert.ZtfAlert;
+import uk.ac.roe.wfau.phymatopus.kafka.alert.AlertReader;
+import uk.ac.roe.wfau.phymatopus.kafka.alert.BaseAlert;
+import uk.ac.roe.wfau.phymatopus.kafka.alert.ztf.ZtfAlertReader;
 
 /**
  *
@@ -129,13 +131,13 @@ public abstract class KafkaReaderTestBase
      * Create a new alert processor.
      * 
      */
-    protected abstract AlertProcessor<ZtfAlert> processor() ;
+    protected abstract AlertProcessor<BaseAlert> processor() ;
 
     /**
      * Create a new alert reader.
      * 
      */
-    protected abstract CallableAlertReader reader();
+    protected abstract AlertReader.CallableAlertReader reader();
     
     /**
      * Test multiple threads.
@@ -144,7 +146,7 @@ public abstract class KafkaReaderTestBase
     protected void testThreads()
     throws Exception
         {
-        final List<CallableAlertReader> readers = new ArrayList<CallableAlertReader>(); 
+        final List<AlertReader.CallableAlertReader> readers = new ArrayList<AlertReader.CallableAlertReader>(); 
 
         for (int i = 0 ; i < this.threadcount ; i++)   
             {
@@ -163,13 +165,13 @@ public abstract class KafkaReaderTestBase
             readers.size()
             );        
         try {
-            List<Future<ReaderStatistics>> futures = executor.invokeAll(readers);
+            List<Future<AlertReader.ReaderStatistics>> futures = executor.invokeAll(readers);
             long alerts  = 0 ;
             long sumtime = 0 ;
             long maxtime = 0 ;
-            for (Future<ReaderStatistics> future : futures)
+            for (Future<AlertReader.ReaderStatistics> future : futures)
                 {
-                ReaderStatistics result = future.get();
+                AlertReader.ReaderStatistics result = future.get();
                 alerts  += result.count();
                 sumtime += result.time();
                 if (result.time() > maxtime)

@@ -36,9 +36,10 @@ import org.apache.kafka.common.TopicPartition;
 
 import lombok.extern.slf4j.Slf4j;
 import uk.ac.roe.wfau.phymatopus.kafka.alert.AlertProcessor;
+import uk.ac.roe.wfau.phymatopus.kafka.alert.AlertReader;
 
 /**
- * Reads a series on alerts from a stream and stops when there are no more alerts and the poll timeout is reached.
+ * Reads a series on alerts from a stream and stops when the loop timeout or limit is reached.
  *
  */
 @Slf4j
@@ -77,6 +78,10 @@ implements ConsumerRebalanceListener, AlertReader
      */
     protected abstract long process(final DataType data);
 
+    /**
+     * Loop until timeout or limit reached.
+     *
+     */
     public ReaderStatistics loop()
         {
         log.trace("Creating consumer");
@@ -102,7 +107,7 @@ implements ConsumerRebalanceListener, AlertReader
 
         long looplimit   = config.getLoopLimit();
         long looptimeout = config.getLoopTimeout().toNanos();
-        Duration polltimeout = config.getLoopTimeout();
+        Duration polltimeout = config.getPollTimeout();
 
         do {
             loopcount++;

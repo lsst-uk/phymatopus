@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2018 Royal Observatory, University of Edinburgh, UK
+ *  Copyright (C) 2019 Royal Observatory, University of Edinburgh, UK
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -15,24 +15,36 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
+package uk.ac.roe.wfau.phymatopus.kafka.alert.ztf;
 
-package uk.ac.roe.wfau.phymatopus.kafka.tools;
+import java.nio.ByteBuffer;
 
-import java.util.concurrent.Callable;
-
-public interface CallableAlertReader
-extends Callable<ReaderStatistics>
+public class ZtfCutoutWrapper implements ZtfCutout
     {
     /**
-     * Read alerts until the loop timeout is exceeded.
-     *  
+     * Our Avro alert bean.
+     *
      */
-    public ReaderStatistics call();
+    private ztf.cutout bean ;
 
     /**
-     * Rewind to the start of the topic.
+     * Public constructor.
      * 
      */
-    public void rewind();
+    public ZtfCutoutWrapper(final ztf.cutout bean)
+        {
+        this.bean = bean;
+        }
 
+    @Override
+    public CharSequence getFileName()
+        {
+        return bean.getFileName();
+        }
+
+    @Override
+    public ByteBuffer getStampData()
+        {
+        return bean.getStampData();
+        }
     }

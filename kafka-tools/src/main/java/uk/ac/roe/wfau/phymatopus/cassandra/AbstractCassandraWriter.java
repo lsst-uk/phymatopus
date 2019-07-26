@@ -15,7 +15,7 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
-package uk.ac.roe.wfau.phymatopus.kafka.cassandra;
+package uk.ac.roe.wfau.phymatopus.cassandra;
 
 
 import java.net.InetSocketAddress;
@@ -24,7 +24,7 @@ import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.CqlSessionBuilder;
 
 import lombok.extern.slf4j.Slf4j;
-import uk.ac.roe.wfau.phymatopus.kafka.alert.ZtfAlert;
+import uk.ac.roe.wfau.phymatopus.kafka.alert.BaseAlert;
 
 /**
  * Simple writer for the candidates table.
@@ -128,6 +128,6 @@ public abstract class AbstractCassandraWriter
      * Process an alert.
      * 
      */
-    protected abstract void process(final ZtfAlert alert);
+    public abstract void process(final BaseAlert alert);
 
    }

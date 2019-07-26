@@ -17,34 +17,12 @@
  */
 package uk.ac.roe.wfau.phymatopus.kafka.alert;
 
-import java.nio.ByteBuffer;
-
-public class ZtfCutoutWrapper implements ZtfCutout
+/**
+ * 
+ *
+ */
+public interface PrevCandidate
+extends BaseCandidate
     {
-    /**
-     * Our Avro alert bean.
-     *
-     */
-    private ztf.cutout bean ;
 
-    /**
-     * Public constructor.
-     * 
-     */
-    public ZtfCutoutWrapper(final ztf.cutout bean)
-        {
-        this.bean = bean;
-        }
-
-    @Override
-    public CharSequence getFileName()
-        {
-        return bean.getFileName();
-        }
-
-    @Override
-    public ByteBuffer getStampData()
-        {
-        return bean.getStampData();
-        }
     }

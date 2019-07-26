@@ -15,15 +15,19 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
-package uk.ac.roe.wfau.phymatopus.kafka.alert;
+package uk.ac.roe.wfau.phymatopus.kafka.alert.ztf;
 
-public class ZtfAlertCandidateWrapper implements ZtfAlertCandidate
+import java.util.Iterator;
+
+import uk.ac.roe.wfau.phymatopus.kafka.alert.PrevCandidate;
+
+public class ZtfPrevCandidateWrapper implements PrevCandidate
     {
     /**
      * Our Avro alert bean.
      *
      */
-    private ztf.candidate bean ;
+    private ztf.prv_candidate bean ;
 
     /**
      * The corresponding objectId.
@@ -41,13 +45,79 @@ public class ZtfAlertCandidateWrapper implements ZtfAlertCandidate
      * Public constructor.
      * 
      */    
-    public ZtfAlertCandidateWrapper(final String topic, final CharSequence objectid, final ztf.candidate bean)
+    public ZtfPrevCandidateWrapper(final ztf.prv_candidate bean, final CharSequence objectid)
         {
-        this.topic = topic;
-        this.objectid = objectid;
-        this.bean  = bean;
+        this.bean = bean ;
+        this.objectid = objectid ;
         }
 
+    /**
+     * An Iterable implementation.
+     * 
+     */
+    public static class IterableWrapper
+    implements Iterable<PrevCandidate>
+        {
+        private CharSequence objectid ;
+        public IterableWrapper(final Iterable<ztf.prv_candidate> inner, final CharSequence objectid)
+            {
+            this.objectid = objectid;
+            this.inner = inner ;
+            }
+        private Iterable<ztf.prv_candidate> inner;
+        @Override
+        public Iterator<PrevCandidate> iterator()
+            {
+            return new IteratorWrapper(
+                ((this.inner != null) ? this.inner.iterator() : null),
+                this.objectid
+                );
+            }
+        }
+
+    /**
+     * An Iterator implementation.
+     * 
+     */
+    public static class IteratorWrapper
+    implements Iterator<PrevCandidate>
+        {
+        private CharSequence objectid ;
+        public IteratorWrapper(final Iterator<ztf.prv_candidate> inner, final CharSequence objectid)
+            {
+            this.objectid = objectid;
+            this.inner = inner ;
+            }
+        private Iterator<ztf.prv_candidate> inner;
+        @Override
+        public boolean hasNext()
+            {
+            if (null != inner)
+                {
+                return inner.hasNext();
+                }
+            else {
+                return false ;
+                }
+            }
+        @Override
+        public PrevCandidate next()
+            {
+            if (null != inner)
+                {
+                return new ZtfPrevCandidateWrapper(
+                    this.inner.next(),
+                    this.objectid
+                    );
+                }
+            else {
+                throw new RuntimeException(
+                    "Call to next() on an empty (null) Iterator."
+                    );
+                }
+            }
+        }
+    
     @Override
     public Double getJd()
         {
@@ -347,7 +417,7 @@ public class ZtfAlertCandidateWrapper implements ZtfAlertCandidate
         {
         return bean.getDecnr();
         }
-//ZRQ
+
     @Override
     public Double getScorr()
         {
@@ -358,300 +428,5 @@ public class ZtfAlertCandidateWrapper implements ZtfAlertCandidate
     public CharSequence getRbversion()
         {
         return bean.getRbversion();
-        }
-
-    @Override
-    public Float getSgmag1()
-        {
-        return bean.getSgmag1();
-        }
-
-    @Override
-    public Float getSrmag1()
-        {
-        return bean.getSrmag1();
-        }
-
-    @Override
-    public Float getSimag1()
-        {
-        return bean.getSimag1();
-        }
-
-    @Override
-    public Float getSzmag1()
-        {
-        return bean.getSzmag1();
-        }
-
-    @Override
-    public Float getSgscore1()
-        {
-        return bean.getSgscore1();
-        }
-
-    @Override
-    public Float getDistpsnr1()
-        {
-        return bean.getDistpsnr1();
-        }
-
-    @Override
-    public Integer getNdethist()
-        {
-        return bean.getNdethist();
-        }
-
-    @Override
-    public Integer getNcovhist()
-        {
-        return bean.getNcovhist();
-        }
-
-    @Override
-    public Double getJdstarthist()
-        {
-        return bean.getJdstarthist();
-        }
-
-    @Override
-    public Double getJdendhist()
-        {
-        return bean.getJdendhist();
-        }
-
-    @Override
-    public Integer getTooflag()
-        {
-        return bean.getTooflag();
-        }
-
-    @Override
-    public Long getObjectidps1()
-        {
-        return bean.getObjectidps1();
-        }
-
-    @Override
-    public Long getObjectidps2()
-        {
-        return bean.getObjectidps2();
-        }
-
-    @Override
-    public Float getSgmag2()
-        {
-        return bean.getSgmag2();
-        }
-
-    @Override
-    public Float getSrmag2()
-        {
-        return bean.getSrmag2();
-        }
-
-    @Override
-    public Float getSimag2()
-        {
-        return bean.getSimag2();
-        }
-
-    @Override
-    public Float getSzmag2()
-        {
-        return bean.getSzmag2();
-        }
-
-    @Override
-    public Float getSgscore2()
-        {
-        return bean.getSgscore2();
-        }
-
-    @Override
-    public Float getDistpsnr2()
-        {
-        return bean.getDistpsnr2();
-        }
-
-    @Override
-    public Long getObjectidps3()
-        {
-        return bean.getObjectidps3();
-        }
-
-    @Override
-    public Float getSgmag3()
-        {
-        return bean.getSgmag3();
-        }
-
-    @Override
-    public Float getSrmag3()
-        {
-        return bean.getSrmag3();
-        }
-
-    @Override
-    public Float getSimag3()
-        {
-        return bean.getSimag3();
-        }
-
-    @Override
-    public Float getSzmag3()
-        {
-        return bean.getSzmag3();
-        }
-
-    @Override
-    public Float getSgscore3()
-        {
-        return bean.getSgscore3();
-        }
-
-    @Override
-    public Float getDistpsnr3()
-        {
-        return bean.getDistpsnr3();
-        }
-
-    @Override
-    public Integer getNmtchps()
-        {
-        return bean.getNmtchps();
-        }
-
-    @Override
-    public Long getRfid()
-        {
-        return bean.getRfid();
-        }
-
-    @Override
-    public Double getJdstartref()
-        {
-        return bean.getJdstartref();
-        }
-
-    @Override
-    public Double getJdendref()
-        {
-        return bean.getJdendref();
-        }
-
-    @Override
-    public Integer getNframesref()
-        {
-        return bean.getNframesref();
-        }
-
-    @Override
-    public Float getDsnrms()
-        {
-        return bean.getDsnrms();
-        }
-
-    @Override
-    public Float getSsnrms()
-        {
-        return bean.getSsnrms();
-        }
-
-    @Override
-    public Float getDsdiff()
-        {
-        return bean.getDsdiff();
-        }
-
-    @Override
-    public Float getMagzpsci()
-        {
-        return bean.getMagzpsci();
-        }
-
-    @Override
-    public Float getMagzpsciunc()
-        {
-        return bean.getMagzpsciunc();
-        }
-
-    @Override
-    public Float getMagzpscirms()
-        {
-        return bean.getMagzpscirms();
-        }
-
-    @Override
-    public Integer getNmatches()
-        {
-        return bean.getNmatches();
-        }
-
-    @Override
-    public Float getClrcoeff()
-        {
-        return bean.getClrcoeff();
-        }
-
-    @Override
-    public Float getClrcounc()
-        {
-        return bean.getClrcounc();
-        }
-
-    @Override
-    public Float getZpclrcov()
-        {
-        return bean.getZpclrcov();
-        }
-
-    @Override
-    public Float getZpmed()
-        {
-        return bean.getZpmed();
-        }
-
-    @Override
-    public Float getClrmed()
-        {
-        return bean.getClrmed();
-        }
-
-    @Override
-    public Float getClrrms()
-        {
-        return bean.getClrrms();
-        }
-
-    @Override
-    public Float getNeargaia()
-        {
-        return bean.getNeargaia();
-        }
-
-    @Override
-    public Float getNeargaiabright()
-        {
-        return bean.getNeargaiabright();
-        }
-
-    @Override
-    public Float getMaggaia()
-        {
-        return bean.getMaggaia();
-        }
-
-    @Override
-    public Float getMaggaiabright()
-        {
-        return bean.getMaggaiabright();
-        }
-
-    private String topic;
-    @Override
-    public String getTopic()
-        {
-        return this.topic;
         }
     }

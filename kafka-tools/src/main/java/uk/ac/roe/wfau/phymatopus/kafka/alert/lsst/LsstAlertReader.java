@@ -16,7 +16,7 @@
  *
  */
 
-package uk.ac.roe.wfau.phymatopus.kafka.tools;
+package uk.ac.roe.wfau.phymatopus.kafka.alert.lsst;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -37,8 +37,9 @@ import io.confluent.kafka.serializers.KafkaAvroDeserializer;
 import io.confluent.kafka.serializers.KafkaAvroDeserializerConfig;
 import lombok.extern.slf4j.Slf4j;
 import uk.ac.roe.wfau.phymatopus.kafka.alert.AlertProcessor;
-import uk.ac.roe.wfau.phymatopus.kafka.alert.LsstAlertWrapper;
-import uk.ac.roe.wfau.phymatopus.kafka.alert.ZtfAlert;
+import uk.ac.roe.wfau.phymatopus.kafka.alert.AlertReader;
+import uk.ac.roe.wfau.phymatopus.kafka.alert.BaseAlert;
+import uk.ac.roe.wfau.phymatopus.kafka.tools.GenericAlertReader;
 import ztf.alert;
 
 
@@ -48,7 +49,7 @@ import ztf.alert;
  */
 @Slf4j
 public class LsstAlertReader
-extends GenericAlertReader<Long, Object, ZtfAlert>
+extends GenericAlertReader<Long, Object, BaseAlert>
 implements AlertReader
     {
 
@@ -58,7 +59,7 @@ implements AlertReader
      * @param config The reader configuration.
      *
      */
-    public LsstAlertReader(final AlertProcessor<ZtfAlert> processor, final Configuration config)
+    public LsstAlertReader(final AlertProcessor<BaseAlert> processor, final Configuration config)
         {
         super(
             processor,
@@ -208,7 +209,7 @@ implements AlertReader
      * Create a Callable reader.
      * 
      */
-    public static CallableAlertReader callable(final AlertProcessor<ZtfAlert> processor, final Configuration config)
+    public static CallableAlertReader callable(final AlertProcessor<BaseAlert> processor, final Configuration config)
         {
         return new CallableAlertReader()
             {

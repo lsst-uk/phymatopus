@@ -16,7 +16,7 @@
  *
  */
 
-package uk.ac.roe.wfau.phymatopus.kafka.tools;
+package uk.ac.roe.wfau.phymatopus.kafka.alert.lsst;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -30,8 +30,9 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 import lombok.extern.slf4j.Slf4j;
-import uk.ac.roe.wfau.phymatopus.kafka.alert.ZtfAlert;
-import uk.ac.roe.wfau.phymatopus.kafka.alert.ZtfAlertWrapper;
+import uk.ac.roe.wfau.phymatopus.kafka.alert.BaseAlert;
+import uk.ac.roe.wfau.phymatopus.kafka.alert.lsst.LsstAlertWriter;
+import uk.ac.roe.wfau.phymatopus.kafka.alert.ztf.ZtfAlertWrapper;
 import ztf.alert;
 import ztf.candidate;
 import ztf.cutout;
@@ -121,7 +122,7 @@ public class LsstAlertWriterTest
         for (int candid = 0 ; candid < 1000 ; candid++)
             {
             log.debug("Sending alert [{}]", candid);
-            ZtfAlert alert = new ZtfAlertWrapper(
+            BaseAlert alert = new ZtfAlertWrapper(
                 new alert (
                     "schemavsn",
                     "publisher",

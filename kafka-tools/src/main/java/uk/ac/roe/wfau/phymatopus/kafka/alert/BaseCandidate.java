@@ -17,7 +17,7 @@
  */
 package uk.ac.roe.wfau.phymatopus.kafka.alert;
 
-public interface ZtfCandidate
+public interface BaseCandidate
     {
     /**
      * Gets the value of the 'candid' field.

@@ -15,13 +15,13 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
-package uk.ac.roe.wfau.phymatopus.kafka.cassandra;
+package uk.ac.roe.wfau.phymatopus.cassandra;
 
 
 import com.datastax.oss.driver.api.core.cql.PreparedStatement;
 
-import uk.ac.roe.wfau.phymatopus.kafka.alert.ZtfAlert;
-import uk.ac.roe.wfau.phymatopus.kafka.alert.ZtfAlertCandidate;
+import uk.ac.roe.wfau.phymatopus.kafka.alert.BaseAlert;
+import uk.ac.roe.wfau.phymatopus.kafka.alert.AlertCandidate;
 
 /**
  * Simple writer for the candidates table.
@@ -318,9 +318,9 @@ extends AbstractCassandraWriter
         }
     
     @Override
-    protected void process(final ZtfAlert alert)
+    public void process(final BaseAlert alert)
         {
-        ZtfAlertCandidate candidate = alert.getCandidate();
+        AlertCandidate candidate = alert.getCandidate();
         this.session().execute(
             this.insert.bind(
                 notNull(candidate.getCandid()),

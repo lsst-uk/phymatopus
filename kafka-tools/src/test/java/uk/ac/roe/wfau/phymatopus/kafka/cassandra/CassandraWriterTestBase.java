@@ -21,8 +21,9 @@ package uk.ac.roe.wfau.phymatopus.kafka.cassandra;
 import org.springframework.beans.factory.annotation.Value;
 
 import lombok.extern.slf4j.Slf4j;
+import uk.ac.roe.wfau.phymatopus.cassandra.AbstractCassandraWriter;
 import uk.ac.roe.wfau.phymatopus.kafka.alert.AlertProcessor;
-import uk.ac.roe.wfau.phymatopus.kafka.alert.ZtfAlert;
+import uk.ac.roe.wfau.phymatopus.kafka.alert.BaseAlert;
 import uk.ac.roe.wfau.phymatopus.kafka.tools.KafkaReaderTestBase;
 
 /**
@@ -78,9 +79,9 @@ extends KafkaReaderTestBase
      * Create a new alert processor.
      * 
      */
-    public AlertProcessor<ZtfAlert> processor()
+    public AlertProcessor<BaseAlert> processor()
         {
-        return new AlertProcessor<ZtfAlert>()
+        return new AlertProcessor<BaseAlert>()
             {
             private long count ;
             public long count()
@@ -95,7 +96,7 @@ extends KafkaReaderTestBase
                 }
 
             @Override
-            public void process(final ZtfAlert alert)
+            public void process(final BaseAlert alert)
                 {
                 this.count++;
                 log.trace("Candidate [{}][{}]", this.count, alert.getCandid());

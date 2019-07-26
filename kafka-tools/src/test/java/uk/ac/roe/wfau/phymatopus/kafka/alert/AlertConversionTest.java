@@ -16,7 +16,7 @@
  *
  */
 
-package uk.ac.roe.wfau.phymatopus.kafka.tools;
+package uk.ac.roe.wfau.phymatopus.kafka.alert;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -26,8 +26,9 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 import lombok.extern.slf4j.Slf4j;
-import uk.ac.roe.wfau.phymatopus.kafka.alert.AlertProcessor;
-import uk.ac.roe.wfau.phymatopus.kafka.alert.ZtfAlert;
+import uk.ac.roe.wfau.phymatopus.kafka.alert.lsst.LsstAlertWriter;
+import uk.ac.roe.wfau.phymatopus.kafka.alert.ztf.ZtfAlertReader;
+import uk.ac.roe.wfau.phymatopus.kafka.tools.KafkaReaderTestBase;
 
 /**
  *
@@ -96,9 +97,9 @@ extends KafkaReaderTestBase
         }
     
     @Override
-    protected AlertProcessor<ZtfAlert> processor()
+    protected AlertProcessor<BaseAlert> processor()
         {
-        return new AlertProcessor<ZtfAlert> ()
+        return new AlertProcessor<BaseAlert> ()
             {
             private long count ;
             @Override
@@ -107,7 +108,7 @@ extends KafkaReaderTestBase
                 return this.count;
                 }
             @Override
-            public void process(final ZtfAlert alert)
+            public void process(final BaseAlert alert)
                 {
                 count++;
                 log.trace("candId    [{}]", alert.getCandid());
@@ -122,7 +123,7 @@ extends KafkaReaderTestBase
         }
 
     @Override
-    protected CallableAlertReader reader()
+    protected AlertReader.CallableAlertReader reader()
         {
         return ZtfAlertReader.callable(
             this.processor(),

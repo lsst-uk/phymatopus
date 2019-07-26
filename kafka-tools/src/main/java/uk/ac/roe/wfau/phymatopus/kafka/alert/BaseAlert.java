@@ -20,7 +20,9 @@ package uk.ac.roe.wfau.phymatopus.kafka.alert;
 
 import org.apache.avro.specific.SpecificRecord;
 
-public interface ZtfAlert
+import uk.ac.roe.wfau.phymatopus.kafka.alert.ztf.ZtfCutout;
+
+public interface BaseAlert
 extends SpecificRecord
     {
    
@@ -52,13 +54,13 @@ extends SpecificRecord
      * Gets the value of the 'candidate' field.
      * @return The value of the 'candidate' field.
      */
-    public ZtfAlertCandidate getCandidate();
+    public AlertCandidate getCandidate();
 
     /**
      * Gets the value of the 'prv_candidates' field.
      * @return The value of the 'prv_candidates' field.
      */
-    public Iterable<ZtfCandidate> getPrvCandidates();
+    public Iterable<PrevCandidate> getPrvCandidates();
 
     /**
      * Gets the value of the 'cutoutScience' field.

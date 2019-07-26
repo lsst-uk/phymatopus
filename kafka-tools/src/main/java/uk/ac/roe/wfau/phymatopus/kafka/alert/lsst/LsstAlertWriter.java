@@ -16,7 +16,7 @@
  *
  */
 
-package uk.ac.roe.wfau.phymatopus.kafka.tools;
+package uk.ac.roe.wfau.phymatopus.kafka.alert.lsst;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -36,7 +36,8 @@ import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import io.confluent.kafka.serializers.KafkaAvroSerializer;
 import io.confluent.kafka.serializers.KafkaAvroSerializerConfig;
 import lombok.extern.slf4j.Slf4j;
-import uk.ac.roe.wfau.phymatopus.kafka.alert.ZtfAlert;
+import uk.ac.roe.wfau.phymatopus.kafka.alert.BaseAlert;
+import uk.ac.roe.wfau.phymatopus.kafka.tools.BaseClient;
 import ztf.alert;
 
 /**
@@ -129,7 +130,7 @@ extends BaseClient
      * Initialise our {@link Producer}. 
      * 
      */
-    protected synchronized void init()
+    public synchronized void init()
         {
         if (null == producer)
             {
@@ -172,7 +173,7 @@ extends BaseClient
      * Write a an alert to the stream. 
      * 
      */
-    public void write(final ZtfAlert alert)
+    public void write(final BaseAlert alert)
         {
         log.debug("write(alert)");
         try {

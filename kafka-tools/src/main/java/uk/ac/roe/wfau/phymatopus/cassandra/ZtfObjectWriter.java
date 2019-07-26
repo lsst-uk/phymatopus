@@ -15,7 +15,7 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
-package uk.ac.roe.wfau.phymatopus.kafka.cassandra;
+package uk.ac.roe.wfau.phymatopus.cassandra;
 
 
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
@@ -23,8 +23,8 @@ import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
 import com.datastax.oss.driver.api.core.cql.PreparedStatement;
 
 import lombok.extern.slf4j.Slf4j;
-import uk.ac.roe.wfau.phymatopus.kafka.alert.ZtfAlert;
-import uk.ac.roe.wfau.phymatopus.kafka.alert.ZtfCandidate;
+import uk.ac.roe.wfau.phymatopus.kafka.alert.BaseAlert;
+import uk.ac.roe.wfau.phymatopus.kafka.alert.BaseCandidate;
 
 /**
  * Simple writer for the objects table.
@@ -136,7 +136,7 @@ extends AbstractCassandraWriter
         }
     
     @Override
-    protected void process(final ZtfAlert alert)
+    public void process(final BaseAlert alert)
         {
         SafeDescriptiveStatistics ra   = new SafeDescriptiveStatistics();        
         SafeDescriptiveStatistics jd   = new SafeDescriptiveStatistics();        
@@ -159,7 +159,7 @@ extends AbstractCassandraWriter
         // Add the previous candidates.
         // Initially this uses to 30 day history from the alert.
         // Eventually this should load the full history from the database.
-        for (ZtfCandidate prev : alert.getPrvCandidates())
+        for (BaseCandidate prev : alert.getPrvCandidates())
             {
             count++ ;
             log.trace("count [{}]", count);
@@ -212,7 +212,7 @@ extends AbstractCassandraWriter
 
         //
         // Add this candidate.
-        ZtfCandidate cand = alert.getCandidate();
+        BaseCandidate cand = alert.getCandidate();
 
         log.trace("candid [{}]", cand.getCandid());
         log.trace("jd  [{}]", cand.getJd());

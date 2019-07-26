@@ -17,8 +17,8 @@
  */
 package uk.ac.roe.wfau.phymatopus.kafka.alert;
 
-public interface ZtfAlertCandidate
-extends ZtfCandidate
+public interface AlertCandidate
+extends BaseCandidate
     {
     /**
      * The Kafka topic this alert was read from.

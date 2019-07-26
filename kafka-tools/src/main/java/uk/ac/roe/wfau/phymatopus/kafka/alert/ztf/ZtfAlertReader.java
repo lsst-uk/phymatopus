@@ -16,7 +16,7 @@
  *
  */
 
-package uk.ac.roe.wfau.phymatopus.kafka.tools;
+package uk.ac.roe.wfau.phymatopus.kafka.alert.ztf;
 
 import java.io.IOException;
 import java.util.Properties;
@@ -35,8 +35,10 @@ import org.apache.kafka.common.serialization.LongDeserializer;
 
 import lombok.extern.slf4j.Slf4j;
 import uk.ac.roe.wfau.phymatopus.kafka.alert.AlertProcessor;
-import uk.ac.roe.wfau.phymatopus.kafka.alert.ZtfAlert;
-import uk.ac.roe.wfau.phymatopus.kafka.alert.ZtfAlertWrapper;
+import uk.ac.roe.wfau.phymatopus.kafka.alert.AlertReader;
+import uk.ac.roe.wfau.phymatopus.kafka.alert.BaseAlert;
+import uk.ac.roe.wfau.phymatopus.kafka.tools.DebugFormatter;
+import uk.ac.roe.wfau.phymatopus.kafka.tools.GenericAlertReader;
 import ztf.alert;
 
 /**
@@ -45,7 +47,7 @@ import ztf.alert;
  */
 @Slf4j
 public class ZtfAlertReader
-extends GenericAlertReader<Long, byte[], ZtfAlert>
+extends GenericAlertReader<Long, byte[], BaseAlert>
 implements AlertReader
     {
 
@@ -55,7 +57,7 @@ implements AlertReader
      * @param config The reader configuration.
      *
      */
-    public ZtfAlertReader(final AlertProcessor<ZtfAlert> processor, final Configuration config)
+    public ZtfAlertReader(final AlertProcessor<BaseAlert> processor, final Configuration config)
         {
         super(
             processor,
@@ -233,7 +235,7 @@ implements AlertReader
      * Create a Callable reader.
      * 
      */
-    public static CallableAlertReader callable(final AlertProcessor<ZtfAlert> processor, final Configuration config)
+    public static CallableAlertReader callable(final AlertProcessor<BaseAlert> processor, final Configuration config)
         {
         return new CallableAlertReader()
             {

@@ -16,7 +16,7 @@
  *
  */
 
-package uk.ac.roe.wfau.phymatopus.kafka.tools;
+package uk.ac.roe.wfau.phymatopus.kafka.alert.lsst;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -25,7 +25,9 @@ import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 import lombok.extern.slf4j.Slf4j;
 import uk.ac.roe.wfau.phymatopus.kafka.alert.AlertProcessor;
-import uk.ac.roe.wfau.phymatopus.kafka.alert.ZtfAlert;
+import uk.ac.roe.wfau.phymatopus.kafka.alert.AlertReader;
+import uk.ac.roe.wfau.phymatopus.kafka.alert.BaseAlert;
+import uk.ac.roe.wfau.phymatopus.kafka.tools.KafkaReaderTestBase;
 
 @Slf4j
 @RunWith(
@@ -36,21 +38,21 @@ import uk.ac.roe.wfau.phymatopus.kafka.alert.ZtfAlert;
         "classpath:component-config.xml"
         }
     )
-public class ZtfAlertReaderTest
+public class LsstAlertReaderTest
 extends KafkaReaderTestBase
     {
     /**
      *
      */
-    public ZtfAlertReaderTest()
+    public LsstAlertReaderTest()
         {
         super();
         }
 
     @Override
-    protected AlertProcessor<ZtfAlert> processor()
+    protected AlertProcessor<BaseAlert> processor()
         {
-        return new AlertProcessor<ZtfAlert>()
+        return new AlertProcessor<BaseAlert>()
             {
             private long count ;
             @Override
@@ -59,20 +61,22 @@ extends KafkaReaderTestBase
                 return this.count;
                 }
             @Override
-            public void process(final ZtfAlert alert)
+            public void process(final BaseAlert alert)
                 {
                 count++;
-                log.trace("candId    [{}]", alert.getCandid());
-                log.trace("objectId  [{}]", alert.getObjectId());
-                log.trace("schemavsn [{}]", alert.getSchemavsn().toString());
+                log.debug("candId    [{}]", alert.getCandid());
+                log.debug("objectId  [{}]", alert.getObjectId());
+                log.debug("schemavsn [{}]", alert.getSchemavsn().toString());
+                log.debug("candidate [{}]", alert.getCandidate().getClass().getName());
+                log.debug("previous  [{}]", alert.getPrvCandidates().getClass().getName());
                 }
             };
         }
 
     @Override
-    protected CallableAlertReader reader()
+    protected AlertReader.CallableAlertReader reader()
         {
-        return ZtfAlertReader.callable(
+        return LsstAlertReader.callable(
             this.processor(),
             this.configuration()
             );

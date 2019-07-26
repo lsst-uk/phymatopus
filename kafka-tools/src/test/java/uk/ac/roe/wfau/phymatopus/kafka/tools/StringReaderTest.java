@@ -22,6 +22,7 @@ import org.junit.Test;
 
 import lombok.extern.slf4j.Slf4j;
 import uk.ac.roe.wfau.phymatopus.kafka.alert.AlertProcessor;
+import uk.ac.roe.wfau.phymatopus.kafka.alert.AlertReader;
 
 /**
  * 
@@ -65,7 +66,7 @@ extends KafkaReaderTestBase
         }
 
     @Override
-    public CallableAlertReader reader()
+    public AlertReader.CallableAlertReader reader()
         {
         // TODO Auto-generated method stub
         return null;
