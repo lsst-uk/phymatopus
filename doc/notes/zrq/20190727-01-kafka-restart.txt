@@ -1,0 +1,539 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+    #
+    # New set of VMs.
+    # Add the docker-compose .env and .yml files.
+    # Start our Kafka services.
+    #
+
+
+# -----------------------------------------------------
+# Create our compose YAML file.
+#[user@trop03]
+
+cat > /tmp/kafka.yml << 'EOYML'
+
+version: "3.2"
+
+services:
+
+    emily:
+        image:
+            confluentinc/cp-kafka:4.1.1
+        restart:
+            unless-stopped
+        ports:
+            - "9092:9092"
+            - "9093:9093"
+        extra_hosts:
+            - "${KAFKA_HOSTNAME}:127.0.0.2"
+        environment:
+            - KAFKA_LISTENERS=jasminum://0.0.0.0:9092
+            - KAFKA_ADVERTISED_LISTENERS=jasminum://${KAFKA_HOSTNAME}:9092
+            - KAFKA_INTER_BROKER_LISTENER_NAME=jasminum
+            - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=jasminum:PLAINTEXT
+            - KAFKA_LOG_DIRS=${KAFKA_LOG_DIRS}
+            - KAFKA_BROKER_ID=${KAFKA_BROKER_ID}
+            - KAFKA_BROKER_RACK=${KAFKA_BROKER_RACK}
+            - KAFKA_ZOOKEEPER_CONNECT=${KAFKA_ZOOKEEPER_CONNECT}
+            - KAFKA_NUM_PARTITIONS=16
+            - KAFKA_DEFAULT_REPLICATION_FACTOR=3
+            - KAFKA_LOG_RETENTION_MS=-1
+            - KAFKA_LOG_RETENTION_BYTES=-1
+            - KAFKA_AUTO_CREATE_TOPICS_ENABLE=true
+            - KAFKA_MESSAGE_MAX_BYTES=10485760
+        volumes:
+EOYML
+
+# -----------------------------------------------------
+# Add the volume list to our compose YAML file.
+#[user@trop03]
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+
+            cp  /tmp/kafka.yml /tmp/${vmname:?}-kafka.yml
+
+            grep "^${vmname:?}" "${HOME}/nodevols.txt" > /tmp/fred
+            while read -r -u 9 vmname devname volpath mntpath
+                do
+                    echo "----"
+                    devpath=/dev/${devname}
+                    echo "mntpath [${mntpath}]"
+                    echo "devpath [${devpath}]"
+
+                    if [ "${mntpath}" != '-' ]
+                    then
+cat >> /tmp/${vmname:?}-kafka.yml << EOF
+            - type:   "bind"
+              source: "${mntpath}"
+              target: "${mntpath}"
+EOF
+                    fi
+                done 9< /tmp/fred
+        done
+
+--START--
+---- ----
+Node [Stedigo]
+----
+mntpath [-]
+devpath [/dev/vdc]
+----
+mntpath [/data1-01]
+devpath [/dev/vdd]
+----
+mntpath [/data2-01]
+devpath [/dev/vde]
+----
+mntpath [/data1-02]
+devpath [/dev/vdf]
+----
+mntpath [/data2-02]
+devpath [/dev/vdg]
+----
+mntpath [/data1-03]
+devpath [/dev/vdh]
+----
+mntpath [/data2-03]
+devpath [/dev/vdi]
+----
+mntpath [/data1-04]
+devpath [/dev/vdj]
+----
+mntpath [/data2-04]
+devpath [/dev/vdk]
+---- ----
+Node [Angece]
+----
+mntpath [-]
+devpath [/dev/vdc]
+----
+mntpath [/data1-01]
+devpath [/dev/vdd]
+----
+mntpath [/data2-01]
+devpath [/dev/vde]
+----
+mntpath [/data1-02]
+devpath [/dev/vdf]
+----
+mntpath [/data2-02]
+devpath [/dev/vdg]
+----
+mntpath [/data1-03]
+devpath [/dev/vdh]
+----
+mntpath [/data2-03]
+devpath [/dev/vdi]
+----
+mntpath [/data1-04]
+devpath [/dev/vdj]
+----
+mntpath [/data2-04]
+devpath [/dev/vdk]
+---- ----
+Node [Edwalafia]
+----
+mntpath [-]
+devpath [/dev/vdc]
+----
+mntpath [/data1-01]
+devpath [/dev/vdd]
+----
+mntpath [/data2-01]
+devpath [/dev/vde]
+----
+mntpath [/data1-02]
+devpath [/dev/vdf]
+----
+mntpath [/data2-02]
+devpath [/dev/vdg]
+----
+mntpath [/data1-03]
+devpath [/dev/vdh]
+----
+mntpath [/data2-03]
+devpath [/dev/vdi]
+----
+mntpath [/data1-04]
+devpath [/dev/vdj]
+----
+mntpath [/data2-04]
+devpath [/dev/vdk]
+---- ----
+Node [Onoza]
+----
+mntpath [-]
+devpath [/dev/vdc]
+----
+mntpath [/data1-01]
+devpath [/dev/vdd]
+----
+mntpath [/data2-01]
+devpath [/dev/vde]
+----
+mntpath [/data1-02]
+devpath [/dev/vdf]
+----
+mntpath [/data2-02]
+devpath [/dev/vdg]
+----
+mntpath [/data1-03]
+devpath [/dev/vdh]
+----
+mntpath [/data2-03]
+devpath [/dev/vdi]
+----
+mntpath [/data1-04]
+devpath [/dev/vdj]
+----
+mntpath [/data2-04]
+devpath [/dev/vdk]
+--END--
+
+
+# -----------------------------------------------------
+# Deploy our compose YAML file.
+#[user@trop03]
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname}]"
+            scp \
+                ${scpopts[*]} \
+                /tmp/${vmname:?}-kafka.yml \
+                ${sshuser:?}@${vmname:?}:kafka.yml
+        done
+
+--START--
+---- ----
+Node [Stedigo]
+Stedigo-kafka.yml       100% 1821     2.0MB/s   00:00
+---- ----
+Node [Angece]
+Angece-kafka.yml        100% 1821     1.9MB/s   00:00
+---- ----
+Node [Edwalafia]
+Edwalafia-kafka.yml     100% 1821     1.6MB/s   00:00
+---- ----
+Node [Onoza]
+Onoza-kafka.yml         100% 1821     1.7MB/s   00:00
+--END--
+
+
+# -----------------------------------------------------
+# Make a list of our Zookeeper nodes.
+#[user@trop03]
+
+    zklist=${zknames[*]}
+    zklist=${zklist// /,}
+
+    echo "zklist [${zklist}]"
+
+--START--
+zklist [Fosauri,Marpus,Byflame]
+--END--
+
+
+# -----------------------------------------------------
+# Deploy our compose ENV file to each node.
+#[user@trop03]
+
+
+    for (( i=0 ; i < ${#kfnames[@]} ; i++ ))
+        do
+            vmname=${kfnames[$i]:?}
+
+            echo "---- ----"
+            echo "Node [${i:?}][${vmname:?}]"
+
+            ssh \
+                ${scpopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                hostname
+                date
+
+                loglist=\$(echo /data*)
+                loglist=\${loglist// /,}
+
+cat > kafka.env << EOF
+KAFKA_LOG_DIRS=\${loglist:?}
+KAFKA_BROKER_ID=$(($i+1))
+KAFKA_BROKER_RACK=$(($i+1))
+KAFKA_ZOOKEEPER_CONNECT=${zklist:?}
+KAFKA_HOSTNAME=${vmname:?}
+EOF
+
+                ln -sf kafka.env .env
+                "
+        done
+
+--START--
+---- ----
+Node [0][Stedigo]
+Stedigo
+Sat 27 Jul 05:26:22 BST 2019
+---- ----
+Node [1][Angece]
+Angece
+Sat 27 Jul 05:26:23 BST 2019
+---- ----
+Node [2][Edwalafia]
+Edwalafia
+Sat 27 Jul 05:26:24 BST 2019
+---- ----
+Node [3][Onoza]
+Onoza
+Sat 27 Jul 05:26:24 BST 2019
+--END--
+
+
+# -----------------------------------------------------
+# Check the compose ENV file on each node.
+#[user@trop03]
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname}]"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    hostname
+                    date
+                    cat .env
+                    "
+        done
+
+--START--
+---- ----
+Node [Stedigo]
+Stedigo
+Sat 27 Jul 05:26:41 BST 2019
+KAFKA_LOG_DIRS=/data1-01,/data1-02,/data1-03,/data1-04,/data2-01,/data2-02,/data2-03,/data2-04
+KAFKA_BROKER_ID=1
+KAFKA_BROKER_RACK=1
+KAFKA_ZOOKEEPER_CONNECT=Fosauri,Marpus,Byflame
+KAFKA_HOSTNAME=Stedigo
+---- ----
+Node [Angece]
+Angece
+Sat 27 Jul 05:26:42 BST 2019
+KAFKA_LOG_DIRS=/data1-01,/data1-02,/data1-03,/data1-04,/data2-01,/data2-02,/data2-03,/data2-04
+KAFKA_BROKER_ID=2
+KAFKA_BROKER_RACK=2
+KAFKA_ZOOKEEPER_CONNECT=Fosauri,Marpus,Byflame
+KAFKA_HOSTNAME=Angece
+---- ----
+Node [Edwalafia]
+Edwalafia
+Sat 27 Jul 05:26:42 BST 2019
+KAFKA_LOG_DIRS=/data1-01,/data1-02,/data1-03,/data1-04,/data2-01,/data2-02,/data2-03,/data2-04
+KAFKA_BROKER_ID=3
+KAFKA_BROKER_RACK=3
+KAFKA_ZOOKEEPER_CONNECT=Fosauri,Marpus,Byflame
+KAFKA_HOSTNAME=Edwalafia
+---- ----
+Node [Onoza]
+Onoza
+Sat 27 Jul 05:26:43 BST 2019
+KAFKA_LOG_DIRS=/data1-01,/data1-02,/data1-03,/data1-04,/data2-01,/data2-02,/data2-03,/data2-04
+KAFKA_BROKER_ID=4
+KAFKA_BROKER_RACK=4
+KAFKA_ZOOKEEPER_CONNECT=Fosauri,Marpus,Byflame
+KAFKA_HOSTNAME=Onoza
+--END--
+
+
+# -----------------------------------------------------
+# Start Kafka on each node.
+#[user@trop03]
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname}]"
+            ssh \
+                ${scpopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                hostname
+                date
+                docker-compose \
+                    --file kafka.yml \
+                    up -d
+                "
+        done
+
+--START--
+---- ----
+Node [Stedigo]
+Stedigo
+Sat 27 Jul 05:27:38 BST 2019
+Creating network "stevedore_default" with the default driver
+Pulling emily (confluentinc/cp-kafka:4.1.1)...
+4.1.1: Pulling from confluentinc/cp-kafka
+Digest: sha256:4f5d6f4ba368fc05c0d0f1390bf107ae45fab24ed4bd7aac75aed3086ae5ddab
+Status: Downloaded newer image for confluentinc/cp-kafka:4.1.1
+Creating stevedore_emily_1 ... done
+---- ----
+Node [Angece]
+Angece
+Sat 27 Jul 05:28:01 BST 2019
+Creating network "stevedore_default" with the default driver
+Pulling emily (confluentinc/cp-kafka:4.1.1)...
+4.1.1: Pulling from confluentinc/cp-kafka
+Digest: sha256:4f5d6f4ba368fc05c0d0f1390bf107ae45fab24ed4bd7aac75aed3086ae5ddab
+Status: Downloaded newer image for confluentinc/cp-kafka:4.1.1
+Creating stevedore_emily_1 ... done
+---- ----
+Node [Edwalafia]
+Edwalafia
+Sat 27 Jul 05:28:22 BST 2019
+Creating network "stevedore_default" with the default driver
+Pulling emily (confluentinc/cp-kafka:4.1.1)...
+4.1.1: Pulling from confluentinc/cp-kafka
+Digest: sha256:4f5d6f4ba368fc05c0d0f1390bf107ae45fab24ed4bd7aac75aed3086ae5ddab
+Status: Downloaded newer image for confluentinc/cp-kafka:4.1.1
+Creating stevedore_emily_1 ... done
+---- ----
+Node [Onoza]
+Onoza
+Sat 27 Jul 05:28:44 BST 2019
+Creating network "stevedore_default" with the default driver
+Pulling emily (confluentinc/cp-kafka:4.1.1)...
+4.1.1: Pulling from confluentinc/cp-kafka
+Digest: sha256:4f5d6f4ba368fc05c0d0f1390bf107ae45fab24ed4bd7aac75aed3086ae5ddab
+Status: Downloaded newer image for confluentinc/cp-kafka:4.1.1
+Creating stevedore_emily_1 ... done
+--END--
+
+
+
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+# Tail the logs on each node.
+# https://www.systutorials.com/docs/linux/man/1-gnome-terminal/
+# https://www.systutorials.com/docs/linux/man/7-X/#lbAH
+#[user@desktop]
+
+    mate-terminal \
+        --geometry '160x10+25+25' \
+        --command '
+            ssh -t Stedigo "
+                date
+                hostname
+                docker logs -f stevedore_emily_1
+                \${SHELL}
+                "
+            '
+    sleep 1
+
+    mate-terminal \
+        --geometry '160x10+125+125' \
+        --command '
+            ssh -t Angece "
+                date
+                hostname
+                docker logs -f stevedore_emily_1
+                \${SHELL}
+                "
+            '
+    sleep 1
+
+    mate-terminal \
+        --geometry '160x10+225+225' \
+        --command '
+            ssh -t Edwalafia "
+                date
+                hostname
+                docker logs -f stevedore_emily_1
+                \${SHELL}
+                "
+            '
+    sleep 1
+
+    mate-terminal \
+        --geometry '160x10+325+325' \
+        --command '
+            ssh -t Onoza "
+                date
+                hostname
+                docker logs -f stevedore_emily_1
+                \${SHELL}
+                "
+            '
+
+
+--START--
+Sat 27 Jul 05:33:53 BST 2019
+Stedigo
+....
+[2019-07-27 04:34:35,138] INFO [ProducerStateManager partition=ztf_20181205_programid1-10] Loading producer state from snapshot file '/data2-01/ztf_20181205_programid1-10/00000000000000010622.snapshot' (kafka.log.ProducerStateManager)
+[2019-07-27 04:34:35,139] INFO [Log partition=ztf_20181205_programid1-10, dir=/data2-01] Completed load of log with 1 segments, log start offset 0 and log end offset 10622 in 301842 ms (kafka.log.Log)
+[2019-07-27 04:34:35,145] WARN [Log partition=ztf_20181205_programid1-11, dir=/data2-01] Found a corrupted index file corresponding to log file /data2-01/ztf_20181205_programid1-11/00000000000000000000.log due to Corrupt index found, index file (/data2-01/ztf_20181205_programid1-11/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
+....
+--END--
+
+
+--START--
+Sat 27 Jul 05:33:54 BST 2019
+Angece
+....
+[2019-07-27 04:34:49,443] INFO [ProducerStateManager partition=ztf_20190112_programid1-6] Loading producer state from snapshot file '/data2-03/ztf_20190112_programid1-6/00000000000000012368.snapshot' (kafka.log.ProducerStateManager)
+[2019-07-27 04:34:49,444] INFO [Log partition=ztf_20190112_programid1-6, dir=/data2-03] Completed load of log with 1 segments, log start offset 0 and log end offset 12368 in 335557 ms (kafka.log.Log)
+[2019-07-27 04:34:49,782] WARN [Log partition=ztf_20190112_programid1-4, dir=/data2-03] Found a corrupted index file corresponding to log file /data2-03/ztf_20190112_programid1-4/00000000000000000000.log due to Corrupt index found, index file (/data2-03/ztf_20190112_programid1-4/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
+....
+--END--
+
+
+--START--
+Sat 27 Jul 05:33:55 BST 2019
+Edwalafia
+....
+[2019-07-27 04:36:01,558] WARN [Log partition=ztf_20181219_programid1-14, dir=/data2-02] Found a corrupted index file corresponding to log file /data2-02/ztf_20181219_programid1-14/00000000000000015993.log due to Corrupt index found, index file (/data2-02/ztf_20181219_programid1-14/00000000000000015993.index) has non-zero size but the last offset is 15993 which is no greater than the base offset 15993.}, recovering segment and rebuilding index files... (kafka.log.Log)
+[2019-07-27 04:36:01,560] INFO [ProducerStateManager partition=ztf_20181219_programid1-14] Loading producer state from snapshot file '/data2-02/ztf_20181219_programid1-14/00000000000000015993.snapshot' (kafka.log.ProducerStateManager)
+[2019-07-27 04:36:03,616] INFO [ProducerStateManager partition=ztf_20190112_programid1-7] Writing producer snapshot at offset 12368 (kafka.log.ProducerStateManager)
+[2019-07-27 04:36:03,617] INFO [Log partition=ztf_20190112_programid1-7, dir=/data2-03] Recovering unflushed segment 0 (kafka.log.Log)
+....
+--END--
+
+
+--START--
+Sat 27 Jul 05:33:56 BST 2019
+Onoza
+....
+[2019-07-27 04:35:39,005] WARN [Log partition=lsst-test-20190624093332-8, dir=/data1-02] Found a corrupted index file corresponding to log file /data1-02/lsst-test-20190624093332-8/00000000000000000000.log due to Corrupt index found, index file (/data1-02/lsst-test-20190624093332-8/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
+[2019-07-27 04:35:39,008] INFO [Log partition=lsst-test-20190624093332-8, dir=/data1-02] Recovering unflushed segment 0 (kafka.log.Log)
+[2019-07-27 04:35:39,010] INFO [Log partition=lsst-test-20190624093332-8, dir=/data1-02] Loading producer state from offset 0 with message format version 2 (kafka.log.Log)
+[2019-07-27 04:35:39,011] INFO [Log partition=lsst-test-20190624093332-8, dir=/data1-02] Completed load of log with 1 segments, log start offset 0 and log end offset 0 in 9 ms (kafka.log.Log)
+....
+--END--
+
