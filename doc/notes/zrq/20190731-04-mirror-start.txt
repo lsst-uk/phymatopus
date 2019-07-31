@@ -1,0 +1,850 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+# -----------------------------------------------------
+# Load our node names.
+#[user@trop03]
+
+    source "${HOME}/nodenames.txt"
+
+--START--
+Zookeepers    [Fosauri Marpus Byflame]
+Kafka nodes   [Stedigo Angece Edwalafia Onoza]
+Mirror makers [Grerat Jeralenia]
+--END--
+
+
+# -----------------------------------------------------
+# Create our Mirror nodes.
+# TODO scriptable createvm
+#[user@trop03]
+
+    createvm
+
+--START--
+INFO : Node name [Grerat]
+INFO : Base name [fedora-29-docker-base-20190715.qcow]
+INFO : Base path [/var/lib/libvirt/images/base/fedora-29-docker-base-20190715.qcow]
+INFO : Disc name [Grerat.qcow]
+INFO : Disc size [16GiB]
+
+INFO : MAC  [06:00:AC:10:05:11]
+INFO : IPv4 [172.16.5.17]
+INFO : IPv6 []
+--END--
+
+
+    createvm
+
+--START--
+INFO : Node name [Jeralenia]
+INFO : Base name [fedora-29-docker-base-20190715.qcow]
+INFO : Base path [/var/lib/libvirt/images/base/fedora-29-docker-base-20190715.qcow]
+INFO : Disc name [Jeralenia.qcow]
+INFO : Disc size [16GiB]
+
+INFO : MAC  [06:00:AC:10:05:12]
+INFO : IPv4 [172.16.5.18]
+INFO : IPv6 []
+--END--
+
+
+# -----------------------------------------------------
+# Define a host lookup function.
+# https://askubuntu.com/questions/627906/why-is-my-etc-hosts-file-not-queried-when-nslookup-tries-to-resolve-an-address#comment1536517_627909
+#[user@trop03]
+
+    getipv4()
+        {
+        getent hosts "${1:?}" | cut -d ' ' -f 1
+        }
+
+
+#---------------------------------------------------------------------
+# Update the ssh keys for each node.
+# TODO Add this to a toolit script.
+#[user@trop03]
+
+    source "${HOME}/nodenames.txt"
+
+    for vmname in ${mmnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+
+            ssh-keygen \
+                -q -R \
+                    "${vmname:?}"
+
+            ssh-keyscan \
+                "${vmname:?}" \
+                >> "${HOME}/.ssh/known_hosts"
+
+            ssh-keyscan \
+                -t ecdsa $(getipv4 "${vmname:?}") \
+                >> "${HOME}/.ssh/known_hosts"
+
+        done
+
+--START--
+---- ----
+Node [Grerat]
+Host Grerat not found in /home/dmr/.ssh/known_hosts
+# Grerat:22 SSH-2.0-OpenSSH_7.9
+# Grerat:22 SSH-2.0-OpenSSH_7.9
+# Grerat:22 SSH-2.0-OpenSSH_7.9
+# 172.16.5.17:22 SSH-2.0-OpenSSH_7.9
+---- ----
+Node [Jeralenia]
+Host Jeralenia not found in /home/dmr/.ssh/known_hosts
+# Jeralenia:22 SSH-2.0-OpenSSH_7.9
+# Jeralenia:22 SSH-2.0-OpenSSH_7.9
+# Jeralenia:22 SSH-2.0-OpenSSH_7.9
+# 172.16.5.18:22 SSH-2.0-OpenSSH_7.9
+--END--
+
+
+# -----------------------------------------------------
+# Check we can login to each node.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+    source "${HOME}/ssh-options"
+
+    for vmname in ${mmnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    date
+                    hostname
+                    "
+        done
+
+--START--
+---- ----
+Node [Grerat]
+Wed 31 Jul 06:25:01 BST 2019
+Grerat
+---- ----
+Node [Jeralenia]
+Wed 31 Jul 06:25:01 BST 2019
+Jeralenia
+--END--
+
+
+# -----------------------------------------------------
+# Update the number of cores on our MirrorMaker nodes.
+#[user@trop03]
+
+    source "${HOME}/nodenames.txt"
+    source "${HOME}/libvirt.settings"
+
+    for vmname in ${mmnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname}]"
+            virsh \
+                --connect ${libvirtcon:?} \
+                    setvcpus \
+                    ${vmname:?} \
+                    2 \
+                    --maximum \
+                    --config
+        done
+
+--START--
+---- ----
+Node [Grerat]
+---- ----
+Node [Jeralenia]
+--END--
+
+
+# -----------------------------------------------------
+# Restart each of our MirrorMaker nodes.
+#[user@trop03]
+
+    source "${HOME}/nodenames.txt"
+    source "${HOME}/libvirt.settings"
+
+    for vmname in ${mmnames[@]}
+        do
+            virsh \
+                --connect ${libvirtcon:?} \
+                    shutdown \
+                    ${vmname:?}
+        done
+
+--START--
+Domain Grerat is being shutdown
+Domain Jeralenia is being shutdown
+--END--
+
+
+    sleep 30
+    for vmname in ${mmnames[@]}
+        do
+            virsh \
+                --connect ${libvirtcon:?} \
+                    start \
+                    ${vmname:?}
+        done
+
+--START--
+Domain Grerat started
+Domain Jeralenia started
+--END--
+
+
+# -----------------------------------------------------
+# Check the number of cores on our MirrorMaker nodes.
+#[user@trop03]
+
+    source "${HOME}/nodenames.txt"
+    source "${HOME}/libvirt.settings"
+
+    for vmname in ${mmnames[@]}
+        do
+            virsh \
+                --quiet \
+                --connect ${libvirtcon:?} \
+                    dumpxml \
+                        "${vmname}" \
+            | xmlstarlet \
+                select \
+                    --text \
+                    --template \
+                        --output "$(printf '%-10s' ${vmname})" \
+                        --value-of "domain/vcpu" \
+                        --nl
+        done
+
+--START--
+Grerat    2
+Jeralenia 2
+--END--
+
+
+# -----------------------------------------------------
+# Create our Kafka connection list.
+#[user@trop03]
+
+    source "${HOME}/nodenames.txt"
+
+    ztftopicid=ztf_$(date +%Y%m%d)_programid1
+    ztfconnect=public.alerts.ztf.uw.edu:9092
+
+    kafkanames=${kfnames[*]}
+    roeconnect=${kafkanames// /:9092,}:9092
+    roegroupid=ztf-mirror.roe.ac.uk
+
+cat << EOF
+ztftopicid [${ztftopicid:?}]
+ztfconnect [${ztfconnect:?}]
+roeconnect [${roeconnect:?}]
+roegroupid [${roegroupid:?}]
+EOF
+
+--START--
+ztftopicid [ztf_20190731_programid1]
+ztfconnect [public.alerts.ztf.uw.edu:9092]
+roeconnect [Stedigo:9092,Angece:9092,Edwalafia:9092,Onoza:9092]
+roegroupid [ztf-mirror.roe.ac.uk]
+--END--
+
+
+# -----------------------------------------------------
+# Create our compose YAML file.
+#[user@trop03]
+
+cat > /tmp/mirror.yml << 'EOYML'
+
+version: "3.2"
+
+services:
+
+    tina:
+        image:
+            phymatopus/kafka-core
+        volumes:
+            - ${HOME}/producer.config:/etc/mirror/producer.config
+            - ${HOME}/consumer.config:/etc/mirror/consumer.config
+        environment:
+                KAFKA_HEAP_OPTS: -Xmx1G
+        command: [
+             "bin/kafka-mirror-maker.sh",
+             "--num.streams",
+             "${numstreams}",
+             "--consumer.config",
+             "/etc/mirror/consumer.config",
+             "--producer.config",
+             "/etc/mirror/producer.config",
+             "--whitelist",
+             "${ztftopicid}"
+             ]
+EOYML
+
+# -----------------------------------------------------
+# Deploy our compose YAML file.
+#[user@trop03]
+
+    source "${HOME}/nodenames.txt"
+    source "${HOME}/libvirt.settings"
+
+    for vmname in ${mmnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname}]"
+            scp \
+                ${scpopts[*]} \
+                /tmp/mirror.yml \
+                ${sshuser:?}@${vmname:?}:mirror.yml
+        done
+
+--START--
+---- ----
+Node [Grerat]
+mirror.yml          100%  646   680.3KB/s   00:00
+---- ----
+Node [Jeralenia]
+mirror.yml          100%  646   977.9KB/s   00:00
+--END--
+
+
+# -----------------------------------------------------
+# Create our Kafka consumer.config file.
+#[user@trop03]
+
+cat > /tmp/consumer.config << EOCFG
+
+group.id=${roegroupid:?}
+bootstrap.servers=${ztfconnect:?}
+security.protocol=PLAINTEXT
+
+auto.offset.reset=earliest
+exclude.internal.topics=true
+
+#
+# From zads-terraform
+# https://github.com/dirac-institute/zads-terraform/blob/master/provisioning/broker/config/consumer.properties
+partition.assignment.strategy=org.apache.kafka.clients.consumer.RoundRobinAssignor
+session.timeout.ms=60000
+
+EOCFG
+
+# -----------------------------------------------------
+# Deploy our Kafka consumer.config file.
+#[user@trop03]
+
+    source "${HOME}/nodenames.txt"
+    source "${HOME}/ssh-options"
+
+    for vmname in ${mmnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname}]"
+            scp \
+                ${scpopts[*]} \
+                /tmp/consumer.config \
+                ${sshuser:?}@${vmname:?}:consumer.config
+        done
+
+--START--
+---- ----
+Node [Grerat]
+consumer.config     100%  409   330.7KB/s   00:00
+---- ----
+Node [Jeralenia]
+consumer.config     100%  409   459.3KB/s   00:00
+--END--
+
+
+# -----------------------------------------------------
+# Create our Kafka producer.config file.
+#[user@trop03]
+
+cat > /tmp/producer.config << EOCFG
+
+bootstrap.servers=${roeconnect:?}
+security.protocol=PLAINTEXT
+
+acks=all
+
+EOCFG
+
+# -----------------------------------------------------
+# Deploy our Kafka producer.config file.
+#[user@trop03]
+
+    source "${HOME}/nodenames.txt"
+    source "${HOME}/ssh-options"
+
+    for vmname in ${mmnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname}]"
+            scp \
+                ${scpopts[*]} \
+                /tmp/producer.config \
+                ${sshuser:?}@${vmname:?}:producer.config
+        done
+
+--START--
+---- ----
+Node [Grerat]
+producer.config     100%  109   130.2KB/s   00:00
+---- ----
+Node [Jeralenia]
+producer.config     100%  109   121.3KB/s   00:00
+--END--
+
+
+# -----------------------------------------------------
+# Create our compose ENV file.
+#[user@trop03]
+
+cat > /tmp/mirror.env << EOCFG
+
+numstreams=4
+ztftopicid=${ztftopicid:?}
+
+EOCFG
+
+# -----------------------------------------------------
+# Deploy our compose ENV file.
+#[user@trop03]
+
+    source "${HOME}/nodenames.txt"
+    source "${HOME}/ssh-options"
+
+    for vmname in ${mmnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname}]"
+            scp \
+                ${scpopts[*]} \
+                /tmp/mirror.env \
+                ${sshuser:?}@${vmname:?}:mirror.env
+
+            ssh \
+                ${scpopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                ln -sf mirror.env .env
+                "
+        done
+
+--START--
+---- ----
+Node [Grerat]
+mirror.env          100%   50    71.2KB/s   00:00
+---- ----
+Node [Jeralenia]
+mirror.env          100%   50    63.0KB/s   00:00
+--END--
+
+
+# -----------------------------------------------------
+# Check our deployed config files.
+#[user@trop03]
+
+    source "${HOME}/nodenames.txt"
+    source "${HOME}/ssh-options"
+
+    for vmname in ${mmnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname}]"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    date
+                    hostname
+                    ls -al .env
+                    echo '----'
+                    cat mirror.env
+                    echo '----'
+                    cat mirror.yml
+                    echo '----'
+                    cat consumer.config
+                    echo '----'
+                    cat producer.config
+                    "
+        done
+
+--START--
+---- ----
+Node [Grerat]
+Wed 31 Jul 06:29:42 BST 2019
+Grerat
+lrwxrwxrwx. 1 Stevedore Stevedore 10 Jul 31 06:29 .env -> mirror.env
+----
+
+numstreams=4
+ztftopicid=ztf_20190731_programid1
+
+----
+
+version: "3.2"
+
+services:
+
+    tina:
+        image:
+            phymatopus/kafka-core
+        volumes:
+            - ${HOME}/producer.config:/etc/mirror/producer.config
+            - ${HOME}/consumer.config:/etc/mirror/consumer.config
+        environment:
+                KAFKA_HEAP_OPTS: -Xmx1G
+        command: [
+             "bin/kafka-mirror-maker.sh",
+             "--num.streams",
+             "${numstreams}",
+             "--consumer.config",
+             "/etc/mirror/consumer.config",
+             "--producer.config",
+             "/etc/mirror/producer.config",
+             "--whitelist",
+             "${ztftopicid}"
+             ]
+----
+
+group.id=ztf-mirror.roe.ac.uk
+bootstrap.servers=public.alerts.ztf.uw.edu:9092
+security.protocol=PLAINTEXT
+
+auto.offset.reset=earliest
+exclude.internal.topics=true
+
+#
+# From zads-terraform
+# https://github.com/dirac-institute/zads-terraform/blob/master/provisioning/broker/config/consumer.properties
+partition.assignment.strategy=org.apache.kafka.clients.consumer.RoundRobinAssignor
+session.timeout.ms=60000
+
+----
+
+bootstrap.servers=Stedigo:9092,Angece:9092,Edwalafia:9092,Onoza:9092
+security.protocol=PLAINTEXT
+
+acks=all
+
+---- ----
+Node [Jeralenia]
+Wed 31 Jul 06:29:43 BST 2019
+Jeralenia
+lrwxrwxrwx. 1 Stevedore Stevedore 10 Jul 31 06:29 .env -> mirror.env
+----
+
+numstreams=4
+ztftopicid=ztf_20190731_programid1
+
+----
+
+version: "3.2"
+
+services:
+
+    tina:
+        image:
+            phymatopus/kafka-core
+        volumes:
+            - ${HOME}/producer.config:/etc/mirror/producer.config
+            - ${HOME}/consumer.config:/etc/mirror/consumer.config
+        environment:
+                KAFKA_HEAP_OPTS: -Xmx1G
+        command: [
+             "bin/kafka-mirror-maker.sh",
+             "--num.streams",
+             "${numstreams}",
+             "--consumer.config",
+             "/etc/mirror/consumer.config",
+             "--producer.config",
+             "/etc/mirror/producer.config",
+             "--whitelist",
+             "${ztftopicid}"
+             ]
+----
+
+group.id=ztf-mirror.roe.ac.uk
+bootstrap.servers=public.alerts.ztf.uw.edu:9092
+security.protocol=PLAINTEXT
+
+auto.offset.reset=earliest
+exclude.internal.topics=true
+
+#
+# From zads-terraform
+# https://github.com/dirac-institute/zads-terraform/blob/master/provisioning/broker/config/consumer.properties
+partition.assignment.strategy=org.apache.kafka.clients.consumer.RoundRobinAssignor
+session.timeout.ms=60000
+
+----
+
+bootstrap.servers=Stedigo:9092,Angece:9092,Edwalafia:9092,Onoza:9092
+security.protocol=PLAINTEXT
+
+acks=all
+--END--
+
+
+# -----------------------------------------------------
+# Update the topic and start MirrorMaker on each node.
+#[user@trop03]
+
+    source "${HOME}/ssh-options"
+    source "${HOME}/nodenames.txt"
+
+    ztftopicid=ztf_$(date -d today +%Y%m%d)_programid1
+
+    ztftopicid=ztf_20190724_programid1
+    ztftopicid=ztf_20190725_programid1
+
+    settopic()
+        {
+        local topicid=${1:?}
+        echo "---- ----"
+        echo "Topic [${topicid}]"
+
+        for vmname in ${mmnames[@]}
+            do
+                echo "---- ----"
+                echo "Node [${vmname}]"
+                ssh \
+                    ${scpopts[*]} \
+                    ${sshuser:?}@${vmname:?} \
+                    "
+                    docker-compose \
+                        --file mirror.yml \
+                        down
+                    sed -i \"
+                        s/^ztftopicid=.*/ztftopicid=${topicid:?}/
+                        \" mirror.env
+                    docker-compose \
+                        --file mirror.yml \
+                        up -d
+                    "
+            done
+        }
+
+    settopic ztf_20190726_programid1
+
+
+--START--
+---- ----
+Node [Grerat]
+Removing network stevedore_default
+Network stevedore_default not found.
+Creating network "stevedore_default" with the default driver
+Pulling tina (phymatopus/kafka-core:)...
+latest: Pulling from phymatopus/kafka-core
+Digest: sha256:998482164d8991aa867730ec2b0d7b0c062311687964d53d255c7857621f28f1
+Status: Downloaded newer image for phymatopus/kafka-core:latest
+Creating stevedore_tina_1 ... done
+---- ----
+Node [Jeralenia]
+Removing network stevedore_default
+Network stevedore_default not found.
+Creating network "stevedore_default" with the default driver
+Pulling tina (phymatopus/kafka-core:)...
+latest: Pulling from phymatopus/kafka-core
+Digest: sha256:998482164d8991aa867730ec2b0d7b0c062311687964d53d255c7857621f28f1
+Status: Downloaded newer image for phymatopus/kafka-core:latest
+Creating stevedore_tina_1 ... done
+--END--
+
+
+# -----------------------------------------------------
+# Check our client offsets in the ZTF broker.
+#[user@trop03]
+
+    source "${HOME}/ssh-options"
+    source "${HOME}/nodenames.txt"
+
+    ztfconnect=public.alerts.ztf.uw.edu:9092
+    roegroupid=ztf-mirror.roe.ac.uk
+
+    offsetcheck()
+        {
+        date ; \
+        ssh \
+            ${sshopts[*]} \
+            ${sshuser:?}@${mmnames[0]:?} \
+            "
+            docker run --rm phymatopus/kafka-core \
+                bin/kafka-consumer-groups.sh \
+                    --bootstrap-server "${ztfconnect:?}" \
+                    --describe \
+                    --group "${roegroupid:?}"
+             " \
+        | sort \
+        ; date
+        }
+
+    offsetcheck
+
+--START--
+Wed 31 Jul 06:34:16 BST 2019
+Note: This will not show information about old Zookeeper-based consumers.
+
+TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                 HOST            CLIENT-ID
+ztf_20190724_programid1 0          276             11287           11011           ztf-mirror.roe.ac.uk-0-518985f8-9c37-4e26-8c41-7bdab9f30aca /192.41.108.44  ztf-mirror.roe.ac.uk-0
+ztf_20190724_programid1 10         301             11287           10986           ztf-mirror.roe.ac.uk-1-673776d6-e546-442e-94ba-4c26ff4c66b0 /192.41.108.44  ztf-mirror.roe.ac.uk-1
+ztf_20190724_programid1 11         127             11286           11159           ztf-mirror.roe.ac.uk-1-d462a444-1d47-47d8-b540-908307389849 /192.41.108.44  ztf-mirror.roe.ac.uk-1
+ztf_20190724_programid1 1          127             11287           11160           ztf-mirror.roe.ac.uk-0-6eed3609-564f-466a-a868-b044c8a3e24b /192.41.108.44  ztf-mirror.roe.ac.uk-0
+ztf_20190724_programid1 12         257             11288           11031           ztf-mirror.roe.ac.uk-2-6157a5bc-de8d-43f3-92d3-165f45f526cd /192.41.108.44  ztf-mirror.roe.ac.uk-2
+ztf_20190724_programid1 13         106             11287           11181           ztf-mirror.roe.ac.uk-2-d69b3c72-d331-4a6b-94da-981422003650 /192.41.108.44  ztf-mirror.roe.ac.uk-2
+ztf_20190724_programid1 2          298             11287           10989           ztf-mirror.roe.ac.uk-1-673776d6-e546-442e-94ba-4c26ff4c66b0 /192.41.108.44  ztf-mirror.roe.ac.uk-1
+ztf_20190724_programid1 3          127             11288           11161           ztf-mirror.roe.ac.uk-1-d462a444-1d47-47d8-b540-908307389849 /192.41.108.44  ztf-mirror.roe.ac.uk-1
+ztf_20190724_programid1 4          256             11287           11031           ztf-mirror.roe.ac.uk-2-6157a5bc-de8d-43f3-92d3-165f45f526cd /192.41.108.44  ztf-mirror.roe.ac.uk-2
+ztf_20190724_programid1 5          106             11287           11181           ztf-mirror.roe.ac.uk-2-d69b3c72-d331-4a6b-94da-981422003650 /192.41.108.44  ztf-mirror.roe.ac.uk-2
+ztf_20190724_programid1 6          509             11288           10779           ztf-mirror.roe.ac.uk-3-952382c6-e8bd-4d64-8e5a-ac974463cb64 /192.41.108.44  ztf-mirror.roe.ac.uk-3
+ztf_20190724_programid1 7          256             11287           11031           ztf-mirror.roe.ac.uk-3-fbf700db-bb6d-4e72-a12e-767fc3ef998d /192.41.108.44  ztf-mirror.roe.ac.uk-3
+ztf_20190724_programid1 8          280             11287           11007           ztf-mirror.roe.ac.uk-0-518985f8-9c37-4e26-8c41-7bdab9f30aca /192.41.108.44  ztf-mirror.roe.ac.uk-0
+ztf_20190724_programid1 9          128             11288           11160           ztf-mirror.roe.ac.uk-0-6eed3609-564f-466a-a868-b044c8a3e24b /192.41.108.44  ztf-mirror.roe.ac.uk-0
+Wed 31 Jul 06:34:25 BST 2019
+--END--
+
+
+    offsetcheck
+
+--START--
+Wed 31 Jul 06:35:30 BST 2019
+Note: This will not show information about old Zookeeper-based consumers.
+
+TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                 HOST            CLIENT-ID
+ztf_20190724_programid1 0          528             11287           10759           ztf-mirror.roe.ac.uk-0-518985f8-9c37-4e26-8c41-7bdab9f30aca /192.41.108.44  ztf-mirror.roe.ac.uk-0
+ztf_20190724_programid1 10         553             11287           10734           ztf-mirror.roe.ac.uk-1-673776d6-e546-442e-94ba-4c26ff4c66b0 /192.41.108.44  ztf-mirror.roe.ac.uk-1
+ztf_20190724_programid1 11         382             11286           10904           ztf-mirror.roe.ac.uk-1-d462a444-1d47-47d8-b540-908307389849 /192.41.108.44  ztf-mirror.roe.ac.uk-1
+ztf_20190724_programid1 12         513             11288           10775           ztf-mirror.roe.ac.uk-2-6157a5bc-de8d-43f3-92d3-165f45f526cd /192.41.108.44  ztf-mirror.roe.ac.uk-2
+ztf_20190724_programid1 13         360             11287           10927           ztf-mirror.roe.ac.uk-2-d69b3c72-d331-4a6b-94da-981422003650 /192.41.108.44  ztf-mirror.roe.ac.uk-2
+ztf_20190724_programid1 1          381             11287           10906           ztf-mirror.roe.ac.uk-0-6eed3609-564f-466a-a868-b044c8a3e24b /192.41.108.44  ztf-mirror.roe.ac.uk-0
+ztf_20190724_programid1 2          551             11287           10736           ztf-mirror.roe.ac.uk-1-673776d6-e546-442e-94ba-4c26ff4c66b0 /192.41.108.44  ztf-mirror.roe.ac.uk-1
+ztf_20190724_programid1 3          383             11288           10905           ztf-mirror.roe.ac.uk-1-d462a444-1d47-47d8-b540-908307389849 /192.41.108.44  ztf-mirror.roe.ac.uk-1
+ztf_20190724_programid1 4          509             11287           10778           ztf-mirror.roe.ac.uk-2-6157a5bc-de8d-43f3-92d3-165f45f526cd /192.41.108.44  ztf-mirror.roe.ac.uk-2
+ztf_20190724_programid1 5          363             11287           10924           ztf-mirror.roe.ac.uk-2-d69b3c72-d331-4a6b-94da-981422003650 /192.41.108.44  ztf-mirror.roe.ac.uk-2
+ztf_20190724_programid1 6          997             11288           10291           ztf-mirror.roe.ac.uk-3-952382c6-e8bd-4d64-8e5a-ac974463cb64 /192.41.108.44  ztf-mirror.roe.ac.uk-3
+ztf_20190724_programid1 7          740             11287           10547           ztf-mirror.roe.ac.uk-3-fbf700db-bb6d-4e72-a12e-767fc3ef998d /192.41.108.44  ztf-mirror.roe.ac.uk-3
+ztf_20190724_programid1 8          532             11287           10755           ztf-mirror.roe.ac.uk-0-518985f8-9c37-4e26-8c41-7bdab9f30aca /192.41.108.44  ztf-mirror.roe.ac.uk-0
+ztf_20190724_programid1 9          383             11288           10905           ztf-mirror.roe.ac.uk-0-6eed3609-564f-466a-a868-b044c8a3e24b /192.41.108.44  ztf-mirror.roe.ac.uk-0
+Wed 31 Jul 06:35:39 BST 2019
+--END--
+
+    offsetcheck
+
+--START--
+--END--
+
+
+    offsetcheck
+
+--START--
+--END--
+
+
+    offsetcheck
+
+--START--
+--END--
+
+
+    offsetcheck
+
+--START--
+--END--
+
+
+    offsetcheck
+
+--START--
+--END--
+
+# -----------------------------------------------------
+# Check the disc space on each node.
+#[user@trop03]
+
+    source "${HOME}/nodenames.txt"
+    source "${HOME}/ssh-options"
+
+    spacecheck()
+        {
+        for vmname in ${kfnames[@]}
+            do
+                echo "---- ----"
+                ssh \
+                    ${sshopts[*]} \
+                    ${sshuser:?}@${vmname:?} \
+                        "
+                        hostname
+                        date
+                        du -h -d 0 /data*
+                        "
+            done
+        }
+
+    spacecheck
+
+--START--
+---- ----
+Stedigo
+Wed 31 Jul 10:15:49 BST 2019
+8.7G	/data1-01
+16K	/data2-01
+---- ----
+Angece
+Wed 31 Jul 10:15:49 BST 2019
+16K	/data1-01
+8.7G	/data2-01
+---- ----
+Edwalafia
+Wed 31 Jul 10:15:50 BST 2019
+8.7G	/data1-01
+16K	/data2-01
+---- ----
+Onoza
+Wed 31 Jul 10:15:50 BST 2019
+16K	/data1-01
+8.7G	/data2-01
+--END--
+
+
+    spacecheck
+
+--START--
+--END--
+
+    spacecheck
+
+--START--
+--END--
+
+
+
+
+
