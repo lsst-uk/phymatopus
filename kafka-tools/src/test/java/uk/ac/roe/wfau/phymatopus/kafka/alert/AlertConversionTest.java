@@ -26,9 +26,9 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 import lombok.extern.slf4j.Slf4j;
+import uk.ac.roe.wfau.phymatopus.kafka.KafkaReaderTestBase;
 import uk.ac.roe.wfau.phymatopus.kafka.alert.lsst.LsstAlertWriter;
 import uk.ac.roe.wfau.phymatopus.kafka.alert.ztf.ZtfAlertReader;
-import uk.ac.roe.wfau.phymatopus.kafka.tools.KafkaReaderTestBase;
 
 /**
  *

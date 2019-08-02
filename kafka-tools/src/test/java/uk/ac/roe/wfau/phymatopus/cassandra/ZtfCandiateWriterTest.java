@@ -16,58 +16,68 @@
  *
  */
 
-package uk.ac.roe.wfau.phymatopus.kafka.tools;
+package uk.ac.roe.wfau.phymatopus.cassandra;
 
-import org.junit.After;
-import org.junit.Before;
+import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 import lombok.extern.slf4j.Slf4j;
+import uk.ac.roe.wfau.phymatopus.cassandra.AbstractCassandraWriter;
+import uk.ac.roe.wfau.phymatopus.cassandra.CandiateWriter;
+import uk.ac.roe.wfau.phymatopus.kafka.alert.AlertReader;
+import uk.ac.roe.wfau.phymatopus.kafka.alert.ztf.ZtfAlertReader;
 
 /**
- * 
- * 
+ *
+ *
  */
 @Slf4j
 @RunWith(
-    SpringJUnit4ClassRunner.class
-    )
+        SpringJUnit4ClassRunner.class
+        )
 @ContextConfiguration(
     locations = {
         "classpath:component-config.xml"
         }
     )
-public class KafkaTestBase
+public class ZtfCandiateWriterTest
+extends CassandraWriterTestBase
     {
-
     /**
+     * Public constructor.
      * 
      */
-    public KafkaTestBase()
+    public ZtfCandiateWriterTest()
         {
+        super();
         }
 
-    /**
-     * 
-     * 
-     */
-    @Before
-    public void before()
+    @Override
+    protected AlertReader.CallableAlertReader reader()
         {
-        log.debug("Before test ..");
+        return ZtfAlertReader.callable(
+            this.processor(),
+            this.configuration()
+            );
         }
 
-    /**
-     * 
-     * 
-     */
-    @After
-    public void after()
+    @Override
+    public AbstractCassandraWriter writer()
         {
-        log.debug("After test ..");
+        return new CandiateWriter(
+            this.hostname(),
+            this.dcname()
+            );
         }
-
+    
+    @Test
+    @Override
+    public void testThreads()
+    throws Exception
+        {
+        super.testThreads();
+        }
     }
+

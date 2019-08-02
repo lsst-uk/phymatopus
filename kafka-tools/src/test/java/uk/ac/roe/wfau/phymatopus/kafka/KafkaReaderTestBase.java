@@ -16,7 +16,7 @@
  *
  */
 
-package uk.ac.roe.wfau.phymatopus.kafka.tools;
+package uk.ac.roe.wfau.phymatopus.kafka;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -115,7 +115,7 @@ public abstract class KafkaReaderTestBase
      * Create a new reader configuration.
      * 
      */
-    public ZtfAlertReader.Configuration configuration()
+    public BaseReader.Configuration configuration()
         {
         return new ZtfAlertReader.ConfigurationBean(
             this.looplimit(),

@@ -27,7 +27,7 @@ import uk.ac.roe.wfau.phymatopus.kafka.alert.AlertCandidate;
  * Simple writer for the candidates table.
  *
  */
-public class ZtfCandiateWriter
+public class CandiateWriter
 extends AbstractCassandraWriter
     {
     
@@ -35,7 +35,7 @@ extends AbstractCassandraWriter
      * Public constructor. 
      * 
      */
-    public ZtfCandiateWriter(final String hostname, final String dcname)
+    public CandiateWriter(final String hostname, final String dcname)
         {
         super(
             hostname,
@@ -51,7 +51,7 @@ extends AbstractCassandraWriter
         if (this.insert == null)
             {
             this.insert = this.session().prepare(
-                "INSERT INTO ztftest.simple_candidates ("
+                "INSERT INTO ztftest.candidates ("
                     + "candid,"
                     + "objectid,"
                     + "topic,"

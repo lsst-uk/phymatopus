@@ -16,7 +16,7 @@
  *
  */
 
-package uk.ac.roe.wfau.phymatopus.kafka.tools;
+package uk.ac.roe.wfau.phymatopus.kafka;
 
 import java.time.Duration;
 

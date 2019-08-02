@@ -24,10 +24,10 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 import lombok.extern.slf4j.Slf4j;
+import uk.ac.roe.wfau.phymatopus.kafka.KafkaReaderTestBase;
 import uk.ac.roe.wfau.phymatopus.kafka.alert.AlertProcessor;
 import uk.ac.roe.wfau.phymatopus.kafka.alert.AlertReader;
 import uk.ac.roe.wfau.phymatopus.kafka.alert.BaseAlert;
-import uk.ac.roe.wfau.phymatopus.kafka.tools.KafkaReaderTestBase;
 
 @Slf4j
 @RunWith(

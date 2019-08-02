@@ -31,14 +31,14 @@ import uk.ac.roe.wfau.phymatopus.kafka.alert.BaseCandidate;
  *
  */
 @Slf4j
-public class ZtfObjectWriter
+public class ObjectUpdator
 extends AbstractCassandraWriter
     {
     /**
      * Public constructor. 
      * 
      */
-    public ZtfObjectWriter(final String hostname, final String dcname)
+    public ObjectUpdator(final String hostname, final String dcname)
         {
         super(
             hostname,
@@ -58,14 +58,14 @@ extends AbstractCassandraWriter
         if (null == this.select)
             {
             this.select = this.session().prepare(
-                "SELECT objectid FROM ztftest.simple_objects WHERE objectid = ?"
+                "SELECT objectid FROM ztftest.objects WHERE objectid = ?"
                 );
             }
 
         if (null == this.insert)
             {
             this.insert = this.session().prepare(
-                "INSERT INTO ztftest.simple_objects () VALUES ()"
+                "INSERT INTO ztftest.objects () VALUES ()"
                 );
             }
          * 
@@ -75,7 +75,7 @@ extends AbstractCassandraWriter
             {
             this.update = this.session().prepare(
                 "UPDATE "
-                    + "ztftest.simple_objects "
+                    + "ztftest.objects "
                 + "SET "
                     + "ncand       = :ncand, "
                     + "stale       = :stale, "

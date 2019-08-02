@@ -16,7 +16,7 @@
  *
  */
 
-package uk.ac.roe.wfau.phymatopus.kafka.cassandra;
+package uk.ac.roe.wfau.phymatopus.cassandra;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -25,7 +25,7 @@ import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 import lombok.extern.slf4j.Slf4j;
 import uk.ac.roe.wfau.phymatopus.cassandra.AbstractCassandraWriter;
-import uk.ac.roe.wfau.phymatopus.cassandra.ZtfCandiateWriter;
+import uk.ac.roe.wfau.phymatopus.cassandra.ObjectUpdator;
 import uk.ac.roe.wfau.phymatopus.kafka.alert.AlertReader;
 import uk.ac.roe.wfau.phymatopus.kafka.alert.ztf.ZtfAlertReader;
 
@@ -42,14 +42,15 @@ import uk.ac.roe.wfau.phymatopus.kafka.alert.ztf.ZtfAlertReader;
         "classpath:component-config.xml"
         }
     )
-public class ZtfCandiateWriterTest
+public class ObjectUpdatorTest
 extends CassandraWriterTestBase
     {
+
     /**
      * Public constructor.
      * 
      */
-    public ZtfCandiateWriterTest()
+    public ObjectUpdatorTest()
         {
         super();
         }
@@ -66,7 +67,7 @@ extends CassandraWriterTestBase
     @Override
     public AbstractCassandraWriter writer()
         {
-        return new ZtfCandiateWriter(
+        return new ObjectUpdator(
             this.hostname(),
             this.dcname()
             );

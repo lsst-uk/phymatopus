@@ -16,7 +16,7 @@
  *
  */
 
-package uk.ac.roe.wfau.phymatopus.kafka.tools;
+package uk.ac.roe.wfau.phymatopus.kafka.alert;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -35,8 +35,7 @@ import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.TopicPartition;
 
 import lombok.extern.slf4j.Slf4j;
-import uk.ac.roe.wfau.phymatopus.kafka.alert.AlertProcessor;
-import uk.ac.roe.wfau.phymatopus.kafka.alert.AlertReader;
+import uk.ac.roe.wfau.phymatopus.kafka.BaseReader;
 
 /**
  * Reads a series on alerts from a stream and stops when the loop timeout or limit is reached.

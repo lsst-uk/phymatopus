@@ -39,7 +39,7 @@ import lombok.extern.slf4j.Slf4j;
 import uk.ac.roe.wfau.phymatopus.kafka.alert.AlertProcessor;
 import uk.ac.roe.wfau.phymatopus.kafka.alert.AlertReader;
 import uk.ac.roe.wfau.phymatopus.kafka.alert.BaseAlert;
-import uk.ac.roe.wfau.phymatopus.kafka.tools.GenericAlertReader;
+import uk.ac.roe.wfau.phymatopus.kafka.alert.GenericAlertReader;
 import ztf.alert;
 
 
