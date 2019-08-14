@@ -1,0 +1,1318 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+    trop04
+    Compose deployment of Cassandra.
+    Similar structure to Kafka deployment.
+    Virtual machines + additional volumes.
+
+    4x4=16 cores
+
+    trop03
+    Live deployment of Kafka - done
+
+
+    trop0x
+    Standalone instance of KafkaConnect.
+
+    Use KafkaConnect without Confluent Schema Registry
+    https://stackoverflow.com/questions/52333230/use-kafkaconnect-without-confluent-schema-registry
+    https://stackoverflow.com/a/52342547
+    https://github.com/farmdawgnation/registryless-avro-converter
+
+        key.converter=me.frmr.kafka.connect.RegistrylessAvroConverter
+        key.converter.schema.path=/path/to/schema/file.avsc
+        value.converter=me.frmr.kafka.connect.RegistrylessAvroConverter
+        value.converter.schema.path=/path/to/schema/file.avsc
+
+    Docker images for Cassandra
+
+        https://hub.docker.com/_/cassandra/
+        https://github.com/docker-library/cassandra
+
+
+    Cassandra data directories
+
+        https://stackoverflow.com/questions/9631591/apache-cassandra-data-storage-on-disk
+        https://stackoverflow.com/a/9633671
+
+
+# -----------------------------------------------------
+# Our Cassandra nodes.
+#[user@trop04]
+
+    canames=(
+        Astendawen
+        Nendalith
+        Saelia
+        Adwaeric
+        )
+
+# -----------------------------------------------------
+# Our Kafka nodes.
+#[user@trop04]
+
+    kfnames=(
+        Stedigo
+        Angece
+        Edwalafia
+        Onoza
+        )
+
+# -----------------------------------------------------
+# Our Zookeeper nodes.
+#[user@trop04]
+
+    zknames=(
+        Fosauri
+        Marpus
+        Byflame
+        )
+
+# -----------------------------------------------------
+# Our MirrorMaker nodes.
+#[user@trop04]
+
+    mmnames=(
+        Moemond
+        Iberidia
+        )
+
+
+# -----------------------------------------------------
+# Disable swap.
+# https://community.axway.com/s/question/0D52X00005iS6gZSAS/what-does-this-cassandra-error-mean
+#[user@trop04]
+
+    for vmname in ${canames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+
+            ssh \
+                ${scpopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                sudo \
+                    sed -i '
+                        /swap/ {
+                            s/^\(.*\)$/#\1/
+                            }
+                    ' /etc/fstab
+                "
+        done
+
+
+# -----------------------------------------------------
+# Increase the file and process limits.
+# https://community.axway.com/s/question/0D52X00005iS6gZSAS/what-does-this-cassandra-error-mean
+# https://docs.datastax.com/en/archived/cassandra/2.0/cassandra/install/installRecommendSettings.html#reference_ds_sxl_gf3_2k__user-resource-limits
+# https://linux.die.net/man/5/limits.conf
+#[user@trop04]
+
+    for vmname in ${canames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+
+            ssh \
+                ${scpopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                sudo tee -a /etc/security/limits.d/cassandra.conf << EOF
+cassandra - memlock unlimited
+cassandra - nofile 100000
+cassandra - nproc 32768
+cassandra - as unlimited
+EOF
+
+                sudo tee -a /etc/security/limits.d/90-nproc.conf << EOF
+* - nproc 32768
+EOF
+
+                sudo tee -a /etc/sysctl.d/cassandra.conf << EOF
+vm.max_map_count = 1048575
+EOF
+                "
+        done
+
+    >   ---- ----
+    >   Node [Astendawen]
+    >   cassandra - memlock unlimited
+    >   cassandra - nofile 100000
+    >   cassandra - nproc 32768
+    >   cassandra - as unlimited
+    >   * - nproc 32768
+    >   vm.max_map_count = 1048575
+    >   ---- ----
+    >   Node [Nendalith]
+    >   cassandra - memlock unlimited
+    >   cassandra - nofile 100000
+    >   cassandra - nproc 32768
+    >   cassandra - as unlimited
+    >   * - nproc 32768
+    >   vm.max_map_count = 1048575
+    >   ---- ----
+    >   Node [Saelia]
+    >   cassandra - memlock unlimited
+    >   cassandra - nofile 100000
+    >   cassandra - nproc 32768
+    >   cassandra - as unlimited
+    >   * - nproc 32768
+    >   vm.max_map_count = 1048575
+    >   ---- ----
+    >   Node [Adwaeric]
+    >   cassandra - memlock unlimited
+    >   cassandra - nofile 100000
+    >   cassandra - nproc 32768
+    >   cassandra - as unlimited
+    >   * - nproc 32768
+    >   vm.max_map_count = 1048575
+
+
+# -----------------------------------------------------
+# Shutdown and restart each of our nodes.
+#[user@trop04]
+
+    source "${HOME}/libvirt.settings"
+
+    for vmname in ${canames[@]}
+        do
+            virsh \
+                --connect ${connection:?} \
+                    shutdown \
+                    ${vmname:?}
+        done
+
+    sleep 30
+
+    for vmname in ${canames[@]}
+        do
+            virsh \
+                --connect ${connection:?} \
+                    start \
+                    ${vmname:?}
+        done
+
+    >   Domain Astendawen is being shutdown
+    >   Domain Nendalith is being shutdown
+    >   Domain Saelia is being shutdown
+    >   Domain Adwaeric is being shutdown
+
+    >   Domain Astendawen started
+    >   Domain Nendalith started
+    >   Domain Saelia started
+    >   Domain Adwaeric started
+
+
+# -----------------------------------------------------
+# Create our compose YAML file.
+# https://docs.datastax.com/en/cassandra/3.0/cassandra/configuration/secureFireWall.html
+#[user@trop04]
+
+# TODO
+# https://stackoverflow.com/questions/40443617/init-script-for-cassandra-with-docker-compose
+
+cat > /tmp/cassandra.yml << 'EOYML'
+
+version: "3.2"
+
+services:
+
+    ursula:
+        image:
+            cassandra:3.11.3
+        ports:
+            - "7000:7000"
+            - "7001:7001"
+            - "7199:7199"
+            - "9042:9042"
+            - "9160:9160"
+        environment:
+            - CASSANDRA_BROADCAST_ADDRESS=${CASSANDRA_HOSTNAME}
+            - CASSANDRA_SEEDS=${CASSANDRA_SEEDS}
+        volumes:
+            - type:   "bind"
+              source: "/data1-01"
+              target: "/var/lib/cassandra"
+            - type:   "bind"
+              source: "/data2-01"
+              target: "/data2-01"
+
+EOYML
+
+
+# -----------------------------------------------------
+# Deploy our compose YAML file.
+#[user@trop04]
+
+    for vmname in ${canames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            scp \
+                ${scpopts[*]} \
+                /tmp/cassandra.yml \
+                ${sshuser:?}@${vmname:?}:cassandra.yml
+        done
+
+    >   ---- ----
+    >   Node [Astendawen]
+    >   cassandra.yml   100%  653     0.6KB/s   00:00
+    >   ---- ----
+    >   Node [Nendalith]
+    >   cassandra.yml   100%  653     0.6KB/s   00:00
+    >   ---- ----
+    >   Node [Saelia]
+    >   cassandra.yml   100%  653     0.6KB/s   00:00
+    >   ---- ----
+    >   Node [Adwaeric]
+    >   cassandra.yml   100%  653     0.6KB/s   00:00
+
+# -----------------------------------------------------
+# Deploy our compose ENV file.
+#[user@trop04]
+
+    seedlist=${canames[@]}
+    seedlist=${seedlist// /,}
+
+    seedname=${canames[0]}
+
+
+    for vmname in ${canames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+
+            ssh \
+                ${scpopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+cat > cassandra.env << EOF
+CASSANDRA_HOSTNAME=${vmname}
+CASSANDRA_SEEDS=${seedname}
+EOF
+
+ln -sf cassandra.env .env
+                "
+        done
+
+    >   ---- ----
+    >   Node [Astendawen]
+    >   ---- ----
+    >   Node [Nendalith]
+    >   ---- ----
+    >   Node [Saelia]
+    >   ---- ----
+    >   Node [Adwaeric]
+
+
+# -----------------------------------------------------
+# Check our compose ENV file.
+#[user@trop04]
+
+    for vmname in ${canames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    date
+                    hostname
+                    cat .env
+                    "
+        done
+
+    >   ---- ----
+    >   Node [Astendawen]
+    >   Wed 23 Jan 23:57:39 GMT 2019
+    >   Astendawen
+    >   CASSANDRA_HOSTNAME=Astendawen
+    >   CASSANDRA_SEEDS=Astendawen
+    >   ---- ----
+    >   Node [Nendalith]
+    >   Wed 23 Jan 23:57:40 GMT 2019
+    >   Nendalith
+    >   CASSANDRA_HOSTNAME=Nendalith
+    >   CASSANDRA_SEEDS=Astendawen
+    >   ---- ----
+    >   Node [Saelia]
+    >   Wed 23 Jan 23:57:41 GMT 2019
+    >   Saelia
+    >   CASSANDRA_HOSTNAME=Saelia
+    >   CASSANDRA_SEEDS=Astendawen
+    >   ---- ----
+    >   Node [Adwaeric]
+    >   Wed 23 Jan 23:57:41 GMT 2019
+    >   Adwaeric
+    >   CASSANDRA_HOSTNAME=Adwaeric
+    >   CASSANDRA_SEEDS=Astendawen
+
+
+# -----------------------------------------------------
+# Start Cassandra on each node.
+#[user@trop04]
+
+    for vmname in ${canames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            ssh \
+                ${scpopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                date
+                hostname
+
+                docker-compose \
+                    --file cassandra.yml \
+                    up -d
+                "
+        done
+
+    >   ---- ----
+    >   Node [Astendawen]
+    >   Wed 23 Jan 23:58:06 GMT 2019
+    >   Astendawen
+    >   Creating network "stevedore_default" with the default driver
+    >   Creating stevedore_ursula_1 ... done
+    >   ---- ----
+    >   Node [Nendalith]
+    >   Wed 23 Jan 23:58:09 GMT 2019
+    >   Nendalith
+    >   Creating network "stevedore_default" with the default driver
+    >   Creating stevedore_ursula_1 ... done
+    >   ---- ----
+    >   Node [Saelia]
+    >   Wed 23 Jan 23:58:12 GMT 2019
+    >   Saelia
+    >   Creating network "stevedore_default" with the default driver
+    >   Creating stevedore_ursula_1 ... done
+    >   ---- ----
+    >   Node [Adwaeric]
+    >   Wed 23 Jan 23:58:15 GMT 2019
+    >   Adwaeric
+    >   Creating network "stevedore_default" with the default driver
+    >   Creating stevedore_ursula_1 ... done
+
+
+...
+...
+...
+
+# -----------------------------------------------------
+# Shutdown Cassandra on each node.
+#[user@trop04]
+
+
+    canames=(
+        Astendawen
+        Nendalith
+        Saelia
+        Adwaeric
+        )
+
+    for vmname in ${canames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            ssh \
+                ${scpopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                date
+                hostname
+
+                docker-compose \
+                    --file cassandra.yml \
+                    down
+                "
+        done
+
+
+                sleep 20
+
+                docker-compose \
+                    --file cassandra.yml \
+                    up -d
+
+                "
+        done
+
+
+
+
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+# Tail the logs on each node.
+# https://www.systutorials.com/docs/linux/man/1-gnome-terminal/
+# https://www.systutorials.com/docs/linux/man/7-X/#lbAH
+#[user@desktop]
+
+    mate-terminal \
+        --geometry '160x10+25+25' \
+        --command '
+            ssh -t Astendawen "
+                docker logs -f stevedore_ursula_1
+                ${SHELL}
+                "
+            '
+    sleep 1
+
+    mate-terminal \
+        --geometry '160x10+125+125' \
+        --command '
+            ssh -t Nendalith "
+                docker logs -f stevedore_ursula_1
+                ${SHELL}
+                "
+            '
+    sleep 1
+
+    mate-terminal \
+        --geometry '160x10+225+225' \
+        --command '
+            ssh -t Saelia "
+                docker logs -f stevedore_ursula_1
+                ${SHELL}
+                "
+            '
+    sleep 1
+
+    mate-terminal \
+        --geometry '160x10+325+325' \
+        --command '
+            ssh -t Adwaeric "
+                docker logs -f stevedore_ursula_1
+                ${SHELL}
+                "
+            '
+
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+# Attempt #1
+
+    >   INFO  [main] 2019-01-23 19:07:39,356 DatabaseDescriptor.java:367 - DiskAccessMode 'auto' determined to be mmap, indexAccessMode is mmap
+    >   INFO  [main] 2019-01-23 19:07:39,356 DatabaseDescriptor.java:425 - Global memtable on-heap threshold is enabled at 249MB
+    >   INFO  [main] 2019-01-23 19:07:39,357 DatabaseDescriptor.java:429 - Global memtable off-heap threshold is enabled at 249MB
+    >   INFO  [main] 2019-01-23 19:07:39,583 RateBasedBackPressure.java:123 - Initialized back-pressure with high ratio: 0.9, factor: 5, flow: FAST, window size: 2000.
+    >   INFO  [main] 2019-01-23 19:07:39,583 DatabaseDescriptor.java:729 - Back-pressure is disabled with strategy org.apache.cassandra.net.RateBasedBackPressure{high_ratio=0.9, factor=5, flow=FAST}.
+    >   INFO  [main] 2019-01-23 19:07:39,770 JMXServerUtils.java:246 - Configured JMX server at: service:jmx:rmi://127.0.0.1/jndi/rmi://127.0.0.1:7199/jmxrmi
+    >   INFO  [main] 2019-01-23 19:07:39,782 CassandraDaemon.java:473 - Hostname: cdc5caeb21d2
+    >   INFO  [main] 2019-01-23 19:07:39,783 CassandraDaemon.java:480 - JVM vendor/version: OpenJDK 64-Bit Server VM/1.8.0_181
+    >   INFO  [main] 2019-01-23 19:07:39,785 CassandraDaemon.java:481 - Heap size: 998.438MiB/998.438MiB
+    >   INFO  [main] 2019-01-23 19:07:39,786 CassandraDaemon.java:486 - Code Cache Non-heap memory: init = 2555904(2496K) used = 4282944(4182K) committed = 4325376(4224K) max = 251658240(245760K)
+    >   INFO  [main] 2019-01-23 19:07:39,787 CassandraDaemon.java:486 - Metaspace Non-heap memory: init = 0(0K) used = 17388088(16980K) committed = 17956864(17536K) max = -1(-1K)
+    >   INFO  [main] 2019-01-23 19:07:39,788 CassandraDaemon.java:486 - Compressed Class Space Non-heap memory: init = 0(0K) used = 2093440(2044K) committed = 2228224(2176K) max = 1073741824(1048576K)
+    >   INFO  [main] 2019-01-23 19:07:39,788 CassandraDaemon.java:486 - Par Eden Space Heap memory: init = 214827008(209792K) used = 98879632(96562K) committed = 214827008(209792K) max = 214827008(209792K)
+    >   INFO  [main] 2019-01-23 19:07:39,789 CassandraDaemon.java:486 - Par Survivor Space Heap memory: init = 26804224(26176K) used = 0(0K) committed = 26804224(26176K) max = 26804224(26176K)
+    >   INFO  [main] 2019-01-23 19:07:39,789 CassandraDaemon.java:486 - CMS Old Gen Heap memory: init = 805306368(786432K) used = 0(0K) committed = 805306368(786432K) max = 805306368(786432K)
+
+    >   INFO  [main] 2019-01-23 19:07:39,791 CassandraDaemon.java:490 - JVM Arguments: [-Xloggc:/var/log/cassandra/gc.log, -ea, -XX:+UseThreadPriorities, -XX:ThreadPriorityPolicy=42, -XX:+HeapDumpOnOutOfMemoryError, -Xss256k, -XX:StringTableSize=1000003, -XX:+AlwaysPreTouch, -XX:-UseBiasedLocking, -XX:+UseTLAB, -XX:+ResizeTLAB, -XX:+UseNUMA, -XX:+PerfDisableSharedMem, -Djava.net.preferIPv4Stack=true, -XX:+UseParNewGC, -XX:+UseConcMarkSweepGC, -XX:+CMSParallelRemarkEnabled, -XX:SurvivorRatio=8, -XX:MaxTenuringThreshold=1, -XX:CMSInitiatingOccupancyFraction=75, -XX:+UseCMSInitiatingOccupancyOnly, -XX:CMSWaitDuration=10000, -XX:+CMSParallelInitialMarkEnabled, -XX:+CMSEdenChunksRecordAlways, -XX:+CMSClassUnloadingEnabled, -XX:+PrintGCDetails, -XX:+PrintGCDateStamps, -XX:+PrintHeapAtGC, -XX:+PrintTenuringDistribution, -XX:+PrintGCApplicationStoppedTime, -XX:+PrintPromotionFailure, -XX:+UseGCLogFileRotation, -XX:NumberOfGCLogFiles=10, -XX:GCLogFileSize=10M, -Xms1024M, -Xmx1024M, -Xmn256M, -XX:+UseCondCardMark, -XX:CompileCommandFile=/etc/cassandra/hotspot_compiler, -javaagent:/usr/share/cassandra/lib/jamm-0.3.0.jar, -Dcassandra.jmx.local.port=7199, -Dcom.sun.management.jmxremote.authenticate=false, -Dcom.sun.management.jmxremote.password.file=/etc/cassandra/jmxremote.password, -Djava.library.path=/usr/share/cassandra/lib/sigar-bin, -Dcassandra.libjemalloc=/usr/lib/x86_64-linux-gnu/libjemalloc.so.1, -XX:OnOutOfMemoryError=kill -9 %p, -Dlogback.configurationFile=logback.xml, -Dcassandra.logdir=/var/log/cassandra, -Dcassandra.storagedir=/var/lib/cassandra, -Dcassandra-foreground=yes]
+    >   WARN  [main] 2019-01-23 19:07:39,868 NativeLibrary.java:187 - Unable to lock JVM memory (ENOMEM). This can result in part of the JVM being swapped out, especially with mmapped I/O enabled. Increase RLIMIT_MEMLOCK or run Cassandra as root.
+    >   INFO  [main] 2019-01-23 19:07:39,868 StartupChecks.java:140 - jemalloc seems to be preloaded from /usr/lib/x86_64-linux-gnu/libjemalloc.so.1
+    >   WARN  [main] 2019-01-23 19:07:39,869 StartupChecks.java:169 - JMX is not enabled to receive remote connections. Please see cassandra-env.sh for more info.
+    >   INFO  [main] 2019-01-23 19:07:39,872 SigarLibrary.java:44 - Initializing SIGAR library
+    >   WARN  [main] 2019-01-23 19:07:39,886 SigarLibrary.java:174 - Cassandra server running in degraded mode. Is swap disabled? : false,  Address space adequate? : true,  nofile limit adequate? : true, nproc limit adequate? : true
+    >   WARN  [main] 2019-01-23 19:07:39,891 StartupChecks.java:311 - Maximum number of memory map areas per process (vm.max_map_count) 65530 is too low, recommended value: 1048575, you can change it with sysctl.
+    >   WARN  [main] 2019-01-23 19:07:39,910 StartupChecks.java:332 - Directory /var/lib/cassandra/data doesn't exist
+    >   WARN  [main] 2019-01-23 19:07:39,922 StartupChecks.java:332 - Directory /var/lib/cassandra/commitlog doesn't exist
+    >   WARN  [main] 2019-01-23 19:07:39,923 StartupChecks.java:332 - Directory /var/lib/cassandra/saved_caches doesn't exist
+    >   WARN  [main] 2019-01-23 19:07:39,925 StartupChecks.java:332 - Directory /var/lib/cassandra/hints doesn't exist
+
+    >   INFO  [main] 2019-01-23 19:07:53,945 MessagingService.java:761 - Starting Messaging Service on /172.18.0.2:7000 (eth0)
+    >   WARN  [main] 2019-01-23 19:07:53,959 SystemKeyspace.java:1087 - No host ID found, created 246ccdeb-b184-4df6-9de8-a4146b0948bb (Note: This should happen exactly once per node).
+    >   INFO  [main] 2019-01-23 19:07:53,998 OutboundTcpConnection.java:108 - OutboundTcpConnection using coalescing strategy DISABLED
+    >   INFO  [HANDSHAKE-Nendalith/192.168.210.216] 2019-01-23 19:07:54,036 OutboundTcpConnection.java:561 - Handshaking version with Nendalith/192.168.210.216
+    >   INFO  [HANDSHAKE-Astendawen/192.168.210.215] 2019-01-23 19:07:54,036 OutboundTcpConnection.java:561 - Handshaking version with Astendawen/192.168.210.215
+    >   INFO  [HANDSHAKE-Saelia/192.168.210.217] 2019-01-23 19:07:54,043 OutboundTcpConnection.java:561 - Handshaking version with Saelia/192.168.210.217
+    >   INFO  [HANDSHAKE-/172.18.0.2] 2019-01-23 19:07:54,101 OutboundTcpConnection.java:561 - Handshaking version with /172.18.0.2
+    >   INFO  [main] 2019-01-23 19:08:25,055 StorageService.java:550 - Unable to gossip with any peers but continuing anyway since node is in its own seed list
+    >   INFO  [main] 2019-01-23 19:08:25,085 StorageService.java:704 - Loading persisted ring state
+    >   INFO  [main] 2019-01-23 19:08:25,087 StorageService.java:822 - Starting up server gossip
+
+    >   INFO  [main] 2019-01-23 19:08:25,656 StorageService.java:883 - This node will not auto bootstrap because it is configured to be a seed node.
+
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+# Test connections between ndoes ..
+#[user@node]
+
+    canames=(
+        Astendawen
+        Nendalith
+        Saelia
+        Adwaeric
+        )
+
+    for vmname in ${canames[@]}
+        do
+                    echo ""
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            for caport in 7000 7001 7199 9042 9160
+                do
+                    echo ""
+                    echo "Port [${caport}]"
+                    nc -vz "${vmname:?}" "${caport}"
+                done
+        done
+
+    >   ---- ----
+    >   Node [Astendawen]
+    >
+    >   Port [7000]
+    >   Ncat: Version 7.60 ( https://nmap.org/ncat )
+    >   Ncat: Connected to 192.168.210.215:7000.
+    >   Ncat: 0 bytes sent, 0 bytes received in 0.02 seconds.
+    >
+    >   Port [7001]
+    >   Ncat: Version 7.60 ( https://nmap.org/ncat )
+    >   Ncat: Connection refused.
+    >
+    >   Port [7199]
+    >   Ncat: Version 7.60 ( https://nmap.org/ncat )
+    >   Ncat: Connection refused.
+    >
+    >   Port [9042]
+    >   Ncat: Version 7.60 ( https://nmap.org/ncat )
+    >   Ncat: Connected to 192.168.210.215:9042.
+    >   Ncat: 0 bytes sent, 0 bytes received in 0.01 seconds.
+    >
+    >   Port [9160]
+    >   Ncat: Version 7.60 ( https://nmap.org/ncat )
+    >   Ncat: Connection refused.
+    >
+    >   ---- ----
+    >   Node [Nendalith]
+    >
+    >   Port [7000]
+    >   Ncat: Version 7.60 ( https://nmap.org/ncat )
+    >   Ncat: Connected to 192.168.210.216:7000.
+    >   Ncat: 0 bytes sent, 0 bytes received in 0.02 seconds.
+    >
+    >   Port [7001]
+    >   Ncat: Version 7.60 ( https://nmap.org/ncat )
+    >   Ncat: Connection refused.
+    >
+    >   Port [7199]
+    >   Ncat: Version 7.60 ( https://nmap.org/ncat )
+    >   Ncat: Connection refused.
+    >
+    >   Port [9042]
+    >   Ncat: Version 7.60 ( https://nmap.org/ncat )
+    >   Ncat: Connected to 192.168.210.216:9042.
+    >   Ncat: 0 bytes sent, 0 bytes received in 0.01 seconds.
+    >
+    >   Port [9160]
+    >   Ncat: Version 7.60 ( https://nmap.org/ncat )
+    >   Ncat: Connection refused.
+    >
+    >   ---- ----
+    >   Node [Saelia]
+    >
+    >   Port [7000]
+    >   Ncat: Version 7.60 ( https://nmap.org/ncat )
+    >   Ncat: Connected to 192.168.210.217:7000.
+    >   Ncat: 0 bytes sent, 0 bytes received in 0.02 seconds.
+    >
+    >   Port [7001]
+    >   Ncat: Version 7.60 ( https://nmap.org/ncat )
+    >   Ncat: Connection refused.
+    >
+    >   Port [7199]
+    >   Ncat: Version 7.60 ( https://nmap.org/ncat )
+    >   Ncat: Connection refused.
+    >
+    >   Port [9042]
+    >   Ncat: Version 7.60 ( https://nmap.org/ncat )
+    >   Ncat: Connected to 192.168.210.217:9042.
+    >   Ncat: 0 bytes sent, 0 bytes received in 0.02 seconds.
+    >
+    >   Port [9160]
+    >   Ncat: Version 7.60 ( https://nmap.org/ncat )
+    >   Ncat: Connection refused.
+    >
+    >   ---- ----
+    >   Node [Adwaeric]
+    >
+    >   Port [7000]
+    >   Ncat: Version 7.60 ( https://nmap.org/ncat )
+    >   Ncat: Connected to 192.168.210.218:7000.
+    >   Ncat: 0 bytes sent, 0 bytes received in 0.02 seconds.
+    >
+    >   Port [7001]
+    >   Ncat: Version 7.60 ( https://nmap.org/ncat )
+    >   Ncat: Connection refused.
+    >
+    >   Port [7199]
+    >   Ncat: Version 7.60 ( https://nmap.org/ncat )
+    >   Ncat: Connection refused.
+    >
+    >   Port [9042]
+    >   Ncat: Version 7.60 ( https://nmap.org/ncat )
+    >   Ncat: Connected to 192.168.210.218:9042.
+    >   Ncat: 0 bytes sent, 0 bytes received in 0.02 seconds.
+    >
+    >   Port [9160]
+    >   Ncat: Version 7.60 ( https://nmap.org/ncat )
+    >   Ncat: Connection refused.
+
+
+    #
+    # All the services decide they are alone and run in standalone mode.
+    # All four nodes are listening on 7000 and 9042.
+    #
+
+
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+# Attempt #2
+
+    >   INFO  [main] 2019-01-23 23:58:11,022 YamlConfigurationLoader.java:89 - Configuration location: file:/etc/cassandra/cassandra.yaml
+    >   INFO  [main] 2019-01-23 23:58:11,438 Config.java:495 - Node configuration:[ .... ]
+    >   INFO  [main] 2019-01-23 23:58:11,439 DatabaseDescriptor.java:367 - DiskAccessMode 'auto' determined to be mmap, indexAccessMode is mmap
+    >   INFO  [main] 2019-01-23 23:58:11,440 DatabaseDescriptor.java:425 - Global memtable on-heap threshold is enabled at 249MB
+    >   INFO  [main] 2019-01-23 23:58:11,441 DatabaseDescriptor.java:429 - Global memtable off-heap threshold is enabled at 249MB
+    >   INFO  [main] 2019-01-23 23:58:11,651 RateBasedBackPressure.java:123 - Initialized back-pressure with high ratio: 0.9, factor: 5, flow: FAST, window size: 2000.
+    >   INFO  [main] 2019-01-23 23:58:11,651 DatabaseDescriptor.java:729 - Back-pressure is disabled with strategy org.apache.cassandra.net.RateBasedBackPressure{high_ratio=0.9, factor=5, flow=FAST}.
+    >   INFO  [main] 2019-01-23 23:58:11,779 JMXServerUtils.java:246 - Configured JMX server at: service:jmx:rmi://127.0.0.1/jndi/rmi://127.0.0.1:7199/jmxrmi
+    >   INFO  [main] 2019-01-23 23:58:11,792 CassandraDaemon.java:473 - Hostname: 1cb470d335c4
+    >   INFO  [main] 2019-01-23 23:58:11,793 CassandraDaemon.java:480 - JVM vendor/version: OpenJDK 64-Bit Server VM/1.8.0_181
+    >   INFO  [main] 2019-01-23 23:58:11,794 CassandraDaemon.java:481 - Heap size: 998.438MiB/998.438MiB
+    >   INFO  [main] 2019-01-23 23:58:11,795 CassandraDaemon.java:486 - Code Cache Non-heap memory: init = 2555904(2496K) used = 4354240(4252K) committed = 4390912(4288K) max = 251658240(245760K)
+    >   INFO  [main] 2019-01-23 23:58:11,795 CassandraDaemon.java:486 - Metaspace Non-heap memory: init = 0(0K) used = 17122784(16721K) committed = 17694720(17280K) max = -1(-1K)
+    >   INFO  [main] 2019-01-23 23:58:11,795 CassandraDaemon.java:486 - Compressed Class Space Non-heap memory: init = 0(0K) used = 2049840(2001K) committed = 2228224(2176K) max = 1073741824(1048576K)
+    >   INFO  [main] 2019-01-23 23:58:11,796 CassandraDaemon.java:486 - Par Eden Space Heap memory: init = 214827008(209792K) used = 98878576(96561K) committed = 214827008(209792K) max = 214827008(209792K)
+    >   INFO  [main] 2019-01-23 23:58:11,796 CassandraDaemon.java:486 - Par Survivor Space Heap memory: init = 26804224(26176K) used = 0(0K) committed = 26804224(26176K) max = 26804224(26176K)
+    >   INFO  [main] 2019-01-23 23:58:11,796 CassandraDaemon.java:486 - CMS Old Gen Heap memory: init = 805306368(786432K) used = 0(0K) committed = 805306368(786432K) max = 805306368(786432K)
+    >   INFO  [main] 2019-01-23 23:58:11,797 CassandraDaemon.java:488 - Classpath: ....
+    >   INFO  [main] 2019-01-23 23:58:11,797 CassandraDaemon.java:490 - JVM Arguments: [ .... ]
+    >   WARN  [main] 2019-01-23 23:58:11,853 NativeLibrary.java:187 - Unable to lock JVM memory (ENOMEM). This can result in part of the JVM being swapped out, especially with mmapped I/O enabled. Increase RLIMIT_MEMLOCK or run Cassandra as root.
+    >   INFO  [main] 2019-01-23 23:58:11,854 StartupChecks.java:140 - jemalloc seems to be preloaded from /usr/lib/x86_64-linux-gnu/libjemalloc.so.1
+    >   WARN  [main] 2019-01-23 23:58:11,854 StartupChecks.java:169 - JMX is not enabled to receive remote connections. Please see cassandra-env.sh for more info.
+    >   INFO  [main] 2019-01-23 23:58:11,857 SigarLibrary.java:44 - Initializing SIGAR library
+    >   INFO  [main] 2019-01-23 23:58:11,869 SigarLibrary.java:180 - Checked OS settings and found them configured for optimal performance.
+    >   INFO  [main] 2019-01-23 23:58:12,058 QueryProcessor.java:116 - Initialized prepared statement caches with 10 MB (native) and 10 MB (Thrift)
+    >   INFO  [main] 2019-01-23 23:58:12,759 ColumnFamilyStore.java:411 - Initializing system.IndexInfo
+    >   INFO  [main] 2019-01-23 23:58:13,802 ColumnFamilyStore.java:411 - Initializing system.batches
+    >   INFO  [main] 2019-01-23 23:58:13,811 ColumnFamilyStore.java:411 - Initializing system.paxos
+    >   INFO  [main] 2019-01-23 23:58:13,825 ColumnFamilyStore.java:411 - Initializing system.local
+    >   INFO  [SSTableBatchOpen:2] 2019-01-23 23:58:13,857 BufferPool.java:230 - Global buffer pool is enabled, when pool is exhausted (max is 249.000MiB) it will allocate on heap
+    >   INFO  [main] 2019-01-23 23:58:14,223 CacheService.java:112 - Initializing key cache with capacity of 49 MBs.
+    >   INFO  [main] 2019-01-23 23:58:14,243 CacheService.java:134 - Initializing row cache with capacity of 0 MBs
+    >   INFO  [main] 2019-01-23 23:58:14,247 CacheService.java:163 - Initializing counter cache with capacity of 24 MBs
+    >   INFO  [main] 2019-01-23 23:58:14,249 CacheService.java:174 - Scheduling counter cache save to every 7200 seconds (going to save all keys).
+    >   INFO  [main] 2019-01-23 23:58:14,273 ColumnFamilyStore.java:411 - Initializing system.peers
+    >   INFO  [main] 2019-01-23 23:58:14,283 ColumnFamilyStore.java:411 - Initializing system.peer_events
+    >   INFO  [main] 2019-01-23 23:58:14,292 ColumnFamilyStore.java:411 - Initializing system.range_xfers
+    >   INFO  [main] 2019-01-23 23:58:14,302 ColumnFamilyStore.java:411 - Initializing system.compaction_history
+    >   INFO  [main] 2019-01-23 23:58:14,327 ColumnFamilyStore.java:411 - Initializing system.sstable_activity
+    >   INFO  [main] 2019-01-23 23:58:14,349 ColumnFamilyStore.java:411 - Initializing system.size_estimates
+    >   INFO  [main] 2019-01-23 23:58:14,369 ColumnFamilyStore.java:411 - Initializing system.available_ranges
+    >   INFO  [main] 2019-01-23 23:58:14,379 ColumnFamilyStore.java:411 - Initializing system.transferred_ranges
+    >   INFO  [main] 2019-01-23 23:58:14,388 ColumnFamilyStore.java:411 - Initializing system.views_builds_in_progress
+    >   INFO  [main] 2019-01-23 23:58:14,396 ColumnFamilyStore.java:411 - Initializing system.built_views
+    >   INFO  [main] 2019-01-23 23:58:14,404 ColumnFamilyStore.java:411 - Initializing system.hints
+    >   INFO  [main] 2019-01-23 23:58:14,412 ColumnFamilyStore.java:411 - Initializing system.batchlog
+    >   INFO  [main] 2019-01-23 23:58:14,419 ColumnFamilyStore.java:411 - Initializing system.prepared_statements
+    >   INFO  [main] 2019-01-23 23:58:14,426 ColumnFamilyStore.java:411 - Initializing system.schema_keyspaces
+    >   INFO  [main] 2019-01-23 23:58:14,432 ColumnFamilyStore.java:411 - Initializing system.schema_columnfamilies
+    >   INFO  [main] 2019-01-23 23:58:14,439 ColumnFamilyStore.java:411 - Initializing system.schema_columns
+    >   INFO  [main] 2019-01-23 23:58:14,445 ColumnFamilyStore.java:411 - Initializing system.schema_triggers
+    >   INFO  [main] 2019-01-23 23:58:14,452 ColumnFamilyStore.java:411 - Initializing system.schema_usertypes
+    >   INFO  [main] 2019-01-23 23:58:14,458 ColumnFamilyStore.java:411 - Initializing system.schema_functions
+    >   INFO  [main] 2019-01-23 23:58:14,464 ColumnFamilyStore.java:411 - Initializing system.schema_aggregates
+    >   INFO  [main] 2019-01-23 23:58:14,466 ViewManager.java:137 - Not submitting build tasks for views in keyspace system as storage service is not initialized
+    >   INFO  [main] 2019-01-23 23:58:14,650 ApproximateTime.java:44 - Scheduling approximate time-check task with a precision of 10 milliseconds
+    >   INFO  [main] 2019-01-23 23:58:14,726 ColumnFamilyStore.java:411 - Initializing system_schema.keyspaces
+    >   INFO  [main] 2019-01-23 23:58:14,749 ColumnFamilyStore.java:411 - Initializing system_schema.tables
+    >   INFO  [main] 2019-01-23 23:58:14,771 ColumnFamilyStore.java:411 - Initializing system_schema.columns
+    >   INFO  [main] 2019-01-23 23:58:14,794 ColumnFamilyStore.java:411 - Initializing system_schema.triggers
+    >   INFO  [main] 2019-01-23 23:58:14,804 ColumnFamilyStore.java:411 - Initializing system_schema.dropped_columns
+    >   INFO  [main] 2019-01-23 23:58:14,815 ColumnFamilyStore.java:411 - Initializing system_schema.views
+    >   INFO  [main] 2019-01-23 23:58:14,825 ColumnFamilyStore.java:411 - Initializing system_schema.types
+    >   INFO  [main] 2019-01-23 23:58:14,841 ColumnFamilyStore.java:411 - Initializing system_schema.functions
+    >   INFO  [main] 2019-01-23 23:58:14,859 ColumnFamilyStore.java:411 - Initializing system_schema.aggregates
+    >   INFO  [main] 2019-01-23 23:58:14,872 ColumnFamilyStore.java:411 - Initializing system_schema.indexes
+    >   INFO  [main] 2019-01-23 23:58:14,879 ViewManager.java:137 - Not submitting build tasks for views in keyspace system_schema as storage service is not initialized
+    >   INFO  [main] 2019-01-23 23:58:17,232 StorageService.java:600 - Populating token metadata from system tables
+    >   INFO  [main] 2019-01-23 23:58:17,271 StorageService.java:607 - Token metadata: Normal Tokens: Astendawen/127.0.0.2:[ .... ]
+    >   INFO  [main] 2019-01-23 23:58:17,482 ColumnFamilyStore.java:411 - Initializing system_distributed.parent_repair_history
+    >   INFO  [main] 2019-01-23 23:58:17,552 ColumnFamilyStore.java:411 - Initializing system_distributed.repair_history
+    >   INFO  [main] 2019-01-23 23:58:17,578 ColumnFamilyStore.java:411 - Initializing system_distributed.view_build_status
+    >   INFO  [main] 2019-01-23 23:58:17,594 ViewManager.java:137 - Not submitting build tasks for views in keyspace system_distributed as storage service is not initialized
+    >   INFO  [main] 2019-01-23 23:58:17,600 ColumnFamilyStore.java:411 - Initializing system_auth.resource_role_permissons_index
+    >   INFO  [main] 2019-01-23 23:58:17,607 ColumnFamilyStore.java:411 - Initializing system_auth.role_members
+    >   INFO  [main] 2019-01-23 23:58:17,614 ColumnFamilyStore.java:411 - Initializing system_auth.role_permissions
+    >   INFO  [main] 2019-01-23 23:58:17,621 ColumnFamilyStore.java:411 - Initializing system_auth.roles
+    >   INFO  [main] 2019-01-23 23:58:17,641 ViewManager.java:137 - Not submitting build tasks for views in keyspace system_auth as storage service is not initialized
+    >   INFO  [main] 2019-01-23 23:58:17,646 ColumnFamilyStore.java:411 - Initializing system_traces.events
+    >   INFO  [main] 2019-01-23 23:58:17,661 ColumnFamilyStore.java:411 - Initializing system_traces.sessions
+    >   INFO  [main] 2019-01-23 23:58:17,695 ViewManager.java:137 - Not submitting build tasks for views in keyspace system_traces as storage service is not initialized
+    >   INFO  [pool-3-thread-1] 2019-01-23 23:58:17,699 AutoSavingCache.java:198 - reading saved cache /var/lib/cassandra/saved_caches/KeyCache-e.db
+    >   INFO  [pool-3-thread-1] 2019-01-23 23:58:17,710 AutoSavingCache.java:174 - Completed loading (13 ms; 13 keys) KeyCache cache
+    >   INFO  [main] 2019-01-23 23:58:17,724 CommitLog.java:157 - Replaying /var/lib/cassandra/commitlog/CommitLog-6-1548270408486.log
+    >   INFO  [main] 2019-01-23 23:58:17,749 CommitLog.java:159 - Log replay complete, 0 replayed mutations
+    >   INFO  [main] 2019-01-23 23:58:17,750 StorageService.java:600 - Populating token metadata from system tables
+    >   INFO  [main] 2019-01-23 23:58:17,760 StorageService.java:607 - Token metadata: Normal Tokens: Astendawen/127.0.0.2:[ .... ]
+    >   INFO  [main] 2019-01-23 23:58:17,827 QueryProcessor.java:163 - Preloaded 0 prepared statements
+    >   INFO  [main] 2019-01-23 23:58:17,828 StorageService.java:618 - Cassandra version: 3.11.3
+    >   INFO  [main] 2019-01-23 23:58:17,828 StorageService.java:619 - Thrift API version: 20.1.0
+    >   INFO  [main] 2019-01-23 23:58:17,828 StorageService.java:620 - CQL supported versions: 3.4.4 (default: 3.4.4)
+    >   INFO  [main] 2019-01-23 23:58:17,829 StorageService.java:622 - Native protocol supported versions: 3/v3, 4/v4, 5/v5-beta (default: 4/v4)
+    >   INFO  [main] 2019-01-23 23:58:17,890 IndexSummaryManager.java:85 - Initializing index summary manager with a memory pool size of 49 MB and a resize interval of 60 minutes
+    >   INFO  [main] 2019-01-23 23:58:17,910 MessagingService.java:761 - Starting Messaging Service on /172.18.0.2:7000 (eth0)
+    >   INFO  [main] 2019-01-23 23:58:17,953 StorageService.java:550 - Unable to gossip with any peers but continuing anyway since node is in its own seed list
+    >   INFO  [main] 2019-01-23 23:58:17,963 StorageService.java:704 - Loading persisted ring state
+    >   INFO  [main] 2019-01-23 23:58:17,964 StorageService.java:822 - Starting up server gossip
+    >   INFO  [main] 2019-01-23 23:58:18,355 TokenMetadata.java:479 - Updating topology for Astendawen/127.0.0.2
+    >   INFO  [main] 2019-01-23 23:58:18,356 TokenMetadata.java:479 - Updating topology for Astendawen/127.0.0.2
+    >   INFO  [main] 2019-01-23 23:58:18,416 StorageService.java:988 - Using saved tokens [ .... ]
+    >   INFO  [main] 2019-01-23 23:58:18,426 StorageService.java:1446 - JOINING: Finish joining ring
+    >   INFO  [main] 2019-01-23 23:58:19,236 StorageService.java:2289 - Node Astendawen/127.0.0.2 state jump to NORMAL
+    >   INFO  [main] 2019-01-23 23:58:19,259 Gossiper.java:1692 - Waiting for gossip to settle...
+    >   INFO  [GossipStage:1] 2019-01-23 23:58:20,949 OutboundTcpConnection.java:108 - OutboundTcpConnection using coalescing strategy DISABLED
+    >   INFO  [HANDSHAKE-/172.18.0.2] 2019-01-23 23:58:20,964 OutboundTcpConnection.java:561 - Handshaking version with /172.18.0.2
+    >   INFO  [main] 2019-01-23 23:58:27,261 Gossiper.java:1723 - No gossip backlog; proceeding
+    >   INFO  [main] 2019-01-23 23:58:27,501 NativeTransportService.java:70 - Netty using native Epoll event loop
+    >   INFO  [main] 2019-01-23 23:58:27,563 Server.java:155 - Using Netty Version: [ .... ]
+    >   INFO  [main] 2019-01-23 23:58:27,564 Server.java:156 - Starting listening for CQL clients on /0.0.0.0:9042 (unencrypted)...
+    >   INFO  [main] 2019-01-23 23:58:27,619 CassandraDaemon.java:529 - Not starting RPC server as requested. Use JMX (StorageService->startRPCServer()) or nodetool (enablethrift) to start it
+
+
+    >   INFO  [main] 2019-01-23 23:58:13,980 YamlConfigurationLoader.java:89 - Configuration location: file:/etc/cassandra/cassandra.yaml
+    >   INFO  [main] 2019-01-23 23:58:14,368 Config.java:495 - Node configuration:[ .... ]
+    >   INFO  [main] 2019-01-23 23:58:14,369 DatabaseDescriptor.java:367 - DiskAccessMode 'auto' determined to be mmap, indexAccessMode is mmap
+    >   INFO  [main] 2019-01-23 23:58:14,370 DatabaseDescriptor.java:425 - Global memtable on-heap threshold is enabled at 249MB
+    >   INFO  [main] 2019-01-23 23:58:14,370 DatabaseDescriptor.java:429 - Global memtable off-heap threshold is enabled at 249MB
+    >   INFO  [main] 2019-01-23 23:58:14,561 RateBasedBackPressure.java:123 - Initialized back-pressure with high ratio: 0.9, factor: 5, flow: FAST, window size: 2000.
+    >   INFO  [main] 2019-01-23 23:58:14,562 DatabaseDescriptor.java:729 - Back-pressure is disabled with strategy org.apache.cassandra.net.RateBasedBackPressure{high_ratio=0.9, factor=5, flow=FAST}.
+    >   INFO  [main] 2019-01-23 23:58:14,717 JMXServerUtils.java:246 - Configured JMX server at: service:jmx:rmi://127.0.0.1/jndi/rmi://127.0.0.1:7199/jmxrmi
+    >   INFO  [main] 2019-01-23 23:58:14,726 CassandraDaemon.java:473 - Hostname: d6bd9d5c841e
+    >   INFO  [main] 2019-01-23 23:58:14,727 CassandraDaemon.java:480 - JVM vendor/version: OpenJDK 64-Bit Server VM/1.8.0_181
+    >   INFO  [main] 2019-01-23 23:58:14,729 CassandraDaemon.java:481 - Heap size: 998.438MiB/998.438MiB
+    >   INFO  [main] 2019-01-23 23:58:14,729 CassandraDaemon.java:486 - Code Cache Non-heap memory: init = 2555904(2496K) used = 4344960(4243K) committed = 4390912(4288K) max = 251658240(245760K)
+    >   INFO  [main] 2019-01-23 23:58:14,730 CassandraDaemon.java:486 - Metaspace Non-heap memory: init = 0(0K) used = 17210224(16806K) committed = 17694720(17280K) max = -1(-1K)
+    >   INFO  [main] 2019-01-23 23:58:14,731 CassandraDaemon.java:486 - Compressed Class Space Non-heap memory: init = 0(0K) used = 2061440(2013K) committed = 2228224(2176K) max = 1073741824(1048576K)
+    >   INFO  [main] 2019-01-23 23:58:14,731 CassandraDaemon.java:486 - Par Eden Space Heap memory: init = 214827008(209792K) used = 98880776(96563K) committed = 214827008(209792K) max = 214827008(209792K)
+    >   INFO  [main] 2019-01-23 23:58:14,732 CassandraDaemon.java:486 - Par Survivor Space Heap memory: init = 26804224(26176K) used = 0(0K) committed = 26804224(26176K) max = 26804224(26176K)
+    >   INFO  [main] 2019-01-23 23:58:14,732 CassandraDaemon.java:486 - CMS Old Gen Heap memory: init = 805306368(786432K) used = 0(0K) committed = 805306368(786432K) max = 805306368(786432K)
+    >   INFO  [main] 2019-01-23 23:58:14,733 CassandraDaemon.java:488 - Classpath: ....
+    >   INFO  [main] 2019-01-23 23:58:14,733 CassandraDaemon.java:490 - JVM Arguments: [ .... ]
+    >   WARN  [main] 2019-01-23 23:58:14,796 NativeLibrary.java:187 - Unable to lock JVM memory (ENOMEM). This can result in part of the JVM being swapped out, especially with mmapped I/O enabled. Increase RLIMIT_MEMLOCK or run Cassandra as root.
+    >   INFO  [main] 2019-01-23 23:58:14,797 StartupChecks.java:140 - jemalloc seems to be preloaded from /usr/lib/x86_64-linux-gnu/libjemalloc.so.1
+    >   WARN  [main] 2019-01-23 23:58:14,798 StartupChecks.java:169 - JMX is not enabled to receive remote connections. Please see cassandra-env.sh for more info.
+    >   INFO  [main] 2019-01-23 23:58:14,801 SigarLibrary.java:44 - Initializing SIGAR library
+    >   INFO  [main] 2019-01-23 23:58:14,816 SigarLibrary.java:180 - Checked OS settings and found them configured for optimal performance.
+    >   INFO  [main] 2019-01-23 23:58:14,991 QueryProcessor.java:116 - Initialized prepared statement caches with 10 MB (native) and 10 MB (Thrift)
+    >   INFO  [main] 2019-01-23 23:58:15,642 ColumnFamilyStore.java:411 - Initializing system.IndexInfo
+    >   INFO  [main] 2019-01-23 23:58:16,628 ColumnFamilyStore.java:411 - Initializing system.batches
+    >   INFO  [main] 2019-01-23 23:58:16,639 ColumnFamilyStore.java:411 - Initializing system.paxos
+    >   INFO  [main] 2019-01-23 23:58:16,655 ColumnFamilyStore.java:411 - Initializing system.local
+    >   INFO  [SSTableBatchOpen:2] 2019-01-23 23:58:16,693 BufferPool.java:230 - Global buffer pool is enabled, when pool is exhausted (max is 249.000MiB) it will allocate on heap
+    >   INFO  [main] 2019-01-23 23:58:16,978 CacheService.java:112 - Initializing key cache with capacity of 49 MBs.
+    >   INFO  [main] 2019-01-23 23:58:16,991 CacheService.java:134 - Initializing row cache with capacity of 0 MBs
+    >   INFO  [main] 2019-01-23 23:58:16,993 CacheService.java:163 - Initializing counter cache with capacity of 24 MBs
+    >   INFO  [main] 2019-01-23 23:58:16,994 CacheService.java:174 - Scheduling counter cache save to every 7200 seconds (going to save all keys).
+    >   INFO  [main] 2019-01-23 23:58:17,011 ColumnFamilyStore.java:411 - Initializing system.peers
+    >   INFO  [main] 2019-01-23 23:58:17,018 ColumnFamilyStore.java:411 - Initializing system.peer_events
+    >   INFO  [main] 2019-01-23 23:58:17,025 ColumnFamilyStore.java:411 - Initializing system.range_xfers
+    >   INFO  [main] 2019-01-23 23:58:17,034 ColumnFamilyStore.java:411 - Initializing system.compaction_history
+    >   INFO  [main] 2019-01-23 23:58:17,063 ColumnFamilyStore.java:411 - Initializing system.sstable_activity
+    >   INFO  [main] 2019-01-23 23:58:17,085 ColumnFamilyStore.java:411 - Initializing system.size_estimates
+    >   INFO  [main] 2019-01-23 23:58:17,102 ColumnFamilyStore.java:411 - Initializing system.available_ranges
+    >   INFO  [main] 2019-01-23 23:58:17,110 ColumnFamilyStore.java:411 - Initializing system.transferred_ranges
+    >   INFO  [main] 2019-01-23 23:58:17,118 ColumnFamilyStore.java:411 - Initializing system.views_builds_in_progress
+    >   INFO  [main] 2019-01-23 23:58:17,126 ColumnFamilyStore.java:411 - Initializing system.built_views
+    >   INFO  [main] 2019-01-23 23:58:17,133 ColumnFamilyStore.java:411 - Initializing system.hints
+    >   INFO  [main] 2019-01-23 23:58:17,141 ColumnFamilyStore.java:411 - Initializing system.batchlog
+    >   INFO  [main] 2019-01-23 23:58:17,148 ColumnFamilyStore.java:411 - Initializing system.prepared_statements
+    >   INFO  [main] 2019-01-23 23:58:17,155 ColumnFamilyStore.java:411 - Initializing system.schema_keyspaces
+    >   INFO  [main] 2019-01-23 23:58:17,162 ColumnFamilyStore.java:411 - Initializing system.schema_columnfamilies
+    >   INFO  [main] 2019-01-23 23:58:17,168 ColumnFamilyStore.java:411 - Initializing system.schema_columns
+    >   INFO  [main] 2019-01-23 23:58:17,174 ColumnFamilyStore.java:411 - Initializing system.schema_triggers
+    >   INFO  [main] 2019-01-23 23:58:17,180 ColumnFamilyStore.java:411 - Initializing system.schema_usertypes
+    >   INFO  [main] 2019-01-23 23:58:17,186 ColumnFamilyStore.java:411 - Initializing system.schema_functions
+    >   INFO  [main] 2019-01-23 23:58:17,192 ColumnFamilyStore.java:411 - Initializing system.schema_aggregates
+    >   INFO  [main] 2019-01-23 23:58:17,194 ViewManager.java:137 - Not submitting build tasks for views in keyspace system as storage service is not initialized
+    >   INFO  [main] 2019-01-23 23:58:17,378 ApproximateTime.java:44 - Scheduling approximate time-check task with a precision of 10 milliseconds
+    >   INFO  [main] 2019-01-23 23:58:17,433 ColumnFamilyStore.java:411 - Initializing system_schema.keyspaces
+    >   INFO  [main] 2019-01-23 23:58:17,459 ColumnFamilyStore.java:411 - Initializing system_schema.tables
+    >   INFO  [main] 2019-01-23 23:58:17,477 ColumnFamilyStore.java:411 - Initializing system_schema.columns
+    >   INFO  [main] 2019-01-23 23:58:17,495 ColumnFamilyStore.java:411 - Initializing system_schema.triggers
+    >   INFO  [main] 2019-01-23 23:58:17,504 ColumnFamilyStore.java:411 - Initializing system_schema.dropped_columns
+    >   INFO  [main] 2019-01-23 23:58:17,525 ColumnFamilyStore.java:411 - Initializing system_schema.views
+    >   INFO  [main] 2019-01-23 23:58:17,535 ColumnFamilyStore.java:411 - Initializing system_schema.types
+    >   INFO  [main] 2019-01-23 23:58:17,544 ColumnFamilyStore.java:411 - Initializing system_schema.functions
+    >   INFO  [main] 2019-01-23 23:58:17,553 ColumnFamilyStore.java:411 - Initializing system_schema.aggregates
+    >   INFO  [main] 2019-01-23 23:58:17,564 ColumnFamilyStore.java:411 - Initializing system_schema.indexes
+    >   INFO  [main] 2019-01-23 23:58:17,568 ViewManager.java:137 - Not submitting build tasks for views in keyspace system_schema as storage service is not initialized
+    >   INFO  [main] 2019-01-23 23:58:20,216 StorageService.java:600 - Populating token metadata from system tables
+    >   INFO  [main] 2019-01-23 23:58:20,253 StorageService.java:607 - Token metadata: Normal Tokens: Nendalith/127.0.0.2:[ .... ]
+    >   INFO  [main] 2019-01-23 23:58:20,452 ColumnFamilyStore.java:411 - Initializing system_distributed.parent_repair_history
+    >   INFO  [main] 2019-01-23 23:58:20,496 ColumnFamilyStore.java:411 - Initializing system_distributed.repair_history
+    >   INFO  [main] 2019-01-23 23:58:20,527 ColumnFamilyStore.java:411 - Initializing system_distributed.view_build_status
+    >   INFO  [main] 2019-01-23 23:58:20,540 ViewManager.java:137 - Not submitting build tasks for views in keyspace system_distributed as storage service is not initialized
+    >   INFO  [main] 2019-01-23 23:58:20,548 ColumnFamilyStore.java:411 - Initializing system_auth.resource_role_permissons_index
+    >   INFO  [main] 2019-01-23 23:58:20,557 ColumnFamilyStore.java:411 - Initializing system_auth.role_members
+    >   INFO  [main] 2019-01-23 23:58:20,565 ColumnFamilyStore.java:411 - Initializing system_auth.role_permissions
+    >   INFO  [main] 2019-01-23 23:58:20,576 ColumnFamilyStore.java:411 - Initializing system_auth.roles
+    >   INFO  [main] 2019-01-23 23:58:20,592 ViewManager.java:137 - Not submitting build tasks for views in keyspace system_auth as storage service is not initialized
+    >   INFO  [main] 2019-01-23 23:58:20,599 ColumnFamilyStore.java:411 - Initializing system_traces.events
+    >   INFO  [main] 2019-01-23 23:58:20,616 ColumnFamilyStore.java:411 - Initializing system_traces.sessions
+    >   INFO  [main] 2019-01-23 23:58:20,658 ViewManager.java:137 - Not submitting build tasks for views in keyspace system_traces as storage service is not initialized
+    >   INFO  [pool-3-thread-1] 2019-01-23 23:58:20,661 AutoSavingCache.java:198 - reading saved cache /var/lib/cassandra/saved_caches/KeyCache-e.db
+    >   INFO  [pool-3-thread-1] 2019-01-23 23:58:20,669 AutoSavingCache.java:174 - Completed loading (9 ms; 13 keys) KeyCache cache
+    >   INFO  [main] 2019-01-23 23:58:20,687 CommitLog.java:157 - Replaying /var/lib/cassandra/commitlog/CommitLog-6-1548270425630.log
+    >   INFO  [main] 2019-01-23 23:58:20,714 CommitLog.java:159 - Log replay complete, 0 replayed mutations
+    >   INFO  [main] 2019-01-23 23:58:20,715 StorageService.java:600 - Populating token metadata from system tables
+    >   INFO  [main] 2019-01-23 23:58:20,725 StorageService.java:607 - Token metadata: Normal Tokens: Nendalith/127.0.0.2:[ .... ]
+    >   INFO  [main] 2019-01-23 23:58:20,790 QueryProcessor.java:163 - Preloaded 0 prepared statements
+    >   INFO  [main] 2019-01-23 23:58:20,791 StorageService.java:618 - Cassandra version: 3.11.3
+    >   INFO  [main] 2019-01-23 23:58:20,791 StorageService.java:619 - Thrift API version: 20.1.0
+    >   INFO  [main] 2019-01-23 23:58:20,791 StorageService.java:620 - CQL supported versions: 3.4.4 (default: 3.4.4)
+    >   INFO  [main] 2019-01-23 23:58:20,792 StorageService.java:622 - Native protocol supported versions: 3/v3, 4/v4, 5/v5-beta (default: 4/v4)
+    >   INFO  [main] 2019-01-23 23:58:20,839 IndexSummaryManager.java:85 - Initializing index summary manager with a memory pool size of 49 MB and a resize interval of 60 minutes
+    >   INFO  [main] 2019-01-23 23:58:20,852 MessagingService.java:761 - Starting Messaging Service on /172.18.0.2:7000 (eth0)
+    >   INFO  [main] 2019-01-23 23:58:20,911 OutboundTcpConnection.java:108 - OutboundTcpConnection using coalescing strategy DISABLED
+    >   INFO  [HANDSHAKE-Astendawen/192.168.210.215] 2019-01-23 23:58:20,929 OutboundTcpConnection.java:561 - Handshaking version with Astendawen/192.168.210.215
+    >   Exception (java.lang.RuntimeException) encountered during startup: Unable to gossip with any peers
+    >   java.lang.RuntimeException: Unable to gossip with any peers
+    >   	at org.apache.cassandra.gms.Gossiper.doShadowRound(Gossiper.java:1443)
+    >   	at org.apache.cassandra.service.StorageService.checkForEndpointCollision(StorageService.java:547)
+    >   	at org.apache.cassandra.service.StorageService.prepareToJoin(StorageService.java:804)
+    >   	at org.apache.cassandra.service.StorageService.initServer(StorageService.java:664)
+    >   	at org.apache.cassandra.service.StorageService.initServer(StorageService.java:613)
+    >   	at org.apache.cassandra.service.CassandraDaemon.setup(CassandraDaemon.java:379)
+    >   	at org.apache.cassandra.service.CassandraDaemon.activate(CassandraDaemon.java:602)
+    >   	at org.apache.cassandra.service.CassandraDaemon.main(CassandraDaemon.java:691)
+    >   ERROR [main] 2019-01-23 23:59:21,944 CassandraDaemon.java:708 - Exception encountered during startup
+    >   java.lang.RuntimeException: Unable to gossip with any peers
+    >   	at org.apache.cassandra.gms.Gossiper.doShadowRound(Gossiper.java:1443) ~[apache-cassandra-3.11.3.jar:3.11.3]
+    >   	at org.apache.cassandra.service.StorageService.checkForEndpointCollision(StorageService.java:547) ~[apache-cassandra-3.11.3.jar:3.11.3]
+    >   	at org.apache.cassandra.service.StorageService.prepareToJoin(StorageService.java:804) ~[apache-cassandra-3.11.3.jar:3.11.3]
+    >   	at org.apache.cassandra.service.StorageService.initServer(StorageService.java:664) ~[apache-cassandra-3.11.3.jar:3.11.3]
+    >   	at org.apache.cassandra.service.StorageService.initServer(StorageService.java:613) ~[apache-cassandra-3.11.3.jar:3.11.3]
+    >   	at org.apache.cassandra.service.CassandraDaemon.setup(CassandraDaemon.java:379) [apache-cassandra-3.11.3.jar:3.11.3]
+    >   	at org.apache.cassandra.service.CassandraDaemon.activate(CassandraDaemon.java:602) [apache-cassandra-3.11.3.jar:3.11.3]
+    >   	at org.apache.cassandra.service.CassandraDaemon.main(CassandraDaemon.java:691) [apache-cassandra-3.11.3.jar:3.11.3]
+    >   INFO  [StorageServiceShutdownHook] 2019-01-23 23:59:21,987 HintsService.java:220 - Paused hints dispatch
+    >   WARN  [StorageServiceShutdownHook] 2019-01-23 23:59:21,988 Gossiper.java:1567 - No local state, state is in silent shutdown, or node hasn't joined, not announcing shutdown
+    >   INFO  [StorageServiceShutdownHook] 2019-01-23 23:59:21,988 MessagingService.java:992 - Waiting for messaging service to quiesce
+    >   INFO  [ACCEPT-/172.18.0.2] 2019-01-23 23:59:21,990 MessagingService.java:1346 - MessagingService has terminated the accept() thread
+    >   INFO  [StorageServiceShutdownHook] 2019-01-23 23:59:24,451 HintsService.java:220 - Paused hints dispatch
+    >   [Stevedore@Nendalith ~]$
+
+
+    >   INFO  [main] 2019-01-23 23:58:23,479 QueryProcessor.java:163 - Preloaded 0 prepared statements
+    >   INFO  [main] 2019-01-23 23:58:23,480 StorageService.java:618 - Cassandra version: 3.11.3
+    >   INFO  [main] 2019-01-23 23:58:23,480 StorageService.java:619 - Thrift API version: 20.1.0
+    >   INFO  [main] 2019-01-23 23:58:23,481 StorageService.java:620 - CQL supported versions: 3.4.4 (default: 3.4.4)
+    >   INFO  [main] 2019-01-23 23:58:23,481 StorageService.java:622 - Native protocol supported versions: 3/v3, 4/v4, 5/v5-beta (default: 4/v4)
+    >   INFO  [main] 2019-01-23 23:58:23,528 IndexSummaryManager.java:85 - Initializing index summary manager with a memory pool size of 49 MB and a resize interval of 60 minutes
+    >   INFO  [main] 2019-01-23 23:58:23,542 MessagingService.java:761 - Starting Messaging Service on /172.18.0.2:7000 (eth0)
+    >   INFO  [main] 2019-01-23 23:58:23,585 OutboundTcpConnection.java:108 - OutboundTcpConnection using coalescing strategy DISABLED
+    >   INFO  [HANDSHAKE-Astendawen/192.168.210.215] 2019-01-23 23:58:23,605 OutboundTcpConnection.java:561 - Handshaking version with Astendawen/192.168.210.215
+    >   Exception (java.lang.RuntimeException) encountered during startup: Unable to gossip with any peers
+    >   java.lang.RuntimeException: Unable to gossip with any peers
+    >   	at org.apache.cassandra.gms.Gossiper.doShadowRound(Gossiper.java:1443)
+    >   	at org.apache.cassandra.service.StorageService.checkForEndpointCollision(StorageService.java:547)
+    >   	at org.apache.cassandra.service.StorageService.prepareToJoin(StorageService.java:804)
+    >   	at org.apache.cassandra.service.StorageService.initServer(StorageService.java:664)
+    >   	at org.apache.cassandra.service.StorageService.initServer(StorageService.java:613)
+    >   	at org.apache.cassandra.service.CassandraDaemon.setup(CassandraDaemon.java:379)
+    >   	at org.apache.cassandra.service.CassandraDaemon.activate(CassandraDaemon.java:602)
+    >   	at org.apache.cassandra.service.CassandraDaemon.main(CassandraDaemon.java:691)
+    >   ERROR [main] 2019-01-23 23:59:24,626 CassandraDaemon.java:708 - Exception encountered during startup
+    >   java.lang.RuntimeException: Unable to gossip with any peers
+    >   	at org.apache.cassandra.gms.Gossiper.doShadowRound(Gossiper.java:1443) ~[apache-cassandra-3.11.3.jar:3.11.3]
+    >   	at org.apache.cassandra.service.StorageService.checkForEndpointCollision(StorageService.java:547) ~[apache-cassandra-3.11.3.jar:3.11.3]
+    >   	at org.apache.cassandra.service.StorageService.prepareToJoin(StorageService.java:804) ~[apache-cassandra-3.11.3.jar:3.11.3]
+    >   	at org.apache.cassandra.service.StorageService.initServer(StorageService.java:664) ~[apache-cassandra-3.11.3.jar:3.11.3]
+    >   	at org.apache.cassandra.service.StorageService.initServer(StorageService.java:613) ~[apache-cassandra-3.11.3.jar:3.11.3]
+    >   	at org.apache.cassandra.service.CassandraDaemon.setup(CassandraDaemon.java:379) [apache-cassandra-3.11.3.jar:3.11.3]
+    >   	at org.apache.cassandra.service.CassandraDaemon.activate(CassandraDaemon.java:602) [apache-cassandra-3.11.3.jar:3.11.3]
+    >   	at org.apache.cassandra.service.CassandraDaemon.main(CassandraDaemon.java:691) [apache-cassandra-3.11.3.jar:3.11.3]
+    >   INFO  [StorageServiceShutdownHook] 2019-01-23 23:59:24,677 HintsService.java:220 - Paused hints dispatch
+    >   WARN  [StorageServiceShutdownHook] 2019-01-23 23:59:24,679 Gossiper.java:1567 - No local state, state is in silent shutdown, or node hasn't joined, not announcing shutdown
+    >   INFO  [StorageServiceShutdownHook] 2019-01-23 23:59:24,679 MessagingService.java:992 - Waiting for messaging service to quiesce
+    >   INFO  [ACCEPT-/172.18.0.2] 2019-01-23 23:59:24,685 MessagingService.java:1346 - MessagingService has terminated the accept() thread
+    >   INFO  [StorageServiceShutdownHook] 2019-01-23 23:59:27,671 HintsService.java:220 - Paused hints dispatch
+
+
+    >   INFO  [main] 2019-01-23 23:58:25,855 QueryProcessor.java:163 - Preloaded 0 prepared statements
+    >   INFO  [main] 2019-01-23 23:58:25,857 StorageService.java:618 - Cassandra version: 3.11.3
+    >   INFO  [main] 2019-01-23 23:58:25,857 StorageService.java:619 - Thrift API version: 20.1.0
+    >   INFO  [main] 2019-01-23 23:58:25,857 StorageService.java:620 - CQL supported versions: 3.4.4 (default: 3.4.4)
+    >   INFO  [main] 2019-01-23 23:58:25,858 StorageService.java:622 - Native protocol supported versions: 3/v3, 4/v4, 5/v5-beta (default: 4/v4)
+    >   INFO  [main] 2019-01-23 23:58:25,907 IndexSummaryManager.java:85 - Initializing index summary manager with a memory pool size of 49 MB and a resize interval of 60 minutes
+    >   INFO  [main] 2019-01-23 23:58:25,920 MessagingService.java:761 - Starting Messaging Service on /172.18.0.2:7000 (eth0)
+    >   INFO  [main] 2019-01-23 23:58:25,960 OutboundTcpConnection.java:108 - OutboundTcpConnection using coalescing strategy DISABLED
+    >   INFO  [HANDSHAKE-Astendawen/192.168.210.215] 2019-01-23 23:58:25,982 OutboundTcpConnection.java:561 - Handshaking version with Astendawen/192.168.210.215
+    >   Exception (java.lang.RuntimeException) encountered during startup: Unable to gossip with any peers
+    >   java.lang.RuntimeException: Unable to gossip with any peers
+    >   	at org.apache.cassandra.gms.Gossiper.doShadowRound(Gossiper.java:1443)
+    >   	at org.apache.cassandra.service.StorageService.checkForEndpointCollision(StorageService.java:547)
+    >   	at org.apache.cassandra.service.StorageService.prepareToJoin(StorageService.java:804)
+    >   	at org.apache.cassandra.service.StorageService.initServer(StorageService.java:664)
+    >   	at org.apache.cassandra.service.StorageService.initServer(StorageService.java:613)
+    >   	at org.apache.cassandra.service.CassandraDaemon.setup(CassandraDaemon.java:379)
+    >   	at org.apache.cassandra.service.CassandraDaemon.activate(CassandraDaemon.java:602)
+    >   	at org.apache.cassandra.service.CassandraDaemon.main(CassandraDaemon.java:691)
+    >   ERROR [main] 2019-01-23 23:59:26,991 CassandraDaemon.java:708 - Exception encountered during startup
+    >   java.lang.RuntimeException: Unable to gossip with any peers
+    >   	at org.apache.cassandra.gms.Gossiper.doShadowRound(Gossiper.java:1443) ~[apache-cassandra-3.11.3.jar:3.11.3]
+    >   	at org.apache.cassandra.service.StorageService.checkForEndpointCollision(StorageService.java:547) ~[apache-cassandra-3.11.3.jar:3.11.3]
+    >   	at org.apache.cassandra.service.StorageService.prepareToJoin(StorageService.java:804) ~[apache-cassandra-3.11.3.jar:3.11.3]
+    >   	at org.apache.cassandra.service.StorageService.initServer(StorageService.java:664) ~[apache-cassandra-3.11.3.jar:3.11.3]
+    >   	at org.apache.cassandra.service.StorageService.initServer(StorageService.java:613) ~[apache-cassandra-3.11.3.jar:3.11.3]
+    >   	at org.apache.cassandra.service.CassandraDaemon.setup(CassandraDaemon.java:379) [apache-cassandra-3.11.3.jar:3.11.3]
+    >   	at org.apache.cassandra.service.CassandraDaemon.activate(CassandraDaemon.java:602) [apache-cassandra-3.11.3.jar:3.11.3]
+    >   	at org.apache.cassandra.service.CassandraDaemon.main(CassandraDaemon.java:691) [apache-cassandra-3.11.3.jar:3.11.3]
+    >   INFO  [StorageServiceShutdownHook] 2019-01-23 23:59:27,036 HintsService.java:220 - Paused hints dispatch
+    >   WARN  [StorageServiceShutdownHook] 2019-01-23 23:59:27,038 Gossiper.java:1567 - No local state, state is in silent shutdown, or node hasn't joined, not announcing shutdown
+    >   INFO  [StorageServiceShutdownHook] 2019-01-23 23:59:27,038 MessagingService.java:992 - Waiting for messaging service to quiesce
+    >   INFO  [ACCEPT-/172.18.0.2] 2019-01-23 23:59:27,045 MessagingService.java:1346 - MessagingService has terminated the accept() thread
+    >   INFO  [StorageServiceShutdownHook] 2019-01-23 23:59:30,125 HintsService.java:220 - Paused hints dispatch
+
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+# Test connections between ndoes ..
+#[user@node]
+
+    canames=(
+        Astendawen
+        Nendalith
+        Saelia
+        Adwaeric
+        )
+
+    for vmname in ${canames[@]}
+        do
+                    echo ""
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            for caport in 7000 7001 7199 9042 9160
+                do
+                    echo ""
+                    echo "Port [${caport}]"
+                    nc -vz "${vmname:?}" "${caport}"
+                done
+        done
+
+    >   ---- ----
+    >   Node [Astendawen]
+    >
+    >   Port [7000]
+    >   Ncat: Version 7.60 ( https://nmap.org/ncat )
+    >   Ncat: Connected to 192.168.210.215:7000.
+    >   Ncat: 0 bytes sent, 0 bytes received in 0.02 seconds.
+    >
+    >   Port [7001]
+    >   Ncat: Version 7.60 ( https://nmap.org/ncat )
+    >   Ncat: Connection refused.
+    >
+    >   Port [7199]
+    >   Ncat: Version 7.60 ( https://nmap.org/ncat )
+    >   Ncat: Connection refused.
+    >
+    >   Port [9042]
+    >   Ncat: Version 7.60 ( https://nmap.org/ncat )
+    >   Ncat: Connected to 192.168.210.215:9042.
+    >   Ncat: 0 bytes sent, 0 bytes received in 0.02 seconds.
+    >
+    >   Port [9160]
+    >   Ncat: Version 7.60 ( https://nmap.org/ncat )
+    >   Ncat: Connection refused.
+    >
+    >   ---- ----
+    >   Node [Nendalith]
+    >
+    >   Port [7000]
+    >   Ncat: Version 7.60 ( https://nmap.org/ncat )
+    >   Ncat: Connection refused.
+    >
+    >   Port [7001]
+    >   Ncat: Version 7.60 ( https://nmap.org/ncat )
+    >   Ncat: Connection refused.
+    >
+    >   Port [7199]
+    >   Ncat: Version 7.60 ( https://nmap.org/ncat )
+    >   Ncat: Connection refused.
+    >
+    >   Port [9042]
+    >   Ncat: Version 7.60 ( https://nmap.org/ncat )
+    >   Ncat: Connection refused.
+    >
+    >   Port [9160]
+    >   Ncat: Version 7.60 ( https://nmap.org/ncat )
+    >   Ncat: Connection refused.
+    >
+    >   ---- ----
+    >   Node [Saelia]
+    >
+    >   Port [7000]
+    >   Ncat: Version 7.60 ( https://nmap.org/ncat )
+    >   Ncat: No route to host.
+    >
+    >   Port [7001]
+    >   Ncat: Version 7.60 ( https://nmap.org/ncat )
+    >   Ncat: No route to host.
+    >
+    >   Port [7199]
+    >   Ncat: Version 7.60 ( https://nmap.org/ncat )
+    >   Ncat: No route to host.
+    >
+    >   Port [9042]
+    >   Ncat: Version 7.60 ( https://nmap.org/ncat )
+    >   Ncat: No route to host.
+    >
+    >   Port [9160]
+    >   Ncat: Version 7.60 ( https://nmap.org/ncat )
+    >   Ncat: No route to host.
+    >
+    >   ---- ----
+    >   Node [Adwaeric]
+    >
+    >   Port [7000]
+    >   Ncat: Version 7.60 ( https://nmap.org/ncat )
+    >   Ncat: No route to host.
+    >
+    >   Port [7001]
+    >   Ncat: Version 7.60 ( https://nmap.org/ncat )
+    >   Ncat: No route to host.
+    >
+    >   Port [7199]
+    >   Ncat: Version 7.60 ( https://nmap.org/ncat )
+    >   Ncat: No route to host.
+    >
+    >   Port [9042]
+    >   Ncat: Version 7.60 ( https://nmap.org/ncat )
+    >   Ncat: No route to host.
+    >
+    >   Port [9160]
+    >   Ncat: Version 7.60 ( https://nmap.org/ncat )
+    >   Ncat: No route to host.
+
+
+    #
+    # One service decides it is the seed node and stays active, listening on 7000 and 9042.
+    # The other three nodes can't reach the seed node and shutthemselevs down.
+    #
+
+
+
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+# Attempt #3
+
+
+    #
+    # Leave the primary node running.
+    # Re-start the other three nodes ...
+    #
+
+
+    >   INFO  [main] 2019-01-24 02:03:28,033 QueryProcessor.java:163 - Preloaded 0 prepared statements
+    >   INFO  [main] 2019-01-24 02:03:28,034 StorageService.java:618 - Cassandra version: 3.11.3
+    >   INFO  [main] 2019-01-24 02:03:28,034 StorageService.java:619 - Thrift API version: 20.1.0
+    >   INFO  [main] 2019-01-24 02:03:28,040 StorageService.java:620 - CQL supported versions: 3.4.4 (default: 3.4.4)
+    >   INFO  [main] 2019-01-24 02:03:28,040 StorageService.java:622 - Native protocol supported versions: 3/v3, 4/v4, 5/v5-beta (default: 4/v4)
+    >   INFO  [main] 2019-01-24 02:03:28,093 IndexSummaryManager.java:85 - Initializing index summary manager with a memory pool size of 49 MB and a resize interval of 60 minutes
+    >   INFO  [main] 2019-01-24 02:03:28,108 MessagingService.java:761 - Starting Messaging Service on /172.18.0.2:7000 (eth0)
+    >   INFO  [main] 2019-01-24 02:03:28,158 OutboundTcpConnection.java:108 - OutboundTcpConnection using coalescing strategy DISABLED
+    >   INFO  [HANDSHAKE-Astendawen/192.168.210.215] 2019-01-24 02:03:28,174 OutboundTcpConnection.java:561 - Handshaking version with Astendawen/192.168.210.215
+    >   Exception (java.lang.RuntimeException) encountered during startup: Unable to gossip with any peers
+    >   java.lang.RuntimeException: Unable to gossip with any peers
+    >   	at org.apache.cassandra.gms.Gossiper.doShadowRound(Gossiper.java:1443)
+    >   	at org.apache.cassandra.service.StorageService.checkForEndpointCollision(StorageService.java:547)
+    >   	at org.apache.cassandra.service.StorageService.prepareToJoin(StorageService.java:804)
+    >   	at org.apache.cassandra.service.StorageService.initServer(StorageService.java:664)
+    >   	at org.apache.cassandra.service.StorageService.initServer(StorageService.java:613)
+    >   	at org.apache.cassandra.service.CassandraDaemon.setup(CassandraDaemon.java:379)
+    >   	at org.apache.cassandra.service.CassandraDaemon.activate(CassandraDaemon.java:602)
+    >   	at org.apache.cassandra.service.CassandraDaemon.main(CassandraDaemon.java:691)
+    >   ERROR [main] 2019-01-24 02:04:29,195 CassandraDaemon.java:708 - Exception encountered during startup
+    >   java.lang.RuntimeException: Unable to gossip with any peers
+    >   	at org.apache.cassandra.gms.Gossiper.doShadowRound(Gossiper.java:1443) ~[apache-cassandra-3.11.3.jar:3.11.3]
+    >   	at org.apache.cassandra.service.StorageService.checkForEndpointCollision(StorageService.java:547) ~[apache-cassandra-3.11.3.jar:3.11.3]
+    >   	at org.apache.cassandra.service.StorageService.prepareToJoin(StorageService.java:804) ~[apache-cassandra-3.11.3.jar:3.11.3]
+    >   	at org.apache.cassandra.service.StorageService.initServer(StorageService.java:664) ~[apache-cassandra-3.11.3.jar:3.11.3]
+    >   	at org.apache.cassandra.service.StorageService.initServer(StorageService.java:613) ~[apache-cassandra-3.11.3.jar:3.11.3]
+    >   	at org.apache.cassandra.service.CassandraDaemon.setup(CassandraDaemon.java:379) [apache-cassandra-3.11.3.jar:3.11.3]
+    >   	at org.apache.cassandra.service.CassandraDaemon.activate(CassandraDaemon.java:602) [apache-cassandra-3.11.3.jar:3.11.3]
+    >   	at org.apache.cassandra.service.CassandraDaemon.main(CassandraDaemon.java:691) [apache-cassandra-3.11.3.jar:3.11.3]
+    >   INFO  [StorageServiceShutdownHook] 2019-01-24 02:04:29,268 HintsService.java:220 - Paused hints dispatch
+    >   WARN  [StorageServiceShutdownHook] 2019-01-24 02:04:29,275 Gossiper.java:1567 - No local state, state is in silent shutdown, or node hasn't joined, not announcing shutdown
+    >   INFO  [StorageServiceShutdownHook] 2019-01-24 02:04:29,275 MessagingService.java:992 - Waiting for messaging service to quiesce
+    >   INFO  [ACCEPT-/172.18.0.2] 2019-01-24 02:04:29,277 MessagingService.java:1346 - MessagingService has terminated the accept() thread
+    >   INFO  [StorageServiceShutdownHook] 2019-01-24 02:04:32,118 HintsService.java:220 - Paused hints dispatch
+
+    >   INFO  [main] 2019-01-24 02:03:52,557 MessagingService.java:761 - Starting Messaging Service on /172.18.0.2:7000 (eth0)
+    >   INFO  [main] 2019-01-24 02:03:52,622 OutboundTcpConnection.java:108 - OutboundTcpConnection using coalescing strategy DISABLED
+    >   INFO  [HANDSHAKE-Astendawen/192.168.210.215] 2019-01-24 02:03:52,651 OutboundTcpConnection.java:561 - Handshaking version with Astendawen/192.168.210.215
+    >   Exception (java.lang.RuntimeException) encountered during startup: Unable to gossip with any peers
+    >   java.lang.RuntimeException: Unable to gossip with any peers
+    >   	at org.apache.cassandra.gms.Gossiper.doShadowRound(Gossiper.java:1443)
+    >   	at org.apache.cassandra.service.StorageService.checkForEndpointCollision(StorageService.java:547)
+    >   	at org.apache.cassandra.service.StorageService.prepareToJoin(StorageService.java:804)
+    >   	at org.apache.cassandra.service.StorageService.initServer(StorageService.java:664)
+    >   	at org.apache.cassandra.service.StorageService.initServer(StorageService.java:613)
+    >   	at org.apache.cassandra.service.CassandraDaemon.setup(CassandraDaemon.java:379)
+    >   	at org.apache.cassandra.service.CassandraDaemon.activate(CassandraDaemon.java:602)
+    >   	at org.apache.cassandra.service.CassandraDaemon.main(CassandraDaemon.java:691)
+    >   ERROR [main] 2019-01-24 02:04:53,665 CassandraDaemon.java:708 - Exception encountered during startup
+    >   java.lang.RuntimeException: Unable to gossip with any peers
+    >   	at org.apache.cassandra.gms.Gossiper.doShadowRound(Gossiper.java:1443) ~[apache-cassandra-3.11.3.jar:3.11.3]
+    >   	at org.apache.cassandra.service.StorageService.checkForEndpointCollision(StorageService.java:547) ~[apache-cassandra-3.11.3.jar:3.11.3]
+    >   	at org.apache.cassandra.service.StorageService.prepareToJoin(StorageService.java:804) ~[apache-cassandra-3.11.3.jar:3.11.3]
+    >   	at org.apache.cassandra.service.StorageService.initServer(StorageService.java:664) ~[apache-cassandra-3.11.3.jar:3.11.3]
+    >   	at org.apache.cassandra.service.StorageService.initServer(StorageService.java:613) ~[apache-cassandra-3.11.3.jar:3.11.3]
+    >   	at org.apache.cassandra.service.CassandraDaemon.setup(CassandraDaemon.java:379) [apache-cassandra-3.11.3.jar:3.11.3]
+    >   	at org.apache.cassandra.service.CassandraDaemon.activate(CassandraDaemon.java:602) [apache-cassandra-3.11.3.jar:3.11.3]
+    >   	at org.apache.cassandra.service.CassandraDaemon.main(CassandraDaemon.java:691) [apache-cassandra-3.11.3.jar:3.11.3]
+    >   INFO  [StorageServiceShutdownHook] 2019-01-24 02:04:53,712 HintsService.java:220 - Paused hints dispatch
+    >   WARN  [StorageServiceShutdownHook] 2019-01-24 02:04:53,715 Gossiper.java:1567 - No local state, state is in silent shutdown, or node hasn't joined, not announcing shutdown
+    >   INFO  [StorageServiceShutdownHook] 2019-01-24 02:04:53,716 MessagingService.java:992 - Waiting for messaging service to quiesce
+    >   INFO  [ACCEPT-/172.18.0.2] 2019-01-24 02:04:53,719 MessagingService.java:1346 - MessagingService has terminated the accept() thread
+    >   INFO  [StorageServiceShutdownHook] 2019-01-24 02:04:56,405 HintsService.java:220 - Paused hints dispatch
+
+    >   INFO  [main] 2019-01-24 02:04:16,749 MessagingService.java:761 - Starting Messaging Service on /172.18.0.2:7000 (eth0)
+    >   INFO  [main] 2019-01-24 02:04:16,791 OutboundTcpConnection.java:108 - OutboundTcpConnection using coalescing strategy DISABLED
+    >   INFO  [HANDSHAKE-Astendawen/192.168.210.215] 2019-01-24 02:04:16,820 OutboundTcpConnection.java:561 - Handshaking version with Astendawen/192.168.210.215
+    >   Exception (java.lang.RuntimeException) encountered during startup: Unable to gossip with any peers
+    >   java.lang.RuntimeException: Unable to gossip with any peers
+    >   	at org.apache.cassandra.gms.Gossiper.doShadowRound(Gossiper.java:1443)
+    >   	at org.apache.cassandra.service.StorageService.checkForEndpointCollision(StorageService.java:547)
+    >   	at org.apache.cassandra.service.StorageService.prepareToJoin(StorageService.java:804)
+    >   	at org.apache.cassandra.service.StorageService.initServer(StorageService.java:664)
+    >   	at org.apache.cassandra.service.StorageService.initServer(StorageService.java:613)
+    >   	at org.apache.cassandra.service.CassandraDaemon.setup(CassandraDaemon.java:379)
+    >   	at org.apache.cassandra.service.CassandraDaemon.activate(CassandraDaemon.java:602)
+    >   	at org.apache.cassandra.service.CassandraDaemon.main(CassandraDaemon.java:691)
+    >   ERROR [main] 2019-01-24 02:05:17,837 CassandraDaemon.java:708 - Exception encountered during startup
+    >   java.lang.RuntimeException: Unable to gossip with any peers
+    >   	at org.apache.cassandra.gms.Gossiper.doShadowRound(Gossiper.java:1443) ~[apache-cassandra-3.11.3.jar:3.11.3]
+    >   	at org.apache.cassandra.service.StorageService.checkForEndpointCollision(StorageService.java:547) ~[apache-cassandra-3.11.3.jar:3.11.3]
+    >   	at org.apache.cassandra.service.StorageService.prepareToJoin(StorageService.java:804) ~[apache-cassandra-3.11.3.jar:3.11.3]
+    >   	at org.apache.cassandra.service.StorageService.initServer(StorageService.java:664) ~[apache-cassandra-3.11.3.jar:3.11.3]
+    >   	at org.apache.cassandra.service.StorageService.initServer(StorageService.java:613) ~[apache-cassandra-3.11.3.jar:3.11.3]
+    >   	at org.apache.cassandra.service.CassandraDaemon.setup(CassandraDaemon.java:379) [apache-cassandra-3.11.3.jar:3.11.3]
+    >   	at org.apache.cassandra.service.CassandraDaemon.activate(CassandraDaemon.java:602) [apache-cassandra-3.11.3.jar:3.11.3]
+    >   	at org.apache.cassandra.service.CassandraDaemon.main(CassandraDaemon.java:691) [apache-cassandra-3.11.3.jar:3.11.3]
+    >   INFO  [StorageServiceShutdownHook] 2019-01-24 02:05:17,898 HintsService.java:220 - Paused hints dispatch
+    >   WARN  [StorageServiceShutdownHook] 2019-01-24 02:05:17,904 Gossiper.java:1567 - No local state, state is in silent shutdown, or node hasn't joined, not announcing shutdown
+    >   INFO  [StorageServiceShutdownHook] 2019-01-24 02:05:17,904 MessagingService.java:992 - Waiting for messaging service to quiesce
+    >   INFO  [ACCEPT-/172.18.0.2] 2019-01-24 02:05:17,906 MessagingService.java:1346 - MessagingService has terminated the accept() thread
+    >   INFO  [StorageServiceShutdownHook] 2019-01-24 02:05:20,525 HintsService.java:220 - Paused hints dispatch
+
+    #
+    # Cassandra unable to connect to Astendawen/192.168.210.215
+    # Testing with nc connection from Nendalith to Astendawen works ..
+    #
+
+
+
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+# Test connections between ndoes ..
+#[user@Nendalith]
+
+    docker run -it --rm fedora bash
+
+    >       Unable to find image 'fedora:latest' locally
+    >       latest: Pulling from library/fedora
+    >       0be2a68855d7: Pull complete
+    >       Digest: sha256:7b921a4a008ee83c06d2cde9f21d3aa8de4635b0c4ec159f31caee83ad220b21
+    >       Status: Downloaded newer image for fedora:latest
+
+
+        dnf install nc
+
+    >       Installed:
+    >         nmap-ncat-2:7.70-4.fc29.x86_64
+    >       Complete!
+
+
+        nc -vz Astendawen 7000
+
+    >       Ncat: Version 7.70 ( https://nmap.org/ncat )
+    >       Ncat: Connected to 192.168.210.215:7000.
+    >       Ncat: 0 bytes sent, 0 bytes received in 0.02 seconds.
+
+
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+# Attempt #4
+
+
+    Remove extra_hosts from the compose YML file ..
+
+    >   INFO  [main] 2019-01-24 03:00:31,933 StorageService.java:1446 - JOINING: Finish joining ring
+    >   INFO  [main] 2019-01-24 03:00:32,776 StorageService.java:2289 - Node Astendawen/192.168.210.215 state jump to NORMAL
+    >   INFO  [main] 2019-01-24 03:00:32,789 Gossiper.java:1692 - Waiting for gossip to settle...
+    >   INFO  [GossipStage:1] 2019-01-24 03:00:34,681 OutboundTcpConnection.java:108 - OutboundTcpConnection using coalescing strategy DISABLED
+    >   INFO  [HANDSHAKE-/192.168.210.216] 2019-01-24 03:00:34,695 OutboundTcpConnection.java:561 - Handshaking version with /192.168.210.216
+    >   INFO  [GossipStage:1] 2019-01-24 03:00:37,143 Gossiper.java:1055 - Node /192.168.210.216 is now part of the cluster
+    >   INFO  [RequestResponseStage-1] 2019-01-24 03:00:37,164 Gossiper.java:1019 - InetAddress /192.168.210.216 is now UP
+    >   INFO  [GossipStage:1] 2019-01-24 03:00:37,213 TokenMetadata.java:479 - Updating topology for /192.168.210.216
+    >   INFO  [GossipStage:1] 2019-01-24 03:00:37,213 TokenMetadata.java:479 - Updating topology for /192.168.210.216
+    >   INFO  [HANDSHAKE-/192.168.210.217] 2019-01-24 03:00:37,684 OutboundTcpConnection.java:561 - Handshaking version with /192.168.210.217
+    >   WARN  [GossipTasks:1] 2019-01-24 03:00:37,825 FailureDetector.java:288 - Not marking nodes down due to local pause of 6713351510 > 5000000000
+    >   INFO  [HANDSHAKE-/192.168.210.216] 2019-01-24 03:00:37,837 OutboundTcpConnection.java:561 - Handshaking version with /192.168.210.216
+    >   INFO  [HANDSHAKE-/192.168.210.218] 2019-01-24 03:00:39,526 OutboundTcpConnection.java:561 - Handshaking version with /192.168.210.218
+    >   INFO  [GossipStage:1] 2019-01-24 03:00:40,030 Gossiper.java:1055 - Node /192.168.210.217 is now part of the cluster
+    >   INFO  [RequestResponseStage-3] 2019-01-24 03:00:40,046 Gossiper.java:1019 - InetAddress /192.168.210.217 is now UP
+    >   INFO  [GossipStage:1] 2019-01-24 03:00:40,091 TokenMetadata.java:479 - Updating topology for /192.168.210.217
+    >   INFO  [GossipStage:1] 2019-01-24 03:00:40,091 TokenMetadata.java:479 - Updating topology for /192.168.210.217
+    >   INFO  [main] 2019-01-24 03:00:40,791 Gossiper.java:1709 - Gossip not settled after 3 polls.
+    >   INFO  [HANDSHAKE-/192.168.210.217] 2019-01-24 03:00:40,902 OutboundTcpConnection.java:561 - Handshaking version with /192.168.210.217
+    >   INFO  [GossipStage:1] 2019-01-24 03:00:41,751 Gossiper.java:1055 - Node /192.168.210.218 is now part of the cluster
+    >   INFO  [RequestResponseStage-4] 2019-01-24 03:00:41,765 Gossiper.java:1019 - InetAddress /192.168.210.218 is now UP
+    >   INFO  [GossipStage:1] 2019-01-24 03:00:41,789 TokenMetadata.java:479 - Updating topology for /192.168.210.218
+    >   INFO  [GossipStage:1] 2019-01-24 03:00:41,790 TokenMetadata.java:479 - Updating topology for /192.168.210.218
+    >   INFO  [main] 2019-01-24 03:00:41,792 Gossiper.java:1709 - Gossip not settled after 4 polls.
+    >   INFO  [HANDSHAKE-/192.168.210.218] 2019-01-24 03:00:42,814 OutboundTcpConnection.java:561 - Handshaking version with /192.168.210.218
+    >   INFO  [main] 2019-01-24 03:00:44,794 Gossiper.java:1721 - Gossip settled after 4 extra polls; proceeding
+    >   INFO  [main] 2019-01-24 03:00:45,100 NativeTransportService.java:70 - Netty using native Epoll event loop
+    >   INFO  [main] 2019-01-24 03:00:45,168 Server.java:155 - Using Netty Version: [netty-buffer=netty-buffer-4.0.44.Final.452812a, netty-codec=netty-codec-4.0.44.Final.452812a, netty-codec-haproxy=netty-codec-haproxy-4.0.44.Final.452812a, netty-codec-http=netty-codec-http-4.0.44.Final.452812a, netty-codec-socks=netty-codec-socks-4.0.44.Final.452812a, netty-common=netty-common-4.0.44.Final.452812a, netty-handler=netty-handler-4.0.44.Final.452812a, netty-tcnative=netty-tcnative-1.1.33.Fork26.142ecbb, netty-transport=netty-transport-4.0.44.Final.452812a, netty-transport-native-epoll=netty-transport-native-epoll-4.0.44.Final.452812a, netty-transport-rxtx=netty-transport-rxtx-4.0.44.Final.452812a, netty-transport-sctp=netty-transport-sctp-4.0.44.Final.452812a, netty-transport-udt=netty-transport-udt-4.0.44.Final.452812a]
+    >   INFO  [main] 2019-01-24 03:00:45,169 Server.java:156 - Starting listening for CQL clients on /0.0.0.0:9042 (unencrypted)...
+    >   INFO  [main] 2019-01-24 03:00:45,255 CassandraDaemon.java:529 - Not starting RPC server as requested. Use JMX (StorageService->startRPCServer()) or nodetool (enablethrift) to start it
+
+    Looks a lot healthier :-)
+
+
+
+
+
+

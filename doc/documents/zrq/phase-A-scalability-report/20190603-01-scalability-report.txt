@@ -1,0 +1,736 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+    #
+    # LUSC phase A technical reports
+    # https://lsst-uk.atlassian.net/wiki/spaces/LUSC/pages/212566018/LUSC+Technical+Reports+Phase+A
+
+---------------------------------------------------
+
+This report describes a series of experiments and investigations to identify and evaluate technologies
+suitable for developing the event processing platform for LSST:UK capable of handling the
+data rates expected during the lifetime of the LSST project.
+
+The evaluation criteria for the experiemnts cover two main requirements
+1) meeting the initial data rates expected at the beginning of the LSST project
+2) ability to increase the scale of data the system can handle to meet the changing data processing requirements over the lifetime of the project
+
+The core design of the architecture is based on a micro-service architecture deploying
+multiple individual services and components interlinked by Kafka data streams.
+
+The benefits key we hope to gain from using a micro-service distributed architecture are:
+
+    * Using abstract service interfaces insulates end users from the implementation details
+
+    * It avoids some disadvantages of a deploying a single centralized system :
+        * Single point of failure
+        * High cost of deploying a 'hot spare' for failover.
+        * Difficult to scale in response to changes in load
+        * Difficult to adapt in response to changes in requirements
+
+The main aim of these experiments is to see whether the new technologies live up to the advertised benefits.
+
+The experiments are designed to address specific questions about the relative performance or practicality
+of different configurations and implementations within this architecture.
+
+Processing at each step can be implemented with multiple nodes with multiple threads running in parallel.
+The degree of parallelization is limited by the number of Kafka partitions.
+Given sufficient partitions, the degree of parallelization can be customised for each step.
+
+----------------
+Extracting data
+
+Extracting image data from events, replacing them with URL pointers.
+Fetching image data using the URL pointers.
+
+Extracting table data from events, replacing them with URL pointers.
+Fetching table data using the URL pointers.
+
+This can be acheived with a Kafka consumer, connected to the head stream.
+Extracts images and stores them on disc (location configurable).
+
+A second Kafka consumer/producer pair reads alerts from the stream, replaces the BLOB image data with either an empty (null) set, or a String URL.
+The producer pushed the resulting events to a new Kafka stream for downstream consumers to use.
+
+Downstream components use a library API to access alert fields.
+The wrapper class uses lazy loading to access the BLOB image data, loading the data oin demand in the background.
+
+The reason for doing this is to reduce the bandwidth required to pass alerts around the system.
+
+Questions -
+
+    How much time/bandwidth do we save by replacing images with URLs ?
+    How much delay does the processing step add ?
+
+    How many applications function without images ?
+    How many applications require access to the images ?
+    How many applications require bulk (filesystem) access to the images ?
+
+----------------
+Object matching
+
+The incomming data consists of candidate alerts, each containing an identifier for the associated object.
+
+Object matching maintains a live database of known Objects.
+
+    Object select(objectid)
+    List<Object> select(zone)
+    List<Object> select(rowzone,colzone)
+
+Cassandrda updates performed by Candidate history.
+
+If we know the position, how much performance boost do we get from using Zones ?
+
+    Object select(zone,objectid)
+    Object select(rowzone,colzone,objectid)
+
+Questions :
+
+    How many partitions, how many processors with how many threads ?
+    How much memory ?
+    How much disc ?
+
+    How to grow the system.
+    Adding new discs
+    Adding new nodes
+
+----------------
+Candidate matching
+
+The incomming data consists of candidate alerts, each containing an identifier for the  associated object.
+
+Candidate matching maintains a live database of known Candidates.
+Assume input stream contains 100% new candidates so always insert.
+
+    Candidate select(candid)
+    List<Candidate> select(zone)
+    List<Candidate> select(rowzone,colzone)
+
+Casandrda upsert to [Candidates] every alert.
+
+    How many threads, how many channels ?
+    Current tests suggests 16 partitions (four channels with four threads) meets the 1kHz target.
+
+If we know the position, how much performance boost do we get from using Zones ?
+
+    Candidate select(zone,candid)
+    Candidate select(rowzone,colzone,candid)
+
+Questions :
+
+    How many partitions, how many processors with how many threads ?
+    How much memory ?
+    How much disc ?
+
+    How to grow the system.
+    Adding new discs
+    Adding new nodes
+
+----------------
+Candidate history
+
+Candidate history contains mixture of old/new Candidates and old/new NonCandidates
+Trade off between always insert and select/insert.
+
+    Candidate select(candid)
+    List<Candidate> select(objectid)
+
+NonCandidates don't have a unique identifier.
+Create a unique pair using objectid and the jd timestamp.
+
+    NonCandidate select(objectid, jd)
+    List<NonCandidate> select(objectid)
+
+Object statistics are generated from Candidate history.
+Object statistics re-calculated for each alert.
+
+Casandrda upsert to [Candidates] and [NonCandidates] depending on history list.
+Casandrda upsert to [Objects] statistics every alert.
+
+Questions :
+
+    How many partitions, how many processors with how many threads ?
+    How much memory ?
+    How much disc ?
+
+    How to grow the system.
+    Adding new discs
+    Adding new nodes
+
+----------------
+Insert streams
+
+Clean insert streams for [Objects], [Candidates] and [NonCandidates]
+Suitable for populating downstream databases.
+
+----------------
+Crossmatching
+
+Evaluates a range of different cross match methods to perform two separate tasks.
+1) Cross match the incomming stream against a set of known sources from astronomy catalogs.
+2) Cross match the incomming stream against a set of watch list sources supplied by end users.
+
+Crossmatching against the astronomy catalogs adds annotations to the event and passes it on.
+Crossmatching against a watch-list sends a match event to a stream for that watch-list.
+
+For crossmatching, database of [Sources]
+
+    For <Alert> select(ra, dec, radius)
+        For <Source> annotate Alert
+
+    How do we store and/or propagate <Annotation> for <Alert>
+    Separate database table ?
+    List<Annotation> as part of <Alert> ?
+
+    AstroDabis ?
+    List<Annotation> select(objectid)
+
+    How many threads, how many channels ?
+    How much memory ?
+    How much disc ?
+
+    Lazy loading based on position ?
+
+    List<Source> select(zone)
+    List<Source> select(strip,stripe)
+
+    Predictive position data
+        Live stream ?
+        Prediction ?
+
+Questions :
+
+    How many partitions, how many processors with how many threads ?
+    How much memory ?
+    How much disc ?
+
+    How to grow the system.
+    Adding new discs
+    Adding new nodes
+
+For watch lists, database of [Targets]
+
+    For <Alert> select(ra, dec, radius)
+        For <Target> invoke <Action>
+
+    How do we manage the actions ?
+    Metadata CRUD webservice ?
+
+    List<Target> select(zone)
+    List<Target> select(strip,stripe)
+
+    Lazy loading same as above.
+
+Questions :
+
+    How many partitions, how many processors with how many threads ?
+    How much memory ?
+    How much disc ?
+
+    How to grow the system.
+    Adding new discs
+    Adding new nodes
+
+----------------
+Crossmatch algorithms
+
+    HTMID
+    HealPix
+
+    Same database, different algorithms.
+
+Results - crossmatch is I/O limited, loading the data off disc is the limiting factor.
+Remove that constraint by loading everything into memory, then the differences between the algorithms show up.
+
+    HTMID and HealPix involve complex trigonometry to generate the identifier(s) from position.
+    Zone is a much simpler integer arithmetic operation.
+    Rough zone match and filter is much faster than precise trigonometry.
+
+Next steps
+
+    1D Zone or 2D RowZone and ColZone - is the second filter worth it ?
+
+    Testing different zone sizes with different data sets.
+    Predict the optimum zone size for a given data density.
+
+Questions :
+
+    How many partitions, how many processors with how many threads ?
+    How much memory ?
+    How much disc ?
+
+    How to grow the system.
+    Adding new discs
+    Adding new nodes
+
+----------------
+Crossmatch webservice
+
+Provide additional crossmatch functionality as webservices.
+POST a list of sources, GET a list ot matches.
+
+Long running service that can be used by multiple clients.
+Avoids the 'cold' startup costs of using Spark array for each user.
+
+----------------
+Lazy loading event data.
+
+Storing the full event data in a database and only passing minimal data down the processing pipleine.
+
+Loading the full event data from a database.
+
+Loading the full event data from a webservice.
+Augment the webservice with memcached.
+
+Local event store webservices distributed on each compute node.
+
+    <Candidate> select(candid)
+    <Object> select(objectid)
+
+    List<Candidate> select(objectid)
+
+    List<Candidate> select(candid)
+    List<NonCandidate> select(candid)
+
+Questions ..
+
+    Is it worth the complexity ?
+    Simple to pass the full <Alert> down the stream.
+    Complex to put the lazy loading resolvers in the right places.
+    Saving in data bandwidth.
+    Insulation from schema changes ?
+
+
+----------------
+Cassandra data store
+
+    Multiple thread, multiple nodes, multiple hosts
+    'upsert' insert (INSERT IGNORE equivalent)
+    Performance tuning.
+    Index tuning.
+
+----------------
+Avro data store
+
+    Stream archive
+    NFS, Ceph, HDFS
+
+----------------
+Parquet data store
+
+    Data archive for Spark
+    NFS, Ceph, HDFS
+
+----------------
+Stream metadata
+
+Registering streams via a CRUD metadata service.
+
+    Stream: {
+        Title: "...."
+        Owner: "...."
+        Author: "...."
+        Description: "...."
+        Provenance: {
+            }
+        Protocol: {
+            }
+        Schema: {
+            }
+        }
+
+----------------
+Orchestration
+
+    Manual
+    K8
+    Meso
+    CRUD Webservice
+
+    Is it realistic to give end users direct access to the underlying orchestration system ?
+    Abstract webservice API
+        Gives us space to add access control.
+        Gives us space to add isolation.
+        Insulates the end user from the implementation details.
+
+----------------
+Function asa Service (FaaS)
+
+    Java and Python containers for Alert streams.
+
+    foreach <Alert> as alert
+        {
+        ....
+        }
+
+----------------
+Virtual machines
+
+    <c> cores
+    <m> of memory
+    <d> of data space on each disc
+        d0
+        d1
+        d2
+        d3
+
+----------------
+Process distribution
+
+    Cassandra sharing the same discs ?
+    Cassandra writes to data directory and change log.
+        Putting data and changelog on different disc spindles.
+
+    Cassandra in virtual machines sharing the same physical disc spindles.
+        Spread Cassandra in virtual machines to separate disc spindles.
+        Spread Cassandra in virtual machines to separate physical hosts.
+
+    Kafka sharing the same server.
+        Kafka on trop03 --> work 02 --> Kafka on trop03
+
+    Kafka on different server.
+        Kafka on trop03 --> work 02 --> Kafka on trop04
+
+
+----------------
+Test stream
+
+    ZTF data from Eleanor.
+    ZTF data from trop.
+    ZTF data from downloads.
+
+    Test producer
+        Configurable partition count
+        Configurable data rate per partition
+
+    LSST target
+         1kHz minimum
+        10kHz design
+       100kHz stretch
+
+    ZTF data rate
+        256k per night
+        256k / 8hr
+        256k / (8 * 60min)
+        256k / (8 * 60 * 60 sec)
+        256000 / 28800
+        ~= 8Hz (average)
+
+    LSST target is order of 12,500 larger than ZTF
+
+    Measure ZTF data rate - peak alerts per second for each stream.
+    Convert JD into Unix timestamp (number of seconds since )
+
+    Multiply jd to get seconds, convert to integer.
+    Create Map<Integer, Integer> of Map<UTC, count>.
+    Scan the map to find min, max, avg, med.
+    Max datarate nHz for a busy night.
+    Compare to LSST target.
+
+    Multiply up, adding extra Alert per Alert.
+    For each <Alert> add (n) extra <Alert>
+    Based on <offset> from <position>.
+        Each <Alert> gets copy of history with the same <offset>
+
+    Based on squares around the position
+        x8  = 3x3 matrix
+        x16 = 4x4 matrix
+        x25 = 5x5 matrix
+        x36 = 6x6 matrix
+        x49 = 7x7 matrix
+        x64 = 8x8 matrix
+        x81 = 9x9 matrix
+       x100 = 10x10
+       x121 = 11x11
+       ....
+       x256 = 16x16
+      x1024 = 32x32
+       ....
+      x2025 = 45x45
+       ....
+
+
+----------------
+Hardware allocation
+
+    Experimented with OpenStack virtual machines.
+    Manage a Kafka deployment using OpenStack.
+    Additional complexity due to the way OpenStack allocates external addresses.
+    Need control of an internal and an external DNS service to mitigate the problems caused by OpenStack.
+
+    Difficult to have fine grained control over disc partitioning and location.
+    All the data is stored on a separate data storage system and network mounted to appear in the virtual machines.
+    For a Kafka or Cassandra deployment, that means all disc access goes through the neytwork layer, creating a potential bottleneck.
+    Possibly more detailed interfaces are available.
+
+    OpenStack makes sense for a large multi-user deployment.
+    For a small deployment with one or two users, direct access to libvirt gives us more control.
+    Suitable for the test deployments because we have direct control over the disc location, partitioning, formatting etc.
+
+    Virtual machines are all based on a minimal Fedora image, created from scratch using kickstart.
+    The virtuial machine image works with direct libvirt deployment and as an OpenStack image.
+    Using cloud-init interfaces to configure the virtual machine during boot.
+
+    Physical hardware for the test system is based on a minimal deploy of Ubuntu, because Debian with recent kernel.
+    Addition of the ischinura scripts gives us direct control over virtual machine deployment, using virsh commands.
+
+    All of the test machines are connected to a virtual (VPN) network configured at the hardware switch.
+    All of the test machines are configured with fixed IP addresses on the 172.16.0.0/16 VLAN subnet range.
+
+    One of the physical machines, work01, is configured to act as a gateway to route external access to the public internet.
+    This means that all inbound and outbound traffic has to go through one network interface on that node.
+    This is sufficient for the experimental system, but would not be suitable for running a production cluster where we will want to make our Kafka streams available to external users.
+
+    Kafka performance relies on multiple consumers connecting to multiple producers in parallel.
+    This applies to our connection to the upstream producer at ...
+    It also applies to downstream consumers connecting to our public stream services.
+    Ideally we would want to provide a publicly accessible connections to each of the Kafka services.
+
+
+
+    One of the physical machines, work01, runs a dnsmasq service in a Docker container, configured to act as a DHCP and DNS service for the 172.16.0.0/16 VLAN subnet range.
+    The ischinura scripts are configured to allocate MAC addresses to the virtual machines in the range covered by the DHCP service.
+    This combined with the coloud-init scripts configures the virtual machines on boot.
+    The system is configured as a single flat address space.
+    All of the virtual machines can access all of the other virtual machines directly using the same 172.16.0.0/16 VLAN subnet range.
+
+    This works for the experimental system with a small number of users who have direct control over the hardware.
+    For a small deployment, four to six machines in the test system, deploying OpenStack would use up a whole machine just to deploy the OpenStack services.
+
+    One deployment option offered by Cambridge is to use OpenStack to provision bare metal hardware, which we then configure to our requirements.
+    We have several years experience of using PXE boot, DHCP and kickstart to automate the deployment and configure RedHat operating system (RHEL, CentOS and Fedora) on bare metal hardware.
+    An experiment is planned in August that will look at automating the deployment and configuration of Debian based operating system on the the physical machines using ....
+    These experiments will provide the basic knowledge needed to understand what options are available from the IRIS provider at Cambridge and what we should ask for.
+
+    We are looking at adding using an old machine to provide the network services such as DNS and DHCP, freeing up space on the worker node.
+    There is one unsolved issue with network routing using one of the worker nodes as a router for inbound and outbound access to the external public networks.
+    The standard configuration for a libvirt virtual machine host is to configure the system so that routed network traffic does not go through the iptables filters.
+    []
+    However, in order to function as the gatweway to the external network routed network traffic does need to go through the iptables filters.
+    At the moment, because one of the worker nodes, work01, is configured as the gatweway machine, it is not available as a virtual machine host to run the experiments.
+    OIn theory it should be possible to have the same machine function as both the external gateway and as a virtual machine host.
+    However, it needs some more research to find out how to configure the iptables rules to support both types of traffic.
+
+    Based on our experience with both the OpenStack deployments and the custom VLAN configuration, we expect that access to the external public networks will be an issue
+    that will need attention when we deploy the system to IRIS hardware.
+
+    Most cloud compute platforms are designed for single user use case.
+    Provding an isolated network, often with no direct access to external public networks.
+    A small group of users install trhe software they need, import the data, run their experiment and then export the results.
+    In contrast our use case is to run a set of services 24/7 with direct inbound and outbound access to the public internet.
+
+    The Kafka inbound and outbound ....
+
+
+
+    The limiting factor with our test system at ROE and the deployment on the IRIS system is the limited number of public IP addresses that are available.
+    There are short term fixes and fudges available, including ...
+    However, the long term fix is to migrate from using IPv4 network stack to an IPv6 network stack, with a much larger allocation of publily resolvable addresses.
+    Again, we will need to gain the necessary experience from using this technology before we can understand the options available and make sensible requests to our IRIS service providers.
+    We have some expoerience of using Ipv6 including running DHCP and DNS services for a deployment of 8 servers and multiple virtual machines.
+    However, as far as we know at the time of writing neither the Edinburgh University system or the IRIS systems at Cambridge are able to provide a fully functional public IPv6 network for us to use.
+
+
+----------------
+Proposed architecture
+
+    Based on what we have learned during pase A experiments ...
+
+    We are confident that the we will be able to build a scaleable and reliable system that is capable of meeting the requirements andf handling the expected data rates fromt he LSST system/
+
+    Level #1 services - initial alert processing and data stores
+
+        Object matching
+        Candidate matching
+        Catalog crossmatch
+        Watch list matching
+
+    Level #2 services - custom filtering FaaS platform for applying user code to the stream
+
+        FaaS platform
+        Docker platform
+
+    Level #3 services - data analysis platform, SQL database and Spark analysis
+
+    Level #4 services - data output components
+
+        Website
+        Email
+        Slack
+        VOEvent
+        Kafka
+
+
+
+
+
+----------------
+Example configurations
+
+    Single stream-set passing full size events to every step.
+
+        Crossmatch
+        Filter on match criteria
+        Filter on additional criteria
+
+    Image extract
+
+        Extract image data
+        Crossmatch
+        Filter on match criteria
+        Filter on additional criteria
+        Fetch image data from store
+
+    Minimal event chain
+
+        Extract image data
+        Extract table data
+        Filter event data
+        Crossmatch
+        Filter on match criteria
+        Filter on additional criteria
+        Fetch full event from store
+        Fetch image data from store
+        Fetch table data from store
+
+
+
+
+
+----------------
+
+    The LSST System Science Requirements Document
+    https://docushare.lsstcorp.org/docushare/dsweb/Get/LPM-17/LPM17_LSSTSRD_20180130.pdf#subsection.3.5
+    https://docushare.lsstcorp.org/docushare/dsweb/Get/LPM-17/LPM17_LSSTSRD_20180130.pdf#table.29
+
+        Quantity    DesignSpec  MinimumSpec StretchGoal
+        transN      10^4        10^3        10^5
+
+        The minimum number of candidate transients per field of view that the system can report in realtime.
+
+----------------
+
+    LSST Science and Project Sizing Inputs
+    https://docushare.lsst.org/docushare/dsweb/ServicesLib/LSE-81/View
+
+        Peak number of alerts per visit                                             40000       Between SRD minimum of 10K and stretch of 100K
+        Average number of alerts per visit due to variables and old transients      10000
+        Average number of alerts per visit due to new transients                      100
+        Average number of alerts per visit due to false positives                   5,050       50% of real alerts
+        Number of moving objects                                                  6000000       Table 5.1 in the Science Book
+        Fraction of all DiaSources from moving objects                                16%
+
+----------------
+
+
+
+
+
+
+
+
+
+
+https://docushare.lsst.org/docushare/dsweb/Get/LSE-30
+3.1.1.1
+Specification:The LSST Observatory shall support the acquisition, processing, and archiving
+of a rate of at least nRawExpNightMaxnew science exposures per night, in isolated peaks,
+and an average rate of nRawExpNightWinterAvgfor extended periods.
+
+nRawExpNightMax 2800
+Minimum  number  of  raw  science  exposures  required  to  be supported by the
+LSST Observatory in a single-night burst
+
+nRawExpNightWinterAvg 1960
+Minimum number of raw science exposures required to be supported by the
+LSST Observatory over a sustained period (as during the weeks around the
+winter solstice)
+
+
+
+
+https://github.com/lsst/LDM-612/blob/master/sections/introduction.tex
+https://docushare.lsst.org/docushare/dsweb/Get/LDM-612
+https://github.com/lsst/LDM-612
+
+"the resulting alert stream will be large --- more than 1TB nightly"
+
+These alert packets will contain not only the information about the most recent detection but also a historical lightcurve, cutout images, timeseries features, and other contextual information.
+A science user will be able to use the contents of a single LSST alert packet to make a decision that is both rapid and informed about whether the event is relevant to their scientific goals.
+LSST expects to produce up to about ten million of these alerts nightly\footnote{The LSST alert stream will contain essentially all DIASources detected at 5$\sigma$ in the difference image, including a currently unknown fraction of artifacts.
+LSST will provide a threshold that may be used to filter transients in the alert stream to 90\% completeness and 95\% purity at 6$\sigma$ \citedsp{LSE-30}, so less than 5\% of alerts filtered in this manner will be artifacts.
+By varying the cutoff spuriousness value users may adopt other tradeoffs between completeness and purity as well.}.
+The resulting \textit{alert stream} will be large---more than 1\,TB nightly---but will contain all classes of astrophysical events, from the youngest supernovae to the most distant RR Lyrae to the slowest-moving Trans-Neptunian Objects to the most unexpected new phenomena.
+The task for the scientist is to identify the small subset of events of interest in the larger alert stream.
+
+To do so, astronomers will rely on third party \textit{community brokers}, software systems that receive the full LSST alert stream and provide additional information to refine the selection of events of interest.
+LSST will also provide an alert filtering service with more limited capability and capacity.
+
+Community brokers may crossmatch the LSST stream to multiwavelength catalogs, join LSST alerts with those from other surveys, provide machine-learned classifications of events, and/or offer user filters to winnow the stream.
+LSST will itself offer an alert filtering service that will apply user-supplied filters to the alert stream.
+Individual scientists may receive alerts through one or more of these services.
+
+The large volume of the alert stream and the finite bandwidth from the LSST Data Facility necessitate a proposal process to select community brokers that will receive the full stream.
+This document outlines the process, criteria, and timeline by which LSST will choose community brokers.
+To provide context, we also summarize the major features of the LSST Alert Production systems as well as relevant data rights concerns.
+
+
+
+
+LSST firehose
+firethorn - doc/presentations/dave/20181009/20181009-kafka-stream.pdf
+minimum 10^4 events per visit (40 sec)      4ms/event
+target 4 x 10^4 events per visit (40 sec)   1ms/event
+stretch 10^5 events per visit (40 sec)      400μs/event
+
+
+
+
+
+
+
+
+Interesting clues
+
+    DMTN-028: Benchmarking a distribution system for LSST alerts
+    https://dmtn-028.lsst.io/#scaling-alert-consumers
+        With these settings, the lagged producer problem is resolved.
+        In practice for the expected LSST alert distribution system in
+        production, this will likely not be a problem since there
+        should be one producer per CCD, with the planned compute
+        parallelization of the pipeline.
+
+    DMTN-081: Deploying an alert stream mini-broker prototype
+    https://dmtn-081.lsst.io/
+
+
+
+
+
+heretical question - do we need a single database with everything in it ?
+    Solar system objects in a separate DB ?
+    Solar system objects in a separate pipeline ?
+    Turn it round the other way - is there a strong use case for everything in one DB ?
+
+    Are there other categories ?
+
+

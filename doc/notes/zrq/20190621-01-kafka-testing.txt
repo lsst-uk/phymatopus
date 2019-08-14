@@ -1,0 +1,199 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+    #
+    # Check the existing tests still work.
+    #
+
+# -----------------------------------------------------
+# Login to the VM.
+#[user@work02]
+
+    ssh Nydiabaen
+    ssh Eraullan
+    ssh Dwerader
+    ssh Koiclya
+
+
+    # -----------------------------------------------------
+    # Create a container to work with.
+    #[user@virtual]
+
+        docker run \
+            --rm \
+            --tty \
+            --interactive \
+            --hostname builder \
+            --env SSH_AUTH_SOCK=/tmp/ssh_auth_sock \
+            --volume ${SSH_AUTH_SOCK}:/tmp/ssh_auth_sock \
+            firethorn/builder \
+            bash
+
+    >   Unable to find image 'firethorn/builder:latest' locally
+    >   latest: Pulling from firethorn/builder
+    >   ....
+    >   ....
+    >   Digest: sha256:8f984115c8ae158ba3ed45d28ffe656278cd3f2429f7af87cd3ffa3679237f1f
+    >   Status: Downloaded newer image for firethorn/builder:latest
+
+        # -----------------------------------------------------
+        # Checkout a copy of our source code.
+        #[user@builder]
+
+            PHYMATOPUS_REPO=https://github.com/Zarquan/phymatopus
+            PHYMATOPUS_CODE=/var/local/build/phymatopus
+
+            if [ ! -e "${PHYMATOPUS_CODE:?}" ]
+            then
+                if [ ! -e "$(dirname ${PHYMATOPUS_CODE:?})" ]
+                then
+                    mkdir -p "$(dirname ${PHYMATOPUS_CODE:?})"
+                fi
+                pushd "$(dirname ${PHYMATOPUS_CODE:?})"
+                    git clone "${PHYMATOPUS_REPO:?}" "$(basename ${PHYMATOPUS_CODE:?})"
+
+                popd
+            else
+                pushd "${PHYMATOPUS_CODE:?}"
+                    git pull
+                popd
+            fi
+
+        # -----------------------------------------------------
+        # Build and run our tests.
+        #[user@builder]
+
+            pushd "${PHYMATOPUS_CODE:?}"
+                pushd kafka-tools
+
+                    mkdir logs
+
+                    git checkout -- src/test/conf/test.properties
+                    git pull
+
+                    sed -i '
+                        /<logger name="uk.ac.roe.wfau.phymatopus">/,/<\/logger>/ {
+                            s/value="[^"]*"/value="TRACE"/
+                            }
+                        ' src/test/conf/logback.xml
+
+                    cat src/test/conf/test.properties
+
+                    mvn clean compile
+
+                    mvn test -D 'test=ZtfAlertReaderTest'    -D 'phymatopus.kafka.reader.topic=ztf_20190119_programid1'
+                    mvn test -D 'test=ZtfCandiateWriterTest' -D 'phymatopus.kafka.reader.topic=ztf_20190119_programid1'
+
+                    datetime=$(date +%Y%m%d%H%M%S)
+
+                    mvn test -D 'test=LsstAlertWriterTest'   -D "phymatopus.kafka.writer.topic=test-${datetime}"
+                    mvn test -D 'test=LsstAlertReaderTest'   -D "phymatopus.kafka.reader.topic=test-${datetime}"
+
+                    datetime=$(date +%Y%m%d%H%M%S)
+                    echo "datetime [${datetime}]"
+
+                    mvn test -D 'test=AlertConversionTest'   -D "phymatopus.kafka.reader.topic=ztf_20190612_programid1" -D "phymatopus.kafka.writer.topic=test-${datetime}"
+
+                    mvn test -D 'test=LsstAlertReaderTest'   -D "phymatopus.kafka.reader.topic=test-${datetime}"
+
+
+
+    #
+    # Update ZtfAlertWriterTest to write to a new Kafka stream.
+    # Allow create on demand on the server ?
+    #
+
+2019-06-22 00:55:41,474 ERROR [pool-1-thread-1] [ZtfAlertReader] Exception processing alert [org.apache.avro.file.DataFileWriter$AppendWriteException][java.lang.ClassCastException]
+2019-06-22 00:55:41,474 ERROR [pool-1-thread-1] [ZtfAlertReader] Exception processing alert
+org.apache.avro.file.DataFileWriter$AppendWriteException: java.lang.ClassCastException
+	at org.apache.avro.file.DataFileWriter.append(DataFileWriter.java:308)
+	at uk.ac.roe.wfau.phymatopus.kafka.tools.ZtfAlertWriter.write(ZtfAlertWriter.java:172)
+
+
+
+# -----------------------------------------------------
+# Install tcpdump network monitoring tool.
+#[user@Nydiabaen]
+
+    sudo dnf install tcpdump
+
+    #
+    # tcpdump - Linux man page
+    # https://linux.die.net/man/8/tcpdump
+
+    #
+    # Capturing with tcpdump for viewing with Wireshark
+    # https://www.wireshark.org/docs/wsug_html_chunked/AppToolstcpdump.html
+
+    #
+    # Get the IP addresses of our kafka and client containers.
+    docker ps
+
+    >   CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS               NAMES
+    >   fde047a53238        firethorn/builder   "bash"              38 seconds ago      Up 36 seconds                           angry_blackburn
+
+    clientip=$(
+        docker inspect \
+            'fde047a53238' \
+            | jq -r '.[].NetworkSettings.Networks.bridge.IPAddress'
+            )
+
+    echo "clientip [${clientip:?}]"
+
+    #
+    # Dump network traffic to/from the client.
+    # http://www.tcpdump.org/manpages/tcpdump.1.html#lbAF
+    sudo tcpdump \
+        --interface any \
+        host  ${clientip:?}
+
+    #
+    # Dump network traffic to/from the client.
+    # Save the data for analysis by WireShark.
+    # https://www.wireshark.org/docs/wsug_html_chunked/AppToolstcpdump.html
+    sudo tcpdump \
+        --interface any \
+        host ${clientip:?} \
+        -w "tcpdump-$(date +%Y%m%d%H%M%S).log"
+
+    sudo tcpdump \
+        --interface any \
+        '(port not 22) and (port not 67) and (port not 68)' \
+        -w "tcpdump-$(date +%Y%m%d%H%M%S).log"
+
+
+    ls -al
+
+
+# -----------------------------------------------------
+# Copy the capture file back to laptop.
+#[user@desktop]
+
+    scp Nydiabaen:tcpdump-20180921163116.log .
+
+
+# -----------------------------------------------------
+# Analyse the capture file with WireShark.
+#[user@desktop]
+
+    wireshark tcpdump-20180921163116.log
+

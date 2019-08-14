@@ -1,0 +1,692 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+# -----------------------------------------------------
+# Allocate our node names.
+#[user@work02]
+
+    cat > "${HOME}/nodenames.txt" << EOF
+
+    unset canames
+    canames=(
+        Umiwiel
+        Waresean
+        Meng
+        Tromader
+        )
+
+    cacluster=Hofmannophila
+    caclient=Haosien
+
+EOF
+
+# -----------------------------------------------------
+# Load our node names.
+#[user@work02]
+
+    source "${HOME}/nodenames.txt"
+    echo "
+Node names   [${canames[@]}]
+Cluster name [${cacluster}]
+Client host  [${caclient}]
+"
+
+    >   Node names   [Umiwiel Waresean Meng Tromader]
+    >   Cluster name [Hofmannophila]
+    >   Client host  [Haosien]
+
+
+# -----------------------------------------------------
+# Create a VM.
+#[user@work02]
+
+    createvm
+
+    >   INFO : Node name [Umiwiel]
+    >   INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Disc name [Umiwiel.qcow]
+    >   INFO : Disc size [8GiB]
+    >
+    >   INFO : MAC  [06:00:AC:10:02:08]
+    >   INFO : IPv4 [172.16.2.8]
+    >   INFO : IPv6 []
+
+
+    createvm
+
+    >   INFO : Node name [Waresean]
+    >   INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Disc name [Waresean.qcow]
+    >   INFO : Disc size [8GiB]
+    >
+    >   INFO : MAC  [06:00:AC:10:02:09]
+    >   INFO : IPv4 [172.16.2.9]
+    >   INFO : IPv6 []
+
+
+    createvm
+
+    >   INFO : Node name [Meng]
+    >   INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Disc name [Meng.qcow]
+    >   INFO : Disc size [8GiB]
+    >
+    >   INFO : MAC  [06:00:AC:10:02:0A]
+    >   INFO : IPv4 [172.16.2.10]
+    >   INFO : IPv6 []
+
+
+    createvm
+
+    >   INFO : Node name [Tromader]
+    >   INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Disc name [Tromader.qcow]
+    >   INFO : Disc size [8GiB]
+    >
+    >   INFO : MAC  [06:00:AC:10:02:0B]
+    >   INFO : IPv4 [172.16.2.11]
+    >   INFO : IPv6 []
+
+
+# -----------------------------------------------------
+# Define a host lookup function.
+# https://askubuntu.com/questions/627906/why-is-my-etc-hosts-file-not-queried-when-nslookup-tries-to-resolve-an-address#comment1536517_627909
+# TODO Add this to a toolit script.
+#[user@work02]
+
+    getipv4()
+        {
+        getent hosts "${1:?}" | cut -d ' ' -f 1
+        }
+
+
+#---------------------------------------------------------------------
+# Update the ssh keys for each node.
+# TODO Add this to a toolit script.
+#[user@work02]
+
+    source "${HOME}/nodenames.txt"
+    source "${HOME}/libvirt.settings"
+
+    for vmname in ${canames[@]}
+        do
+            ssh-keygen \
+                -q -R \
+                    "${vmname:?}"
+
+            ssh-keyscan \
+                "${vmname:?}" \
+                >> "${HOME}/.ssh/known_hosts"
+
+            ssh-keyscan \
+                -t ecdsa $(getipv4 "${vmname:?}") \
+                >> "${HOME}/.ssh/known_hosts"
+
+        done
+
+    >   Host Umiwiel not found in /home/dmr/.ssh/known_hosts
+    >   # Umiwiel:22 SSH-2.0-OpenSSH_7.8
+    >   # Umiwiel:22 SSH-2.0-OpenSSH_7.8
+    >   # Umiwiel:22 SSH-2.0-OpenSSH_7.8
+    >   # 172.16.2.8:22 SSH-2.0-OpenSSH_7.8
+    >   Host Waresean not found in /home/dmr/.ssh/known_hosts
+    >   # Waresean:22 SSH-2.0-OpenSSH_7.8
+    >   # Waresean:22 SSH-2.0-OpenSSH_7.8
+    >   # Waresean:22 SSH-2.0-OpenSSH_7.8
+    >   # 172.16.2.9:22 SSH-2.0-OpenSSH_7.8
+    >   Host Meng not found in /home/dmr/.ssh/known_hosts
+    >   # Meng:22 SSH-2.0-OpenSSH_7.8
+    >   # Meng:22 SSH-2.0-OpenSSH_7.8
+    >   # Meng:22 SSH-2.0-OpenSSH_7.8
+    >   # 172.16.2.10:22 SSH-2.0-OpenSSH_7.8
+    >   Host Tromader not found in /home/dmr/.ssh/known_hosts
+    >   # Tromader:22 SSH-2.0-OpenSSH_7.8
+    >   # Tromader:22 SSH-2.0-OpenSSH_7.8
+    >   # Tromader:22 SSH-2.0-OpenSSH_7.8
+    >   # 172.16.2.11:22 SSH-2.0-OpenSSH_7.8
+
+
+# -----------------------------------------------------
+# Check we can login to each node.
+#[user@work02]
+
+    source "${HOME}/ssh-options"
+    source "${HOME}/nodenames.txt"
+
+    for vmname in ${canames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname}]"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    hostname
+                    date
+                    "
+        done
+
+    >   ---- ----
+    >   Node [Umiwiel]
+    >   Umiwiel
+    >   Fri 14 Jun 14:33:18 BST 2019
+    >   ---- ----
+    >   Node [Waresean]
+    >   Waresean
+    >   Fri 14 Jun 14:33:19 BST 2019
+    >   ---- ----
+    >   Node [Meng]
+    >   Meng
+    >   Fri 14 Jun 14:33:19 BST 2019
+    >   ---- ----
+    >   Node [Tromader]
+    >   Tromader
+    >   Fri 14 Jun 14:33:20 BST 2019
+
+
+# -----------------------------------------------------
+# Create our compose YAML file.
+#[user@work02]
+
+cat > /tmp/cassandra.yml << 'EOYML'
+
+version: "3"
+
+networks:
+    cassandra:
+
+services:
+
+    claire:
+        image:
+            cassandra:3.11
+        ports:
+            - "7000:7000"
+        environment:
+            - CASSANDRA_SEEDS=${CASSANDRA_SEEDS}
+            - CASSANDRA_BROADCAST_ADDRESS=${CASSANDRA_BROADCAST_ADDRESS}
+        networks:
+            - cassandra
+
+EOYML
+
+# -----------------------------------------------------
+# Deploy our compose YAML file to each node.
+#[user@trop03]
+
+    source "${HOME}/nodenames.txt"
+    source "${HOME}/libvirt.settings"
+
+    for vmname in ${canames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname}]"
+            scp \
+                ${scpopts[*]} \
+                /tmp/cassandra.yml \
+                ${sshuser:?}@${vmname:?}:cassandra.yml
+        done
+
+    >   ---- ----
+    >   Node [Umiwiel]
+    >   cassandra.yml       100%  333   309.5KB/s   00:00
+    >   ---- ----
+    >   Node [Waresean]
+    >   cassandra.yml       100%  333   395.1KB/s   00:00
+    >   ---- ----
+    >   Node [Meng]
+    >   cassandra.yml       100%  333   258.7KB/s   00:00
+    >   ---- ----
+    >   Node [Tromader]
+    >   cassandra.yml       100%  333   253.8KB/s   00:00
+
+
+# -----------------------------------------------------
+# Deploy a compose ENV file to each node.
+#[user@trop03]
+
+    source "${HOME}/ssh-options"
+
+    for vmname in ${canames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname}]"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+cat > cassandra.env << EOF
+CASSANDRA_SEEDS=${canames[0]}
+CASSANDRA_BROADCAST_ADDRESS=${vmname:?}
+EOF
+ln -sf cassandra.env .env
+                    "
+        done
+
+    >   ---- ----
+    >   Node [Umiwiel]
+    >   ---- ----
+    >   Node [Waresean]
+    >   ---- ----
+    >   Node [Meng]
+    >   ---- ----
+    >   Node [Tromader]
+
+
+# -----------------------------------------------------
+# Check our deployed config files.
+#[user@trop03]
+
+    source "${HOME}/nodenames.txt"
+    source "${HOME}/ssh-options"
+
+    for vmname in ${canames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname}]"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    date
+                    hostname
+                    ls -al .env
+                    echo '----'
+                    cat cassandra.env
+                    echo '----'
+                    cat cassandra.yml
+                    "
+        done
+
+
+    >   ---- ----
+    >   Node [Umiwiel]
+    >   Fri 14 Jun 17:57:04 BST 2019
+    >   Umiwiel
+    >   lrwxrwxrwx. 1 Stevedore Stevedore 13 Jun 14 17:56 .env -> cassandra.env
+    >   ----
+    >   CASSANDRA_SEEDS=Umiwiel
+    >   CASSANDRA_BROADCAST_ADDRESS=Umiwiel
+    >   ----
+    >
+    >   version: "3"
+    >
+    >   networks:
+    >       cassandra:
+    >
+    >   services:
+    >
+    >       claire:
+    >           image:
+    >               cassandra:3.11
+    >           ports:
+    >               - "7000:7000"
+    >           environment:
+    >               - CASSANDRA_SEEDS=${CASSANDRA_SEEDS}
+    >               - CASSANDRA_BROADCAST_ADDRESS=${CASSANDRA_BROADCAST_ADDRESS}
+    >           networks:
+    >               - cassandra
+    >
+    >   ---- ----
+    >   Node [Waresean]
+    >   Fri 14 Jun 17:57:04 BST 2019
+    >   Waresean
+    >   lrwxrwxrwx. 1 Stevedore Stevedore 13 Jun 14 17:56 .env -> cassandra.env
+    >   ----
+    >   CASSANDRA_SEEDS=Umiwiel
+    >   CASSANDRA_BROADCAST_ADDRESS=Waresean
+    >   ----
+    >
+    >   version: "3"
+    >
+    >   networks:
+    >       cassandra:
+    >
+    >   services:
+    >
+    >       claire:
+    >           image:
+    >               cassandra:3.11
+    >           ports:
+    >               - "7000:7000"
+    >           environment:
+    >               - CASSANDRA_SEEDS=${CASSANDRA_SEEDS}
+    >               - CASSANDRA_BROADCAST_ADDRESS=${CASSANDRA_BROADCAST_ADDRESS}
+    >           networks:
+    >               - cassandra
+    >
+    >   ---- ----
+    >   Node [Meng]
+    >   Fri 14 Jun 17:57:05 BST 2019
+    >   Meng
+    >   lrwxrwxrwx. 1 Stevedore Stevedore 13 Jun 14 17:56 .env -> cassandra.env
+    >   ----
+    >   CASSANDRA_SEEDS=Umiwiel
+    >   CASSANDRA_BROADCAST_ADDRESS=Meng
+    >   ----
+    >
+    >   version: "3"
+    >
+    >   networks:
+    >       cassandra:
+    >
+    >   services:
+    >
+    >       claire:
+    >           image:
+    >               cassandra:3.11
+    >           ports:
+    >               - "7000:7000"
+    >           environment:
+    >               - CASSANDRA_SEEDS=${CASSANDRA_SEEDS}
+    >               - CASSANDRA_BROADCAST_ADDRESS=${CASSANDRA_BROADCAST_ADDRESS}
+    >           networks:
+    >               - cassandra
+    >
+    >   ---- ----
+    >   Node [Tromader]
+    >   Fri 14 Jun 17:57:05 BST 2019
+    >   Tromader
+    >   lrwxrwxrwx. 1 Stevedore Stevedore 13 Jun 14 17:56 .env -> cassandra.env
+    >   ----
+    >   CASSANDRA_SEEDS=Umiwiel
+    >   CASSANDRA_BROADCAST_ADDRESS=Tromader
+    >   ----
+    >
+    >   version: "3"
+    >
+    >   networks:
+    >       cassandra:
+    >
+    >   services:
+    >
+    >       claire:
+    >           image:
+    >               cassandra:3.11
+    >           ports:
+    >               - "7000:7000"
+    >           environment:
+    >               - CASSANDRA_SEEDS=${CASSANDRA_SEEDS}
+    >               - CASSANDRA_BROADCAST_ADDRESS=${CASSANDRA_BROADCAST_ADDRESS}
+    >           networks:
+    >               - cassandra
+    >
+
+
+# -----------------------------------------------------
+# Start Cassandra on each node.
+#[user@trop03]
+
+    source "${HOME}/nodenames.txt"
+    source "${HOME}/ssh-options"
+
+    for vmname in ${canames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname}]"
+            ssh \
+                ${scpopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                docker-compose \
+                    --file cassandra.yml \
+                    up -d
+                "
+        done
+
+    >   ---- ----
+    >   Node [Umiwiel]
+    >   Creating network "stevedore_cassandra" with the default driver
+    >   Pulling claire (cassandra:3.11)...
+    >   3.11: Pulling from library/cassandra
+    >   Digest: sha256:05eb2104b7d1e2d5dbdcfaef2b13398335c5e56426c1af724cbb2996edc3a674
+    >   Status: Downloaded newer image for cassandra:3.11
+    >   Creating stevedore_claire_1 ... done
+    >   ---- ----
+    >   Node [Waresean]
+    >   Creating network "stevedore_cassandra" with the default driver
+    >   Pulling claire (cassandra:3.11)...
+    >   3.11: Pulling from library/cassandra
+    >   Digest: sha256:05eb2104b7d1e2d5dbdcfaef2b13398335c5e56426c1af724cbb2996edc3a674
+    >   Status: Downloaded newer image for cassandra:3.11
+    >   Creating stevedore_claire_1 ... done
+    >   ---- ----
+    >   Node [Meng]
+    >   Creating network "stevedore_cassandra" with the default driver
+    >   Pulling claire (cassandra:3.11)...
+    >   3.11: Pulling from library/cassandra
+    >   Digest: sha256:05eb2104b7d1e2d5dbdcfaef2b13398335c5e56426c1af724cbb2996edc3a674
+    >   Status: Downloaded newer image for cassandra:3.11
+    >   Creating stevedore_claire_1 ... done
+    >   ---- ----
+    >   Node [Tromader]
+    >   Creating network "stevedore_cassandra" with the default driver
+    >   Pulling claire (cassandra:3.11)...
+    >   3.11: Pulling from library/cassandra
+    >   Digest: sha256:05eb2104b7d1e2d5dbdcfaef2b13398335c5e56426c1af724cbb2996edc3a674
+    >   Status: Downloaded newer image for cassandra:3.11
+    >   Creating stevedore_claire_1 ... done
+
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+# Tail the logs on each node.
+# https://www.systutorials.com/docs/linux/man/1-gnome-terminal/
+# https://www.systutorials.com/docs/linux/man/7-X/#lbAH
+#[user@desktop]
+
+    mate-terminal \
+        --geometry '180x10+25+25' \
+        --command '
+            ssh -t Umiwiel "
+                docker logs -f stevedore_claire_1
+                ${SHELL}
+                "
+            '
+    sleep 1
+
+    mate-terminal \
+        --geometry '180x10+125+125' \
+        --command '
+            ssh -t Waresean "
+                docker logs -f stevedore_claire_1
+                ${SHELL}
+                "
+            '
+    sleep 1
+
+    mate-terminal \
+        --geometry '180x10+225+225' \
+        --command '
+            ssh -t Meng "
+                docker logs -f stevedore_claire_1
+                ${SHELL}
+                "
+            '
+    sleep 1
+
+    mate-terminal \
+        --geometry '180x10+325+325' \
+        --command '
+            ssh -t Tromader "
+                docker logs -f stevedore_claire_1
+                ${SHELL}
+                "
+            '
+
+    >   INFO  [main] 2019-06-14 16:58:42,784 OutboundTcpConnection.java:108 - OutboundTcpConnection using coalescing strategy DISABLED
+    >   INFO  [HANDSHAKE-Umiwiel/172.16.2.8] 2019-06-14 16:58:42,794 OutboundTcpConnection.java:561 - Handshaking version with Umiwiel/172.16.2.8
+    >   Exception (java.lang.UnsupportedOperationException) encountered during startup: Other bootstrapping/leaving/moving nodes detected, cannot bootstrap while cassandra.consistent.rangemovement is true
+    >   java.lang.UnsupportedOperationException: Other bootstrapping/leaving/moving nodes detected, cannot bootstrap while cassandra.consistent.rangemovement is true
+    >   	at org.apache.cassandra.service.StorageService.checkForEndpointCollision(StorageService.java:593)
+    >   	at org.apache.cassandra.service.StorageService.prepareToJoin(StorageService.java:823)
+    >   	at org.apache.cassandra.service.StorageService.initServer(StorageService.java:683)
+    >   	at org.apache.cassandra.service.StorageService.initServer(StorageService.java:632)
+    >   	at org.apache.cassandra.service.CassandraDaemon.setup(CassandraDaemon.java:388)
+    >   	at org.apache.cassandra.service.CassandraDaemon.activate(CassandraDaemon.java:620)
+    >   	at org.apache.cassandra.service.CassandraDaemon.main(CassandraDaemon.java:732)
+    >   ERROR [main] 2019-06-14 16:58:43,824 CassandraDaemon.java:749 - Exception encountered during startup
+    >   java.lang.UnsupportedOperationException: Other bootstrapping/leaving/moving nodes detected, cannot bootstrap while cassandra.consistent.rangemovement is true
+    >   	at org.apache.cassandra.service.StorageService.checkForEndpointCollision(StorageService.java:593) ~[apache-cassandra-3.11.4.jar:3.11.4]
+    >   	at org.apache.cassandra.service.StorageService.prepareToJoin(StorageService.java:823) ~[apache-cassandra-3.11.4.jar:3.11.4]
+    >   	at org.apache.cassandra.service.StorageService.initServer(StorageService.java:683) ~[apache-cassandra-3.11.4.jar:3.11.4]
+    >   	at org.apache.cassandra.service.StorageService.initServer(StorageService.java:632) ~[apache-cassandra-3.11.4.jar:3.11.4]
+    >   	at org.apache.cassandra.service.CassandraDaemon.setup(CassandraDaemon.java:388) [apache-cassandra-3.11.4.jar:3.11.4]
+    >   	at org.apache.cassandra.service.CassandraDaemon.activate(CassandraDaemon.java:620) [apache-cassandra-3.11.4.jar:3.11.4]
+    >   	at org.apache.cassandra.service.CassandraDaemon.main(CassandraDaemon.java:732) [apache-cassandra-3.11.4.jar:3.11.4]
+    >   INFO  [StorageServiceShutdownHook] 2019-06-14 16:58:43,854 HintsService.java:209 - Paused hints dispatch
+    >   WARN  [StorageServiceShutdownHook] 2019-06-14 16:58:43,859 Gossiper.java:1559 - No local state, state is in silent shutdown, or node hasn't joined, not announcing shutdown
+    >   INFO  [StorageServiceShutdownHook] 2019-06-14 16:58:43,859 MessagingService.java:981 - Waiting for messaging service to quiesce
+    >   INFO  [ACCEPT-/172.18.0.2] 2019-06-14 16:58:43,861 MessagingService.java:1336 - MessagingService has terminated the accept() thread
+    >   INFO  [StorageServiceShutdownHook] 2019-06-14 16:58:44,138 HintsService.java:209 - Paused hints dispatch
+
+    #
+    # Can't start multiople nodes at the same time.
+    #
+
+
+# -----------------------------------------------------
+# Stop Cassandra on each node.
+#[user@trop03]
+
+    source "${HOME}/nodenames.txt"
+    source "${HOME}/ssh-options"
+
+    for vmname in ${canames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname}]"
+            ssh \
+                ${scpopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                docker-compose \
+                    --file cassandra.yml \
+                    down
+                "
+        done
+
+    >   ---- ----
+    >   Node [Umiwiel]
+    >   Stopping stevedore_claire_1 ... done
+    >   Removing stevedore_claire_1 ... done
+    >   Removing network stevedore_cassandra
+    >   ---- ----
+    >   Node [Waresean]
+    >   Stopping stevedore_claire_1 ... done
+    >   Removing stevedore_claire_1 ... done
+    >   Removing network stevedore_cassandra
+    >   ---- ----
+    >   Node [Meng]
+    >   Stopping stevedore_claire_1 ... done
+    >   Removing stevedore_claire_1 ... done
+    >   Removing network stevedore_cassandra
+    >   ---- ----
+    >   Node [Tromader]
+    >   Stopping stevedore_claire_1 ... done
+    >   Removing stevedore_claire_1 ... done
+    >   Removing network stevedore_cassandra
+
+
+# -----------------------------------------------------
+# Start Cassandra on each node - slowly.
+#[user@trop03]
+
+    source "${HOME}/nodenames.txt"
+    source "${HOME}/ssh-options"
+
+    for i in {0..3}
+        do
+            vmname=${canames[${i}]}
+            echo "---- ----"
+            echo "Node [${vmname}]"
+
+            if [ ${i} -ne 0 ]
+            then
+                delay=$((${i} * 20))
+                echo "Sleeping [${delay}]"
+                sleep ${delay}
+            fi
+
+            ssh \
+                ${scpopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                docker-compose \
+                    --file cassandra.yml \
+                    up -d
+                "
+        done
+
+
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+# Tail the logs on each node.
+# https://www.systutorials.com/docs/linux/man/1-gnome-terminal/
+# https://www.systutorials.com/docs/linux/man/7-X/#lbAH
+#[user@desktop]
+
+    mate-terminal \
+        --geometry '180x10+25+25' \
+        --command '
+            ssh -t Umiwiel "
+                docker logs -f stevedore_claire_1
+                ${SHELL}
+                "
+            '
+    sleep 1
+
+    mate-terminal \
+        --geometry '180x10+125+125' \
+        --command '
+            ssh -t Waresean "
+                docker logs -f stevedore_claire_1
+                ${SHELL}
+                "
+            '
+    sleep 1
+
+    mate-terminal \
+        --geometry '180x10+225+225' \
+        --command '
+            ssh -t Meng "
+                docker logs -f stevedore_claire_1
+                ${SHELL}
+                "
+            '
+    sleep 1
+
+    mate-terminal \
+        --geometry '180x10+325+325' \
+        --command '
+            ssh -t Tromader "
+                docker logs -f stevedore_claire_1
+                ${SHELL}
+                "
+            '
+
+

@@ -1,0 +1,314 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+    Kafka consumer listening in a loop.
+    Decode events based on their schema ?
+    Perform <action> on each event.
+    Write stuff to Kafka producer(s).
+
+    Write up issues with decoding the schema.
+      1) Schema with message is slow.
+      2) Schema registry is local only.
+
+    Propose XML/JSON format for schema + metadata.
+    Metadata contains connection info.
+    Connect to the stream via the URL which responds with metadata containing the Kafka endpoint(s).
+
+    First sub-project - really simple listener.
+    Command line executable.
+    Configured using properties file.
+    Packaged as a jar file.
+    Packaged as a war file webapp to create a webservice.
+
+
+# -----------------------------------------------------
+# Create a VM.
+#[user@work02]
+
+    createvm
+
+    >   INFO : Node name [Nydiabaen]
+    >   INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Disc name [Nydiabaen.qcow]
+    >   INFO : Disc size [8GiB]
+    >   
+    >   INFO : MAC  [06:00:AC:10:02:01]
+    >   INFO : IPv4 [172.16.2.1]
+
+    createvm
+
+    >   INFO : Node name [Eraullan]
+    >   INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Disc name [Eraullan.qcow]
+    >   INFO : Disc size [8GiB]
+    >   
+    >   INFO : MAC  [06:00:AC:10:02:02]
+    >   INFO : IPv4 [172.16.2.2]
+
+    createvm
+
+    >   INFO : Node name [Dwerader]
+    >   INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Disc name [Dwerader.qcow]
+    >   INFO : Disc size [8GiB]
+
+
+# -----------------------------------------------------
+# Login to the VM.
+#[user@work02]
+
+    ssh Nydiabaen
+
+    # -----------------------------------------------------
+    # Create a container to work with.
+    #[user@virtual]
+
+        docker run \
+            --rm \
+            --tty \
+            --interactive \
+            --hostname builder \
+            --env SSH_AUTH_SOCK=/tmp/ssh_auth_sock \
+            --volume ${SSH_AUTH_SOCK}:/tmp/ssh_auth_sock \
+            firethorn/builder \
+            bash
+
+    >   Unable to find image 'firethorn/builder:latest' locally
+    >   latest: Pulling from firethorn/builder
+    >   ....
+    >   ....
+    >   Digest: sha256:8f984115c8ae158ba3ed45d28ffe656278cd3f2429f7af87cd3ffa3679237f1f
+    >   Status: Downloaded newer image for firethorn/builder:latest
+
+        # -----------------------------------------------------
+        # Checkout a copy of our source code.
+        #[user@builder]
+
+            PHYMATOPUS_REPO=https://github.com/Zarquan/phymatopus
+            PHYMATOPUS_CODE=/var/local/build/phymatopus
+
+            if [ ! -e "${PHYMATOPUS_CODE:?}" ]
+            then
+                if [ ! -e "$(dirname ${PHYMATOPUS_CODE:?})" ]
+                then
+                    mkdir -p "$(dirname ${PHYMATOPUS_CODE:?})"
+                fi
+                pushd "$(dirname ${PHYMATOPUS_CODE:?})"
+                    git clone "${PHYMATOPUS_REPO:?}" "$(basename ${PHYMATOPUS_CODE:?})"
+
+                popd
+            else
+                pushd "${PHYMATOPUS_CODE:?}"
+                    git pull
+                popd
+            fi
+
+        # -----------------------------------------------------
+        # Build and run our tests.
+        #[user@builder]
+
+            pushd "${PHYMATOPUS_CODE:?}"
+                pushd kafka-tools
+
+                    mkdir logs
+
+                    sed -i '
+                        /<logger name="uk.ac.roe.wfau.phymatopus">/,/<\/logger>/ {
+                            s/value="[^"]*"/value="INFO"/
+                            }
+                        ' src/test/conf/logback.xml
+
+                    sed -i '
+                        s/group=.*$/group='$(pwgen 16 1)'/
+                        ' src/test/conf/test.properties
+
+                    sed -i '
+                        s/threads=.*$/threads=4/
+                        ' src/test/conf/test.properties
+
+                    sed -i '
+                        s/rewind=.*$/rewind=TRUE/
+                        ' src/test/conf/test.properties
+
+                    mvn test -D 'test=ZtfTestAlertReaderTest'
+
+
+
+
+                popd
+            popd
+
+
+    >   2019-06-13 04:10:31,132 INFO  [main] [ZtfAvroReaderTest] Group [ooleigher7eiXooZ] with [6] threads read [278279] rows in [129841.0]ms at [0.4665857]ms per row
+    >   2019-06-13 04:24:12,651 INFO  [main] [ZtfAvroReaderTest] Group [ooleigher7eiXooZ] with [6] threads read [278279] rows in [129895.0]ms at [0.46677974]ms per row
+    >   2019-06-13 04:27:39,223 INFO  [main] [ZtfAvroReaderTest] Group [ooleigher7eiXooZ] with [6] threads read [278279] rows in [129698.0]ms at [0.4660718]ms per row
+
+    >   2019-06-13 04:30:51,189 INFO  [main] [ZtfAvroReaderTest] Group [ooleigher7eiXooZ] with [4] threads read [278279] rows in [127123.0]ms at [0.45681852]ms per row
+
+    >   2019-06-13 04:10:54,925 INFO  [main] [ZtfAvroReaderTest] Group [oiPhoe1ohPhie0fo] with [6] threads read [278279] rows in [140165.0]ms at [0.5036852]ms per row
+    >   2019-06-13 04:15:12,374 INFO  [main] [ZtfAvroReaderTest] Group [oiPhoe1ohPhie0fo] with [6] threads read [278279] rows in [143685.0]ms at [0.51633435]ms per row
+    >   2019-06-13 04:19:18,490 INFO  [main] [ZtfAvroReaderTest] Group [oiPhoe1ohPhie0fo] with [6] threads read [278279] rows in [143739.0]ms at [0.51652837]ms per row
+
+    >   2019-06-13 04:48:43,258 INFO  [main] [ZtfAvroReaderTest] Group [Ieth1queiYuxeiy8] with [4] threads read [278279] rows in [138491.0]ms at [0.4976696]ms per row
+
+    >   2019-06-13 04:52:48,869 INFO  [main] [ZtfAvroReaderTest] Group [Xijeigoh5rie0wie] with [4] threads read [278279] rows in [126245.0]ms at [0.4536634]ms per row
+
+
+        # -----------------------------------------------------
+        # Two instances run concurrently on different servers.
+
+                    sed -i '
+                        s/group=.*$/group=wumble/
+                        ' src/test/conf/test.properties
+
+                    sed -i '
+                        s/rewind=.*$/rewind=true/
+                        ' src/test/conf/test.properties
+
+                    mvn test -D 'test=ZtfAvroReaderTest'
+
+
+
+                    sed -i '
+                        s/group=.*$/group=wumble/
+                        ' src/test/conf/test.properties
+
+                    sed -i '
+                        s/rewind=.*$/rewind=false/
+                        ' src/test/conf/test.properties
+
+                    mvn test -D 'test=ZtfAvroReaderTest'
+
+
+
+        # -----------------------------------------------------
+        # Very informative EXception message.
+
+            java.util.concurrent.ExecutionException: org.apache.kafka.clients.consumer.CommitFailedException:
+                Commit cannot be completed since the group has already rebalanced and assigned the partitions to another member.
+                This means that the time between subsequent calls to poll() was longer than the configured max.poll.interval.ms,
+                which typically implies that the poll loop is spending too much time message processing.
+                You can address this either by increasing the session timeout or by reducing the maximum size of batches returned
+                in poll() with max.poll.records.
+
+            2019-06-13 04:55:59,065 INFO  [pool-1-thread-4] [ConsumerConfig] ConsumerConfig values:
+
+                auto.commit.interval.ms = 1000
+                ....
+            	heartbeat.interval.ms = 3000
+                ....
+	            max.poll.interval.ms = 300000
+	            max.poll.records = 500
+                ....
+            	session.timeout.ms = 10000
+
+
+        # -----------------------------------------------------
+        # Enable autocomit by default.
+
+            2019-06-13 05:21:15,883 INFO  [pool-1-thread-4] [ConsumerConfig] ConsumerConfig values:
+	            auto.commit.interval.ms = 1000
+	            auto.offset.reset = earliest
+                ....
+	            enable.auto.commit = true
+
+
+
+        # -----------------------------------------------------
+        # Two instances run concurrently on different servers.
+
+                    sed -i '
+                        s/group=.*$/group=wumble/
+                        ' src/test/conf/test.properties
+
+                    sed -i '
+                        s/rewind=.*$/rewind=true/
+                        ' src/test/conf/test.properties
+
+                    mvn test -D 'test=ZtfAvroReaderTest'
+
+
+
+                    sed -i '
+                        s/group=.*$/group=wumble/
+                        ' src/test/conf/test.properties
+
+                    sed -i '
+                        s/rewind=.*$/rewind=false/
+                        ' src/test/conf/test.properties
+
+                    mvn test -D 'test=ZtfAvroReaderTest'
+
+    >   # Two instances run concurrently on different servers.
+    >   2019-06-13 05:22:32,526 INFO  [main] [ZtfAvroReaderTest] Group [wumble] with [4] threads read [149935] rows in [76652.0]ms at [0.5112349]ms per row
+    >   2019-06-13 05:22:40,216 INFO  [main] [ZtfAvroReaderTest] Group [wumble] with [4] threads read [128344] rows in [72266.0]ms at [0.5630649]ms per row
+
+    >   # One instance run on it's own.
+    >   2019-06-13 05:28:01,151 INFO  [main] [ZtfAvroReaderTest] Group [wumble] with [4] threads read [278279] rows in [128726.0]ms at [0.46257892]ms per row
+
+    >   # One instance run on it's own.
+    >   2019-06-13 05:31:41,735 INFO  [main] [ZtfAvroReaderTest] Group [wumble] with [4] threads read [278279] rows in [136113.0]ms at [0.48912424]ms per row
+
+    >   # Two instances run concurrently on different servers.
+    >   2019-06-13 05:33:45,018 INFO  [main] [ZtfAvroReaderTest] Group [wumble] with [4] threads read [146204] rows in [75300.0]ms at [0.5150338]ms per row
+    >   2019-06-13 05:33:51,679 INFO  [main] [ZtfAvroReaderTest] Group [wumble] with [4] threads read [132075] rows in [71591.0]ms at [0.5420481]ms per row
+
+    >   # One instance run on it's own.
+    >   2019-06-13 04:50:13,482 INFO  [main] [ZtfAvroReaderTest] Group [xeevieMai8aikahx] with [4] threads read [278279] rows in [122953.0]ms at [0.44183356]ms per row
+
+
+    >   # Three instances run concurrently (trop04 and work02, work02).
+    >   2019-06-13 05:58:47,838 INFO  [main] [ZtfAvroReaderTest] Group [wumble] with [4] threads read [100020] rows in [68937.0]ms at [0.6892322]ms per row
+    >   2019-06-13 05:58:59,815 INFO  [main] [ZtfAvroReaderTest] Group [wumble] with [4] threads read [97424] rows in [71020.0]ms at [0.7289785]ms per row
+    >   2019-06-13 04:58:51,224 INFO  [main] [ZtfAvroReaderTest] Group [wumble] with [4] threads read [80835] rows in [58254.0]ms at [0.7206532]ms per row
+
+    >   # Three instances run concurrently (trop04 and work02, work02).
+    >   2019-06-13 06:02:21,689 INFO  [main] [ZtfAvroReaderTest] Group [wumble] with [4] threads read [98293] rows in [56956.0]ms at [0.5794512]ms per row
+    >   2019-06-13 06:02:36,922 INFO  [main] [ZtfAvroReaderTest] Group [wumble] with [4] threads read [83509] rows in [58835.0]ms at [0.7045348]ms per row
+    >   2019-06-13 05:02:36,135 INFO  [main] [ZtfAvroReaderTest] Group [wumble] with [4] threads read [75441] rows in [50577.0]ms at [0.67041796]ms per row
+
+------------------------------
+
+    >   # One instance run on it's own.
+    >   2019-06-14 04:02:16,041 INFO  [main] [ZtfTestAlertReaderTest] Group [wumble] with [4] threads read [278279] rows in [128262.0]ms at [0.46091154]ms per row
+
+    >   # Three instances run concurrently (trop04 and work02, work02).
+    >   2019-06-14 04:05:06,936 INFO  [main] [ZtfTestAlertReaderTest] Group [wumble] with [4] threads read [88818] rows in [64729.0]ms at [0.7287825]ms per row
+    >   2019-06-14 04:05:22,183 INFO  [main] [ZtfTestAlertReaderTest] Group [wumble] with [4] threads read [103392] rows in [74311.0]ms at [0.7187306]ms per row
+    >   2019-06-14 03:04:59,963 INFO  [main] [ZtfTestAlertReaderTest] Group [wumble] with [4] threads read [86069] rows in [59657.0]ms at [0.69312996]ms per row
+
+    >   # One instance run on it's own.
+    >   2019-06-14 04:15:02,884 INFO  [main] [ZtfTestAlertReaderTest] Group [eichaixosoTai2ie] with [4] threads read [278279] rows in [122408.0]ms at [0.4398751]ms per row
+
+    >   # Four instances run concurrently (trop04 and work02, work02, work02).
+    >   2019-06-14 04:18:14,245 INFO  [main] [ZtfTestAlertReaderTest] Group [wumble] with [4] threads read [77470] rows in [50263.0]ms at [0.648806]ms per row
+    >   2019-06-14 04:18:19,184 INFO  [main] [ZtfTestAlertReaderTest] Group [wumble] with [4] threads read [68487] rows in [48640.0]ms at [0.71020776]ms per row
+    >   2019-06-14 03:18:08,554 INFO  [main] [ZtfTestAlertReaderTest] Group [wumble] with [4] threads read [70817] rows in [43914.0]ms at [0.6201053]ms per row
+    >   2019-06-14 04:18:15,474 INFO  [main] [ZtfTestAlertReaderTest] Group [wumble] with [4] threads read [61505] rows in [37071.0]ms at [0.60273147]ms per row
+
+
+
+
+

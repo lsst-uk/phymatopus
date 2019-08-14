@@ -1,0 +1,549 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+    Local MAC addresses
+    https://serverfault.com/a/40720
+    https://en.wikipedia.org/wiki/MAC_address#Universal_vs._local
+
+
+# -----------------------------------------------------
+# List the virtual networks on trop03
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        -c $connection \
+        net-list --all
+
+    >    Name                 State      Autostart     Persistent
+    >   ----------------------------------------------------------
+    >    natted               active     yes           yes
+    >    routed               active     yes           yes
+
+
+# -----------------------------------------------------
+# Stop the routed network.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        -c $connection \
+        net-destroy \
+            routed
+
+    >   Network routed destroyed
+
+
+    virsh \
+        -c $connection \
+        net-undefine \
+            routed
+
+    >   Network routed has been undefined
+
+
+# -----------------------------------------------------
+# List the configuratrion for the natted network.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        -c $connection \
+        net-dumpxml \
+            natted
+
+    >   <network ipv6='yes'>
+    >     <name>natted</name>
+    >     <uuid>1b971085-8dc1-4962-9f84-ae84dc8c8068</uuid>
+    >     <forward mode='nat'>
+    >       <nat>
+    >         <port start='1024' end='65535'/>
+    >       </nat>
+    >     </forward>
+    >     <bridge name='virbr1' stp='off' delay='0'/>
+    >     <mac address='52:54:00:05:00:fe'/>
+    >     <ip family='ipv4' address='192.168.5.254' netmask='255.255.255.0'>
+    >       <dhcp>
+    >         <range start='192.168.5.1' end='192.168.5.31'/>
+    >         <host mac='52:54:00:05:00:01' name='Umiawyth' ip='192.168.5.1'/>
+    >         <host mac='52:54:00:05:00:02' name='Etalema' ip='192.168.5.2'/>
+    >         <host mac='52:54:00:05:00:03' name='Greand' ip='192.168.5.3'/>
+    >         <host mac='52:54:00:05:00:04' name='Nydiralle' ip='192.168.5.4'/>
+    >         <host mac='52:54:00:05:00:05' name='Kedaekoth' ip='192.168.5.5'/>
+    >         <host mac='52:54:00:05:00:06' name='Onelith' ip='192.168.5.6'/>
+    >         <host mac='52:54:00:05:00:07' name='Elaleld' ip='192.168.5.7'/>
+    >         <host mac='52:54:00:05:00:08' name='Afoaviel' ip='192.168.5.8'/>
+    >         <host mac='52:54:00:05:00:09' name='Rusaldez' ip='192.168.5.9'/>
+    >         <host mac='52:54:00:05:00:0A' name='Stedigo' ip='192.168.5.10'/>
+    >         <host mac='52:54:00:05:00:0B' name='Angece' ip='192.168.5.11'/>
+    >         <host mac='52:54:00:05:00:0C' name='Edwalafia' ip='192.168.5.12'/>
+    >         <host mac='52:54:00:05:00:0D' name='Onoza' ip='192.168.5.13'/>
+    >         <host mac='52:54:00:05:00:0E' name='Fosauri' ip='192.168.5.14'/>
+    >         <host mac='52:54:00:05:00:0F' name='Marpus' ip='192.168.5.15'/>
+    >         <host mac='52:54:00:05:00:10' name='Byflame' ip='192.168.5.16'/>
+    >         <host mac='52:54:00:05:00:11' name='Grerat' ip='192.168.5.17'/>
+    >         <host mac='52:54:00:05:00:12' name='Jeralenia' ip='192.168.5.18'/>
+    >         <host mac='52:54:00:05:00:13' name='Dwardoa' ip='192.168.5.19'/>
+    >         <host mac='52:54:00:05:00:14' name='Larohac' ip='192.168.5.20'/>
+    >         <host mac='52:54:00:05:00:15' name='Kaaeclya' ip='192.168.5.21'/>
+    >         <host mac='52:54:00:05:00:16' name='Elirannor' ip='192.168.5.22'/>
+    >         <host mac='52:54:00:05:00:17' name='Jeroaveth' ip='192.168.5.23'/>
+    >         <host mac='52:54:00:05:00:18' name='Rorekon' ip='192.168.5.24'/>
+    >         <host mac='52:54:00:05:00:19' name='Astalenna' ip='192.168.5.25'/>
+    >         <host mac='52:54:00:05:00:1A' name='Afib' ip='192.168.5.26'/>
+    >         <host mac='52:54:00:05:00:1B' name='Lotholia' ip='192.168.5.27'/>
+    >         <host mac='52:54:00:05:00:1C' name='Astilamos' ip='192.168.5.28'/>
+    >       </dhcp>
+    >     </ip>
+    >   </network>
+
+
+# -----------------------------------------------------
+# Edit the configuratrion for the natted network.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        -c $connection \
+        net-dumpxml \
+            natted \
+        > natted.xml
+
+    sed -i '
+        s/52:54:00:05:00/02:00:00:10:05/
+        ' \
+        natted.xml
+
+    virsh \
+        -c $connection \
+        net-destroy \
+            natted
+
+    >   Network natted destroyed
+
+
+    virsh \
+        -c $connection \
+        net-define \
+            natted.xml
+
+    >   Network natted defined from natted.xml
+
+
+    virsh \
+        -c $connection \
+        net-start \
+            natted
+
+    >   Network natted started
+
+
+# -----------------------------------------------------
+# List the virtual machines on trop03
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        -c $connection \
+        list --all
+
+    >    Id    Name                           State
+    >   ----------------------------------------------------
+    >    -     Angece                         shut off
+    >    -     Byflame                        shut off
+    >    -     Edwalafia                      shut off
+    >    -     Fosauri                        shut off
+    >    -     Marpus                         shut off
+    >    -     Onoza                          shut off
+    >    -     Stedigo                        shut off
+    >    -     Umiawyth                       shut off
+
+
+# -----------------------------------------------------
+# List the configuratrion for Umiawyth.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        -c $connection \
+        dumpxml \
+            Umiawyth
+
+    >   <domain type='kvm'>
+    >     <name>Umiawyth</name>
+    >     <uuid>0b917523-be6b-46c8-a1ea-38bc0d50ad34</uuid>
+    >     <memory unit='KiB'>4194304</memory>
+    >     <currentMemory unit='KiB'>4194304</currentMemory>
+    >     <vcpu placement='static'>4</vcpu>
+    >     <resource>
+    >       <partition>/machine</partition>
+    >     </resource>
+    >     <os>
+    >       <type arch='x86_64' machine='pc-1.1'>hvm</type>
+    >       <boot dev='hd'/>
+    >     </os>
+    >     <features>
+    >       <acpi/>
+    >       <apic/>
+    >       <pae/>
+    >     </features>
+    >     <clock offset='utc'/>
+    >     <on_poweroff>destroy</on_poweroff>
+    >     <on_reboot>restart</on_reboot>
+    >     <on_crash>restart</on_crash>
+    >     <devices>
+    >       <emulator>/usr/bin/kvm</emulator>
+    >       <disk type='file' device='disk'>
+    >         <driver name='qemu' type='qcow2'/>
+    >         <source file='/var/lib/libvirt/images/live/Umiawyth.qcow'/>
+    >         <target dev='vda' bus='virtio'/>
+    >         <address type='pci' domain='0x0000' bus='0x00' slot='0x04' function='0x0'/>
+    >       </disk>
+    >       <disk type='file' device='cdrom'>
+    >         <driver name='qemu' type='raw'/>
+    >         <source file='/var/lib/libvirt/images/init/Umiawyth.iso'/>
+    >         <target dev='vdb' bus='virtio'/>
+    >         <readonly/>
+    >         <address type='pci' domain='0x0000' bus='0x00' slot='0x05' function='0x0'/>
+    >       </disk>
+    >       <controller type='usb' index='0' model='piix3-uhci'>
+    >         <address type='pci' domain='0x0000' bus='0x00' slot='0x01' function='0x2'/>
+    >       </controller>
+    >       <controller type='pci' index='0' model='pci-root'/>
+    >       <interface type='network'>
+    >         <mac address='52:54:00:05:00:01'/>
+    >         <source network='natted'/>
+    >         <model type='virtio'/>
+    >         <address type='pci' domain='0x0000' bus='0x00' slot='0x07' function='0x0'/>
+    >       </interface>
+    >       <interface type='network'>
+    >         <mac address='52:54:00:05:01:01'/>
+    >         <source network='routed'/>
+    >         <model type='virtio'/>
+    >         <address type='pci' domain='0x0000' bus='0x00' slot='0x08' function='0x0'/>
+    >       </interface>
+    >       <serial type='pty'>
+    >         <target port='0'/>
+    >       </serial>
+    >       <console type='pty'>
+    >         <target type='serial' port='0'/>
+    >       </console>
+    >       <input type='keyboard' bus='ps2'/>
+    >       <input type='mouse' bus='ps2'/>
+    >       <graphics type='vnc' port='-1' autoport='yes'>
+    >         <listen type='address'/>
+    >       </graphics>
+    >       <video>
+    >         <model type='cirrus' vram='16384' heads='1' primary='yes'/>
+    >         <address type='pci' domain='0x0000' bus='0x00' slot='0x02' function='0x0'/>
+    >       </video>
+    >       <memballoon model='virtio'>
+    >         <address type='pci' domain='0x0000' bus='0x00' slot='0x06' function='0x0'/>
+    >       </memballoon>
+    >     </devices>
+    >   </domain>
+
+
+# -----------------------------------------------------
+# Edit the configuratrion for Umiawyth.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        -c $connection \
+        dumpxml \
+            Umiawyth \
+        > Umiawyth.xml
+
+    vi Umiawyth.xml
+
+        <interface type='network'>
+    ~     <mac address='02:00:00:10:05:01'/>
+          <source network='natted'/>
+          <model type='virtio'/>
+          <address type='pci' domain='0x0000' bus='0x00' slot='0x07' function='0x0'/>
+        </interface>
+
+    -   <interface type='network'>
+    -     <mac address='52:54:00:05:01:01'/>
+    -     <source network='routed'/>
+    -     <model type='virtio'/>
+    -     <address type='pci' domain='0x0000' bus='0x00' slot='0x08' function='0x0'/>
+    -   </interface>
+
+    +   <interface type='bridge'>
+    +     <source bridge='br1'/>
+    +     <mac address='06:00:00:10:05:01'/>
+    +   </interface>
+
+
+    virsh \
+        -c $connection \
+        define \
+            Umiawyth.xml
+
+    >   Domain Umiawyth defined from Umiawyth.xml
+
+
+# -----------------------------------------------------
+# Start Umiawyth.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        -c $connection \
+        start \
+            Umiawyth
+
+
+# -----------------------------------------------------
+# Tail the system log on work01.
+#[root@work01]
+
+    journalctl -f
+
+    >   ....
+    >   May 30 06:03:56 lsstukwork1 kernel: drop IN=br1 OUT= PHYSIN=eno1 MAC=ff:ff:ff:ff:ff:ff:06:00:00:10:05:01:08:00 SRC=0.0.0.0 DST=255.255.255.255 LEN=328 TOS=0x10 PREC=0x00 TTL=128 ID=0 PROTO=UDP SPT=68 DPT=67 LEN=308
+    >   ....
+
+    #
+    # Looks like DHCP packets getting dropped by the firewall.
+    #
+
+
+# -----------------------------------------------------
+# Try login to the 192 natted address..
+#[user@trop03]
+
+    ssh Stevedore@192.168.5.1
+
+    >   Last login: Thu Mar 21 14:13:14 2019 from 172.17.5.254
+
+# -----------------------------------------------------
+# Check the network config ..
+#[Stevedore@Umiawyth]
+
+    /sbin/ifconfig
+
+    >   ens3: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+    >           ether 06:00:00:10:05:01  txqueuelen 1000  (Ethernet)
+    >           RX packets 1745  bytes 413430 (403.7 KiB)
+    >           RX errors 0  dropped 0  overruns 0  frame 0
+    >           TX packets 57  bytes 9062 (8.8 KiB)
+    >           TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+    >
+    >   ens7: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+    >           inet 192.168.5.1  netmask 255.255.255.0  broadcast 192.168.5.255
+    >           inet6 fe80::edb8:ebfe:d173:9ba5  prefixlen 64  scopeid 0x20<link>
+    >           ether 02:00:00:10:05:01  txqueuelen 1000  (Ethernet)
+    >           RX packets 109  bytes 13660 (13.3 KiB)
+    >           RX errors 0  dropped 0  overruns 0  frame 0
+    >           TX packets 99  bytes 12258 (11.9 KiB)
+    >           TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+    >
+    >   lo: flags=73<UP,LOOPBACK,RUNNING>  mtu 65536
+    >           inet 127.0.0.1  netmask 255.0.0.0
+    >           inet6 ::1  prefixlen 128  scopeid 0x10<host>
+    >           loop  txqueuelen 1000  (Local Loopback)
+    >           RX packets 0  bytes 0 (0.0 B)
+    >           RX errors 0  dropped 0  overruns 0  frame 0
+    >           TX packets 0  bytes 0 (0.0 B)
+    >           TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+
+
+# -----------------------------------------------------
+# Check the DNS resolver ..
+#[Stevedore@Umiawyth]
+
+    host data.metagrid.co.uk
+
+    >   host data.metagrid.co.uk
+    >   data.metagrid.co.uk is an alias for bullfinch.linode.metagrid.co.uk.
+    >   bullfinch.linode.metagrid.co.uk has address 178.79.157.93
+    >   bullfinch.linode.metagrid.co.uk has IPv6 address 2a01:7e00::f03c:91ff:fedf:f8b
+
+
+    host work-01.lsstuk
+
+    >   Host work-01.lsstuk not found: 3(NXDOMAIN)
+
+
+# -----------------------------------------------------
+# Check the network config on trop03
+#[user@trop03]
+
+    vi /etc/network/interfaces
+
+
+        # private LSST LAN
+        auto br1
+        iface br1 inet static
+            address   172.16.1.5
+            netmask   255.255.0.0
+    ~       broadcast 172.16.255.255
+            # Configure bridge port and STP.
+            bridge_ports eth1
+            bridge_fd 0
+            bridge_stp off
+            bridge_maxwait 0
+
+
+
+# -----------------------------------------------------
+# Re-start Umiawyth.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        -c $connection \
+        shutdown \
+            Umiawyth \
+
+    virsh \
+        -c $connection \
+        start \
+            Umiawyth \
+
+
+# -----------------------------------------------------
+# Allow VLAN DHCP requests and responses through the firewall.
+#[root@work01]
+
+
+# -----------------------------------------------------
+# Add rules to allow VLAN DHCP requests.
+#[root@work01]
+
+    iptables \
+        --table filter \
+        --insert INPUT 3 \
+            -i br1 \
+            -p udp \
+            --dport 67 \
+            -j ACCEPT
+
+    iptables \
+        --table filter \
+        --insert INPUT 4 \
+            -i br1 \
+            -p tcp \
+            --dport 67 \
+            -j ACCEPT
+
+
+    iptables \
+        --verbose \
+        --line-numbers \
+        --table filter \
+        --list INPUT
+
+
+# -----------------------------------------------------
+# Add rules to allow VLAN DHCP responses.
+#[root@work01]
+
+    iptables \
+        --table filter \
+        --insert OUTPUT 2 \
+            -o br1 \
+            -p udp \
+            --dport 68 \
+            -j ACCEPT
+
+    iptables \
+        --verbose \
+        --line-numbers \
+        --table filter \
+        --list OUTPUT
+
+
+# -----------------------------------------------------
+# Check the network on Umiawyth - aleady connected :-)
+#[Stevedore@Umiawyth]
+
+    /sbin/ifconfig
+
+    >   ens3: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+    >           inet 172.16.5.1  netmask 255.255.0.0  broadcast 172.16.255.255
+    >           inet6 fe80::400:ff:fe10:501  prefixlen 64  scopeid 0x20<link>
+    >           ether 06:00:00:10:05:01  txqueuelen 1000  (Ethernet)
+    >           RX packets 6146  bytes 1382940 (1.3 MiB)
+    >           RX errors 0  dropped 0  overruns 0  frame 0
+    >           TX packets 168  bytes 28513 (27.8 KiB)
+    >           TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+    >
+    >   ens7: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+    >           ....
+    >           ....
+    >
+    >   lo: flags=73<UP,LOOPBACK,RUNNING>  mtu 65536
+    >           ....
+    >           ....
+
+
+# -----------------------------------------------------
+# Check the DNS on Umiawyth - not yet ..
+#[Stevedore@Umiawyth]
+
+    host data.metagrid.co.uk
+
+    >   data.metagrid.co.uk is an alias for bullfinch.linode.metagrid.co.uk.
+    >   bullfinch.linode.metagrid.co.uk has address 178.79.157.93
+    >   bullfinch.linode.metagrid.co.uk has IPv6 address 2a01:7e00::f03c:91ff:fedf:f8b
+
+
+    host work-01.lsstuk
+
+    >   Host work-01.lsstuk not found: 3(NXDOMAIN)
+
+
+# -----------------------------------------------------
+# Add the new rules to the iptables config.
+#[root@work01]
+
+
+    vi /etc/iptables/rules.v4
+
+    ~   # Allow libvirt DHCP requests
+        [0:0] -A INPUT -i virbr0 -p udp --dport 67 -j ACCEPT
+        [0:0] -A INPUT -i virbr0 -p tcp --dport 67 -j ACCEPT
+    +   # Allow VLAN DHCP requests
+    +   [0:0] -A INPUT -i br1 -p udp --dport 67 -j ACCEPT
+    +   [0:0] -A INPUT -i br1 -p tcp --dport 67 -j ACCEPT
+
+
+    ~   # Allow libvirt DHCP offers.
+        [0:0] -A OUTPUT -o virbr0 -p udp -m udp --dport 68 -j ACCEPT
+    +   # Allow VLAN DHCP offers.
+    +   [0:0] -A OUTPUT -o br1 -p udp -m udp --dport 68 -j ACCEPT
+
+
+

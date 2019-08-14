@@ -1,0 +1,630 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+    #
+    # Existing set of VMs.
+    # Docker daemon fails to start due to lack of disc space.
+    # Try cleaning things up to create space.
+    #
+
+    #
+    # Added an extra 8G voulume to each VM.
+    # VMs failed to restart properly.
+    # cloud-init script fails due to lack of disc space.
+    #
+
+# -----------------------------------------------------
+# Load our virtual machine node names.
+#[user@trop03]
+
+    source "${HOME}/nodenames.txt"
+    echo "
+Zookeepers    [${zknames[@]}]
+Kafka nodes   [${kfnames[@]}]
+Mirror makers [${mmnames[@]}]
+"
+
+    >   Zookeepers    [Fosauri Marpus Byflame]
+    >   Kafka nodes   [Stedigo Angece Edwalafia Onoza]
+    >   Mirror makers [Grerat Jeralenia]
+
+
+# -----------------------------------------------------
+# List our virtual machines.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+    virsh \
+        --connect ${libvirtcon:?} \
+        list \
+            --all
+
+    >    Id    Name                           State
+    >   ----------------------------------------------------
+    >    4     Umiawyth                       running
+    >    5     Fosauri                        running
+    >    6     Marpus                         running
+    >    7     Byflame                        running
+    >    -     Angece                         shut off
+    >    -     Edwalafia                      shut off
+    >    -     Grerat                         shut off
+    >    -     Jeralenia                      shut off
+    >    -     Onoza                          shut off
+    >    -     Stedigo                        shut off
+
+
+# -----------------------------------------------------
+# Start our Kafka machines.
+#[user@trop03]
+
+    source "${HOME}/nodenames.txt"
+    source "${HOME}/libvirt.settings"
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            virsh \
+                --connect ${libvirtcon:?} \
+                    start \
+                    ${vmname:?}
+        done
+
+    >   Node [Stedigo]
+    >   Domain Stedigo started
+    >   
+    >   ---- ----
+    >   Node [Angece]
+    >   Domain Angece started
+    >   
+    >   ---- ----
+    >   Node [Edwalafia]
+    >   Domain Edwalafia started
+    >   
+    >   ---- ----
+    >   Node [Onoza]
+    >   Domain Onoza started
+
+
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+# Remove old log files.
+#[user@Stedigo]
+
+    sudo journalctl --vacuum-size=1G
+
+    >   Journal file /var/log/journal/3631dde1fd1d4d8988ea07f5f1eef68d/user-1001.journal is truncated, ignoring file.
+    >   An error was encountered while opening journal file or directory /var/log/journal/3631dde1fd1d4d8988ea07f5f1eef68d/system@00058cb1b334eb55-7d476635eabdb7bb.journal~, ignoring file: Too many references: cannot splice
+    >   Deleted empty archived journal /var/log/journal/3631dde1fd1d4d8988ea07f5f1eef68d/user-1001@5f594450f126402ba267b5053f37dfb1-0000000000000000-0000000000000000.journal (8.0M).
+    >   Deleted empty archived journal /var/log/journal/3631dde1fd1d4d8988ea07f5f1eef68d/system@00058ca8ab7a26cd-fd409b710718e360.journal~ (4.0K).
+    >   ....
+    >   Deleted empty archived journal /var/log/journal/3631dde1fd1d4d8988ea07f5f1eef68d/system@00058e950e49438f-31be27ac97528fc5.journal~ (4.0K).
+    >   Deleted empty archived journal /var/log/journal/3631dde1fd1d4d8988ea07f5f1eef68d/system@00058e95e53b228d-c630dd0a8268caab.journal~ (4.0K).
+    >   Vacuuming done, freed 526.5M of archived journals from /var/log/journal/3631dde1fd1d4d8988ea07f5f1eef68d.
+
+
+# -----------------------------------------------------
+# Check disc use.
+#[user@Stedigo]
+
+    sudo du -h -d 1 /var/ | sort -h
+
+    >   ....
+    >   206M	/var/cache
+    >   584M	/var/log
+    >   2.3G	/var/lib
+    >   3.1G	/var/
+
+
+    sudo du -h -d 1 /var/lib | sort -h
+
+    >   ....
+    >   24M	/var/lib/sss
+    >   26M	/var/lib/rpm
+    >   27M	/var/lib/selinux
+    >   2.3G	/var/lib
+    >   2.3G	/var/lib/docker
+
+
+    sudo du -h -d 1 /var/lib/docker | sort -h
+
+    >   ....
+    >   80K	/var/lib/docker/containerd
+    >   1.2M	/var/lib/docker/image
+    >   2.3G	/var/lib/docker
+    >   2.3G	/var/lib/docker/btrfs
+
+
+    sudo du -h -d 1 /var/lib/docker/btrfs | sort -h
+
+    >   2.3G	/var/lib/docker/btrfs
+    >   2.3G	/var/lib/docker/btrfs/subvolumes
+
+
+    sudo du -h -d 1 /var/lib/docker/btrfs/subvolumes | sort -h
+
+    >   138M	/var/lib/docker/btrfs/subvolumes/78446887cfaf5e102b0c41653d26a62fe8bbffb533568f3da4ca779f4bb6ef27
+    >   478M	/var/lib/docker/btrfs/subvolumes/c184680398ba2196d4ef38839ef3f34664e5777ef96f91a54a87b0f60304876f
+    >   505M	/var/lib/docker/btrfs/subvolumes/2ec04843b84518c2617ad202b91bf0d53b4743c2bcd022b6efbb9ea566f2fcfd
+    >   569M	/var/lib/docker/btrfs/subvolumes/078d6300422aaf4e146b56f369c9db604adc33f724e10ba0237dbefdada6f8bc
+    >   569M	/var/lib/docker/btrfs/subvolumes/d7a96fc0ecdbfd61591684db0049cd387947def378e394c4c4fce3d9d7941fb5
+    >   2.3G	/var/lib/docker/btrfs/subvolumes
+
+# -----------------------------------------------------
+# List the docker volumes.
+#[user@Stedigo]
+
+    docker volume ls
+
+    >   DRIVER              VOLUME NAME
+
+
+# -----------------------------------------------------
+# List the docker containers.
+#[user@Stedigo]
+
+    docker ps --all
+
+    >   CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS               NAMES
+
+
+# -----------------------------------------------------
+# List the docker images.
+#[user@Stedigo]
+
+    docker image ls
+
+    >   REPOSITORY              TAG                 IMAGE ID            CREATED             SIZE
+    >   confluentinc/cp-kafka   4.1.1               c3a2f8363de5        14 months ago       562MB
+
+
+# -----------------------------------------------------
+# Check the disc use.
+#[user@Stedigo]
+
+
+    sudo du -h -d 1 /var/lib/docker/btrfs/subvolumes | sort -h
+
+    >   138M	/var/lib/docker/btrfs/subvolumes/78446887cfaf5e102b0c41653d26a62fe8bbffb533568f3da4ca779f4bb6ef27
+    >   478M	/var/lib/docker/btrfs/subvolumes/c184680398ba2196d4ef38839ef3f34664e5777ef96f91a54a87b0f60304876f
+    >   505M	/var/lib/docker/btrfs/subvolumes/2ec04843b84518c2617ad202b91bf0d53b4743c2bcd022b6efbb9ea566f2fcfd
+    >   569M	/var/lib/docker/btrfs/subvolumes/078d6300422aaf4e146b56f369c9db604adc33f724e10ba0237dbefdada6f8bc
+    >   569M	/var/lib/docker/btrfs/subvolumes/d7a96fc0ecdbfd61591684db0049cd387947def378e394c4c4fce3d9d7941fb5
+    >   2.3G	/var/lib/docker/btrfs/subvolumes
+
+
+# -----------------------------------------------------
+# Delete the kafka image.
+#[user@Stedigo]
+
+    docker image rm c3a2f8363de5
+
+    >   Untagged: confluentinc/cp-kafka:4.1.1
+    >   Untagged: confluentinc/cp-kafka@sha256:4f5d6f4ba368fc05c0d0f1390bf107ae45fab24ed4bd7aac75aed3086ae5ddab
+    >   Deleted: sha256:c3a2f8363de549baceb4a8cde885fe1af37c1ddff6aca4635739820f707d19cc
+    >   Deleted: sha256:f43466907fd351d7ae4dfb288a40f01b939c275eae91789357731e415f1d3956
+    >   Deleted: sha256:7bc9099a5ace1c866e616a93ff215eb5cf3761478aa48cef10802bdec8fb0593
+    >   Deleted: sha256:0134b949dd7620e2a41a6d85c54a0d405880583e1e570ce65083e993b26c89a5
+    >   Deleted: sha256:f0822e3c097746aec176961d5cbce348a76ce52a942b4f20e8a4e03f9291c622
+    >   Deleted: sha256:8fad67424c4e7098f255513e160caa00852bcff347bc9f920a82ddf3f60229de
+
+
+# -----------------------------------------------------
+# Check the disc use.
+#[user@Stedigo]
+
+    sudo du -h -d 1 /var/lib/docker/btrfs/subvolumes | sort -h
+
+    >   0	/var/lib/docker/btrfs/subvolumes
+
+    #
+    # Ok, so the 2.3G is the unpacked/installed image.
+    #
+
+
+# -----------------------------------------------------
+# Check the disc use.
+#[user@Stedigo]
+
+    sudo du -h -d 1 /var/lib | sort -h
+
+    >   ....
+    >   4.0K	/var/lib/chrony
+    >   4.0K	/var/lib/dbus
+    >   8.0K	/var/lib/alternatives
+    >   20K	/var/lib/NetworkManager
+    >   144K	/var/lib/systemd
+    >   176K	/var/lib/cloud
+    >   268K	/var/lib/docker
+    >   2.3M	/var/lib/dnf
+    >   24M	/var/lib/sss
+    >   26M	/var/lib/rpm
+    >   27M	/var/lib/selinux
+    >   79M	/var/lib
+
+
+# -----------------------------------------------------
+# Check the disc use.
+#[user@Stedigo]
+
+    sudo du -h -d 1 / | sort -h
+
+    >   ....
+    >   40K	/root
+    >   56K	/home
+    >   604K	/run
+    >   23M	/etc
+    >   88M	/boot
+    >   869M	/var
+    >   1.2G	/usr
+    >   30G	/data1-01
+    >   30G	/data2-01
+    >   44G	/data2-04
+    >   46G	/data1-03
+    >   50G	/data2-02
+    >   51G	/data2-03
+    >   62G	/data1-02
+    >   69G	/data1-04
+    >   382G	/
+
+
+# -----------------------------------------------------
+# Check the disc space.
+#[user@Stedigo]
+
+    sudo df -h /
+
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vda3       6.8G  2.3G  3.9G  38% /
+
+
+    sudo df -h
+
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   devtmpfs        2.0G     0  2.0G   0% /dev
+    >   tmpfs           2.0G     0  2.0G   0% /dev/shm
+    >   tmpfs           2.0G  604K  2.0G   1% /run
+    >   tmpfs           2.0G     0  2.0G   0% /sys/fs/cgroup
+    >   /dev/vda3       6.8G  2.3G  3.9G  38% /
+    >   tmpfs           2.0G  4.0K  2.0G   1% /tmp
+    >   /dev/vda1       240M   89M  135M  40% /boot
+    >   /dev/vdi        256G   69G  186G  28% /data1-04
+    >   /dev/vdd         32G   31G   40K 100% /data2-01
+    >   /dev/vdh        256G   51G  204G  21% /data2-03
+    >   /dev/vdj        256G   44G  211G  18% /data2-04
+    >   /dev/vdf         64G   50G   13G  80% /data2-02
+    >   /dev/vde         64G   63G  456K 100% /data1-02
+    >   /dev/vdc         32G   31G   44K 100% /data1-01
+    >   /dev/vdg        256G   46G  209G  19% /data1-03
+    >   tmpfs           395M     0  395M   0% /run/user/1001
+
+
+# -----------------------------------------------------
+# Check the space docker thinks it is using.
+#[user@Stedigo]
+
+    docker system df
+
+    >   TYPE                TOTAL               ACTIVE              SIZE                RECLAIMABLE
+    >   Images              0                   0                   0B                  0B
+    >   Containers          0                   0                   0B                  0B
+    >   Local Volumes       0                   0                   0B                  0B
+    >   Build Cache         0                   0                   0B                  0B
+
+
+# -----------------------------------------------------
+# List our available pools.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+    virsh \
+        --connect ${libvirtcon:?} \
+        pool-list
+
+    >    Name                 State      Autostart
+    >   -------------------------------------------
+    >    base                 active     yes
+    >    boot-scratch         active     no
+    >    data0                active     yes
+    >    data1                active     yes
+    >    data2                active     yes
+    >    home                 active     yes
+    >    images               active     yes
+    >    init                 active     yes
+    >    live                 active     yes
+
+
+# -----------------------------------------------------
+# Get the details of data0.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+    virsh \
+        --connect ${libvirtcon:?} \
+        pool-dumpxml \
+            data0
+
+    >   <pool type='dir'>
+    >     <name>data0</name>
+    >     <uuid>e69f99c0-d338-4654-a2ed-8046b35f65a1</uuid>
+    >     <capacity unit='bytes'>98294312960</capacity>
+    >     <allocation unit='bytes'>1703063552</allocation>
+    >     <available unit='bytes'>96591249408</available>
+    >     <source>
+    >     </source>
+    >     <target>
+    >       <path>/data/libvirt/images/data0</path>
+    >       <permissions>
+    >         <mode>0755</mode>
+    >         <owner>0</owner>
+    >         <group>0</group>
+    >       </permissions>
+    >     </target>
+    >   </pool>
+
+
+# -----------------------------------------------------
+# Relocate the data0 pool.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+    virsh \
+        --connect ${libvirtcon:?} \
+        pool-dumpxml \
+            data0 \
+    > /tmp/data0.xnl
+
+
+    source "${HOME}/libvirt.settings"
+    virsh \
+        --connect ${libvirtcon:?} \
+        pool-destroy \
+            data0
+
+    >   Pool data0 destroyed
+
+
+    sudo mv /data /data0
+
+
+    vi /tmp/data0.xnl
+
+    -   <path>/data/libvirt/images/data0</path>
+    +   <path>/data0/libvirt/images/data0</path>
+
+
+    source "${HOME}/libvirt.settings"
+    virsh \
+        --connect ${libvirtcon:?} \
+        pool-define \
+            /tmp/data0.xnl
+
+    >   Pool data0 defined from /tmp/data0.xnl
+
+
+    source "${HOME}/libvirt.settings"
+    virsh \
+        --connect ${libvirtcon:?} \
+        pool-start \
+            data0
+
+    >   Pool data0 started
+
+
+    source "${HOME}/libvirt.settings"
+    virsh \
+        --connect ${libvirtcon:?} \
+        pool-autostart \
+            data0
+
+    >   Pool data0 marked as autostarted
+
+
+# -----------------------------------------------------
+# List the existing devices for each VM.
+#[user@trop03]
+
+    source "${HOME}/nodenames.txt"
+    source "${HOME}/libvirt.settings"
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+
+            virsh \
+                --connect ${libvirtcon:?} \
+                dumpxml \
+                    "${vmname:?}" \
+            | xmlstarlet \
+                select \
+                    --text \
+                    --template \
+                        --match '//disk/target' \
+                        --value-of '@dev' \
+                        --nl
+
+        done
+
+    >   Node [Stedigo]
+    >   vda
+    >   vdb
+    >   vdc
+    >   vdd
+    >   vde
+    >   vdf
+    >   vdg
+    >   vdh
+    >   vdi
+    >   vdj
+    >   ---- ----
+    >   Node [Angece]
+    >   vda
+    >   vdb
+    >   vdc
+    >   vdd
+    >   vde
+    >   vdf
+    >   vdg
+    >   vdh
+    >   vdi
+    >   vdj
+    >   ---- ----
+    >   Node [Edwalafia]
+    >   vda
+    >   vdb
+    >   vdc
+    >   vdd
+    >   vde
+    >   vdf
+    >   vdg
+    >   vdh
+    >   vdi
+    >   vdj
+    >   ---- ----
+    >   Node [Onoza]
+    >   vda
+    >   vdb
+    >   vdc
+    >   vdd
+    >   vde
+    >   vdf
+    >   vdg
+    >   vdh
+    >   vdi
+    >   vdj
+
+# -----------------------------------------------------
+# Create an extra volume for each VM.
+#[user@trop03]
+
+    source "${HOME}/nodenames.txt"
+    source "${HOME}/libvirt.settings"
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+
+            datadev=vdx
+            datapool=data0
+            datafile=${vmname:?}-data0-01.qcow
+            datasize=8G
+
+            virsh \
+                --connect ${libvirtcon:?} \
+                vol-create-as \
+                    "${datapool:?}" \
+                    "${datafile:?}" \
+                    "${datasize:?}" \
+                    --format qcow2
+
+            datapath=$(
+                virsh \
+                    --connect "${libvirtcon:?}" \
+                    vol-path \
+                        --pool "${datapool:?}" \
+                        "${datafile:?}"
+                )
+
+            virsh \
+                --connect "${libvirtcon:?}" \
+                attach-disk \
+                    ${vmname:?} \
+                    --config \
+                    --target "${datadev:?}" \
+                    --driver qemu \
+                    --subdriver qcow2 \
+                    --source ${datapath:?}
+
+        done
+
+    >   Node [Stedigo]
+    >   Vol Stedigo-data0-01.qcow created
+    >   
+    >   Disk attached successfully
+    >   
+    >   ---- ----
+    >   Node [Angece]
+    >   Vol Angece-data0-01.qcow created
+    >   
+    >   Disk attached successfully
+    >   
+    >   ---- ----
+    >   Node [Edwalafia]
+    >   Vol Edwalafia-data0-01.qcow created
+    >   
+    >   Disk attached successfully
+    >   
+    >   ---- ----
+    >   Node [Onoza]
+    >   Vol Onoza-data0-01.qcow created
+    >   
+    >   Disk attached successfully
+
+
+# -----------------------------------------------------
+# Reboot our Kafka machines.
+#[user@trop03]
+
+    source "${HOME}/nodenames.txt"
+    source "${HOME}/libvirt.settings"
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            virsh \
+                --connect ${libvirtcon:?} \
+                    reboot \
+                    ${vmname:?}
+        done
+
+    >   Node [Stedigo]
+    >   Domain Stedigo is being rebooted
+    >   
+    >   ---- ----
+    >   Node [Angece]
+    >   Domain Angece is being rebooted
+    >   
+    >   ---- ----
+    >   Node [Edwalafia]
+    >   Domain Edwalafia is being rebooted
+    >   
+    >   ---- ----
+    >   Node [Onoza]
+    >   Domain Onoza is being rebooted
+
+    #
+    # Unable to login - VMs failed to start correctly.
+    # cloud-initi failed - no space left on device
+    #
+
+    #
+    # Nothing of value in the VMs themselves.
+    # Drop and create new, add the voulmes and go ...
+    #
+
+
+
+

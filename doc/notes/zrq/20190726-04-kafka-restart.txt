@@ -1,0 +1,1534 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+    #
+    # VMs are running out of space.
+    # Specifically /var/lib/docker/btrfs/subvolumes/
+    #
+
+    #
+    # Nothing inherently valuable in the VMs themselves.
+    # Create new VMs, and extend '/' with an extra 8G volume.
+    #
+
+    #
+    # Automate the process of adding data volumes.
+    # Automate the process of extending the '/' filesystem.
+    #
+
+# -----------------------------------------------------
+# Update our node volume list.
+#[user@trop03]
+
+cat > "${HOME}/nodevols.txt" << EOF
+Stedigo    vdc  /data0/libvirt/images/data0/Stedigo-data0-01.qcow       -
+Stedigo    vdd  /data1/libvirt/images/data1/Stedigo-data1-01.qcow       /data1-01
+Stedigo    vde  /data2/libvirt/images/data2/Stedigo-data2-01.qcow       /data2-01
+Stedigo    vdf  /data1/libvirt/images/data1/Stedigo-data1-02.qcow       /data1-02
+Stedigo    vdg  /data2/libvirt/images/data2/Stedigo-data2-02.qcow       /data2-02
+Stedigo    vdh  /data1/libvirt/images/data1/Stedigo-data1-03.qcow       /data1-03
+Stedigo    vdi  /data2/libvirt/images/data2/Stedigo-data2-03.qcow       /data2-03
+Stedigo    vdj  /data1/libvirt/images/data1/Stedigo-data1-04.qcow       /data1-04
+Stedigo    vdk  /data2/libvirt/images/data2/Stedigo-data2-04.qcow       /data2-04
+Angece     vdc  /data0/libvirt/images/data0/Angece-data0-01.qcow        -
+Angece     vdd  /data1/libvirt/images/data1/Angece-data1-01.qcow        /data1-01
+Angece     vde  /data2/libvirt/images/data2/Angece-data2-01.qcow        /data2-01
+Angece     vdf  /data1/libvirt/images/data1/Angece-data1-02.qcow        /data1-02
+Angece     vdg  /data2/libvirt/images/data2/Angece-data2-02.qcow        /data2-02
+Angece     vdh  /data1/libvirt/images/data1/Angece-data1-03.qcow        /data1-03
+Angece     vdi  /data2/libvirt/images/data2/Angece-data2-03.qcow        /data2-03
+Angece     vdj  /data1/libvirt/images/data1/Angece-data1-04.qcow        /data1-04
+Angece     vdk  /data2/libvirt/images/data2/Angece-data2-04.qcow        /data2-04
+Edwalafia  vdc  /data0/libvirt/images/data0/Edwalafia-data0-01.qcow     -
+Edwalafia  vdd  /data1/libvirt/images/data1/Edwalafia-data1-01.qcow     /data1-01
+Edwalafia  vde  /data2/libvirt/images/data2/Edwalafia-data2-01.qcow     /data2-01
+Edwalafia  vdf  /data1/libvirt/images/data1/Edwalafia-data1-02.qcow     /data1-02
+Edwalafia  vdg  /data2/libvirt/images/data2/Edwalafia-data2-02.qcow     /data2-02
+Edwalafia  vdh  /data1/libvirt/images/data1/Edwalafia-data1-03.qcow     /data1-03
+Edwalafia  vdi  /data2/libvirt/images/data2/Edwalafia-data2-03.qcow     /data2-03
+Edwalafia  vdj  /data1/libvirt/images/data1/Edwalafia-data1-04.qcow     /data1-04
+Edwalafia  vdk  /data2/libvirt/images/data2/Edwalafia-data2-04.qcow     /data2-04
+Onoza      vdc  /data0/libvirt/images/data0/Onoza-data0-01.qcow         -
+Onoza      vdd  /data1/libvirt/images/data1/Onoza-data1-01.qcow         /data1-01
+Onoza      vde  /data2/libvirt/images/data2/Onoza-data2-01.qcow         /data2-01
+Onoza      vdf  /data1/libvirt/images/data1/Onoza-data1-02.qcow         /data1-02
+Onoza      vdg  /data2/libvirt/images/data2/Onoza-data2-02.qcow         /data2-02
+Onoza      vdh  /data1/libvirt/images/data1/Onoza-data1-03.qcow         /data1-03
+Onoza      vdi  /data2/libvirt/images/data2/Onoza-data2-03.qcow         /data2-03
+Onoza      vdj  /data1/libvirt/images/data1/Onoza-data1-04.qcow         /data1-04
+Onoza      vdk  /data2/libvirt/images/data2/Onoza-data2-04.qcow         /data2-04
+EOF
+
+
+# -----------------------------------------------------
+# Load our virtual machine node names.
+#[user@trop03]
+
+    source "${HOME}/nodenames.txt"
+
+    >   Zookeepers    [Fosauri Marpus Byflame]
+    >   Kafka nodes   [Stedigo Angece Edwalafia Onoza]
+    >   Mirror makers [Grerat Jeralenia]
+
+# -----------------------------------------------------
+# Create our Kafka nodes.
+# TODO scriptable createvm
+#[user@trop03]
+
+    createvm
+
+    >   INFO : Node name [Stedigo]
+    >   INFO : Base name [fedora-29-docker-base-20190715.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-29-docker-base-20190715.qcow]
+    >   INFO : Disc name [Stedigo.qcow]
+    >   INFO : Disc size [16GiB]
+    >   
+    >   INFO : MAC  [06:00:AC:10:05:0A]
+    >   INFO : IPv4 [172.16.5.10]
+    >   INFO : IPv6 []
+
+
+    createvm
+
+    >   INFO : Node name [Angece]
+    >   INFO : Base name [fedora-29-docker-base-20190715.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-29-docker-base-20190715.qcow]
+    >   INFO : Disc name [Angece.qcow]
+    >   INFO : Disc size [16GiB]
+    >   
+    >   INFO : MAC  [06:00:AC:10:05:0B]
+    >   INFO : IPv4 [172.16.5.11]
+    >   INFO : IPv6 []
+
+
+    createvm
+
+    >   INFO : Node name [Edwalafia]
+    >   INFO : Base name [fedora-29-docker-base-20190715.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-29-docker-base-20190715.qcow]
+    >   INFO : Disc name [Edwalafia.qcow]
+    >   INFO : Disc size [16GiB]
+    >   
+    >   INFO : MAC  [06:00:AC:10:05:0C]
+    >   INFO : IPv4 [172.16.5.12]
+    >   INFO : IPv6 []
+
+
+    createvm
+
+    >   INFO : Node name [Onoza]
+    >   INFO : Base name [fedora-29-docker-base-20190715.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-29-docker-base-20190715.qcow]
+    >   INFO : Disc name [Onoza.qcow]
+    >   INFO : Disc size [16GiB]
+    >   
+    >   INFO : MAC  [06:00:AC:10:05:0D]
+    >   INFO : IPv4 [172.16.5.13]
+    >   INFO : IPv6 []
+
+
+# -----------------------------------------------------
+# Define a host lookup function.
+# https://askubuntu.com/questions/627906/why-is-my-etc-hosts-file-not-queried-when-nslookup-tries-to-resolve-an-address#comment1536517_627909
+# TODO Add this to a toolit script.
+#[user@trop03]
+
+    getipv4()
+        {
+        getent hosts "${1:?}" | cut -d ' ' -f 1
+        }
+
+
+#---------------------------------------------------------------------
+# Update the ssh keys for each node.
+# TODO Add this to a toolit script.
+#[user@trop03]
+
+    source "${HOME}/nodenames.txt"
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+
+            ssh-keygen \
+                -q -R \
+                    "${vmname:?}"
+
+            ssh-keyscan \
+                "${vmname:?}" \
+                >> "${HOME}/.ssh/known_hosts"
+
+            ssh-keyscan \
+                -t ecdsa $(getipv4 "${vmname:?}") \
+                >> "${HOME}/.ssh/known_hosts"
+
+        done
+
+    >   ---- ----
+    >   Node [Stedigo]
+    >   Host Stedigo not found in /home/dmr/.ssh/known_hosts
+    >   # Stedigo:22 SSH-2.0-OpenSSH_7.9
+    >   # Stedigo:22 SSH-2.0-OpenSSH_7.9
+    >   # Stedigo:22 SSH-2.0-OpenSSH_7.9
+    >   # 172.16.5.10:22 SSH-2.0-OpenSSH_7.9
+    >   ---- ----
+    >   Node [Angece]
+    >   Host Angece not found in /home/dmr/.ssh/known_hosts
+    >   # Angece:22 SSH-2.0-OpenSSH_7.9
+    >   # Angece:22 SSH-2.0-OpenSSH_7.9
+    >   # Angece:22 SSH-2.0-OpenSSH_7.9
+    >   # 172.16.5.11:22 SSH-2.0-OpenSSH_7.9
+    >   ---- ----
+    >   Node [Edwalafia]
+    >   Host Edwalafia not found in /home/dmr/.ssh/known_hosts
+    >   # Edwalafia:22 SSH-2.0-OpenSSH_7.9
+    >   # Edwalafia:22 SSH-2.0-OpenSSH_7.9
+    >   # Edwalafia:22 SSH-2.0-OpenSSH_7.9
+    >   # 172.16.5.12:22 SSH-2.0-OpenSSH_7.9
+    >   ---- ----
+    >   Node [Onoza]
+    >   Host Onoza not found in /home/dmr/.ssh/known_hosts
+    >   # Onoza:22 SSH-2.0-OpenSSH_7.9
+    >   # Onoza:22 SSH-2.0-OpenSSH_7.9
+    >   # Onoza:22 SSH-2.0-OpenSSH_7.9
+    >   # 172.16.5.13:22 SSH-2.0-OpenSSH_7.9
+
+
+# -----------------------------------------------------
+# Check we can login to each node.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+    source "${HOME}/ssh-options"
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    date
+                    hostname
+                    "
+        done
+
+    >   ---- ----
+    >   Node [Stedigo]
+    >   Fri 26 Jul 19:37:06 BST 2019
+    >   Stedigo
+    >   ---- ----
+    >   Node [Angece]
+    >   Fri 26 Jul 19:37:07 BST 2019
+    >   Angece
+    >   ---- ----
+    >   Node [Edwalafia]
+    >   Fri 26 Jul 19:37:07 BST 2019
+    >   Edwalafia
+    >   ---- ----
+    >   Node [Onoza]
+    >   Fri 26 Jul 19:37:08 BST 2019
+    >   Onoza
+
+
+# -----------------------------------------------------
+# Attach the existing data volumes to each Kafka node.
+#[user@trop03]
+
+    while read line
+    do
+        vmname=$(echo "${line}" | awk '{print $1}')
+        target=$(echo "${line}" | awk '{print $2}')
+        source=$(echo "${line}" | awk '{print $3}')
+        echo "[${vmname}][${target}][${source}]"
+
+        virsh \
+            --connect "${libvirtcon:?}" \
+            attach-disk \
+                ${vmname:?}   \
+                ${source:?}  \
+                ${target:?}   \
+                --subdriver qcow2 \
+                --driver qemu  \
+                --config
+
+    done < "${HOME}/nodevols.txt"
+
+    >   [Stedigo][vdc][/data0/libvirt/images/data0/Stedigo-data0-01.qcow]
+    >   Disk attached successfully
+    >   
+    >   [Stedigo][vdd][/data1/libvirt/images/data1/Stedigo-data1-01.qcow]
+    >   Disk attached successfully
+    >   
+    >   [Stedigo][vde][/data2/libvirt/images/data2/Stedigo-data2-01.qcow]
+    >   Disk attached successfully
+    >   
+    >   [Stedigo][vdf][/data1/libvirt/images/data1/Stedigo-data1-02.qcow]
+    >   Disk attached successfully
+    >   
+    >   [Stedigo][vdg][/data2/libvirt/images/data2/Stedigo-data2-02.qcow]
+    >   Disk attached successfully
+    >   
+    >   [Stedigo][vdh][/data1/libvirt/images/data1/Stedigo-data1-03.qcow]
+    >   Disk attached successfully
+    >   
+    >   [Stedigo][vdi][/data2/libvirt/images/data2/Stedigo-data2-03.qcow]
+    >   Disk attached successfully
+    >   
+    >   [Stedigo][vdj][/data1/libvirt/images/data1/Stedigo-data1-04.qcow]
+    >   Disk attached successfully
+    >   
+    >   [Stedigo][vdk][/data2/libvirt/images/data2/Stedigo-data2-04.qcow]
+    >   Disk attached successfully
+    >   
+    >   [Angece][vdc][/data0/libvirt/images/data0/Angece-data0-01.qcow]
+    >   Disk attached successfully
+    >   
+    >   [Angece][vdd][/data1/libvirt/images/data1/Angece-data1-01.qcow]
+    >   Disk attached successfully
+    >   
+    >   [Angece][vde][/data2/libvirt/images/data2/Angece-data2-01.qcow]
+    >   Disk attached successfully
+    >   
+    >   [Angece][vdf][/data1/libvirt/images/data1/Angece-data1-02.qcow]
+    >   Disk attached successfully
+    >   
+    >   [Angece][vdg][/data2/libvirt/images/data2/Angece-data2-02.qcow]
+    >   Disk attached successfully
+    >   
+    >   [Angece][vdh][/data1/libvirt/images/data1/Angece-data1-03.qcow]
+    >   Disk attached successfully
+    >   
+    >   [Angece][vdi][/data2/libvirt/images/data2/Angece-data2-03.qcow]
+    >   Disk attached successfully
+    >   
+    >   [Angece][vdj][/data1/libvirt/images/data1/Angece-data1-04.qcow]
+    >   Disk attached successfully
+    >   
+    >   [Angece][vdk][/data2/libvirt/images/data2/Angece-data2-04.qcow]
+    >   Disk attached successfully
+    >   
+    >   [Edwalafia][vdc][/data0/libvirt/images/data0/Edwalafia-data0-01.qcow]
+    >   Disk attached successfully
+    >   
+    >   [Edwalafia][vdd][/data1/libvirt/images/data1/Edwalafia-data1-01.qcow]
+    >   Disk attached successfully
+    >   
+    >   [Edwalafia][vde][/data2/libvirt/images/data2/Edwalafia-data2-01.qcow]
+    >   Disk attached successfully
+    >   
+    >   [Edwalafia][vdf][/data1/libvirt/images/data1/Edwalafia-data1-02.qcow]
+    >   Disk attached successfully
+    >   
+    >   [Edwalafia][vdg][/data2/libvirt/images/data2/Edwalafia-data2-02.qcow]
+    >   Disk attached successfully
+    >   
+    >   [Edwalafia][vdh][/data1/libvirt/images/data1/Edwalafia-data1-03.qcow]
+    >   Disk attached successfully
+    >   
+    >   [Edwalafia][vdi][/data2/libvirt/images/data2/Edwalafia-data2-03.qcow]
+    >   Disk attached successfully
+    >   
+    >   [Edwalafia][vdj][/data1/libvirt/images/data1/Edwalafia-data1-04.qcow]
+    >   Disk attached successfully
+    >   
+    >   [Edwalafia][vdk][/data2/libvirt/images/data2/Edwalafia-data2-04.qcow]
+    >   Disk attached successfully
+    >   
+    >   [Onoza][vdc][/data0/libvirt/images/data0/Onoza-data0-01.qcow]
+    >   Disk attached successfully
+    >   
+    >   [Onoza][vdd][/data1/libvirt/images/data1/Onoza-data1-01.qcow]
+    >   Disk attached successfully
+    >   
+    >   [Onoza][vde][/data2/libvirt/images/data2/Onoza-data2-01.qcow]
+    >   Disk attached successfully
+    >   
+    >   [Onoza][vdf][/data1/libvirt/images/data1/Onoza-data1-02.qcow]
+    >   Disk attached successfully
+    >   
+    >   [Onoza][vdg][/data2/libvirt/images/data2/Onoza-data2-02.qcow]
+    >   Disk attached successfully
+    >   
+    >   [Onoza][vdh][/data1/libvirt/images/data1/Onoza-data1-03.qcow]
+    >   Disk attached successfully
+    >   
+    >   [Onoza][vdi][/data2/libvirt/images/data2/Onoza-data2-03.qcow]
+    >   Disk attached successfully
+    >   
+    >   [Onoza][vdj][/data1/libvirt/images/data1/Onoza-data1-04.qcow]
+    >   Disk attached successfully
+    >   
+    >   [Onoza][vdk][/data2/libvirt/images/data2/Onoza-data2-04.qcow]
+    >   Disk attached successfully
+
+
+# -----------------------------------------------------
+# List the volumes on each Kafka node.
+# http://xmlstar.sourceforge.net/doc/UG/ch04.html
+# https://sourceforge.net/p/xmlstar/discussion/226076/thread/d5eca10f/#56b4
+#[user@trop03]
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "$(printf '+ %56s +' '')" | sed 's/ /-/g'
+            echo "$(printf '| %-56s |' 'Node ['${vmname:?}']')"
+            virsh \
+                --connect "${libvirtcon:?}" \
+                dumpxml \
+                    "${vmname}" \
+            | xmlstarlet \
+                select \
+                    --text \
+                    --template \
+                        --match '//disk' \
+                        --sort  'A:T:-' 'target/@dev' \
+                        --value-of "concat('| ', target/@dev, ' | ', str:align(source/@file, str:padding(50, ' '), 'left'), ' |')" \
+                        --nl
+        done \
+    ; echo "$(printf '+ %56s +' '')" | sed 's/ /-/g'
+
+    >   +----------------------------------------------------------+
+    >   | Node [Stedigo]                                           |
+    >   | vda | /var/lib/libvirt/images/live/Stedigo.qcow          |
+    >   | vdb | /var/lib/libvirt/images/init/Stedigo.iso           |
+    >   +----------------------------------------------------------+
+    >   | Node [Angece]                                            |
+    >   | vda | /var/lib/libvirt/images/live/Angece.qcow           |
+    >   | vdb | /var/lib/libvirt/images/init/Angece.iso            |
+    >   +----------------------------------------------------------+
+    >   | Node [Edwalafia]                                         |
+    >   | vda | /var/lib/libvirt/images/live/Edwalafia.qcow        |
+    >   | vdb | /var/lib/libvirt/images/init/Edwalafia.iso         |
+    >   +----------------------------------------------------------+
+    >   | Node [Onoza]                                             |
+    >   | vda | /var/lib/libvirt/images/live/Onoza.qcow            |
+    >   | vdb | /var/lib/libvirt/images/init/Onoza.iso             |
+    >   +----------------------------------------------------------+
+
+
+# -----------------------------------------------------
+# Shutdown and restart our Kafka machines.
+#[user@trop03]
+
+    source "${HOME}/nodenames.txt"
+    source "${HOME}/libvirt.settings"
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            virsh \
+                --connect ${libvirtcon:?} \
+                    shutdown \
+                    ${vmname:?}
+        done
+
+    sleep 30
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            virsh \
+                --connect ${libvirtcon:?} \
+                    start \
+                    ${vmname:?}
+        done
+
+
+    >   ---- ----
+    >   Node [Stedigo]
+    >   Domain Stedigo is being shutdown
+    >   ---- ----
+    >   Node [Angece]
+    >   Domain Angece is being shutdown
+    >   ---- ----
+    >   Node [Edwalafia]
+    >   Domain Edwalafia is being shutdown
+    >   ---- ----
+    >   Node [Onoza]
+    >   Domain Onoza is being shutdown
+
+
+    >   ---- ----
+    >   Node [Stedigo]
+    >   Domain Stedigo started
+    >   ---- ----
+    >   Node [Angece]
+    >   Domain Angece started
+    >   ---- ----
+    >   Node [Edwalafia]
+    >   Domain Edwalafia started
+    >   ---- ----
+    >   Node [Onoza]
+    >   Domain Onoza started
+
+
+# -----------------------------------------------------
+# List the volumes on each Kafka node.
+# http://xmlstar.sourceforge.net/doc/UG/ch04.html
+# https://sourceforge.net/p/xmlstar/discussion/226076/thread/d5eca10f/#56b4
+#[user@trop03]
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "$(printf '+ %56s +' '')" | sed 's/ /-/g'
+            echo "$(printf '| %-56s |' 'Node ['${vmname:?}']')"
+            virsh \
+                --connect "${libvirtcon:?}" \
+                dumpxml \
+                    "${vmname}" \
+            | xmlstarlet \
+                select \
+                    --text \
+                    --template \
+                        --match '//disk' \
+                        --sort  'A:T:-' 'target/@dev' \
+                        --value-of "concat('| ', target/@dev, ' | ', str:align(source/@file, str:padding(50, ' '), 'left'), ' |')" \
+                        --nl
+        done \
+    ; echo "$(printf '+ %56s +' '')" | sed 's/ /-/g'
+
+
+    >   +----------------------------------------------------------+
+    >   | Node [Stedigo]                                           |
+    >   | vda | /var/lib/libvirt/images/live/Stedigo.qcow          |
+    >   | vdb | /var/lib/libvirt/images/init/Stedigo.iso           |
+    >   | vdc | /data0/libvirt/images/data0/Stedigo-data0-01.qcow  |
+    >   | vdd | /data1/libvirt/images/data1/Stedigo-data1-01.qcow  |
+    >   | vde | /data2/libvirt/images/data2/Stedigo-data2-01.qcow  |
+    >   | vdf | /data1/libvirt/images/data1/Stedigo-data1-02.qcow  |
+    >   | vdg | /data2/libvirt/images/data2/Stedigo-data2-02.qcow  |
+    >   | vdh | /data1/libvirt/images/data1/Stedigo-data1-03.qcow  |
+    >   | vdi | /data2/libvirt/images/data2/Stedigo-data2-03.qcow  |
+    >   | vdj | /data1/libvirt/images/data1/Stedigo-data1-04.qcow  |
+    >   | vdk | /data2/libvirt/images/data2/Stedigo-data2-04.qcow  |
+    >   +----------------------------------------------------------+
+    >   | Node [Angece]                                            |
+    >   | vda | /var/lib/libvirt/images/live/Angece.qcow           |
+    >   | vdb | /var/lib/libvirt/images/init/Angece.iso            |
+    >   | vdc | /data0/libvirt/images/data0/Angece-data0-01.qcow   |
+    >   | vdd | /data1/libvirt/images/data1/Angece-data1-01.qcow   |
+    >   | vde | /data2/libvirt/images/data2/Angece-data2-01.qcow   |
+    >   | vdf | /data1/libvirt/images/data1/Angece-data1-02.qcow   |
+    >   | vdg | /data2/libvirt/images/data2/Angece-data2-02.qcow   |
+    >   | vdh | /data1/libvirt/images/data1/Angece-data1-03.qcow   |
+    >   | vdi | /data2/libvirt/images/data2/Angece-data2-03.qcow   |
+    >   | vdj | /data1/libvirt/images/data1/Angece-data1-04.qcow   |
+    >   | vdk | /data2/libvirt/images/data2/Angece-data2-04.qcow   |
+    >   +----------------------------------------------------------+
+    >   | Node [Edwalafia]                                         |
+    >   | vda | /var/lib/libvirt/images/live/Edwalafia.qcow        |
+    >   | vdb | /var/lib/libvirt/images/init/Edwalafia.iso         |
+    >   | vdc | /data0/libvirt/images/data0/Edwalafia-data0-01.qco |
+    >   | vdd | /data1/libvirt/images/data1/Edwalafia-data1-01.qco |
+    >   | vde | /data2/libvirt/images/data2/Edwalafia-data2-01.qco |
+    >   | vdf | /data1/libvirt/images/data1/Edwalafia-data1-02.qco |
+    >   | vdg | /data2/libvirt/images/data2/Edwalafia-data2-02.qco |
+    >   | vdh | /data1/libvirt/images/data1/Edwalafia-data1-03.qco |
+    >   | vdi | /data2/libvirt/images/data2/Edwalafia-data2-03.qco |
+    >   | vdj | /data1/libvirt/images/data1/Edwalafia-data1-04.qco |
+    >   | vdk | /data2/libvirt/images/data2/Edwalafia-data2-04.qco |
+    >   +----------------------------------------------------------+
+    >   | Node [Onoza]                                             |
+    >   | vda | /var/lib/libvirt/images/live/Onoza.qcow            |
+    >   | vdb | /var/lib/libvirt/images/init/Onoza.iso             |
+    >   | vdc | /data0/libvirt/images/data0/Onoza-data0-01.qcow    |
+    >   | vdd | /data1/libvirt/images/data1/Onoza-data1-01.qcow    |
+    >   | vde | /data2/libvirt/images/data2/Onoza-data2-01.qcow    |
+    >   | vdf | /data1/libvirt/images/data1/Onoza-data1-02.qcow    |
+    >   | vdg | /data2/libvirt/images/data2/Onoza-data2-02.qcow    |
+    >   | vdh | /data1/libvirt/images/data1/Onoza-data1-03.qcow    |
+    >   | vdi | /data2/libvirt/images/data2/Onoza-data2-03.qcow    |
+    >   | vdj | /data1/libvirt/images/data1/Onoza-data1-04.qcow    |
+    >   | vdk | /data2/libvirt/images/data2/Onoza-data2-04.qcow    |
+    >   +----------------------------------------------------------+
+
+
+#---------------------------------------------------------------------
+# Create a script to mount a volume.
+#[user@trop03]
+
+cat > '/tmp/volume-mount.sh' << 'EOSH'
+
+echo "---- ----"
+echo "hostname [$(hostname)]"
+echo "devpath  [${devpath:?}]"
+echo "mntpath  [${mntpath:?}]"
+echo "---- ----"
+
+#---------------------------------------------------------------------
+# Check if the new device has a filesystem.
+
+    sudo btrfs filesystem show "${devpath:?}" > /dev/null 2>&1
+    fscheck=$?
+
+#---------------------------------------------------------------------
+# Create a filesystem on the new device.
+
+    if [ ${fscheck} == 1 ]
+    then
+        echo "Creating btrfs filesystem [${devpath:?}]"
+        sudo \
+            mkfs.btrfs \
+                ${devpath:?}
+    else
+        echo "Found existing filesystem [${devpath:?}]"
+    fi
+
+#---------------------------------------------------------------------
+# Create our mount point.
+
+    echo "Creating mount point [${mntpath:?}]"
+    sudo mkdir -p "${mntpath:?}"
+    sudo touch "${mntpath:?}/mount-failed"
+
+#---------------------------------------------------------------------
+# Add the volume to our FileSystemTABle.
+# https://www.howtoforge.com/reducing-disk-io-by-mounting-partitions-with-noatime
+
+    devuuid=$(
+        lsblk --noheadings --output UUID "${devpath:?}"
+        )
+
+    echo "Registering filesystem [${mntpath:?}]"
+    sudo tee -a /etc/fstab << EOTAB
+UUID=${devuuid:?} ${mntpath:?}    btrfs    defaults,noatime    0  0
+EOTAB
+
+#---------------------------------------------------------------------
+# Mount the new volume.
+
+    sudo \
+        mount "${mntpath:?}"
+
+#---------------------------------------------------------------------
+# Check the new volume.
+
+    echo "Checking data space [${mntpath:?}]"
+    df -h "${mntpath:?}"
+
+EOSH
+
+
+# -----------------------------------------------------
+# Mount each of our data volumes.
+# https://mywiki.wooledge.org/BashFAQ/001
+#[user@trop03]
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "-------- -------- -------- --------"
+            echo "Node [${vmname:?}]"
+
+            grep "^${vmname:?}" "${HOME}/nodevols.txt" > /tmp/fred
+            while read -r -u 9 vmname devname volpath mntpath
+                do
+                    echo "----"
+                    devpath=/dev/${devname}
+                    echo "mntpath [${mntpath}]"
+                    echo "devpath [${devpath}]"
+
+                    if [ "${mntpath}" != '-' ]
+                    then
+                        echo "----"
+                        ssh ${sshopts[*]} \
+                            ${sshuser:?}@${vmname} \
+                                "
+                                export devpath=${devpath}
+                                export mntpath=${mntpath}
+                                hostname
+                                date
+                                echo "[\${devpath}][\${mntpath}]"
+                                $(cat /tmp/volume-mount.sh)
+                                "
+                    fi
+                done 9< /tmp/fred
+        done
+
+    >   -------- -------- -------- --------
+    >   Node [Stedigo]
+    >   ----
+    >   mntpath [-]
+    >   devpath [/dev/vdc]
+    >   ----
+    >   mntpath [/data1-01]
+    >   devpath [/dev/vdd]
+    >   ----
+    >   Stedigo
+    >   Sat 27 Jul 04:20:19 BST 2019
+    >   [/dev/vdd][/data1-01]
+    >   ---- ----
+    >   hostname [Stedigo]
+    >   devpath  [/dev/vdd]
+    >   mntpath  [/data1-01]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vdd]
+    >   Creating mount point [/data1-01]
+    >   Registering filesystem [/data1-01]
+    >   UUID=6ddcb70c-2004-4c5b-ad8f-ec89313ca292 /data1-01    btrfs    defaults,noatime    0  0
+    >   mount: /data1-01: /dev/vdd already mounted on /data1-01.
+    >   Checking data space [/data1-01]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdd         32G   31G   44K 100% /data1-01
+    >   ----
+    >   mntpath [/data2-01]
+    >   devpath [/dev/vde]
+    >   ----
+    >   Stedigo
+    >   Sat 27 Jul 04:20:19 BST 2019
+    >   [/dev/vde][/data2-01]
+    >   ---- ----
+    >   hostname [Stedigo]
+    >   devpath  [/dev/vde]
+    >   mntpath  [/data2-01]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vde]
+    >   Creating mount point [/data2-01]
+    >   Registering filesystem [/data2-01]
+    >   UUID=b2598b9e-e396-4f77-9230-dc5c9d4091c8 /data2-01    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data2-01]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vde         32G   31G   40K 100% /data2-01
+    >   ----
+    >   mntpath [/data1-02]
+    >   devpath [/dev/vdf]
+    >   ----
+    >   Stedigo
+    >   Sat 27 Jul 04:20:20 BST 2019
+    >   [/dev/vdf][/data1-02]
+    >   ---- ----
+    >   hostname [Stedigo]
+    >   devpath  [/dev/vdf]
+    >   mntpath  [/data1-02]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vdf]
+    >   Creating mount point [/data1-02]
+    >   Registering filesystem [/data1-02]
+    >   UUID=55e5fcb2-c24a-4a21-8914-7843ac5596a9 /data1-02    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data1-02]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdf         64G   63G  456K 100% /data1-02
+    >   ----
+    >   mntpath [/data2-02]
+    >   devpath [/dev/vdg]
+    >   ----
+    >   Stedigo
+    >   Sat 27 Jul 04:20:21 BST 2019
+    >   [/dev/vdg][/data2-02]
+    >   ---- ----
+    >   hostname [Stedigo]
+    >   devpath  [/dev/vdg]
+    >   mntpath  [/data2-02]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vdg]
+    >   Creating mount point [/data2-02]
+    >   Registering filesystem [/data2-02]
+    >   UUID=b4d70a33-7af9-4762-b2a3-9c0c8c587bf4 /data2-02    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data2-02]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdg         64G   50G   13G  80% /data2-02
+    >   ----
+    >   mntpath [/data1-03]
+    >   devpath [/dev/vdh]
+    >   ----
+    >   Stedigo
+    >   Sat 27 Jul 04:20:21 BST 2019
+    >   [/dev/vdh][/data1-03]
+    >   ---- ----
+    >   hostname [Stedigo]
+    >   devpath  [/dev/vdh]
+    >   mntpath  [/data1-03]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vdh]
+    >   Creating mount point [/data1-03]
+    >   Registering filesystem [/data1-03]
+    >   UUID=632eb538-ccda-4588-adaa-9d103863d0a4 /data1-03    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data1-03]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdh        256G   46G  209G  19% /data1-03
+    >   ----
+    >   mntpath [/data2-03]
+    >   devpath [/dev/vdi]
+    >   ----
+    >   Stedigo
+    >   Sat 27 Jul 04:20:22 BST 2019
+    >   [/dev/vdi][/data2-03]
+    >   ---- ----
+    >   hostname [Stedigo]
+    >   devpath  [/dev/vdi]
+    >   mntpath  [/data2-03]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vdi]
+    >   Creating mount point [/data2-03]
+    >   Registering filesystem [/data2-03]
+    >   UUID=8fddf0be-bd58-4007-9541-8126b0c3d63d /data2-03    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data2-03]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdi        256G   51G  204G  21% /data2-03
+    >   ----
+    >   mntpath [/data1-04]
+    >   devpath [/dev/vdj]
+    >   ----
+    >   Stedigo
+    >   Sat 27 Jul 04:20:22 BST 2019
+    >   [/dev/vdj][/data1-04]
+    >   ---- ----
+    >   hostname [Stedigo]
+    >   devpath  [/dev/vdj]
+    >   mntpath  [/data1-04]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vdj]
+    >   Creating mount point [/data1-04]
+    >   Registering filesystem [/data1-04]
+    >   UUID=37eeecac-7a57-4a4f-b803-9cf52bcc8d53 /data1-04    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data1-04]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdj        256G   69G  186G  28% /data1-04
+    >   ----
+    >   mntpath [/data2-04]
+    >   devpath [/dev/vdk]
+    >   ----
+    >   Stedigo
+    >   Sat 27 Jul 04:20:23 BST 2019
+    >   [/dev/vdk][/data2-04]
+    >   ---- ----
+    >   hostname [Stedigo]
+    >   devpath  [/dev/vdk]
+    >   mntpath  [/data2-04]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vdk]
+    >   Creating mount point [/data2-04]
+    >   Registering filesystem [/data2-04]
+    >   UUID=a7b311bb-d553-44bf-941d-a6a207f76e0e /data2-04    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data2-04]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdk        256G   44G  211G  18% /data2-04
+    >   -------- -------- -------- --------
+    >   Node [Angece]
+    >   ----
+    >   mntpath [-]
+    >   devpath [/dev/vdc]
+    >   ----
+    >   mntpath [/data1-01]
+    >   devpath [/dev/vdd]
+    >   ----
+    >   Angece
+    >   Sat 27 Jul 04:20:24 BST 2019
+    >   [/dev/vdd][/data1-01]
+    >   ---- ----
+    >   hostname [Angece]
+    >   devpath  [/dev/vdd]
+    >   mntpath  [/data1-01]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vdd]
+    >   Creating mount point [/data1-01]
+    >   Registering filesystem [/data1-01]
+    >   UUID=e96fe7d3-5c72-4c5b-87cb-8ca2626c8bec /data1-01    btrfs    defaults,noatime    0  0
+    >   mount: /data1-01: /dev/vdd already mounted on /data1-01.
+    >   Checking data space [/data1-01]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdd         32G   31G   24K 100% /data1-01
+    >   ----
+    >   mntpath [/data2-01]
+    >   devpath [/dev/vde]
+    >   ----
+    >   Angece
+    >   Sat 27 Jul 04:20:24 BST 2019
+    >   [/dev/vde][/data2-01]
+    >   ---- ----
+    >   hostname [Angece]
+    >   devpath  [/dev/vde]
+    >   mntpath  [/data2-01]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vde]
+    >   Creating mount point [/data2-01]
+    >   Registering filesystem [/data2-01]
+    >   UUID=36c83514-e392-4b6f-a13e-6ab4520a8874 /data2-01    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data2-01]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vde         32G   31G   60K 100% /data2-01
+    >   ----
+    >   mntpath [/data1-02]
+    >   devpath [/dev/vdf]
+    >   ----
+    >   Angece
+    >   Sat 27 Jul 04:20:25 BST 2019
+    >   [/dev/vdf][/data1-02]
+    >   ---- ----
+    >   hostname [Angece]
+    >   devpath  [/dev/vdf]
+    >   mntpath  [/data1-02]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vdf]
+    >   Creating mount point [/data1-02]
+    >   Registering filesystem [/data1-02]
+    >   UUID=c553c0e4-b693-467a-ae4a-c594cc4d7afa /data1-02    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data1-02]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdf         64G   61G  1.2G  99% /data1-02
+    >   ----
+    >   mntpath [/data2-02]
+    >   devpath [/dev/vdg]
+    >   ----
+    >   Angece
+    >   Sat 27 Jul 04:20:25 BST 2019
+    >   [/dev/vdg][/data2-02]
+    >   ---- ----
+    >   hostname [Angece]
+    >   devpath  [/dev/vdg]
+    >   mntpath  [/data2-02]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vdg]
+    >   Creating mount point [/data2-02]
+    >   Registering filesystem [/data2-02]
+    >   UUID=e3a32ee7-c334-4346-820c-707e46c1d3d8 /data2-02    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data2-02]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdg         64G   51G   12G  82% /data2-02
+    >   ----
+    >   mntpath [/data1-03]
+    >   devpath [/dev/vdh]
+    >   ----
+    >   Angece
+    >   Sat 27 Jul 04:20:26 BST 2019
+    >   [/dev/vdh][/data1-03]
+    >   ---- ----
+    >   hostname [Angece]
+    >   devpath  [/dev/vdh]
+    >   mntpath  [/data1-03]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vdh]
+    >   Creating mount point [/data1-03]
+    >   Registering filesystem [/data1-03]
+    >   UUID=848db119-1513-452a-bb72-ae6bfaa06cd7 /data1-03    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data1-03]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdh        256G   51G  204G  21% /data1-03
+    >   ----
+    >   mntpath [/data2-03]
+    >   devpath [/dev/vdi]
+    >   ----
+    >   Angece
+    >   Sat 27 Jul 04:20:26 BST 2019
+    >   [/dev/vdi][/data2-03]
+    >   ---- ----
+    >   hostname [Angece]
+    >   devpath  [/dev/vdi]
+    >   mntpath  [/data2-03]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vdi]
+    >   Creating mount point [/data2-03]
+    >   Registering filesystem [/data2-03]
+    >   UUID=06598ab6-fa72-45e1-afe1-04eea5ad08ba /data2-03    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data2-03]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdi        256G   91G  164G  36% /data2-03
+    >   ----
+    >   mntpath [/data1-04]
+    >   devpath [/dev/vdj]
+    >   ----
+    >   Angece
+    >   Sat 27 Jul 04:20:27 BST 2019
+    >   [/dev/vdj][/data1-04]
+    >   ---- ----
+    >   hostname [Angece]
+    >   devpath  [/dev/vdj]
+    >   mntpath  [/data1-04]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vdj]
+    >   Creating mount point [/data1-04]
+    >   Registering filesystem [/data1-04]
+    >   UUID=c2a251ea-4be2-418d-b851-40da602673b8 /data1-04    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data1-04]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdj        256G   71G  185G  28% /data1-04
+    >   ----
+    >   mntpath [/data2-04]
+    >   devpath [/dev/vdk]
+    >   ----
+    >   Sat 27 Jul 04:20:27 BST 2019
+    >   Angece
+    >   [/dev/vdk][/data2-04]
+    >   ---- ----
+    >   hostname [Angece]
+    >   devpath  [/dev/vdk]
+    >   mntpath  [/data2-04]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vdk]
+    >   Creating mount point [/data2-04]
+    >   Registering filesystem [/data2-04]
+    >   UUID=81881976-0a34-4f42-9587-3abd249eb619 /data2-04    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data2-04]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdk        256G   43G  212G  17% /data2-04
+    >   -------- -------- -------- --------
+    >   Node [Edwalafia]
+    >   ----
+    >   mntpath [-]
+    >   devpath [/dev/vdc]
+    >   ----
+    >   mntpath [/data1-01]
+    >   devpath [/dev/vdd]
+    >   ----
+    >   Edwalafia
+    >   Sat 27 Jul 04:20:28 BST 2019
+    >   [/dev/vdd][/data1-01]
+    >   ---- ----
+    >   hostname [Edwalafia]
+    >   devpath  [/dev/vdd]
+    >   mntpath  [/data1-01]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vdd]
+    >   Creating mount point [/data1-01]
+    >   Registering filesystem [/data1-01]
+    >   UUID=e6c5141e-f215-4bc8-ac0b-0c93f478fde4 /data1-01    btrfs    defaults,noatime    0  0
+    >   mount: /data1-01: /dev/vdd already mounted on /data1-01.
+    >   Checking data space [/data1-01]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdd         32G   31G   12K 100% /data1-01
+    >   ----
+    >   mntpath [/data2-01]
+    >   devpath [/dev/vde]
+    >   ----
+    >   Edwalafia
+    >   Sat 27 Jul 04:20:29 BST 2019
+    >   [/dev/vde][/data2-01]
+    >   ---- ----
+    >   hostname [Edwalafia]
+    >   devpath  [/dev/vde]
+    >   mntpath  [/data2-01]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vde]
+    >   Creating mount point [/data2-01]
+    >   Registering filesystem [/data2-01]
+    >   UUID=4bdd314d-4f4f-4870-8d40-086b0ac13e77 /data2-01    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data2-01]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vde         32G   31G   52K 100% /data2-01
+    >   ----
+    >   mntpath [/data1-02]
+    >   devpath [/dev/vdf]
+    >   ----
+    >   Edwalafia
+    >   Sat 27 Jul 04:20:29 BST 2019
+    >   [/dev/vdf][/data1-02]
+    >   ---- ----
+    >   hostname [Edwalafia]
+    >   devpath  [/dev/vdf]
+    >   mntpath  [/data1-02]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vdf]
+    >   Creating mount point [/data1-02]
+    >   Registering filesystem [/data1-02]
+    >   UUID=a921ae6f-02b0-4da3-88dd-bf5252cfcfdb /data1-02    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data1-02]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdf         64G   63G  8.0K 100% /data1-02
+    >   ----
+    >   mntpath [/data2-02]
+    >   devpath [/dev/vdg]
+    >   ----
+    >   Edwalafia
+    >   Sat 27 Jul 04:20:30 BST 2019
+    >   [/dev/vdg][/data2-02]
+    >   ---- ----
+    >   hostname [Edwalafia]
+    >   devpath  [/dev/vdg]
+    >   mntpath  [/data2-02]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vdg]
+    >   Creating mount point [/data2-02]
+    >   Registering filesystem [/data2-02]
+    >   UUID=ce19d30f-2583-4106-b093-e67127beb96d /data2-02    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data2-02]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdg         64G   52G   11G  84% /data2-02
+    >   ----
+    >   mntpath [/data1-03]
+    >   devpath [/dev/vdh]
+    >   ----
+    >   Edwalafia
+    >   Sat 27 Jul 04:20:30 BST 2019
+    >   [/dev/vdh][/data1-03]
+    >   ---- ----
+    >   hostname [Edwalafia]
+    >   devpath  [/dev/vdh]
+    >   mntpath  [/data1-03]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vdh]
+    >   Creating mount point [/data1-03]
+    >   Registering filesystem [/data1-03]
+    >   UUID=8624f474-900f-4727-8490-537ddc1ae647 /data1-03    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data1-03]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdh        256G  100G  156G  39% /data1-03
+    >   ----
+    >   mntpath [/data2-03]
+    >   devpath [/dev/vdi]
+    >   ----
+    >   Edwalafia
+    >   Sat 27 Jul 04:20:31 BST 2019
+    >   [/dev/vdi][/data2-03]
+    >   ---- ----
+    >   hostname [Edwalafia]
+    >   devpath  [/dev/vdi]
+    >   mntpath  [/data2-03]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vdi]
+    >   Creating mount point [/data2-03]
+    >   Registering filesystem [/data2-03]
+    >   UUID=78faf4a4-b4d4-4a78-a7cf-00eb4bd0a455 /data2-03    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data2-03]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdi        256G   40G  215G  16% /data2-03
+    >   ----
+    >   mntpath [/data1-04]
+    >   devpath [/dev/vdj]
+    >   ----
+    >   Edwalafia
+    >   Sat 27 Jul 04:20:32 BST 2019
+    >   [/dev/vdj][/data1-04]
+    >   ---- ----
+    >   hostname [Edwalafia]
+    >   devpath  [/dev/vdj]
+    >   mntpath  [/data1-04]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vdj]
+    >   Creating mount point [/data1-04]
+    >   Registering filesystem [/data1-04]
+    >   UUID=3ef545e1-fc94-4450-a0d6-508c568644c3 /data1-04    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data1-04]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdj        256G   49G  206G  20% /data1-04
+    >   ----
+    >   mntpath [/data2-04]
+    >   devpath [/dev/vdk]
+    >   ----
+    >   Edwalafia
+    >   Sat 27 Jul 04:20:32 BST 2019
+    >   [/dev/vdk][/data2-04]
+    >   ---- ----
+    >   hostname [Edwalafia]
+    >   devpath  [/dev/vdk]
+    >   mntpath  [/data2-04]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vdk]
+    >   Creating mount point [/data2-04]
+    >   Registering filesystem [/data2-04]
+    >   UUID=b1f0b263-7630-4f06-bfd8-e074f51160d2 /data2-04    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data2-04]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdk        256G   42G  213G  17% /data2-04
+    >   -------- -------- -------- --------
+    >   Node [Onoza]
+    >   ----
+    >   mntpath [-]
+    >   devpath [/dev/vdc]
+    >   ----
+    >   mntpath [/data1-01]
+    >   devpath [/dev/vdd]
+    >   ----
+    >   Onoza
+    >   Sat 27 Jul 04:20:33 BST 2019
+    >   [/dev/vdd][/data1-01]
+    >   ---- ----
+    >   hostname [Onoza]
+    >   devpath  [/dev/vdd]
+    >   mntpath  [/data1-01]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vdd]
+    >   Creating mount point [/data1-01]
+    >   Registering filesystem [/data1-01]
+    >   UUID=f26ec954-ee3c-40c2-9d9c-2f31c9eca4c6 /data1-01    btrfs    defaults,noatime    0  0
+    >   mount: /data1-01: /dev/vdd already mounted on /data1-01.
+    >   Checking data space [/data1-01]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdd         32G   31G   20K 100% /data1-01
+    >   ----
+    >   mntpath [/data2-01]
+    >   devpath [/dev/vde]
+    >   ----
+    >   Onoza
+    >   Sat 27 Jul 04:20:34 BST 2019
+    >   [/dev/vde][/data2-01]
+    >   ---- ----
+    >   hostname [Onoza]
+    >   devpath  [/dev/vde]
+    >   mntpath  [/data2-01]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vde]
+    >   Creating mount point [/data2-01]
+    >   Registering filesystem [/data2-01]
+    >   UUID=26fda47f-cf3b-47af-a23e-80c4f911ee9b /data2-01    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data2-01]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vde         32G   31G   36K 100% /data2-01
+    >   ----
+    >   mntpath [/data1-02]
+    >   devpath [/dev/vdf]
+    >   ----
+    >   Onoza
+    >   Sat 27 Jul 04:20:34 BST 2019
+    >   [/dev/vdf][/data1-02]
+    >   ---- ----
+    >   hostname [Onoza]
+    >   devpath  [/dev/vdf]
+    >   mntpath  [/data1-02]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vdf]
+    >   Creating mount point [/data1-02]
+    >   Registering filesystem [/data1-02]
+    >   UUID=dde98c24-9112-45b4-8ca6-6d6ac85ca9b0 /data1-02    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data1-02]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdf         64G   63G     0 100% /data1-02
+    >   ----
+    >   mntpath [/data2-02]
+    >   devpath [/dev/vdg]
+    >   ----
+    >   Onoza
+    >   Sat 27 Jul 04:20:35 BST 2019
+    >   [/dev/vdg][/data2-02]
+    >   ---- ----
+    >   hostname [Onoza]
+    >   devpath  [/dev/vdg]
+    >   mntpath  [/data2-02]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vdg]
+    >   Creating mount point [/data2-02]
+    >   Registering filesystem [/data2-02]
+    >   UUID=ceba1807-350d-44be-9640-b01c57bdc749 /data2-02    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data2-02]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdg         64G   63G   28K 100% /data2-02
+    >   ----
+    >   mntpath [/data1-03]
+    >   devpath [/dev/vdh]
+    >   ----
+    >   Onoza
+    >   Sat 27 Jul 04:20:35 BST 2019
+    >   [/dev/vdh][/data1-03]
+    >   ---- ----
+    >   hostname [Onoza]
+    >   devpath  [/dev/vdh]
+    >   mntpath  [/data1-03]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vdh]
+    >   Creating mount point [/data1-03]
+    >   Registering filesystem [/data1-03]
+    >   UUID=f7fc3c42-4187-46f7-93f0-4ca023c20a5b /data1-03    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data1-03]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdh        256G   40G  215G  16% /data1-03
+    >   ----
+    >   mntpath [/data2-03]
+    >   devpath [/dev/vdi]
+    >   ----
+    >   Onoza
+    >   Sat 27 Jul 04:20:36 BST 2019
+    >   [/dev/vdi][/data2-03]
+    >   ---- ----
+    >   hostname [Onoza]
+    >   devpath  [/dev/vdi]
+    >   mntpath  [/data2-03]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vdi]
+    >   Creating mount point [/data2-03]
+    >   Registering filesystem [/data2-03]
+    >   UUID=384f0ffe-8dc1-4374-83c2-ba287d5f286e /data2-03    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data2-03]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdi        256G   86G  169G  34% /data2-03
+    >   ----
+    >   mntpath [/data1-04]
+    >   devpath [/dev/vdj]
+    >   ----
+    >   Onoza
+    >   Sat 27 Jul 04:20:36 BST 2019
+    >   [/dev/vdj][/data1-04]
+    >   ---- ----
+    >   hostname [Onoza]
+    >   devpath  [/dev/vdj]
+    >   mntpath  [/data1-04]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vdj]
+    >   Creating mount point [/data1-04]
+    >   Registering filesystem [/data1-04]
+    >   UUID=6d9a39bb-16ac-4fa1-b6ae-5590065abc6e /data1-04    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data1-04]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdj        256G   63G  192G  25% /data1-04
+    >   ----
+    >   mntpath [/data2-04]
+    >   devpath [/dev/vdk]
+    >   ----
+    >   Onoza
+    >   Sat 27 Jul 04:20:37 BST 2019
+    >   [/dev/vdk][/data2-04]
+    >   ---- ----
+    >   hostname [Onoza]
+    >   devpath  [/dev/vdk]
+    >   mntpath  [/data2-04]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vdk]
+    >   Creating mount point [/data2-04]
+    >   Registering filesystem [/data2-04]
+    >   UUID=13b3cbdf-ff54-4e20-9997-e877631d211c /data2-04    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data2-04]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdk        256G   50G  205G  20% /data2-04
+
+
+
+# -----------------------------------------------------
+# Add our extra volume to the root filesystem.
+#[user@trop03]
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "-------- -------- -------- --------"
+            echo "Node [${vmname:?}]"
+            echo "----"
+            ssh ${sshopts[*]} \
+                ${sshuser:?}@${vmname} \
+                    "
+                    hostname
+                    date
+                    echo "----"
+                    lsblk -f
+                    echo "----"
+                    sudo btrfs device add -f /dev/vdc /
+                    echo "----"
+                    sudo btrfs filesystem balance /
+                    echo "----"
+                    lsblk -f
+                    "
+        done
+
+    >   -------- -------- -------- --------
+    >   Node [Stedigo]
+    >   ----
+    >   Stedigo
+    >   ----
+    >   NAME   FSTYPE  LABEL  UUID                                 MOUNTPOINT
+    >   vda
+    >   ├─vda1 ext4    boot   4eb893ea-0d29-4fe0-bc43-e8996ec259f8 /boot
+    >   ├─vda2 swap    swap   6e221c64-162b-4167-97bc-4864e071d7a3 [SWAP]
+    >   └─vda3 btrfs   system 1638b066-4747-45a2-890a-c5f00851dc75 /var/lib/docker/btrfs
+    >   vdb    iso9660 cidata 2019-07-26-19-35-14-00
+    >   vdc
+    >   vdd    btrfs          6ddcb70c-2004-4c5b-ad8f-ec89313ca292 /data1-01
+    >   vde    btrfs          b2598b9e-e396-4f77-9230-dc5c9d4091c8 /data2-01
+    >   vdf    btrfs          55e5fcb2-c24a-4a21-8914-7843ac5596a9 /data1-02
+    >   vdg    btrfs          b4d70a33-7af9-4762-b2a3-9c0c8c587bf4 /data2-02
+    >   vdh    btrfs          632eb538-ccda-4588-adaa-9d103863d0a4 /data1-03
+    >   vdi    btrfs          8fddf0be-bd58-4007-9541-8126b0c3d63d /data2-03
+    >   vdj    btrfs          37eeecac-7a57-4a4f-b803-9cf52bcc8d53 /data1-04
+    >   vdk    btrfs          a7b311bb-d553-44bf-941d-a6a207f76e0e /data2-04
+    >   ----
+    >   ----
+    >   WARNING:
+    >   
+    >   	Full balance without filters requested. This operation is very
+    >   	intense and takes potentially very long. It is recommended to
+    >   	use the balance filters to narrow down the scope of balance.
+    >   	Use 'btrfs balance start --full-balance' option to skip this
+    >   	warning. The operation will start in 10 seconds.
+    >   	Use Ctrl-C to stop it.
+    >   10 9 8 7 6 5 4 3 2 1
+    >   Starting balance without any filters.
+    >   Done, had to relocate 5 out of 5 chunks
+    >   ----
+    >   NAME   FSTYPE  LABEL  UUID                                 MOUNTPOINT
+    >   vda
+    >   ├─vda1 ext4    boot   4eb893ea-0d29-4fe0-bc43-e8996ec259f8 /boot
+    >   ├─vda2 swap    swap   6e221c64-162b-4167-97bc-4864e071d7a3 [SWAP]
+    >   └─vda3 btrfs   system 1638b066-4747-45a2-890a-c5f00851dc75 /var/lib/docker/btrfs
+    >   vdb    iso9660 cidata 2019-07-26-19-35-14-00
+    >   vdc    btrfs   system 1638b066-4747-45a2-890a-c5f00851dc75
+    >   vdd    btrfs          6ddcb70c-2004-4c5b-ad8f-ec89313ca292 /data1-01
+    >   vde    btrfs          b2598b9e-e396-4f77-9230-dc5c9d4091c8 /data2-01
+    >   vdf    btrfs          55e5fcb2-c24a-4a21-8914-7843ac5596a9 /data1-02
+    >   vdg    btrfs          b4d70a33-7af9-4762-b2a3-9c0c8c587bf4 /data2-02
+    >   vdh    btrfs          632eb538-ccda-4588-adaa-9d103863d0a4 /data1-03
+    >   vdi    btrfs          8fddf0be-bd58-4007-9541-8126b0c3d63d /data2-03
+    >   vdj    btrfs          37eeecac-7a57-4a4f-b803-9cf52bcc8d53 /data1-04
+    >   vdk    btrfs          a7b311bb-d553-44bf-941d-a6a207f76e0e /data2-04
+
+    >   -------- -------- -------- --------
+    >   Node [Angece]
+    >   ----
+    >   Angece
+    >   Sat 27 Jul 04:49:13 BST 2019
+    >   ----
+    >   NAME   FSTYPE  LABEL  UUID                                 MOUNTPOINT
+    >   vda
+    >   ├─vda1 ext4    boot   4eb893ea-0d29-4fe0-bc43-e8996ec259f8 /boot
+    >   ├─vda2 swap    swap   6e221c64-162b-4167-97bc-4864e071d7a3 [SWAP]
+    >   └─vda3 btrfs   system 1638b066-4747-45a2-890a-c5f00851dc75 /var/lib/docker/btrfs
+    >   vdb    iso9660 cidata 2019-07-26-19-35-24-00
+    >   vdc
+    >   vdd    btrfs          e96fe7d3-5c72-4c5b-87cb-8ca2626c8bec /data1-01
+    >   vde    btrfs          36c83514-e392-4b6f-a13e-6ab4520a8874 /data2-01
+    >   vdf    btrfs          c553c0e4-b693-467a-ae4a-c594cc4d7afa /data1-02
+    >   vdg    btrfs          e3a32ee7-c334-4346-820c-707e46c1d3d8 /data2-02
+    >   vdh    btrfs          848db119-1513-452a-bb72-ae6bfaa06cd7 /data1-03
+    >   vdi    btrfs          06598ab6-fa72-45e1-afe1-04eea5ad08ba /data2-03
+    >   vdj    btrfs          c2a251ea-4be2-418d-b851-40da602673b8 /data1-04
+    >   vdk    btrfs          81881976-0a34-4f42-9587-3abd249eb619 /data2-04
+    >   ----
+    >   ----
+    >   WARNING:
+    >   
+    >   	Full balance without filters requested. This operation is very
+    >   	intense and takes potentially very long. It is recommended to
+    >   	use the balance filters to narrow down the scope of balance.
+    >   	Use 'btrfs balance start --full-balance' option to skip this
+    >   	warning. The operation will start in 10 seconds.
+    >   	Use Ctrl-C to stop it.
+    >   10 9 8 7 6 5 4 3 2 1
+    >   Starting balance without any filters.
+    >   Done, had to relocate 5 out of 5 chunks
+    >   ----
+    >   NAME   FSTYPE  LABEL  UUID                                 MOUNTPOINT
+    >   vda
+    >   ├─vda1 ext4    boot   4eb893ea-0d29-4fe0-bc43-e8996ec259f8 /boot
+    >   ├─vda2 swap    swap   6e221c64-162b-4167-97bc-4864e071d7a3 [SWAP]
+    >   └─vda3 btrfs   system 1638b066-4747-45a2-890a-c5f00851dc75 /var/lib/docker/btrfs
+    >   vdb    iso9660 cidata 2019-07-26-19-35-24-00
+    >   vdc    btrfs   system 1638b066-4747-45a2-890a-c5f00851dc75
+    >   vdd    btrfs          e96fe7d3-5c72-4c5b-87cb-8ca2626c8bec /data1-01
+    >   vde    btrfs          36c83514-e392-4b6f-a13e-6ab4520a8874 /data2-01
+    >   vdf    btrfs          c553c0e4-b693-467a-ae4a-c594cc4d7afa /data1-02
+    >   vdg    btrfs          e3a32ee7-c334-4346-820c-707e46c1d3d8 /data2-02
+    >   vdh    btrfs          848db119-1513-452a-bb72-ae6bfaa06cd7 /data1-03
+    >   vdi    btrfs          06598ab6-fa72-45e1-afe1-04eea5ad08ba /data2-03
+    >   vdj    btrfs          c2a251ea-4be2-418d-b851-40da602673b8 /data1-04
+    >   vdk    btrfs          81881976-0a34-4f42-9587-3abd249eb619 /data2-04
+
+    >   -------- -------- -------- --------
+    >   Node [Edwalafia]
+    >   ----
+    >   Edwalafia
+    >   Sat 27 Jul 04:49:52 BST 2019
+    >   ----
+    >   NAME   FSTYPE  LABEL  UUID                                 MOUNTPOINT
+    >   vda
+    >   ├─vda1 ext4    boot   4eb893ea-0d29-4fe0-bc43-e8996ec259f8 /boot
+    >   ├─vda2 swap    swap   6e221c64-162b-4167-97bc-4864e071d7a3 [SWAP]
+    >   └─vda3 btrfs   system 1638b066-4747-45a2-890a-c5f00851dc75 /var/lib/docker/btrfs
+    >   vdb    iso9660 cidata 2019-07-26-19-35-40-00
+    >   vdc
+    >   vdd    btrfs          e6c5141e-f215-4bc8-ac0b-0c93f478fde4 /data1-01
+    >   vde    btrfs          4bdd314d-4f4f-4870-8d40-086b0ac13e77 /data2-01
+    >   vdf    btrfs          a921ae6f-02b0-4da3-88dd-bf5252cfcfdb /data1-02
+    >   vdg    btrfs          ce19d30f-2583-4106-b093-e67127beb96d /data2-02
+    >   vdh    btrfs          8624f474-900f-4727-8490-537ddc1ae647 /data1-03
+    >   vdi    btrfs          78faf4a4-b4d4-4a78-a7cf-00eb4bd0a455 /data2-03
+    >   vdj    btrfs          3ef545e1-fc94-4450-a0d6-508c568644c3 /data1-04
+    >   vdk    btrfs          b1f0b263-7630-4f06-bfd8-e074f51160d2 /data2-04
+    >   ----
+    >   ----
+    >   WARNING:
+    >   
+    >   	Full balance without filters requested. This operation is very
+    >   	intense and takes potentially very long. It is recommended to
+    >   	use the balance filters to narrow down the scope of balance.
+    >   	Use 'btrfs balance start --full-balance' option to skip this
+    >   	warning. The operation will start in 10 seconds.
+    >   	Use Ctrl-C to stop it.
+    >   10 9 8 7 6 5 4 3 2 1
+    >   Starting balance without any filters.
+    >   Done, had to relocate 5 out of 5 chunks
+    >   ----
+    >   NAME   FSTYPE  LABEL  UUID                                 MOUNTPOINT
+    >   vda
+    >   ├─vda1 ext4    boot   4eb893ea-0d29-4fe0-bc43-e8996ec259f8 /boot
+    >   ├─vda2 swap    swap   6e221c64-162b-4167-97bc-4864e071d7a3 [SWAP]
+    >   └─vda3 btrfs   system 1638b066-4747-45a2-890a-c5f00851dc75 /var/lib/docker/btrfs
+    >   vdb    iso9660 cidata 2019-07-26-19-35-40-00
+    >   vdc    btrfs   system 1638b066-4747-45a2-890a-c5f00851dc75
+    >   vdd    btrfs          e6c5141e-f215-4bc8-ac0b-0c93f478fde4 /data1-01
+    >   vde    btrfs          4bdd314d-4f4f-4870-8d40-086b0ac13e77 /data2-01
+    >   vdf    btrfs          a921ae6f-02b0-4da3-88dd-bf5252cfcfdb /data1-02
+    >   vdg    btrfs          ce19d30f-2583-4106-b093-e67127beb96d /data2-02
+    >   vdh    btrfs          8624f474-900f-4727-8490-537ddc1ae647 /data1-03
+    >   vdi    btrfs          78faf4a4-b4d4-4a78-a7cf-00eb4bd0a455 /data2-03
+    >   vdj    btrfs          3ef545e1-fc94-4450-a0d6-508c568644c3 /data1-04
+    >   vdk    btrfs          b1f0b263-7630-4f06-bfd8-e074f51160d2 /data2-04
+
+    >   -------- -------- -------- --------
+    >   Node [Onoza]
+    >   ----
+    >   Onoza
+    >   Sat 27 Jul 04:50:29 BST 2019
+    >   ----
+    >   NAME   FSTYPE  LABEL  UUID                                 MOUNTPOINT
+    >   vda
+    >   ├─vda1 ext4    boot   4eb893ea-0d29-4fe0-bc43-e8996ec259f8 /boot
+    >   ├─vda2 swap    swap   6e221c64-162b-4167-97bc-4864e071d7a3 [SWAP]
+    >   └─vda3 btrfs   system 1638b066-4747-45a2-890a-c5f00851dc75 /var/lib/docker/btrfs
+    >   vdb    iso9660 cidata 2019-07-26-19-35-54-00
+    >   vdc
+    >   vdd    btrfs          f26ec954-ee3c-40c2-9d9c-2f31c9eca4c6 /data1-01
+    >   vde    btrfs          26fda47f-cf3b-47af-a23e-80c4f911ee9b /data2-01
+    >   vdf    btrfs          dde98c24-9112-45b4-8ca6-6d6ac85ca9b0 /data1-02
+    >   vdg    btrfs          ceba1807-350d-44be-9640-b01c57bdc749 /data2-02
+    >   vdh    btrfs          f7fc3c42-4187-46f7-93f0-4ca023c20a5b /data1-03
+    >   vdi    btrfs          384f0ffe-8dc1-4374-83c2-ba287d5f286e /data2-03
+    >   vdj    btrfs          6d9a39bb-16ac-4fa1-b6ae-5590065abc6e /data1-04
+    >   vdk    btrfs          13b3cbdf-ff54-4e20-9997-e877631d211c /data2-04
+    >   ----
+    >   ----
+    >   WARNING:
+    >   
+    >   	Full balance without filters requested. This operation is very
+    >   	intense and takes potentially very long. It is recommended to
+    >   	use the balance filters to narrow down the scope of balance.
+    >   	Use 'btrfs balance start --full-balance' option to skip this
+    >   	warning. The operation will start in 10 seconds.
+    >   	Use Ctrl-C to stop it.
+    >   10 9 8 7 6 5 4 3 2 1
+    >   Starting balance without any filters.
+    >   Done, had to relocate 5 out of 5 chunks
+    >   ----
+    >   NAME   FSTYPE  LABEL  UUID                                 MOUNTPOINT
+    >   vda
+    >   ├─vda1 ext4    boot   4eb893ea-0d29-4fe0-bc43-e8996ec259f8 /boot
+    >   ├─vda2 swap    swap   6e221c64-162b-4167-97bc-4864e071d7a3 [SWAP]
+    >   └─vda3 btrfs   system 1638b066-4747-45a2-890a-c5f00851dc75 /var/lib/docker/btrfs
+    >   vdb    iso9660 cidata 2019-07-26-19-35-54-00
+    >   vdc    btrfs   system 1638b066-4747-45a2-890a-c5f00851dc75
+    >   vdd    btrfs          f26ec954-ee3c-40c2-9d9c-2f31c9eca4c6 /data1-01
+    >   vde    btrfs          26fda47f-cf3b-47af-a23e-80c4f911ee9b /data2-01
+    >   vdf    btrfs          dde98c24-9112-45b4-8ca6-6d6ac85ca9b0 /data1-02
+    >   vdg    btrfs          ceba1807-350d-44be-9640-b01c57bdc749 /data2-02
+    >   vdh    btrfs          f7fc3c42-4187-46f7-93f0-4ca023c20a5b /data1-03
+    >   vdi    btrfs          384f0ffe-8dc1-4374-83c2-ba287d5f286e /data2-03
+    >   vdj    btrfs          6d9a39bb-16ac-4fa1-b6ae-5590065abc6e /data1-04
+    >   vdk    btrfs          13b3cbdf-ff54-4e20-9997-e877631d211c /data2-04
+

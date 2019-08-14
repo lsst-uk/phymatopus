@@ -1,0 +1,2433 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+# -----------------------------------------------------
+# Load our virtual machine node names.
+#[user@trop03]
+
+    source "${HOME}/nodenames.txt"
+    echo "
+Zookeepers    [${zknames[@]}]
+Kafka nodes   [${kfnames[@]}]
+Mirror makers [${mmnames[@]}]
+"
+
+    >   Zookeepers    [Fosauri Marpus Byflame]
+    >   Kafka nodes   [Stedigo Angece Edwalafia Onoza]
+    >   Mirror makers [Grerat Jeralenia]
+
+# -----------------------------------------------------
+# List the running virtual machines.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+    virsh \
+        -c ${connection} \
+        list \
+            --all
+
+    >    Id    Name                           State
+    >   ----------------------------------------------------
+    >    6     Fosauri                        running
+    >    7     Marpus                         running
+    >    8     Byflame                        running
+    >    13    Stedigo                        running
+    >    14    Angece                         running
+    >    15    Edwalafia                      running
+    >    16    Onoza                          running
+    >    19    Grerat                         running
+    >    20    Jeralenia                      running
+
+
+# -----------------------------------------------------
+# Check we can login to our mirror maker nodes.
+#[user@trop03]
+
+    source "${HOME}/ssh-options"
+    source "${HOME}/nodenames.txt"
+
+    for vmname in ${mmnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname}]"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    hostname
+                    date
+                    "
+        done
+
+    >   Node [Grerat]
+    >   ssh: Could not resolve hostname grerat: No address associated with hostname
+    >   ---- ----
+    >   Node [Jeralenia]
+    >   ssh: Could not resolve hostname jeralenia: No address associated with hostname
+
+
+# -----------------------------------------------------
+# Check if a virtual machine name resolves.
+#[user@trop03]
+
+    host -a "${mmnames[0]}"
+
+    >   Trying "Grerat.lsstuk"
+    >   Trying "Grerat.roe.ac.uk"
+    >   Trying "Grerat"
+    >   ;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 62772
+    >   ;; flags: qr rd ra; QUERY: 1, ANSWER: 0, AUTHORITY: 0, ADDITIONAL: 0
+    >   
+    >   ;; QUESTION SECTION:
+    >   ;Grerat.				IN	ANY
+    >   
+    >   Received 24 bytes from 172.16.1.1#53 in 0 ms
+
+
+# -----------------------------------------------------
+# Check if the physical machine names resolve.
+#[user@trop03]
+
+    for name in trop01 trop02 trop03 work01 work02 work03
+        do
+            echo "---- ----"
+            echo "Name [${name}]"
+            host "${name}"
+        done
+
+    >   Name [trop01]
+    >   trop01.roe.ac.uk has address 129.215.175.96
+    >   ---- ----
+    >   Name [trop02]
+    >   trop02.roe.ac.uk has address 129.215.175.97
+    >   ---- ----
+    >   Name [trop03]
+    >   trop03.lsstuk has address 172.16.1.5
+    >   ---- ----
+    >   Name [work01]
+    >   work01.lsstuk has address 172.16.1.1
+    >   ---- ----
+    >   Name [work02]
+    >   work02.lsstuk has address 172.16.1.2
+    >   ---- ----
+    >   Name [work03]
+    >   work03.lsstuk has address 172.16.1.3
+
+
+# -----------------------------------------------------
+# Check if the virtual machine names resolve.
+#[user@trop03]
+
+    for name in ${kfnames[@]}
+        do
+            echo "---- ----"
+            echo "Name [${name}]"
+            host "${name}"
+        done
+
+    >   Name [Stedigo]
+    >   Host Stedigo not found: 3(NXDOMAIN)
+    >   ---- ----
+    >   Name [Angece]
+    >   Host Angece not found: 3(NXDOMAIN)
+    >   ---- ----
+    >   Name [Edwalafia]
+    >   Host Edwalafia not found: 3(NXDOMAIN)
+    >   ---- ----
+    >   Name [Onoza]
+    >   Host Onoza not found: 3(NXDOMAIN)
+
+
+# -----------------------------------------------------
+# Check we can login using IP addresses.
+#[user@trop03]
+
+    source "${HOME}/ssh-options"
+
+    unset vmip4s
+    vmip4s=(
+        172.16.5.10
+        172.16.5.11
+        172.16.5.12
+        172.16.5.13
+        172.16.5.14
+        172.16.5.15
+        172.16.5.16
+        172.16.5.17
+        172.16.5.18
+        )
+
+    for vmip in ${vmip4s[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmip}]"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmip:?} \
+                    "
+                    hostname
+                    date
+                    "
+        done
+
+    >   Node [172.16.5.10]
+    >   ssh: connect to host 172.16.5.10 port 22: No route to host
+    >   ---- ----
+    >   Node [172.16.5.11]
+    >   ssh: connect to host 172.16.5.11 port 22: No route to host
+    >   ---- ----
+    >   Node [172.16.5.12]
+    >   ssh: connect to host 172.16.5.12 port 22: No route to host
+    >   ---- ----
+    >   Node [172.16.5.13]
+    >   ^C
+
+
+# -----------------------------------------------------
+# Try reboot our mirror maker nodes.
+#[user@trop03]
+
+    source "${HOME}/nodenames.txt"
+    source "${HOME}/libvirt.settings"
+
+    for vmname in ${mmnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname}]"
+            virsh \
+                -c ${connection} \
+                reboot \
+                    "${vmname}"
+        done
+
+    >   Node [Grerat]
+    >   Domain Grerat is being rebooted
+    >   ---- ----
+    >   Node [Jeralenia]
+    >   Domain Jeralenia is being rebooted
+
+# -----------------------------------------------------
+# Try login to our mirror maker nodes.
+#[user@trop03]
+
+    source "${HOME}/ssh-options"
+    source "${HOME}/nodenames.txt"
+
+    for vmname in ${mmnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname}]"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    hostname
+                    date
+                    "
+        done
+
+
+    >   Node [Grerat]
+    >   ssh: Could not resolve hostname grerat: No address associated with hostname
+    >   ---- ----
+    >   Node [Jeralenia]
+    >   ssh: Could not resolve hostname jeralenia: No address associated with hostname
+
+
+# -----------------------------------------------------
+# Try stopping our mirror maker nodes.
+#[user@trop03]
+
+    source "${HOME}/nodenames.txt"
+    source "${HOME}/libvirt.settings"
+
+    for vmname in ${mmnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname}]"
+            virsh \
+                -c ${connection} \
+                shutdown \
+                    "${vmname}"
+        done
+
+    >   Node [Grerat]
+    >   Domain Grerat is being shutdown
+    >   ---- ----
+    >   Node [Jeralenia]
+    >   Domain Jeralenia is being shutdown
+
+# -----------------------------------------------------
+# List the running virtual machines.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+    virsh \
+        -c ${connection} \
+        list \
+            --all
+
+    >    Id    Name                           State
+    >   ----------------------------------------------------
+    >    6     Fosauri                        running
+    >    7     Marpus                         running
+    >    8     Byflame                        running
+    >    13    Stedigo                        running
+    >    14    Angece                         running
+    >    15    Edwalafia                      running
+    >    16    Onoza                          running
+    >    -     Grerat                         shut off
+    >    -     Jeralenia                      shut off
+
+# -----------------------------------------------------
+# Try restarting our mirror maker nodes.
+#[user@trop03]
+
+    source "${HOME}/nodenames.txt"
+    source "${HOME}/libvirt.settings"
+
+    for vmname in ${mmnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname}]"
+            virsh \
+                -c ${connection} \
+                start \
+                    "${vmname}"
+        done
+
+    >   Node [Grerat]
+    >   Domain Grerat started
+    >   
+    >   ---- ----
+    >   Node [Jeralenia]
+    >   Domain Jeralenia started
+
+
+# -----------------------------------------------------
+# Try login to our mirror maker nodes.
+#[user@trop03]
+
+    source "${HOME}/ssh-options"
+    source "${HOME}/nodenames.txt"
+
+    for vmname in ${mmnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname}]"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    hostname
+                    date
+                    "
+        done
+
+    >   Node [Grerat]
+    >   ssh: Could not resolve hostname grerat: No address associated with hostname
+    >   ---- ----
+    >   Node [Jeralenia]
+    >   ssh: Could not resolve hostname jeralenia: No address associated with hostname
+
+# -----------------------------------------------------
+# Check what is happening on our DHCP server.
+#[user@trop03]
+
+    ssh work01
+
+# -----------------------------------------------------
+# Check what is happening on our DHCP server.
+#[user@work01]
+
+    docker ps
+
+    >   CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS               NAMES
+    >   d356720cd3b0        storytel/dnsmasq    "dnsmasq"           5 weeks ago         Up 5 weeks                              epic_fermat
+
+# -----------------------------------------------------
+# Check what is happening on our DHCP server.
+#[user@work01]
+
+    docker logs -f 'epic_fermat'
+
+#
+# Requests from worker node VMs
+    >   dnsmasq-dhcp[1]: 2693600293 available DHCP subnet: 172.16.6.1/255.255.0.0
+    >   dnsmasq-dhcp[1]: 2693600293 available DHCP subnet: 172.16.3.1/255.255.0.0
+    >   dnsmasq-dhcp[1]: 2693600293 available DHCP subnet: 172.16.5.1/255.255.0.0
+    >   dnsmasq-dhcp[1]: 2693600293 available DHCP range: 172.16.252.1 -- 172.16.252.252
+    >   dnsmasq-dhcp[1]: 2693600293 available DHCP subnet: 172.16.0.1/255.255.0.0
+    >   dnsmasq-dhcp[1]: 2693600293 available DHCP subnet: 172.16.2.1/255.255.0.0
+    >   dnsmasq-dhcp[1]: 2693600293 available DHCP subnet: 172.16.4.1/255.255.0.0
+    >   dnsmasq-dhcp[1]: 2693600293 client provides name: Meng
+    >   dnsmasq-dhcp[1]: 2693600293 DHCPREQUEST(br1) 172.16.2.10 06:00:ac:10:02:0a
+    >   dnsmasq-dhcp[1]: 2693600293 tags: trop04, known, br1
+    >   dnsmasq-dhcp[1]: 2693600293 DHCPACK(br1) 172.16.2.10 06:00:ac:10:02:0a Meng
+    >   dnsmasq-dhcp[1]: 2693600293 requested options: 1:netmask, 28:broadcast, 2:time-offset, 121:classless-static-route,
+    >   dnsmasq-dhcp[1]: 2693600293 requested options: 15:domain-name, 6:dns-server, 12:hostname,
+    >   dnsmasq-dhcp[1]: 2693600293 requested options: 40:nis-domain, 41:nis-server, 42:ntp-server,
+    >   dnsmasq-dhcp[1]: 2693600293 requested options: 26:mtu, 119:domain-search, 3:router, 121:classless-static-route,
+    >   dnsmasq-dhcp[1]: 2693600293 requested options: 249, 33:static-route, 252, 42:ntp-server
+    >   dnsmasq-dhcp[1]: 2693600293 next server: 172.16.1.1
+    >   dnsmasq-dhcp[1]: 2693600293 sent size:  1 option: 53 message-type  5
+    >   dnsmasq-dhcp[1]: 2693600293 sent size:  4 option: 54 server-identifier  172.16.1.1
+    >   dnsmasq-dhcp[1]: 2693600293 sent size:  4 option: 51 lease-time  5m
+    >   dnsmasq-dhcp[1]: 2693600293 sent size:  4 option: 58 T1  2m17s
+    >   dnsmasq-dhcp[1]: 2693600293 sent size:  4 option: 59 T2  4m9s
+    >   dnsmasq-dhcp[1]: 2693600293 sent size:  4 option:  1 netmask  255.255.0.0
+    >   dnsmasq-dhcp[1]: 2693600293 sent size:  4 option: 28 broadcast  172.16.255.255
+    >   dnsmasq-dhcp[1]: 2693600293 sent size:  4 option:  3 router  172.16.1.1
+    >   dnsmasq-dhcp[1]: 2693600293 sent size:  4 option:  6 dns-server  172.16.1.1
+    >   dnsmasq-dhcp[1]: 2693600293 sent size:  6 option: 15 domain-name  lsstuk
+    >   dnsmasq-dhcp[1]: 2693600293 sent size:  4 option: 12 hostname  Meng
+    >   dnsmasq-dhcp[1]: 2693600293 sent size: 19 option:119 domain-search  06:6c:73:73:74:75:6b:00:03:72:6f:65:02:61...
+
+#
+# Requests from unknown MAC addresses ...
+    >   dnsmasq-dhcp[1]: 818224227 available DHCP subnet: 172.16.6.1/255.255.0.0
+    >   dnsmasq-dhcp[1]: 818224227 available DHCP subnet: 172.16.3.1/255.255.0.0
+    >   dnsmasq-dhcp[1]: 818224227 available DHCP subnet: 172.16.5.1/255.255.0.0
+    >   dnsmasq-dhcp[1]: 818224227 available DHCP range: 172.16.252.1 -- 172.16.252.252
+    >   dnsmasq-dhcp[1]: 818224227 available DHCP subnet: 172.16.0.1/255.255.0.0
+    >   dnsmasq-dhcp[1]: 818224227 available DHCP subnet: 172.16.2.1/255.255.0.0
+    >   dnsmasq-dhcp[1]: 818224227 available DHCP subnet: 172.16.4.1/255.255.0.0
+    >   dnsmasq-dhcp[1]: 818224227 vendor class: udhcp 1.23.1
+    >   dnsmasq-dhcp[1]: 818224227 DHCPREQUEST(br1) 172.16.252.231 ac:1f:6b:4a:db:73
+    >   dnsmasq-dhcp[1]: 818224227 tags: extra, br1
+    >   dnsmasq-dhcp[1]: 818224227 DHCPACK(br1) 172.16.252.231 ac:1f:6b:4a:db:73 ac-1f-6b-4a-db-73
+    >   dnsmasq-dhcp[1]: 818224227 requested options: 1:netmask, 3:router, 6:dns-server, 12:hostname,
+    >   dnsmasq-dhcp[1]: 818224227 requested options: 15:domain-name, 28:broadcast, 42:ntp-server
+    >   dnsmasq-dhcp[1]: 818224227 next server: 172.16.1.1
+    >   dnsmasq-dhcp[1]: 818224227 sent size:  1 option: 53 message-type  5
+    >   dnsmasq-dhcp[1]: 818224227 sent size:  4 option: 54 server-identifier  172.16.1.1
+    >   dnsmasq-dhcp[1]: 818224227 sent size:  4 option: 51 lease-time  5m
+    >   dnsmasq-dhcp[1]: 818224227 sent size:  4 option: 58 T1  2m12s
+    >   dnsmasq-dhcp[1]: 818224227 sent size:  4 option: 59 T2  4m4s
+    >   dnsmasq-dhcp[1]: 818224227 sent size:  4 option:  1 netmask  255.255.0.0
+    >   dnsmasq-dhcp[1]: 818224227 sent size:  4 option: 28 broadcast  172.16.255.255
+    >   dnsmasq-dhcp[1]: 818224227 sent size:  4 option:  3 router  172.16.1.1
+    >   dnsmasq-dhcp[1]: 818224227 sent size:  4 option:  6 dns-server  172.16.1.1
+    >   dnsmasq-dhcp[1]: 818224227 sent size:  6 option: 15 domain-name  lsstuk
+    >   dnsmasq-dhcp[1]: 818224227 sent size: 17 option: 12 hostname  ac-1f-6b-4a-db-73
+
+# -----------------------------------------------------
+# Resolve the unknown MAC address.
+
+    #
+    # Manual GUI web-form
+    # https://www.wireshark.org/tools/oui-lookup.html
+    # ac:1f:6b:4a:db:73
+    # => AC:1F:6B SuperMic Super Micro Computer, Inc.
+
+
+    #
+    # Command-line grep.
+    wget -O '/tmp/mac-list.txt' 'https://code.wireshark.org/review/gitweb?p=wireshark.git;a=blob_plain;f=manuf;hb=HEAD'
+    grep --ignore-case 'ac:1f:6b' '/tmp/mac-list.txt'
+
+    >   AC:1F:6B	SuperMic	Super Micro Computer, Inc.
+
+    # I'm guessing these are our machines, either the second (unused) interfaces
+    # on some of the amchines, or the admin interfaces.
+
+    # Looks like it might be the IPMI interfaces.
+    # https://www.thomas-krenn.com/en/wiki/Supermicro_IPMI_Configuration_through_BIOS_or_Web_Interface
+
+    #
+    # DHCP is the default setting for the IPMI interfaces.
+    # https://www.supermicro.com/manuals/other/IPMI_Users_Guide.pdf?page=26
+    #
+
+# -----------------------------------------------------
+# It can't be this easy ..
+#[user@trop03]
+
+    curl --head http://172.16.252.231:80/
+
+    >   HTTP/1.1 301 Moved Permanently
+    >   Location: https://172.16.252.231/
+    >   Date: Mon, 08 Jul 2019 13:54:35 GMT
+
+    curl --head https://172.16.252.231:80/
+
+    >   curl: (35) OpenSSL SSL_connect: SSL_ERROR_SYSCALL in connection to 172.16.252.231:80
+
+    # Ok, not so easy ..
+    # https://stackoverflow.com/a/50589248
+    # The problem is caused by the network connection being cut and the server re-setting.
+
+    #
+    # Ok, for another time, separate out the Super Micro MAC addresses.
+    #
+
+
+# -----------------------------------------------------
+# Just because
+#[user@work03]
+
+    mkdir ipmi
+    pushd ipmi
+    wget ftp://ftp.supermicro.com/utility/IPMICFG/IPMICFG_1.30.0_build.190701.zip
+
+    >   --2019-07-08 15:10:42--  ftp://ftp.supermicro.com/utility/IPMICFG/IPMICFG_1.30.0_build.190701.zip
+    >       => ‘IPMICFG_1.30.0_build.190701.zip’
+    >   Resolving ftp.supermicro.com (ftp.supermicro.com)... 207.212.57.120
+    >   Connecting to ftp.supermicro.com (ftp.supermicro.com)|207.212.57.120|:21... connected.
+    >   Logging in as anonymous ... Logged in!
+    >   ==> SYST ... done.    ==> PWD ... done.
+    >   ==> TYPE I ... done.  ==> CWD (1) /utility/IPMICFG ... done.
+    >   ==> SIZE IPMICFG_1.30.0_build.190701.zip ... 1886384
+    >   ==> PASV ... done.    ==> RETR IPMICFG_1.30.0_build.190701.zip ... done.
+    >   Length: 1886384 (1.8M) (unauthoritative)
+    >   
+    >   IPMICFG_1.30.0_build.190701.zip         100%[===============================================================================>]   1.80M   430KB/s    in 4.9s
+    >   
+    >   2019-07-08 15:10:49 (378 KB/s) - ‘IPMICFG_1.30.0_build.190701.zip’ saved [1886384]
+
+
+    unzip IPMICFG_1.30.0_build.190701.zip
+
+    >   Archive:  IPMICFG_1.30.0_build.190701.zip
+    >      creating: IPMICFG_1.30.0_build.190701/
+    >      creating: IPMICFG_1.30.0_build.190701/DOS/
+    >     inflating: IPMICFG_1.30.0_build.190701/DOS/DCMICap.dat
+    >     inflating: IPMICFG_1.30.0_build.190701/DOS/GenEvt.dat
+    >     inflating: IPMICFG_1.30.0_build.190701/DOS/IPMICFG.exe
+    >     inflating: IPMICFG_1.30.0_build.190701/DOS/MBType.dat
+    >       ....
+    >       ....
+    >     inflating: IPMICFG_1.30.0_build.190701/Windows/64bit/SpecEvt4.dat
+    >     inflating: IPMICFG_1.30.0_build.190701/Windows/64bit/SpecEvt5.dat
+
+
+    ls -a
+
+    >   IPMICFG_1.30.0_build.190701
+    >   IPMICFG_1.30.0_build.190701.zip
+
+
+    ls -1 IPMICFG_1.30.0_build.190701
+
+    >   DOS
+    >   IPMICFG_UserGuide.pdf
+    >   Linux
+    >   ReleaseNotes.txt
+    >   UEFI
+    >   Windows
+
+
+    ls -1 IPMICFG_1.30.0_build.190701/Linux
+
+    >   32bit
+    >   64bit
+
+
+    ls -1 IPMICFG_1.30.0_build.190701/Linux/64bit
+
+    >   DCMICap.dat
+    >   GenEvt.dat
+    >   IPMICFG-Linux.x86_64
+    >   MBType.dat
+    >   Menu.dat
+    >   MRCCode2.dat
+    >   MRCCode3.dat
+    >   MRCCode.dat
+    >   PBStatus.dat
+    >   SenType.dat
+    >   SpecEvt1.dat
+    >   SpecEvt2.dat
+    >   SpecEvt3.dat
+    >   SpecEvt4.dat
+    >   SpecEvt5.dat
+
+
+    ./IPMICFG_1.30.0_build.190701/Linux/64bit/IPMICFG-Linux.x86_64
+
+    >   IPMICFG Version 1.30.0 (Build 190701)
+    >   Copyright(c) 2019 Super Micro Computer, Inc.
+    >   Usage: IPMICFG params (Example: IPMICFG -m 192.168.1.123)
+    >     -help                 Display a list of commands.
+
+
+    ./IPMICFG_1.30.0_build.190701/Linux/64bit/IPMICFG-Linux.x86_64 -help
+
+    >   IPMICFG Version 1.30.0 (Build 190701)
+    >   Copyright(c) 2019 Super Micro Computer, Inc.
+    >   Usage: IPMICFG params (Example: IPMICFG -m 192.168.1.123)
+    >     -help                 Display a list of commands.
+    >     -m                    Show IP and MAC.
+    >     -m IP                 Set IP (format: ###.###.###.###).
+    >     -a MAC                Set MAC (format: ##:##:##:##:##:##).
+    >     -k                    Show Subnet Mask.
+    >     -k Mask               Set Subnet Mask (format: ###.###.###.###).
+    >     -dhcp                 Get the DHCP status.
+    >     -dhcp on              Enable the DHCP.
+    >     -dhcp off             Disable the DHCP.
+    >     -g                    Show Gateway IP.
+    >     -g IP                 Set Gateway IP (format: ###.###.###.###).
+    >     -r                    BMC cold reset.
+    >                           option: -d | Detected IPMI device for BMC reset.
+    >     -garp on              Enable the Gratuitous ARP.
+    >     -garp off             Disable the Gratuitous ARP.
+    >     -fd                   Reset to the factory default.
+    >                           option: -d | Detected IPMI device for BMC reset.
+    >     -fdl                  Reset to the factory default. (Clean LAN)
+    >                           option: -d | Detected IPMI device for BMC reset.
+    >     -fde                  Reset to the factory default. (Clean FRU & LAN)
+    >                           option: -d | Detected IPMI device for BMC reset.
+    >     -ver                  Get Firmware revision.
+    >     -vlan                 Get VLAN status.
+    >     -vlan on <vlan tag>   Enable the VLAN and set the VLAN tag.
+    >                           If VLANtag is not given it uses previously saved value.
+    >     -vlan off             Disable the VLAN.
+    >     -selftest             Checking and reporting on the basic health of BMC.
+    >     -raw                  Send a RAW IPMI request and print response.
+    >                           Format: NetFn Cmd [Data1 ... DataN]
+    >     -fru info             Show FRU inventory area Info.
+    >     -fru list             Show all FRU values.
+    >     -fru cthelp           Show chassis type code.
+    >     -fru help             Show help of FRU Write.
+    >     -fru <field>          Show FRU field value.
+    >     -fru <field> <value>  Write FRU.
+    >     -fru backup <file>    Backup FRU to file <Binary format>.
+    >     -fru restore <file>   Restore FRU from file <Binary format>.
+    >     -fru tbackup <file>   Backup FRU to file <Text format>.
+    >     -fru trestore <file>  Restore FRU from file <Text format>.
+    >     -fru ver <v1> <v2>    Get/Set FRU version. (v1 v2 are BCD format)
+    >     -sel info             Show SEL info.
+    >     -sel list             Show SEL records.
+    >     -sel del              Delete all SEL records.
+    >     -sel raw              Show SEL raw data.
+    >     -sdr [full]           Show SDR records and reading.
+    >     -sdr del <sdr id>     Delete SDR record.
+    >     -sdr ver <v1> <v2>    Get/Set SDR version. (v1 v2 are BCD format)
+    >     -nm nmsdr             Display NM SDR.
+    >     -nm seltime           Get SEL time.
+    >     -nm deviceid          Get ME Device ID.
+    >     -nm reset             Reboots ME.
+    >     -nm reset2default     Force ME reset to Default.
+    >     -nm updatemode        Force ME to Update Mode.
+    >     -nm selftest          Get Self Test Results.
+    >     -nm listimagesinfo    List ME Images information.
+    >     -nm oemgetpower       OEM Power command for ME.
+    >     -nm oemgettemp        OEM Temp. command for ME.
+    >     -nm pstate            Get Max allowed CPU P-State.
+    >     -nm tstate            Get Max allowed CPU T-State.
+    >     -nm cpumemtemp        Get CPU/Memory temperature.
+    >     -nm hostcpudata       Get host CPU data.
+    >     -fan                  Get Fan Mode.
+    >     -fan <mode>           Set Fan Mode.
+    >     -pminfo [full]        Power supply PMBus health.
+    >     -psfruinfo            Power supply FRU health.
+    >     -psbbpinfo            Battery backup power status.
+    >     -autodischarge        Set auto discharge by days.
+    >      <module> <day>
+    >     -discharge <module>   Manually discharge battery.
+    >     -user list            List user privilege information.
+    >     -user help            Show user privilege code.
+    >     -user add <user id>   Add user.
+    >      <name> <password>
+    >      <privilege>
+    >     -user del <user id>   Delete user.
+    >     -user level <user id> Update user privilege.
+    >      <privilege>
+    >     -user setpwd          Update user password.
+    >      <user id> <password>
+    >     -conf upload <file>   Upload IPMI configuration form binary file.
+    >      <option>             option: -p | Bypass warning message.
+    >     -conf download <file> Download IPMI configuration to binary file.
+    >     -conf tupload <file>  Upload IPMI configuration from text file.
+    >      <option>             option: -p | Bypass warning message.
+    >     -conf tdownload       Download IPMI configuration to text file.
+    >      <file>
+    >     -clrint               Clear chassis intrusion.
+    >     -reset <index>        Reset System and force to boot from device.
+    >     -soft <index>         Initiate a soft-shutdown for OS and force to boot from
+    >                           device.
+    >     -ipv6 mode            Show IPv6 mode.
+    >     -ipv6 mode <mode>     Set IPv6 mode.
+    >     -ipv6 autoconfig      Show IPv6 auto configuration.
+    >     -ipv6 autoconfig on   Enable IPv6 auto configuration.
+    >     -ipv6 autoconfig off  Disable IPv6 auto configuration.
+    >     -ipv6 list            List IPv6 static address.
+    >     -ipv6 duid            Show IPv6 DUID.
+    >     -ipv6 dns [IPv6 addr] Get/Set IPv6 DNS server.
+    >     -ipv6 add <id>        Add IPv6 static address.
+    >      <IPv6 addr> <prefix>
+    >     -ipv6 remove <id>     Remove IPv6 static address.
+    >     -ipv6 route           Display IPv6 static route.
+    >     -ipv6 route on        Enable IPv6 static route.
+    >     -ipv6 route off       Disable IPv6 static route.
+    >     -ipv6 route list      List IPv6 static router info.
+    >     -ipv6 route <id>      Set IPv6 static router information.
+    >      <prefix value>
+    >      <prefix length>
+    >      <IPv6 addr>
+    >     -ipv6 route clear     Clear IPv6 static router information.
+    >      <id>
+    >     -nvme list            Display the existing NVME SSD list.
+    >     -nvme info            NVME SSD information.
+    >     -nvme rescan          Rescan all devices by in band.
+    >     -nvme insert <aoc>    Insert SSD by out of band.
+    >      <group> <slot>
+    >     -nvme locate          Locate SSD. (in band)
+    >      <HDD Name>
+    >     -nvme locate <aoc>    Locate SSD. (out of band)
+    >      <group> <slot>
+    >     -nvme stoplocate      Stop Locate SSD. (in band)
+    >      <HDD Name>
+    >     -nvme stoplocate      Stop Locate SSD. (out of band)
+    >      <aoc> <group> <slot>
+    >     -nvme remove          Remove NVME device. (in band)
+    >      <HDD Name> [option1] option1: 0  | Do eject after remove (Default).
+    >      [option2]            option1: 1  | Do not eject after remove.
+    >                           option2: -p | Bypass warning message.
+    >     -nvme remove          Remove NVME device. (out of band)
+    >      <aoc> <group> <slot> option: -p | Bypass warning message.
+    >      [opiton]
+    >     -nvme smartdata       NVME S.M.A.R.T data.
+    >      [HDD Name]
+    >     -tp info              Get MCU Info.
+    >     -tp info <type>       Get MCU Type Info. (type: 1 - 3)
+    >     -tp nodeid            Get Node ID.
+    >     -tas info             Get TAS Information.
+    >     -tas pause            Pause TAS Service.
+    >     -tas resume           Resume TAS Service.
+    >     -tas refresh          Trigger TAS to recollect data.
+    >     -tas clear            Clear TAS collected data in BMC.
+    >     -tas period <sec>     Set TAS update period <limit 5 to 60 sec>.
+    >     -tas exec <cmd>       Execute a user's specified command.
+    >     -summary              FW and BIOS Information.
+    >     -hostname [value]     Get/Set host name.
+    >     -dcmi cap             List DCMI Capabilities Info.
+    >     -dcmi power           Get DCMI power reading.
+    >     -dcmi ctl [value]     Get/Set DCMI management controller ID string.
+    >     -mel download <file>  Download BMC maintenance event log to a file.
+    >     -mel clear            Clear BMC maintenance event log.
+
+# -----------------------------------------------------
+# Check the IPMI MAC address.
+#[user@work03]
+
+    sudo ./IPMICFG_1.30.0_build.190701/Linux/64bit/IPMICFG-Linux.x86_64 -m
+
+    >   IP=0.0.0.0
+    >   MAC=A4:BF:01:64:EB:17
+
+    # This is an Intel MAC address, not a SuperMicro address.
+    # https://www.wireshark.org/tools/oui-lookup.html
+    # A4:BF:01 IntelCor Intel Corporate
+
+
+# -----------------------------------------------------
+# Check the IPMI DHCP status.
+#[user@work03]
+
+    sudo ./IPMICFG_1.30.0_build.190701/Linux/64bit/IPMICFG-Linux.x86_64 -dhcp
+
+    >   DHCP is currently disabled.
+
+
+# -----------------------------------------------------
+# Try the same on a trop machine.
+#[user@trop03]
+
+    sudo ./IPMICFG_1.30.0_build.190701/Linux/64bit/IPMICFG-Linux.x86_64 -m
+
+    >   IP=0.0.0.0
+    >   MAC=0C:C4:7A:6E:05:60
+
+    # This is a SuperMicro address.
+    # 0C:C4:7A SuperMic Super Micro Computer, Inc.
+
+# -----------------------------------------------------
+# Check the IPMI DHCP status.
+#[user@trop03]
+
+    sudo ./IPMICFG_1.30.0_build.190701/Linux/64bit/IPMICFG-Linux.x86_64 -dhcp
+
+    >   DHCP is currently enabled.
+
+
+# -----------------------------------------------------
+# Neither of these appear in the dnsmasq logs.
+#[user@work01]
+
+    # work03
+    docker logs epic_fermat | grep --ignore-case 'A4:BF:01:64:EB:17'
+
+
+
+    # trop03
+    docker logs epic_fermat | grep --ignore-case '0C:C4:7A:6E:05:60'
+
+
+
+# -----------------------------------------------------
+# The Intel address range doesn't appear at all.
+#[user@work01]
+
+    # A4:BF:01 IntelCor Intel Corporate
+    docker logs epic_fermat | grep --ignore-case 'A4:BF:01'
+
+
+# -----------------------------------------------------
+# However, the SuperMicro address range does.
+#[user@work01]
+
+    # 0C:C4:7A SuperMic Super Micro Computer, Inc.
+    docker logs epic_fermat | grep --ignore-case '0C:C4:7A'
+
+    >   dnsmasq-dhcp[1]: 2312128008 DHCPACK(br1) 172.16.252.8 0c:c4:7a:ae:06:f1 0c-c4-7a-ae-06-f1
+    >   dnsmasq-dhcp[1]: 3811937352 DHCPREQUEST(br1) 172.16.252.199 0c:c4:7a:de:02:f4
+    >   dnsmasq-dhcp[1]: 3811937352 DHCPACK(br1) 172.16.252.199 0c:c4:7a:de:02:f4 0c-c4-7a-de-02-f4
+    >   dnsmasq-dhcp[1]: 1755938420 DHCPREQUEST(br1) 172.16.252.47 0c:c4:7a:de:58:65
+    >   dnsmasq-dhcp[1]: 1755938420 DHCPACK(br1) 172.16.252.47 0c:c4:7a:de:58:65 0c-c4-7a-de-58-65
+    >   dnsmasq-dhcp[1]: 1977849706 DHCPREQUEST(br1) 172.16.252.112 0c:c4:7a:ae:0c:7b
+    >   dnsmasq-dhcp[1]: 1977849706 DHCPACK(br1) 172.16.252.112 0c:c4:7a:ae:0c:7b 0c-c4-7a-ae-0c-7b
+    >   dnsmasq-dhcp[1]: 10021976 DHCPREQUEST(br1) 172.16.252.64 0c:c4:7a:ad:bb:2f
+    >   dnsmasq-dhcp[1]: 10021976 DHCPACK(br1) 172.16.252.64 0c:c4:7a:ad:bb:2f 0c-c4-7a-ad-bb-2f
+    >   dnsmasq-dhcp[1]: 340071276 DHCPREQUEST(br1) 172.16.252.116 0c:c4:7a:de:57:fa
+    >   dnsmasq-dhcp[1]: 340071276 DHCPACK(br1) 172.16.252.116 0c:c4:7a:de:57:fa 0c-c4-7a-de-57-fa
+    >   dnsmasq-dhcp[1]: 1206648383 DHCPREQUEST(br1) 172.16.252.204 0c:c4:7a:de:02:f9
+    >   dnsmasq-dhcp[1]: 1206648383 DHCPACK(br1) 172.16.252.204 0c:c4:7a:de:02:f9 0c-c4-7a-de-02-f9
+    >   dnsmasq-dhcp[1]: 3284497422 DHCPREQUEST(br1) 172.16.252.46 0c:c4:7a:de:02:5b
+    >   dnsmasq-dhcp[1]: 3284497422 DHCPACK(br1) 172.16.252.46 0c:c4:7a:de:02:5b 0c-c4-7a-de-02-5b
+    >   dnsmasq-dhcp[1]: 102248024 DHCPREQUEST(br1) 172.16.252.155 0c:c4:7a:de:02:c8
+    >   dnsmasq-dhcp[1]: 102248024 DHCPACK(br1) 172.16.252.155 0c:c4:7a:de:02:c8 0c-c4-7a-de-02-c8
+    >   dnsmasq-dhcp[1]: 131130482 DHCPREQUEST(br1) 172.16.252.200 0c:c4:7a:de:02:f5
+    >   dnsmasq-dhcp[1]: 131130482 DHCPACK(br1) 172.16.252.200 0c:c4:7a:de:02:f5 0c-c4-7a-de-02-f5
+    >   dnsmasq-dhcp[1]: 3485212745 DHCPREQUEST(br1) 172.16.252.149 0c:c4:7a:f5:00:25
+    >   dnsmasq-dhcp[1]: 3485212745 DHCPACK(br1) 172.16.252.149 0c:c4:7a:f5:00:25 0c-c4-7a-f5-00-25
+    >   dnsmasq-dhcp[1]: 3446952528 DHCPREQUEST(br1) 172.16.252.141 0c:c4:7a:b8:6b:51
+    >   dnsmasq-dhcp[1]: 3446952528 DHCPACK(br1) 172.16.252.141 0c:c4:7a:b8:6b:51 0c-c4-7a-b8-6b-51
+    >   dnsmasq-dhcp[1]: 3730306122 DHCPREQUEST(br1) 172.16.252.68 0c:c4:7a:ad:bb:33
+    >   dnsmasq-dhcp[1]: 3730306122 DHCPACK(br1) 172.16.252.68 0c:c4:7a:ad:bb:33 0c-c4-7a-ad-bb-33
+    >   dnsmasq-dhcp[1]: 1825586488 DHCPREQUEST(br1) 172.16.252.150 0c:c4:7a:de:02:c3
+    >   dnsmasq-dhcp[1]: 1825586488 DHCPACK(br1) 172.16.252.150 0c:c4:7a:de:02:c3 0c-c4-7a-de-02-c3
+    >   dnsmasq-dhcp[1]: 659110410 DHCPREQUEST(br1) 172.16.252.66 0c:c4:7a:ad:bb:31
+    >   dnsmasq-dhcp[1]: 659110410 DHCPACK(br1) 172.16.252.66 0c:c4:7a:ad:bb:31 0c-c4-7a-ad-bb-31
+    >   dnsmasq-dhcp[1]: 1387537771 DHCPREQUEST(br1) 172.16.252.65 0c:c4:7a:ad:bb:30
+    >   dnsmasq-dhcp[1]: 1387537771 DHCPACK(br1) 172.16.252.65 0c:c4:7a:ad:bb:30 0c-c4-7a-ad-bb-30
+
+
+# -----------------------------------------------------
+# Filter the duplicates
+#[user@work01]
+
+      docker logs epic_fermat \
+    | grep 'DHCPREQUEST' \
+    | grep --ignore-case '0C:C4:7A' \
+    | sed 's/^.*DHCPREQUEST(br1) //' \
+    | sort --unique -
+
+    >   172.16.252.112 0c:c4:7a:ae:0c:7b
+    >   172.16.252.116 0c:c4:7a:de:57:fa
+    >   172.16.252.141 0c:c4:7a:b8:6b:51
+    >   172.16.252.149 0c:c4:7a:f5:00:25
+    >   172.16.252.150 0c:c4:7a:de:02:c3
+    >   172.16.252.155 0c:c4:7a:de:02:c8
+    >   172.16.252.199 0c:c4:7a:de:02:f4
+    >   172.16.252.200 0c:c4:7a:de:02:f5
+    >   172.16.252.203 0c:c4:7a:ad:ba:0d
+    >   172.16.252.204 0c:c4:7a:de:02:f9
+    >   172.16.252.46 0c:c4:7a:de:02:5b
+    >   172.16.252.47 0c:c4:7a:de:58:65
+    >   172.16.252.64 0c:c4:7a:ad:bb:2f
+    >   172.16.252.65 0c:c4:7a:ad:bb:30
+    >   172.16.252.66 0c:c4:7a:ad:bb:31
+    >   172.16.252.68 0c:c4:7a:ad:bb:33
+    >   172.16.252.8 0c:c4:7a:ae:06:f1
+
+    #
+    # Save the IPMI stuff for another day ....
+    #
+
+
+# -----------------------------------------------------
+# Filter the duplicates
+#[user@work01]
+
+      docker logs epic_fermat \
+    | grep 'DHCPREQUEST' \
+    | sed 's/^.*DHCPREQUEST(br1) //' \
+    | sort --unique -
+
+
+    >   172.16.2.10 06:00:ac:10:02:0a
+    >   172.16.2.1 06:00:ac:10:02:01
+    >   172.16.2.11 06:00:ac:10:02:0b
+    >   172.16.2.12 06:00:ac:10:02:0c
+    >   172.16.2.13 06:00:ac:10:02:0d
+    >   172.16.2.17 06:00:ac:10:02:11
+    >   172.16.2.2 06:00:ac:10:02:02
+    >   172.16.2.3 06:00:ac:10:02:03
+    >   172.16.2.4 06:00:ac:10:02:04
+    >   172.16.252.112 0c:c4:7a:ae:0c:7b
+    >   172.16.252.114 ac:1f:6b:4a:db:fa
+    >   172.16.252.116 0c:c4:7a:de:57:fa
+    >   172.16.252.12 ac:1f:6b:4b:27:43
+    >   172.16.252.141 0c:c4:7a:b8:6b:51
+    >   172.16.252.149 0c:c4:7a:f5:00:25
+    >   172.16.252.150 0c:c4:7a:de:02:c3
+    >   172.16.252.151 06:00:00:10:05:01
+    >   172.16.252.155 0c:c4:7a:de:02:c8
+    >   172.16.252.156 ac:1f:6b:4b:27:d3
+    >   172.16.252.162 ac:1f:6b:03:73:09
+    >   172.16.252.189 ac:1f:6b:04:9e:e6
+    >   172.16.252.194 ac:1f:6b:04:9e:eb
+    >   172.16.252.199 0c:c4:7a:de:02:f4
+    >   172.16.252.200 0c:c4:7a:de:02:f5
+    >   172.16.252.203 0c:c4:7a:ad:ba:0d
+    >   172.16.252.204 0c:c4:7a:de:02:f9
+    >   172.16.252.216 ac:1f:6b:04:9d:54
+    >   172.16.252.228 ac:1f:6b:b6:20:11
+    >   172.16.252.230 ac:1f:6b:4a:db:72
+    >   172.16.252.231 ac:1f:6b:4a:db:73
+    >   172.16.252.234 ac:1f:6b:b6:20:17
+    >   172.16.252.43 ac:1f:6b:04:9e:54
+    >   172.16.252.46 0c:c4:7a:de:02:5b
+    >   172.16.252.47 0c:c4:7a:de:58:65
+    >   172.16.252.57 ac:1f:6b:03:74:4d
+    >   172.16.252.58 ac:1f:6b:4a:a5:af
+    >   172.16.252.64 0c:c4:7a:ad:bb:2f
+    >   172.16.252.65 0c:c4:7a:ad:bb:30
+    >   172.16.252.66 0c:c4:7a:ad:bb:31
+    >   172.16.252.68 0c:c4:7a:ad:bb:33
+    >   172.16.252.8 0c:c4:7a:ae:06:f1
+    >   172.16.2.8 06:00:ac:10:02:08
+    >   172.16.2.9 06:00:ac:10:02:09
+    >   172.16.5.10 06:00:ac:10:05:0a
+    >   172.16.5.1 06:00:ac:10:05:01
+    >   172.16.5.11 06:00:ac:10:05:0b
+    >   172.16.5.12 06:00:ac:10:05:0c
+    >   172.16.5.13 06:00:ac:10:05:0d
+    >   172.16.5.14 06:00:ac:10:05:0e
+    >   172.16.5.15 06:00:ac:10:05:0f
+    >   172.16.5.16 06:00:ac:10:05:10
+    >   172.16.5.17 06:00:ac:10:05:11
+    >   172.16.5.18 06:00:ac:10:05:12
+    >   172.16.6.1 06:00:ac:10:06:01
+
+# -----------------------------------------------------
+# Filter the duplicates, skip the unknowns.
+#[user@work01]
+
+      docker logs epic_fermat \
+    | grep 'DHCPREQUEST' \
+    | grep --invert-match '172.16.252' \
+    | sed 's/^.*DHCPREQUEST(br1) //' \
+    | sort --unique -
+
+
+    >   172.16.2.10 06:00:ac:10:02:0a
+    >   172.16.2.1 06:00:ac:10:02:01
+    >   172.16.2.11 06:00:ac:10:02:0b
+    >   172.16.2.12 06:00:ac:10:02:0c
+    >   172.16.2.13 06:00:ac:10:02:0d
+    >   172.16.2.17 06:00:ac:10:02:11
+    >   172.16.2.2 06:00:ac:10:02:02
+    >   172.16.2.3 06:00:ac:10:02:03
+    >   172.16.2.4 06:00:ac:10:02:04
+    >   172.16.2.8 06:00:ac:10:02:08
+    >   172.16.2.9 06:00:ac:10:02:09
+    >   172.16.5.10 06:00:ac:10:05:0a
+    >   172.16.5.1 06:00:ac:10:05:01
+    >   172.16.5.11 06:00:ac:10:05:0b
+    >   172.16.5.12 06:00:ac:10:05:0c
+    >   172.16.5.13 06:00:ac:10:05:0d
+    >   172.16.5.14 06:00:ac:10:05:0e
+    >   172.16.5.15 06:00:ac:10:05:0f
+    >   172.16.5.16 06:00:ac:10:05:10
+    >   172.16.5.17 06:00:ac:10:05:11
+    >   172.16.5.18 06:00:ac:10:05:12
+    >   172.16.6.1 06:00:ac:10:06:01
+
+    # 11 requests from work02 VMs
+    >   172.16.2.1 06:00:ac:10:02:01
+    >   172.16.2.2 06:00:ac:10:02:02
+    >   172.16.2.3 06:00:ac:10:02:03
+    >   172.16.2.4 06:00:ac:10:02:04
+    >   172.16.2.8 06:00:ac:10:02:08
+    >   172.16.2.9 06:00:ac:10:02:09
+    >   172.16.2.10 06:00:ac:10:02:0a
+    >   172.16.2.11 06:00:ac:10:02:0b
+    >   172.16.2.12 06:00:ac:10:02:0c
+    >   172.16.2.13 06:00:ac:10:02:0d
+    >   172.16.2.17 06:00:ac:10:02:11
+
+    # 10 requests from trop03 VMs
+    >   172.16.5.10 06:00:ac:10:05:0a
+    >   172.16.5.1 06:00:ac:10:05:01
+    >   172.16.5.11 06:00:ac:10:05:0b
+    >   172.16.5.12 06:00:ac:10:05:0c
+    >   172.16.5.13 06:00:ac:10:05:0d
+    >   172.16.5.14 06:00:ac:10:05:0e
+    >   172.16.5.15 06:00:ac:10:05:0f
+    >   172.16.5.16 06:00:ac:10:05:10
+    >   172.16.5.17 06:00:ac:10:05:11
+    >   172.16.5.18 06:00:ac:10:05:12
+
+    # 1 request from a trop04 VM
+    >   172.16.6.1 06:00:ac:10:06:01
+
+
+# -----------------------------------------------------
+# The trop03 addresses match our Kafka nodes.
+#[user@trop03]
+
+    source "${HOME}/nodenames.txt"
+    echo "
+Zookeepers    [${zknames[@]}]
+Kafka nodes   [${kfnames[@]}]
+Mirror makers [${mmnames[@]}]
+"
+
+    >   Zookeepers    [Fosauri Marpus Byflame]
+    >   Kafka nodes   [Stedigo Angece Edwalafia Onoza]
+    >   Mirror makers [Grerat Jeralenia]
+
+
+    172.16.5.1  06:00:ac:10:05:01   =>  Umiawyth
+    172.16.5.10 06:00:ac:10:05:0a   =>  Stedigo
+    172.16.5.11 06:00:ac:10:05:0b   =>  Angece
+    172.16.5.12 06:00:ac:10:05:0c   =>  Edwalafia
+    172.16.5.13 06:00:ac:10:05:0d   =>  Onoza
+    172.16.5.14 06:00:ac:10:05:0e   =>  Fosauri
+    172.16.5.15 06:00:ac:10:05:0f   =>  Marpus
+    172.16.5.16 06:00:ac:10:05:10   =>  Byflame
+    172.16.5.17 06:00:ac:10:05:11   =>  Grerat
+    172.16.5.18 06:00:ac:10:05:12   =>  Jeralenia
+
+
+# -----------------------------------------------------
+# Are we still unable to reach them ?
+#[user@trop03]
+
+    source "${HOME}/ssh-options"
+    source "${HOME}/nodenames.txt"
+
+    for vmname in ${mmnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname}]"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    hostname
+                    date
+                    "
+        done
+
+    >   Node [Grerat]
+    >   ssh: Could not resolve hostname grerat: No address associated with hostname
+    >   ---- ----
+    >   Node [Jeralenia]
+    >   ssh: Could not resolve hostname jeralenia: No address associated with hostname
+
+# -----------------------------------------------------
+# See if we can reach them by IP address ?
+#[user@trop03]
+
+    source "${HOME}/ssh-options"
+
+    unset vmip4s
+    vmip4s=(
+        172.16.5.10
+        172.16.5.11
+        172.16.5.12
+        172.16.5.13
+        172.16.5.14
+        172.16.5.15
+        172.16.5.16
+        172.16.5.17
+        172.16.5.18
+        )
+
+    for vmip in ${vmip4s[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmip}]"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmip:?} \
+                    "
+                    hostname
+                    date
+                    "
+        done
+
+    >   Node [172.16.5.10]
+    >   ssh: connect to host 172.16.5.10 port 22: No route to host
+    >   ---- ----
+    >   Node [172.16.5.11]
+    >   ssh: connect to host 172.16.5.11 port 22: No route to host
+    >   ---- ----
+    >   Node [172.16.5.12]
+    >   ssh: connect to host 172.16.5.12 port 22: No route to host
+    >   ---- ----
+    >   Node [172.16.5.13]
+    >   ssh: connect to host 172.16.5.13 port 22: No route to host
+    >   ---- ----
+    >   Node [172.16.5.14]
+    >   ssh: connect to host 172.16.5.14 port 22: No route to host
+    >   ---- ----
+    >   Node [172.16.5.15]
+    >   ssh: connect to host 172.16.5.15 port 22: No route to host
+    >   ---- ----
+    >   Node [172.16.5.16]
+    >   ssh: connect to host 172.16.5.16 port 22: No route to host
+    >   ---- ----
+    >   Node [172.16.5.17]
+    >   ssh: connect to host 172.16.5.17 port 22: No route to host
+    >   ---- ----
+    >   Node [172.16.5.18]
+    >   ssh: connect to host 172.16.5.18 port 22: No route to host
+
+
+# -----------------------------------------------------
+# Can reach them from another host ?
+#[user@work01]
+
+    source "${HOME}/ssh-options"
+
+    unset vmip4s
+    vmip4s=(
+        172.16.5.10
+        172.16.5.11
+        172.16.5.12
+        172.16.5.13
+        172.16.5.14
+        172.16.5.15
+        172.16.5.16
+        172.16.5.17
+        172.16.5.18
+        )
+
+    for vmip in ${vmip4s[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmip}]"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmip:?} \
+                    "
+                    hostname
+                    date
+                    "
+        done
+
+    >   Node [172.16.5.10]
+    >   ssh: connect to host 172.16.5.10 port 22: No route to host
+    >   ---- ----
+    >   Node [172.16.5.11]
+    >   ssh: connect to host 172.16.5.11 port 22: No route to host
+    >   ---- ----
+    >   Node [172.16.5.12]
+    >   ssh: connect to host 172.16.5.12 port 22: No route to host
+    >   ---- ----
+    >   Node [172.16.5.13]
+    >   ssh: connect to host 172.16.5.13 port 22: No route to host
+    >   ---- ----
+    >   Node [172.16.5.14]
+    >   ssh: connect to host 172.16.5.14 port 22: No route to host
+    >   ---- ----
+    >   Node [172.16.5.15]
+    >   ssh: connect to host 172.16.5.15 port 22: No route to host
+    >   ---- ----
+    >   Node [172.16.5.16]
+    >   ssh: connect to host 172.16.5.16 port 22: No route to host
+    >   ---- ----
+    >   Node [172.16.5.17]
+    >   ssh: connect to host 172.16.5.17 port 22: No route to host
+    >   ---- ----
+    >   Node [172.16.5.18]
+    >   ssh: connect to host 172.16.5.18 port 22: No route to host
+
+
+# -----------------------------------------------------
+# Can reach the work02 nodes ?
+#[user@work01]
+
+    source "${HOME}/ssh-options"
+
+    unset vmip4s
+    vmip4s=(
+        172.16.2.1
+        172.16.2.2
+        172.16.2.3
+        172.16.2.4
+        172.16.2.8
+        172.16.2.9
+        172.16.2.10
+        172.16.2.11
+        172.16.2.12
+        172.16.2.13
+        172.16.2.17
+        )
+
+    for vmip in ${vmip4s[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmip}]"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmip:?} \
+                    "
+                    hostname
+                    date
+                    "
+        done
+
+    #
+    # All but one are OK.
+    # Last one might not be running.
+    #
+
+    >   Node [172.16.2.1]
+    >   Nydiabaen
+    >   Mon  8 Jul 18:56:47 BST 2019
+    >   ---- ----
+    >   Node [172.16.2.2]
+    >   Eraullan
+    >   Mon  8 Jul 18:56:47 BST 2019
+    >   ---- ----
+    >   Node [172.16.2.3]
+    >   Dwerader
+    >   Mon  8 Jul 18:56:48 BST 2019
+    >   ---- ----
+    >   Node [172.16.2.4]
+    >   Koiclya
+    >   Mon  8 Jul 18:56:48 BST 2019
+    >   ---- ----
+    >   Node [172.16.2.8]
+    >   Umiwiel
+    >   Mon  8 Jul 18:56:49 BST 2019
+    >   ---- ----
+    >   Node [172.16.2.9]
+    >   Waresean
+    >   Mon  8 Jul 18:56:50 BST 2019
+    >   ---- ----
+    >   Node [172.16.2.10]
+    >   Meng
+    >   Mon  8 Jul 18:56:50 BST 2019
+    >   ---- ----
+    >   Node [172.16.2.11]
+    >   Tromader
+    >   Mon  8 Jul 18:56:51 BST 2019
+    >   ---- ----
+    >   Node [172.16.2.12]
+    >   Haosien
+    >   Mon  8 Jul 18:56:51 BST 2019
+    >   ---- ----
+    >   Node [172.16.2.13]
+    >   Year
+    >   Mon  8 Jul 18:56:52 BST 2019
+    >   ---- ----
+    >   Node [172.16.2.17]
+    >   ssh: connect to host 172.16.2.17 port 22: No route to host
+
+
+# -----------------------------------------------------
+# Can reach the work02 nodes from trop02 ?
+#[user@trop02]
+
+    source "${HOME}/ssh-options"
+
+    unset vmip4s
+    vmip4s=(
+        172.16.2.1
+        172.16.2.2
+        172.16.2.3
+        172.16.2.4
+        172.16.2.8
+        172.16.2.9
+        172.16.2.10
+        172.16.2.11
+        172.16.2.12
+        172.16.2.13
+        172.16.2.17
+        )
+
+    for vmip in ${vmip4s[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmip}]"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmip:?} \
+                    "
+                    hostname
+                    date
+                    "
+        done
+
+    >   Node [172.16.2.1]
+    >   Nydiabaen
+    >   Mon  8 Jul 18:58:47 BST 2019
+    >   ---- ----
+    >   Node [172.16.2.2]
+    >   Eraullan
+    >   Mon  8 Jul 18:58:47 BST 2019
+    >   ---- ----
+    >   Node [172.16.2.3]
+    >   Dwerader
+    >   Mon  8 Jul 18:58:48 BST 2019
+    >   ---- ----
+    >   Node [172.16.2.4]
+    >   Koiclya
+    >   Mon  8 Jul 18:58:48 BST 2019
+    >   ---- ----
+    >   Node [172.16.2.8]
+    >   Umiwiel
+    >   Mon  8 Jul 18:58:49 BST 2019
+    >   ---- ----
+    >   Node [172.16.2.9]
+    >   Waresean
+    >   Mon  8 Jul 18:58:49 BST 2019
+    >   ---- ----
+    >   Node [172.16.2.10]
+    >   Meng
+    >   Mon  8 Jul 18:58:50 BST 2019
+    >   ---- ----
+    >   Node [172.16.2.11]
+    >   Tromader
+    >   Mon  8 Jul 18:58:50 BST 2019
+    >   ---- ----
+    >   Node [172.16.2.12]
+    >   Haosien
+    >   Mon  8 Jul 18:58:51 BST 2019
+    >   ---- ----
+    >   Node [172.16.2.13]
+    >   Year
+    >   Mon  8 Jul 18:58:52 BST 2019
+    >   ---- ----
+    >   Node [172.16.2.17]
+    >   ssh: connect to host 172.16.2.17 port 22: No route to host
+
+    # So ...
+    # work02 virtual machines are reachable.
+    # trop03 virtual machines are not reachable.
+
+
+# -----------------------------------------------------
+# What about trop04 ?
+#[user@desktop]
+
+    ssh trop04
+
+# -----------------------------------------------------
+# List the running virtual machines.
+#[user@trop04]
+
+    source "${HOME}/libvirt.settings"
+    virsh \
+        -c ${connection} \
+        list \
+            --all
+
+    >    Id    Name                           State
+    >   ----------------------------------------------------
+    >    -     Adwaeric                       shut off
+    >    -     Astendawen                     shut off
+    >    -     Crilird                        shut off
+    >    -     Iberidia                       shut off
+    >    -     Moemond                        shut off
+    >    -     Nendalith                      shut off
+    >    -     Saelia                         shut off
+
+
+# -----------------------------------------------------
+# Start a new virtual machine on trop04.
+#[user@trop04]
+
+    createvm
+
+    >   INFO : Node name [Wumar]
+    >   INFO : Base name [fedora-28-docker-base-20180708.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-28-docker-base-20180708.qcow]
+    >   INFO : Disc name [Wumar.qcow]
+    >   INFO : Disc size [16GiB]
+    >   
+    >   INFO : MAC  [06:00:AC:10:06:01]
+    >   INFO : IPv4 [172.16.6.1]
+    >   INFO : IPv6 []
+
+
+# -----------------------------------------------------
+# See if we can resolve the name.
+#[user@trop04]
+
+    source "${HOME}/ssh-options"
+
+    for host in trop03 trop04 work01 work02
+        do
+            echo "---- ----"
+            echo "Host [${host}]"
+            ssh \
+                ${sshopts[*]} \
+                ${host:?} \
+                    "
+                    hostname
+                    date
+                    host Wumar
+                    "
+        done
+
+
+    >   Host [trop03]
+    >   trop03
+    >   Mon  8 Jul 19:07:20 BST 2019
+    >   Wumar.lsstuk has address 172.16.6.1
+    >   ---- ----
+    >   Host [trop04]
+    >   trop04
+    >   Mon  8 Jul 19:07:20 BST 2019
+    >   Wumar.lsstuk has address 172.16.6.1
+    >   ---- ----
+    >   Host [work01]
+    >   lsstukwork1
+    >   Mon  8 Jul 19:07:21 BST 2019
+    >   Wumar.lsstuk has address 172.16.6.1
+    >   ---- ----
+    >   Host [work02]
+    >   lsstukwork2
+    >   Mon  8 Jul 19:07:22 BST 2019
+    >   Wumar.lsstuk has address 172.16.6.1
+
+# -----------------------------------------------------
+# Start a new virtual machine on trop03.
+#[user@trop03]
+
+    createvm
+
+    >   INFO : Node name [Umiawyth]
+    >   INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Disc name [Umiawyth.qcow]
+    >   INFO : Disc size [8GiB]
+    >   
+    >   INFO : MAC  [06:00:AC:10:05:01]
+    >   INFO : IPv4 [172.16.5.1]
+    >   INFO : IPv6 []
+
+
+# -----------------------------------------------------
+# See if we can resolve the name.
+#[user@trop03]
+
+    source "${HOME}/ssh-options"
+
+    for host in trop03 trop04 work01 work02
+        do
+            echo "---- ----"
+            echo "Host [${host}]"
+            ssh \
+                ${sshopts[*]} \
+                ${host:?} \
+                    "
+                    hostname
+                    date
+                    host Umiawyth
+                    "
+        done
+
+    >   Host [trop03]
+    >   trop03
+    >   Mon  8 Jul 19:10:30 BST 2019
+    >   Host Umiawyth not found: 3(NXDOMAIN)
+    >   ---- ----
+    >   Host [trop04]
+    >   trop04
+    >   Mon  8 Jul 19:10:31 BST 2019
+    >   Host Umiawyth not found: 3(NXDOMAIN)
+    >   ---- ----
+    >   Host [work01]
+    >   lsstukwork1
+    >   Mon  8 Jul 19:10:32 BST 2019
+    >   Host Umiawyth not found: 2(SERVFAIL)
+    >   ---- ----
+    >   Host [work02]
+    >   lsstukwork2
+    >   Mon  8 Jul 19:10:33 BST 2019
+    >   Host Umiawyth not found: 2(SERVFAIL)
+
+    # VMs on trop03 aren't getting their DHCP leases ?
+
+# -----------------------------------------------------
+# Dump the virtual configuration.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+    virsh \
+        -c ${connection} \
+        dumpxml \
+            'Umiawyth'
+
+    >   <domain type='kvm' id='24'>
+    >     <name>Umiawyth</name>
+    >     <uuid>91f9b093-c186-40d7-bd5e-5b61b0616534</uuid>
+    >     <memory unit='KiB'>4194304</memory>
+    >     <currentMemory unit='KiB'>4194304</currentMemory>
+    >     <vcpu placement='static'>4</vcpu>
+    >     <resource>
+    >       <partition>/machine</partition>
+    >     </resource>
+    >     <os>
+    >       <type arch='x86_64' machine='pc-1.1'>hvm</type>
+    >       <boot dev='hd'/>
+    >     </os>
+    >     <features>
+    >       <acpi/>
+    >       <apic/>
+    >       <pae/>
+    >     </features>
+    >     <clock offset='utc'/>
+    >     <on_poweroff>destroy</on_poweroff>
+    >     <on_reboot>restart</on_reboot>
+    >     <on_crash>restart</on_crash>
+    >     <devices>
+    >       <emulator>/usr/bin/kvm</emulator>
+    >       <disk type='file' device='disk'>
+    >         <driver name='qemu' type='qcow2'/>
+    >         <source file='/var/lib/libvirt/images/live/Umiawyth.qcow'/>
+    >         <backingStore type='file' index='1'>
+    >           <format type='qcow2'/>
+    >           <source file='/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow'/>
+    >           <backingStore/>
+    >         </backingStore>
+    >         <target dev='vda' bus='virtio'/>
+    >         <alias name='virtio-disk0'/>
+    >         <address type='pci' domain='0x0000' bus='0x00' slot='0x04' function='0x0'/>
+    >       </disk>
+    >       <disk type='file' device='cdrom'>
+    >         <driver name='qemu' type='raw'/>
+    >         <source file='/var/lib/libvirt/images/init/Umiawyth.iso'/>
+    >         <backingStore/>
+    >         <target dev='vdb' bus='virtio'/>
+    >         <readonly/>
+    >         <alias name='virtio-disk1'/>
+    >         <address type='pci' domain='0x0000' bus='0x00' slot='0x05' function='0x0'/>
+    >       </disk>
+    >       <controller type='usb' index='0' model='piix3-uhci'>
+    >         <alias name='usb'/>
+    >         <address type='pci' domain='0x0000' bus='0x00' slot='0x01' function='0x2'/>
+    >       </controller>
+    >       <controller type='pci' index='0' model='pci-root'>
+    >         <alias name='pci.0'/>
+    >       </controller>
+    >       <interface type='bridge'>
+    >         <mac address='06:00:ac:10:05:01'/>
+    >         <source network='bridged' bridge='br1'/>
+    >         <target dev='vnet9'/>
+    >         <model type='virtio'/>
+    >         <alias name='net0'/>
+    >         <address type='pci' domain='0x0000' bus='0x00' slot='0x03' function='0x0'/>
+    >       </interface>
+    >       <serial type='pty'>
+    >         <source path='/dev/pts/11'/>
+    >         <target port='0'/>
+    >         <alias name='serial0'/>
+    >       </serial>
+    >       <console type='pty' tty='/dev/pts/11'>
+    >         <source path='/dev/pts/11'/>
+    >         <target type='serial' port='0'/>
+    >         <alias name='serial0'/>
+    >       </console>
+    >       <input type='keyboard' bus='ps2'>
+    >         <alias name='input0'/>
+    >       </input>
+    >       <input type='mouse' bus='ps2'>
+    >         <alias name='input1'/>
+    >       </input>
+    >       <graphics type='vnc' port='5909' autoport='yes' listen='127.0.0.1'>
+    >         <listen type='address' address='127.0.0.1'/>
+    >       </graphics>
+    >       <video>
+    >         <model type='cirrus' vram='16384' heads='1' primary='yes'/>
+    >         <alias name='video0'/>
+    >         <address type='pci' domain='0x0000' bus='0x00' slot='0x02' function='0x0'/>
+    >       </video>
+    >       <memballoon model='virtio'>
+    >         <alias name='balloon0'/>
+    >         <address type='pci' domain='0x0000' bus='0x00' slot='0x06' function='0x0'/>
+    >       </memballoon>
+    >     </devices>
+    >     <seclabel type='none' model='none'/>
+    >     <seclabel type='dynamic' model='dac' relabel='yes'>
+    >       <label>+107:+114</label>
+    >       <imagelabel>+107:+114</imagelabel>
+    >     </seclabel>
+    >   </domain>
+
+# -----------------------------------------------------
+# Network interface configuration.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+    virsh \
+        -c ${connection} \
+        dumpxml \
+            'Umiawyth' \
+    | xmlstarlet \
+        select \
+            --nl \
+            --root \
+            --indent \
+            --template \
+            --copy-of '//interface'
+
+    >   <xsl-select>
+    >     <interface type="bridge">
+    >         <mac address="06:00:ac:10:05:01"/>
+    >         <source network="bridged" bridge="br1"/>
+    >         <target dev="vnet9"/>
+    >         <model type="virtio"/>
+    >         <alias name="net0"/>
+    >         <address type="pci" domain="0x0000" bus="0x00" slot="0x03" function="0x0"/>
+    >       </interface>
+    >   </xsl-select>
+
+# -----------------------------------------------------
+# Network configuration.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+    virsh \
+        -c ${connection} \
+        net-dumpxml \
+            'bridged'
+
+    >   <network connections='10' ipv6='yes'>
+    >     <name>bridged</name>
+    >     <uuid>5fc51c90-b305-4bb6-a645-f46993568fa1</uuid>
+    >     <forward mode='bridge'/>
+    >     <bridge name='br1'/>
+    >   </network>
+
+# -----------------------------------------------------
+# Virtual machine template.
+#[user@trop03]
+
+    cat /var/local/projects/ischnura/github/src/config
+
+    >   machines=${datpath:?}/lsst-machines.txt
+    >   template=${datpath:?}/lsst-template.xml
+
+    cat /var/local/projects/ischnura/github/src/dat/lsst-template.xml
+
+    >   <domain type='kvm'>
+    >     <name></name>
+    >     <uuid></uuid>
+    >     <memory unit='GiB'>4</memory>
+    >     <vcpu placement='static'>4</vcpu>
+    >     <resource>
+    >       <partition>/machine</partition>
+    >     </resource>
+    >     <os>
+    >       <type arch='x86_64' machine='pc-1.1'>hvm</type>
+    >       <boot dev='hd'/>
+    >     </os>
+    >     <features>
+    >       <acpi/>
+    >       <apic/>
+    >       <pae/>
+    >     </features>
+    >     <clock offset='utc'/>
+    >     <on_poweroff>destroy</on_poweroff>
+    >     <on_reboot>restart</on_reboot>
+    >     <on_crash>restart</on_crash>
+    >     <devices>
+    >       <emulator>/usr/bin/kvm</emulator>
+    >       <disk type='file' device='disk'>
+    >         <driver name='qemu' type='qcow2'/>
+    >         <target dev='vda' bus='virtio'/>
+    >         <source file='/var/lib/libvirt/images/base/unknown.qcow'/>
+    >         <address type='pci' domain='0x0000' bus='0x00' slot='0x04' function='0x0'/>
+    >       </disk>
+    >       <disk type='file' device='cdrom'>
+    >         <driver name='qemu' type='raw'/>
+    >         <source file='/var/lib/libvirt/images/init/unknown.iso'/>
+    >         <target dev='vdb' bus='virtio'/>
+    >         <readonly/>
+    >         <address type='pci' domain='0x0000' bus='0x00' slot='0x05' function='0x0'/>
+    >       </disk>
+    >       <interface type='network'>
+    >         <mac address='unknown'/>
+    >         <source network='bridged'/>
+    >         <model type='virtio'/>
+    >         <alias name='net0'/>
+    >         <address type='pci' domain='0x0000' bus='0x00' slot='0x03' function='0x0'/>
+    >       </interface>
+    >       <serial type='pty'>
+    >         <source path='/dev/pts/0'/>
+    >         <target port='0'/>
+    >         <alias name='serial0'/>
+    >       </serial>
+    >       <console type='pty' tty='/dev/pts/0'>
+    >         <source path='/dev/pts/0'/>
+    >         <target type='serial' port='0'/>
+    >         <alias name='serial0'/>
+    >       </console>
+    >       <input type='keyboard' bus='ps2'/>
+    >       <graphics type='vnc' port='-1' autoport='yes'/>
+    >       <video>
+    >         <model type='cirrus' vram='9216' heads='1'/>
+    >         <alias name='video0'/>
+    >         <address type='pci' domain='0x0000' bus='0x00' slot='0x02' function='0x0'/>
+    >       </video>
+    >       <memballoon model='virtio'>
+    >         <alias name='balloon0'/>
+    >         <address type='pci' domain='0x0000' bus='0x00' slot='0x06' function='0x0'/>
+    >       </memballoon>
+    >     </devices>
+    >   </domain>
+
+# -----------------------------------------------------
+# Network interface configuration.
+#[user@trop03]
+
+    cat /var/local/projects/ischnura/github/src/dat/lsst-template.xml \
+    | xmlstarlet \
+        select \
+            --nl \
+            --root \
+            --indent \
+            --template \
+            --copy-of '//interface'
+
+    >   <xsl-select>
+    >     <interface type="network">
+    >         <mac address="unknown"/>
+    >         <source network="bridged"/>
+    >         <model type="virtio"/>
+    >         <alias name="net0"/>
+    >         <address type="pci" domain="0x0000" bus="0x00" slot="0x03" function="0x0"/>
+    >       </interface>
+    >   </xsl-select>
+
+
+# -----------------------------------------------------
+# Extend the DHCP leases to 6 hours (reduces traffic in the logs).
+#[user@work01]
+
+    pushd /etc/dnsmasq
+
+        for file in $(ls *dhcp-*.conf)
+        do
+            echo "---- ----"
+            echo "File [${file}]"
+            sudo sed -i '
+                /^dhcp-range.*/ {
+                    s/^\(.*\),[0-9]*[hm]$/\1,6h/
+                    }
+                ' "${file}"
+        done
+
+    >   File [04.dhcp-work01.conf]
+    >   ---- ----
+    >   File [05.dhcp-work02.conf]
+    >   ---- ----
+    >   File [06.dhcp-work03.conf]
+    >   ---- ----
+    >   File [07.dhcp-work04.conf]
+    >   ---- ----
+    >   File [08.dhcp-trop03.conf]
+    >   ---- ----
+    >   File [09.dhcp-trop04.conf]
+    >   ---- ----
+    >   File [99.dhcp-extra.conf]
+
+
+        for file in $(ls *dhcp-*.conf)
+        do
+            echo "---- ----"
+            echo "File [${file}]"
+            sudo sed -n '
+                /^dhcp-range.*/ {
+                    p
+                    }
+                ' "${file}"
+        done
+
+    >   File [04.dhcp-work01.conf]
+    >   dhcp-range=set:work01,172.16.0.1,static,6h
+    >   ---- ----
+    >   File [05.dhcp-work02.conf]
+    >   dhcp-range=set:work02,172.16.2.1,static,6h
+    >   ---- ----
+    >   File [06.dhcp-work03.conf]
+    >   dhcp-range=set:work03,172.16.3.1,static,6h
+    >   ---- ----
+    >   File [07.dhcp-work04.conf]
+    >   dhcp-range=set:work04,172.16.4.1,static,6h
+    >   ---- ----
+    >   File [08.dhcp-trop03.conf]
+    >   dhcp-range=set:trop03,172.16.5.1,static,6h
+    >   ---- ----
+    >   File [09.dhcp-trop04.conf]
+    >   dhcp-range=set:trop04,172.16.6.1,static,6h
+    >   ---- ----
+    >   File [99.dhcp-extra.conf]
+    >   dhcp-range=set:extra,172.16.252.1,172.16.252.252,6h
+
+    popd
+
+# -----------------------------------------------------
+# Add the MAC address tags.
+#[user@work01]
+
+    pushd /etc/dnsmasq
+
+        sudo tee 99.dhcp-unknown.conf << 'EOF'
+dhcp-range=set:unknown,172.16.252.1,172.16.252.252,6h
+
+dhcp-ignore-names
+dhcp-generate-names=tag:unknown
+
+dhcp-mac=set:SuperMicro,ac:1f:6b:*:*:*
+dhcp-mac=set:SuperMicro,0c:c4:7a:*:*:*
+dhcp-mac=set:Intel,a4:bf:01:*:*:*
+EOF
+
+    popd
+
+
+# -----------------------------------------------------
+# Restart the container.
+#[user@work01]
+
+    docker stop $(docker ps -aq)
+    docker rm   $(docker ps -aq)
+
+    docker run \
+        --detach \
+        --name dnsmasq \
+        --network host \
+        --volume /etc/dnsmasq:/etc/dnsmasq \
+        storytel/dnsmasq
+
+    docker ps -a
+
+    >   CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS               NAMES
+    >   c05f0373fad5        storytel/dnsmasq    "dnsmasq"           23 seconds ago      Up 22 seconds                           dnsmasq
+
+    docker logs --since 5m --follow dnsmasq
+
+    >   dnsmasq[1]: started, version 2.78 cachesize 150
+    >   dnsmasq[1]: compile time options: IPv6 GNU-getopt no-DBus no-i18n no-IDN DHCP DHCPv6 no-Lua TFTP no-conntrack ipset auth no-DNSSEC loop-detect inotify
+    >   dnsmasq-dhcp[1]: DHCP, static leases only on 172.16.4.1, lease time 6h
+    >   dnsmasq-dhcp[1]: DHCP, static leases only on 172.16.2.1, lease time 6h
+    >   dnsmasq-dhcp[1]: DHCP, static leases only on 172.16.0.1, lease time 6h
+    >   dnsmasq-dhcp[1]: DHCP, IP range 172.16.252.1 -- 172.16.252.252, lease time 6h
+    >   dnsmasq-dhcp[1]: DHCP, static leases only on 172.16.5.1, lease time 6h
+    >   dnsmasq-dhcp[1]: DHCP, static leases only on 172.16.3.1, lease time 6h
+    >   dnsmasq-dhcp[1]: DHCP, static leases only on 172.16.6.1, lease time 6h
+    >   dnsmasq-dhcp[1]: DHCP, sockets bound exclusively to interface br1
+    >   dnsmasq[1]: using local addresses only for domain lsstuk
+    >   dnsmasq[1]: using local addresses only for domain 16.172.in-addr.arpa
+    >   dnsmasq[1]: using nameserver 8.8.8.8#53
+    >   dnsmasq[1]: using nameserver 195.194.120.2#53
+    >   dnsmasq[1]: using nameserver 195.194.120.1#53
+    >   dnsmasq[1]: cleared cache
+    >   ....
+    >   ....
+
+    # Much less traffic ion thelogs.
+
+
+# -----------------------------------------------------
+# Start a new virtual machine on trop03.
+#[user@trop03]
+
+    createvm
+
+    >   INFO : Node name [Umiawyth]
+    >   INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Disc name [Umiawyth.qcow]
+    >   INFO : Disc size [8GiB]
+    >   
+    >   INFO : MAC  [06:00:AC:10:05:01]
+    >   INFO : IPv4 [172.16.5.1]
+    >   INFO : IPv6 []
+
+    #
+    # No corresponding DHCP request in the dnsmasq log.
+    #
+
+# -----------------------------------------------------
+# Start a new virtual machine on trop04.
+#[user@trop04]
+
+    createvm
+
+    >   INFO : Node name [Wumar]
+    >   INFO : Base name [fedora-28-docker-base-20180708.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-28-docker-base-20180708.qcow]
+    >   INFO : Disc name [Wumar.qcow]
+    >   INFO : Disc size [16GiB]
+    >   
+    >   INFO : MAC  [06:00:AC:10:06:01]
+    >   INFO : IPv4 [172.16.6.1]
+    >   INFO : IPv6 []
+
+    #
+    # Corresponding DHCP request in the dnsmasq log.
+    #
+
+    >   dnsmasq-dhcp[1]: 4052756784 available DHCP subnet: 172.16.6.1/255.255.0.0
+    >   dnsmasq-dhcp[1]: 4052756784 available DHCP subnet: 172.16.3.1/255.255.0.0
+    >   dnsmasq-dhcp[1]: 4052756784 available DHCP subnet: 172.16.5.1/255.255.0.0
+    >   dnsmasq-dhcp[1]: 4052756784 available DHCP range: 172.16.252.1 -- 172.16.252.252
+    >   dnsmasq-dhcp[1]: 4052756784 available DHCP subnet: 172.16.0.1/255.255.0.0
+    >   dnsmasq-dhcp[1]: 4052756784 available DHCP subnet: 172.16.2.1/255.255.0.0
+    >   dnsmasq-dhcp[1]: 4052756784 available DHCP subnet: 172.16.4.1/255.255.0.0
+    >   dnsmasq-dhcp[1]: 4052756784 DHCPDISCOVER(br1) 06:00:ac:10:06:01
+    >   dnsmasq-dhcp[1]: 4052756784 tags: trop04, known, br1
+    >   dnsmasq-dhcp[1]: 4052756784 DHCPOFFER(br1) 172.16.6.1 06:00:ac:10:06:01
+    >   dnsmasq-dhcp[1]: 4052756784 requested options: 1:netmask, 28:broadcast, 2:time-offset, 121:classless-static-route,
+    >   dnsmasq-dhcp[1]: 4052756784 requested options: 15:domain-name, 6:dns-server, 12:hostname,
+    >   dnsmasq-dhcp[1]: 4052756784 requested options: 40:nis-domain, 41:nis-server, 42:ntp-server,
+    >   dnsmasq-dhcp[1]: 4052756784 requested options: 26:mtu, 119:domain-search, 3:router, 121:classless-static-route,
+    >   dnsmasq-dhcp[1]: 4052756784 requested options: 249, 33:static-route, 252, 42:ntp-server
+    >   dnsmasq-dhcp[1]: 4052756784 next server: 172.16.1.1
+    >   dnsmasq-dhcp[1]: 4052756784 broadcast response
+    >   dnsmasq-dhcp[1]: 4052756784 sent size:  1 option: 53 message-type  2
+    >   dnsmasq-dhcp[1]: 4052756784 sent size:  4 option: 54 server-identifier  172.16.1.1
+    >   dnsmasq-dhcp[1]: 4052756784 sent size:  4 option: 51 lease-time  6h
+    >   dnsmasq-dhcp[1]: 4052756784 sent size:  4 option: 58 T1  3h
+    >   dnsmasq-dhcp[1]: 4052756784 sent size:  4 option: 59 T2  5h15m
+    >   dnsmasq-dhcp[1]: 4052756784 sent size:  4 option:  1 netmask  255.255.0.0
+    >   dnsmasq-dhcp[1]: 4052756784 sent size:  4 option: 28 broadcast  172.16.255.255
+    >   dnsmasq-dhcp[1]: 4052756784 sent size:  4 option:  3 router  172.16.1.1
+    >   dnsmasq-dhcp[1]: 4052756784 sent size:  4 option:  6 dns-server  172.16.1.1
+    >   dnsmasq-dhcp[1]: 4052756784 sent size:  6 option: 15 domain-name  lsstuk
+    >   dnsmasq-dhcp[1]: 4052756784 sent size:  5 option: 12 hostname  Wumar
+    >   dnsmasq-dhcp[1]: 4052756784 sent size: 19 option:119 domain-search  06:6c:73:73:74:75:6b:00:03:72:6f:65:02:61...
+    >   dnsmasq-dhcp[1]: 4052756784 available DHCP subnet: 172.16.6.1/255.255.0.0
+    >   dnsmasq-dhcp[1]: 4052756784 available DHCP subnet: 172.16.3.1/255.255.0.0
+    >   dnsmasq-dhcp[1]: 4052756784 available DHCP subnet: 172.16.5.1/255.255.0.0
+    >   dnsmasq-dhcp[1]: 4052756784 available DHCP range: 172.16.252.1 -- 172.16.252.252
+    >   dnsmasq-dhcp[1]: 4052756784 available DHCP subnet: 172.16.0.1/255.255.0.0
+    >   dnsmasq-dhcp[1]: 4052756784 available DHCP subnet: 172.16.2.1/255.255.0.0
+    >   dnsmasq-dhcp[1]: 4052756784 available DHCP subnet: 172.16.4.1/255.255.0.0
+    >   dnsmasq-dhcp[1]: 4052756784 DHCPREQUEST(br1) 172.16.6.1 06:00:ac:10:06:01
+    >   dnsmasq-dhcp[1]: 4052756784 tags: trop04, known, br1
+    >   dnsmasq-dhcp[1]: 4052756784 DHCPACK(br1) 172.16.6.1 06:00:ac:10:06:01 Wumar
+    >   dnsmasq-dhcp[1]: 4052756784 requested options: 1:netmask, 28:broadcast, 2:time-offset, 121:classless-static-route,
+    >   dnsmasq-dhcp[1]: 4052756784 requested options: 15:domain-name, 6:dns-server, 12:hostname,
+    >   dnsmasq-dhcp[1]: 4052756784 requested options: 40:nis-domain, 41:nis-server, 42:ntp-server,
+    >   dnsmasq-dhcp[1]: 4052756784 requested options: 26:mtu, 119:domain-search, 3:router, 121:classless-static-route,
+    >   dnsmasq-dhcp[1]: 4052756784 requested options: 249, 33:static-route, 252, 42:ntp-server
+    >   dnsmasq-dhcp[1]: 4052756784 next server: 172.16.1.1
+    >   dnsmasq-dhcp[1]: 4052756784 broadcast response
+    >   dnsmasq-dhcp[1]: 4052756784 sent size:  1 option: 53 message-type  5
+    >   dnsmasq-dhcp[1]: 4052756784 sent size:  4 option: 54 server-identifier  172.16.1.1
+    >   dnsmasq-dhcp[1]: 4052756784 sent size:  4 option: 51 lease-time  6h
+    >   dnsmasq-dhcp[1]: 4052756784 sent size:  4 option: 58 T1  3h
+    >   dnsmasq-dhcp[1]: 4052756784 sent size:  4 option: 59 T2  5h15m
+    >   dnsmasq-dhcp[1]: 4052756784 sent size:  4 option:  1 netmask  255.255.0.0
+    >   dnsmasq-dhcp[1]: 4052756784 sent size:  4 option: 28 broadcast  172.16.255.255
+    >   dnsmasq-dhcp[1]: 4052756784 sent size:  4 option:  3 router  172.16.1.1
+    >   dnsmasq-dhcp[1]: 4052756784 sent size:  4 option:  6 dns-server  172.16.1.1
+    >   dnsmasq-dhcp[1]: 4052756784 sent size:  6 option: 15 domain-name  lsstuk
+    >   dnsmasq-dhcp[1]: 4052756784 sent size:  5 option: 12 hostname  Wumar
+    >   dnsmasq-dhcp[1]: 4052756784 sent size: 19 option:119 domain-search  06:6c:73:73:74:75:6b:00:03:72:6f:65:02:61...
+
+
+# -----------------------------------------------------
+# ip routes are the same on trop03 and trop04.
+#[user@trop03]
+#[user@trop04]
+
+    sudo ip route
+
+    >   default via 129.215.175.126 dev br0 onlink
+    >   129.215.175.0/24 dev br0 proto kernel scope link src 129.215.175.98
+    >   172.16.0.0/16 dev br1 proto kernel scope link src 172.16.1.5
+
+
+    sudo ip route
+
+    >   default via 129.215.175.126 dev br0 onlink
+    >   129.215.175.0/24 dev br0 proto kernel scope link src 129.215.175.99
+    >   172.16.0.0/16 dev br1 proto kernel scope link src 172.16.1.6
+
+
+# -----------------------------------------------------
+# iptables are the same on trop03 and trop04.
+#[user@trop03]
+#[user@trop04]
+
+    sudo iptables --list
+
+    >   Chain INPUT (policy DROP)
+    >   target     prot opt source               destination
+    >   override   all  --  anywhere             anywhere
+    >   ACCEPT     all  --  anywhere             anywhere
+    >   ACCEPT     udp  --  172.16.0.0/16        anywhere
+    >   ACCEPT     tcp  --  172.16.0.0/16        anywhere
+    >   ACCEPT     tcp  --  195.194.120.0/22     anywhere             tcp dpt:ssh
+    >   ACCEPT     tcp  --  195.194.121.0/24     anywhere             tcp dpt:ssh
+    >   ACCEPT     tcp  --  192.108.120.0/24     anywhere             tcp dpt:ssh
+    >   ACCEPT     tcp  --  192.41.108.0/24      anywhere             tcp dpt:ssh
+    >   ACCEPT     tcp  --  EdLAN.net.ed.ac.uk/16  anywhere             tcp dpt:ssh
+    >   ACCEPT     tcp  --  129.215.175.100/30   anywhere             tcp dpt:ssh
+    >   ACCEPT     tcp  --  polymer.andrews.metagrid.co.uk  anywhere             tcp dpt:ssh
+    >   ACCEPT     tcp  --  67.46.187.81.in-addr.arpa  anywhere             tcp dpt:ssh
+    >   DROP       udp  --  anywhere             anywhere             udp dpt:bootps
+    >   DROP       tcp  --  anywhere             anywhere             tcp dpt:bootps
+    >   LOG        all  --  anywhere             anywhere             LOG level warning prefix "drop "
+    >   DROP       all  --  anywhere             anywhere
+    >   
+    >   Chain FORWARD (policy DROP)
+    >   target     prot opt source               destination
+    >   LOG        all  --  anywhere             anywhere             LOG level warning prefix "drop "
+    >   DROP       all  --  anywhere             anywhere
+    >   
+    >   Chain OUTPUT (policy DROP)
+    >   target     prot opt source               destination
+    >   override   all  --  anywhere             anywhere
+    >   ACCEPT     all  --  anywhere             anywhere
+    >   ACCEPT     udp  --  anywhere             anywhere             udp spts:1024:65535 dpt:domain
+    >   ACCEPT     tcp  --  anywhere             anywhere             tcp spts:1024:65535 dpt:domain
+    >   ACCEPT     udp  --  anywhere             anywhere             udp dpt:ntp
+    >   ACCEPT     tcp  --  anywhere             anywhere
+    >   LOG        all  --  anywhere             anywhere             LOG level warning prefix "drop "
+    >   DROP       all  --  anywhere             anywhere
+    >   
+    >   Chain frasynrel (1 references)
+    >   target     prot opt source               destination
+    >   ACCEPT     all  -f  anywhere             anywhere
+    >   ACCEPT     all  --  anywhere             anywhere             state ESTABLISHED
+    >   ACCEPT     tcp  --  anywhere             anywhere             tcp flags:SYN,RST,ACK/SYN state RELATED
+    >   
+    >   Chain override (2 references)
+    >   target     prot opt source               destination
+    >   frasynrel  all  --  anywhere             anywhere
+    >   vitalicmp  all  --  anywhere             anywhere
+    >   
+    >   Chain vitalicmp (1 references)
+    >   target     prot opt source               destination
+    >   ACCEPT     icmp --  anywhere             anywhere             icmp destination-unreachable
+    >   ACCEPT     icmp --  anywhere             anywhere             icmp parameter-problem
+    >   ACCEPT     icmp --  anywhere             anywhere             icmp source-quench
+    >   ACCEPT     icmp --  anywhere             anywhere             icmp time-exceeded
+
+
+# -----------------------------------------------------
+# net.bridge config files are the same on trop03 and trop04.
+#[user@trop03]
+#[user@trop04]
+
+    cat /etc/sysctl.d/98-bridge.conf
+
+    >   ###################################################################
+    >   # Netfilter bridge settings.
+    >   #
+    >   # http://wiki.libvirt.org/page/Net.bridge.bridge-nf-call_and_sysctl.conf
+    >   # http://ebtables.netfilter.org/misc/brnf-faq.html
+    >   # http://unix.stackexchange.com/questions/136918/why-does-my-firewall-iptables-interfere-in-my-bridge-brctl
+    >   net.bridge.bridge-nf-call-iptables  = 0
+    >   net.bridge.bridge-nf-call-arptables = 0
+    >   net.bridge.bridge-nf-call-ip6tables = 0
+    >   
+    >   # Enable packet forwarding for IPv4
+    >   net.ipv4.ip_forward = 1
+    >   
+    >   # Enable packet forwarding for IPv6
+    >   net.ipv6.conf.all.forwarding = 1
+
+
+# -----------------------------------------------------
+# ** net.bridge config files are different the same on trop03 and trop04.
+#[user@trop03]
+
+    cat /etc/udev/rules.d/98-bridge.rules
+
+    >   # Load the net.bridge rules when the br_netfilter module is loaded.
+    >   # http://manpages.ubuntu.com/manpages/zesty/man5/sysctl.d.5.html
+    >   #
+    >   
+    >   #ACTION=="add", SUBSYSTEM=="module", KERNEL=="ip_tables", RUN+="/sbin/sysctl --load /etc/sysctl.d/98-bridge.conf"
+    >   ACTION=="add", SUBSYSTEM=="module", KERNEL="br_netfilter", RUN+="/sbin/sysctl --load /etc/sysctl.d/98-bridge.conf"
+
+
+# -----------------------------------------------------
+# ** net.bridge config files are different the same on trop03 and trop04.
+#[user@trop03]
+
+    cat /etc/udev/rules.d/98-bridge.rules
+
+    >   # Load the net.bridge rules when the ip_tables module is loaded.
+    >   # http://manpages.ubuntu.com/manpages/zesty/man5/sysctl.d.5.html
+    >   #
+    >   
+    >   ACTION=="add", SUBSYSTEM=="module", KERNEL=="ip_tables", RUN+="/sbin/sysctl --load /etc/sysctl.d/98-bridge.conf"
+
+
+# -----------------------------------------------------
+# *** net.bridge live settings are different on trop03 and trop04.
+#[user@trop03]
+
+    sudo sysctl 'net.bridge'
+
+    >   net.bridge.bridge-nf-call-arptables = 1
+    >   net.bridge.bridge-nf-call-ip6tables = 1
+    >   net.bridge.bridge-nf-call-iptables = 1
+    >   net.bridge.bridge-nf-filter-pppoe-tagged = 0
+    >   net.bridge.bridge-nf-filter-vlan-tagged = 0
+    >   net.bridge.bridge-nf-pass-vlan-input-dev = 0
+
+
+# -----------------------------------------------------
+# *** net.bridge config are different on trop03 and trop04.
+#[user@trop04]
+
+    sudo sysctl 'net.bridge'
+
+    >   sysctl: cannot stat /proc/sys/net/bridge: No such file or directory
+
+
+# -----------------------------------------------------
+# Edit the net.bridge config files on trop03.
+#[user@trop03]
+
+    sudo vi /etc/udev/rules.d/98-bridge.rules
+
+    -   #ACTION=="add", SUBSYSTEM=="module", KERNEL=="ip_tables", RUN+="/sbin/sysctl --load /etc/sysctl.d/98-bridge.conf"
+    +   ACTION=="add", SUBSYSTEM=="module", KERNEL=="ip_tables", RUN+="/sbin/sysctl --load /etc/sysctl.d/98-bridge.conf"
+    -   ACTION=="add", SUBSYSTEM=="module", KERNEL="br_netfilter", RUN+="/sbin/sysctl --load /etc/sysctl.d/98-bridge.conf"
+
+
+    cat /etc/udev/rules.d/98-bridge.rules
+
+    >   # Load the net.bridge rules when the br_netfilter module is loaded.
+    >   # http://manpages.ubuntu.com/manpages/zesty/man5/sysctl.d.5.html
+    >   #
+    >   
+    >   ACTION=="add", SUBSYSTEM=="module", KERNEL=="ip_tables", RUN+="/sbin/sysctl --load /etc/sysctl.d/98-bridge.conf"
+
+
+# -----------------------------------------------------
+# Try loading the iptables module to trigger the update.
+#[user@trop03]
+
+    sudo modprobe ip_tables
+
+
+# -----------------------------------------------------
+# Check the net.bridge live settings.
+#[user@trop03]
+
+    sudo sysctl 'net.bridge'
+
+    >   net.bridge.bridge-nf-call-arptables = 1
+    >   net.bridge.bridge-nf-call-ip6tables = 1
+    >   net.bridge.bridge-nf-call-iptables = 1
+    >   net.bridge.bridge-nf-filter-pppoe-tagged = 0
+    >   net.bridge.bridge-nf-filter-vlan-tagged = 0
+    >   net.bridge.bridge-nf-pass-vlan-input-dev = 0
+
+
+# -----------------------------------------------------
+# Try loading the update manually.
+#[user@trop03]
+
+    sudo sysctl --load /etc/sysctl.d/98-bridge.conf
+
+    >   net.bridge.bridge-nf-call-iptables = 0
+    >   net.bridge.bridge-nf-call-arptables = 0
+    >   net.bridge.bridge-nf-call-ip6tables = 0
+    >   net.ipv4.ip_forward = 1
+    >   net.ipv6.conf.all.forwarding = 1
+
+
+# -----------------------------------------------------
+# Check the net.bridge live settings.
+#[user@trop03]
+
+    sudo sysctl 'net.bridge'
+
+    >   net.bridge.bridge-nf-call-arptables = 0
+    >   net.bridge.bridge-nf-call-ip6tables = 0
+    >   net.bridge.bridge-nf-call-iptables = 0
+    >   net.bridge.bridge-nf-filter-pppoe-tagged = 0
+    >   net.bridge.bridge-nf-filter-vlan-tagged = 0
+    >   net.bridge.bridge-nf-pass-vlan-input-dev = 0
+
+# -----------------------------------------------------
+# Start a new virtual machine on trop03.
+#[user@trop03]
+
+    createvm
+
+    >   INFO : Node name [Umiawyth]
+    >   INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Disc name [Umiawyth.qcow]
+    >   INFO : Disc size [8GiB]
+    >   
+    >   INFO : MAC  [06:00:AC:10:05:01]
+    >   INFO : IPv4 [172.16.5.1]
+    >   INFO : IPv6 []
+
+# -----------------------------------------------------
+# Corresponding DHCP request ..
+#[user@work01]
+
+    docker logs --since 5m --follow dnsmasq
+
+    >   dnsmasq-dhcp[1]: 348878715 available DHCP subnet: 172.16.6.1/255.255.0.0
+    >   dnsmasq-dhcp[1]: 348878715 available DHCP subnet: 172.16.3.1/255.255.0.0
+    >   dnsmasq-dhcp[1]: 348878715 available DHCP subnet: 172.16.5.1/255.255.0.0
+    >   dnsmasq-dhcp[1]: 348878715 available DHCP range: 172.16.252.1 -- 172.16.252.252
+    >   dnsmasq-dhcp[1]: 348878715 available DHCP subnet: 172.16.0.1/255.255.0.0
+    >   dnsmasq-dhcp[1]: 348878715 available DHCP subnet: 172.16.2.1/255.255.0.0
+    >   dnsmasq-dhcp[1]: 348878715 available DHCP subnet: 172.16.4.1/255.255.0.0
+    >   dnsmasq-dhcp[1]: 348878715 DHCPDISCOVER(br1) 06:00:ac:10:05:01
+    >   dnsmasq-dhcp[1]: 348878715 tags: trop04, known, br1
+    >   dnsmasq-dhcp[1]: 348878715 DHCPOFFER(br1) 172.16.5.1 06:00:ac:10:05:01
+    >   dnsmasq-dhcp[1]: 348878715 requested options: 1:netmask, 28:broadcast, 2:time-offset, 121:classless-static-route,
+    >   dnsmasq-dhcp[1]: 348878715 requested options: 15:domain-name, 6:dns-server, 12:hostname,
+    >   dnsmasq-dhcp[1]: 348878715 requested options: 40:nis-domain, 41:nis-server, 42:ntp-server,
+    >   dnsmasq-dhcp[1]: 348878715 requested options: 26:mtu, 119:domain-search, 3:router, 121:classless-static-route,
+    >   dnsmasq-dhcp[1]: 348878715 requested options: 249, 33:static-route, 252, 42:ntp-server
+    >   dnsmasq-dhcp[1]: 348878715 next server: 172.16.1.1
+    >   dnsmasq-dhcp[1]: 348878715 broadcast response
+    >   dnsmasq-dhcp[1]: 348878715 sent size:  1 option: 53 message-type  2
+    >   dnsmasq-dhcp[1]: 348878715 sent size:  4 option: 54 server-identifier  172.16.1.1
+    >   dnsmasq-dhcp[1]: 348878715 sent size:  4 option: 51 lease-time  6h
+    >   dnsmasq-dhcp[1]: 348878715 sent size:  4 option: 58 T1  3h
+    >   dnsmasq-dhcp[1]: 348878715 sent size:  4 option: 59 T2  5h15m
+    >   dnsmasq-dhcp[1]: 348878715 sent size:  4 option:  1 netmask  255.255.0.0
+    >   dnsmasq-dhcp[1]: 348878715 sent size:  4 option: 28 broadcast  172.16.255.255
+    >   dnsmasq-dhcp[1]: 348878715 sent size:  4 option:  3 router  172.16.1.1
+    >   dnsmasq-dhcp[1]: 348878715 sent size:  4 option:  6 dns-server  172.16.1.1
+    >   dnsmasq-dhcp[1]: 348878715 sent size:  6 option: 15 domain-name  lsstuk
+    >   dnsmasq-dhcp[1]: 348878715 sent size:  8 option: 12 hostname  Umiawyth
+    >   dnsmasq-dhcp[1]: 348878715 sent size: 19 option:119 domain-search  06:6c:73:73:74:75:6b:00:03:72:6f:65:02:61...
+    >   dnsmasq-dhcp[1]: 348878715 available DHCP subnet: 172.16.6.1/255.255.0.0
+    >   dnsmasq-dhcp[1]: 348878715 available DHCP subnet: 172.16.3.1/255.255.0.0
+    >   dnsmasq-dhcp[1]: 348878715 available DHCP subnet: 172.16.5.1/255.255.0.0
+    >   dnsmasq-dhcp[1]: 348878715 available DHCP range: 172.16.252.1 -- 172.16.252.252
+    >   dnsmasq-dhcp[1]: 348878715 available DHCP subnet: 172.16.0.1/255.255.0.0
+    >   dnsmasq-dhcp[1]: 348878715 available DHCP subnet: 172.16.2.1/255.255.0.0
+    >   dnsmasq-dhcp[1]: 348878715 available DHCP subnet: 172.16.4.1/255.255.0.0
+    >   dnsmasq-dhcp[1]: 348878715 DHCPREQUEST(br1) 172.16.5.1 06:00:ac:10:05:01
+    >   dnsmasq-dhcp[1]: 348878715 tags: trop04, known, br1
+    >   dnsmasq-dhcp[1]: 348878715 DHCPACK(br1) 172.16.5.1 06:00:ac:10:05:01 Umiawyth
+    >   dnsmasq-dhcp[1]: 348878715 requested options: 1:netmask, 28:broadcast, 2:time-offset, 121:classless-static-route,
+    >   dnsmasq-dhcp[1]: 348878715 requested options: 15:domain-name, 6:dns-server, 12:hostname,
+    >   dnsmasq-dhcp[1]: 348878715 requested options: 40:nis-domain, 41:nis-server, 42:ntp-server,
+    >   dnsmasq-dhcp[1]: 348878715 requested options: 26:mtu, 119:domain-search, 3:router, 121:classless-static-route,
+    >   dnsmasq-dhcp[1]: 348878715 requested options: 249, 33:static-route, 252, 42:ntp-server
+    >   dnsmasq-dhcp[1]: 348878715 next server: 172.16.1.1
+    >   dnsmasq-dhcp[1]: 348878715 broadcast response
+    >   dnsmasq-dhcp[1]: 348878715 sent size:  1 option: 53 message-type  5
+    >   dnsmasq-dhcp[1]: 348878715 sent size:  4 option: 54 server-identifier  172.16.1.1
+    >   dnsmasq-dhcp[1]: 348878715 sent size:  4 option: 51 lease-time  6h
+    >   dnsmasq-dhcp[1]: 348878715 sent size:  4 option: 58 T1  3h
+    >   dnsmasq-dhcp[1]: 348878715 sent size:  4 option: 59 T2  5h15m
+    >   dnsmasq-dhcp[1]: 348878715 sent size:  4 option:  1 netmask  255.255.0.0
+    >   dnsmasq-dhcp[1]: 348878715 sent size:  4 option: 28 broadcast  172.16.255.255
+    >   dnsmasq-dhcp[1]: 348878715 sent size:  4 option:  3 router  172.16.1.1
+    >   dnsmasq-dhcp[1]: 348878715 sent size:  4 option:  6 dns-server  172.16.1.1
+    >   dnsmasq-dhcp[1]: 348878715 sent size:  6 option: 15 domain-name  lsstuk
+    >   dnsmasq-dhcp[1]: 348878715 sent size:  8 option: 12 hostname  Umiawyth
+    >   dnsmasq-dhcp[1]: 348878715 sent size: 19 option:119 domain-search  06:6c:73:73:74:75:6b:00:03:72:6f:65:02:61...
+
+
+# -----------------------------------------------------
+# ssh access by name works.
+#[user@trop03]
+
+    ssh Umiawyth '
+        date
+        hostname
+        '
+
+    >   Tue  9 Jul 05:17:28 BST 2019
+    >   Umiawyth
+
+
+# -----------------------------------------------------
+# Reboot our mirror maker nodes.
+#[user@trop03]
+
+    source "${HOME}/nodenames.txt"
+    source "${HOME}/libvirt.settings"
+
+    for vmname in ${mmnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname}]"
+            virsh \
+                -c ${connection} \
+                reboot \
+                    "${vmname}"
+        done
+
+    >   Node [Grerat]
+    >   Domain Grerat is being rebooted
+    >   
+    >   ---- ----
+    >   Node [Jeralenia]
+    >   Domain Jeralenia is being rebooted
+
+
+# -----------------------------------------------------
+# Corresponding DHCP request ..
+#[user@work01]
+
+    docker logs --since 5m --follow dnsmasq
+
+    >   dnsmasq-dhcp[1]: 1735008637 available DHCP subnet: 172.16.6.1/255.255.0.0
+    >   dnsmasq-dhcp[1]: 1735008637 available DHCP subnet: 172.16.3.1/255.255.0.0
+    >   dnsmasq-dhcp[1]: 1735008637 available DHCP subnet: 172.16.5.1/255.255.0.0
+    >   dnsmasq-dhcp[1]: 1735008637 available DHCP range: 172.16.252.1 -- 172.16.252.252
+    >   dnsmasq-dhcp[1]: 1735008637 available DHCP subnet: 172.16.0.1/255.255.0.0
+    >   dnsmasq-dhcp[1]: 1735008637 available DHCP subnet: 172.16.2.1/255.255.0.0
+    >   dnsmasq-dhcp[1]: 1735008637 available DHCP subnet: 172.16.4.1/255.255.0.0
+    >   dnsmasq-dhcp[1]: 1735008637 client provides name: Grerat
+    >   dnsmasq-dhcp[1]: 1735008637 DHCPREQUEST(br1) 172.16.5.17 06:00:ac:10:05:11
+    >   dnsmasq-dhcp[1]: 1735008637 tags: trop04, known, br1
+    >   dnsmasq-dhcp[1]: 1735008637 DHCPACK(br1) 172.16.5.17 06:00:ac:10:05:11 Grerat
+    >   dnsmasq-dhcp[1]: 1735008637 requested options: 1:netmask, 28:broadcast, 2:time-offset, 121:classless-static-route,
+    >   dnsmasq-dhcp[1]: 1735008637 requested options: 15:domain-name, 6:dns-server, 12:hostname,
+    >   dnsmasq-dhcp[1]: 1735008637 requested options: 40:nis-domain, 41:nis-server, 42:ntp-server,
+    >   dnsmasq-dhcp[1]: 1735008637 requested options: 26:mtu, 119:domain-search, 3:router, 121:classless-static-route,
+    >   dnsmasq-dhcp[1]: 1735008637 requested options: 249, 33:static-route, 252, 42:ntp-server
+    >   dnsmasq-dhcp[1]: 1735008637 next server: 172.16.1.1
+    >   dnsmasq-dhcp[1]: 1735008637 broadcast response
+    >   dnsmasq-dhcp[1]: 1735008637 sent size:  1 option: 53 message-type  5
+    >   dnsmasq-dhcp[1]: 1735008637 sent size:  4 option: 54 server-identifier  172.16.1.1
+    >   dnsmasq-dhcp[1]: 1735008637 sent size:  4 option: 51 lease-time  6h
+    >   dnsmasq-dhcp[1]: 1735008637 sent size:  4 option: 58 T1  3h
+    >   dnsmasq-dhcp[1]: 1735008637 sent size:  4 option: 59 T2  5h15m
+    >   dnsmasq-dhcp[1]: 1735008637 sent size:  4 option:  1 netmask  255.255.0.0
+    >   dnsmasq-dhcp[1]: 1735008637 sent size:  4 option: 28 broadcast  172.16.255.255
+    >   dnsmasq-dhcp[1]: 1735008637 sent size:  4 option:  3 router  172.16.1.1
+    >   dnsmasq-dhcp[1]: 1735008637 sent size:  4 option:  6 dns-server  172.16.1.1
+    >   dnsmasq-dhcp[1]: 1735008637 sent size:  6 option: 15 domain-name  lsstuk
+    >   dnsmasq-dhcp[1]: 1735008637 sent size:  6 option: 12 hostname  Grerat
+    >   dnsmasq-dhcp[1]: 1735008637 sent size: 19 option:119 domain-search  06:6c:73:73:74:75:6b:00:03:72:6f:65:02:61...
+
+    >   dnsmasq-dhcp[1]: 2731046716 available DHCP subnet: 172.16.6.1/255.255.0.0
+    >   dnsmasq-dhcp[1]: 2731046716 available DHCP subnet: 172.16.3.1/255.255.0.0
+    >   dnsmasq-dhcp[1]: 2731046716 available DHCP subnet: 172.16.5.1/255.255.0.0
+    >   dnsmasq-dhcp[1]: 2731046716 available DHCP range: 172.16.252.1 -- 172.16.252.252
+    >   dnsmasq-dhcp[1]: 2731046716 available DHCP subnet: 172.16.0.1/255.255.0.0
+    >   dnsmasq-dhcp[1]: 2731046716 available DHCP subnet: 172.16.2.1/255.255.0.0
+    >   dnsmasq-dhcp[1]: 2731046716 available DHCP subnet: 172.16.4.1/255.255.0.0
+    >   dnsmasq-dhcp[1]: 2731046716 client provides name: Jeralenia
+    >   dnsmasq-dhcp[1]: 2731046716 DHCPREQUEST(br1) 172.16.5.18 06:00:ac:10:05:12
+    >   dnsmasq-dhcp[1]: 2731046716 tags: trop04, known, br1
+    >   dnsmasq-dhcp[1]: 2731046716 DHCPACK(br1) 172.16.5.18 06:00:ac:10:05:12 Jeralenia
+    >   dnsmasq-dhcp[1]: 2731046716 requested options: 1:netmask, 28:broadcast, 2:time-offset, 121:classless-static-route,
+    >   dnsmasq-dhcp[1]: 2731046716 requested options: 15:domain-name, 6:dns-server, 12:hostname,
+    >   dnsmasq-dhcp[1]: 2731046716 requested options: 40:nis-domain, 41:nis-server, 42:ntp-server,
+    >   dnsmasq-dhcp[1]: 2731046716 requested options: 26:mtu, 119:domain-search, 3:router, 121:classless-static-route,
+    >   dnsmasq-dhcp[1]: 2731046716 requested options: 249, 33:static-route, 252, 42:ntp-server
+    >   dnsmasq-dhcp[1]: 2731046716 next server: 172.16.1.1
+    >   dnsmasq-dhcp[1]: 2731046716 broadcast response
+    >   dnsmasq-dhcp[1]: 2731046716 sent size:  1 option: 53 message-type  5
+    >   dnsmasq-dhcp[1]: 2731046716 sent size:  4 option: 54 server-identifier  172.16.1.1
+    >   dnsmasq-dhcp[1]: 2731046716 sent size:  4 option: 51 lease-time  6h
+    >   dnsmasq-dhcp[1]: 2731046716 sent size:  4 option: 58 T1  3h
+    >   dnsmasq-dhcp[1]: 2731046716 sent size:  4 option: 59 T2  5h15m
+    >   dnsmasq-dhcp[1]: 2731046716 sent size:  4 option:  1 netmask  255.255.0.0
+    >   dnsmasq-dhcp[1]: 2731046716 sent size:  4 option: 28 broadcast  172.16.255.255
+    >   dnsmasq-dhcp[1]: 2731046716 sent size:  4 option:  3 router  172.16.1.1
+    >   dnsmasq-dhcp[1]: 2731046716 sent size:  4 option:  6 dns-server  172.16.1.1
+    >   dnsmasq-dhcp[1]: 2731046716 sent size:  6 option: 15 domain-name  lsstuk
+    >   dnsmasq-dhcp[1]: 2731046716 sent size:  9 option: 12 hostname  Jeralenia
+    >   dnsmasq-dhcp[1]: 2731046716 sent size: 19 option:119 domain-search  06:6c:73:73:74:75:6b:00:03:72:6f:65:02:61...
+
+
+# -----------------------------------------------------
+# Try login to our mirror maker nodes.
+#[user@trop03]
+
+    source "${HOME}/ssh-options"
+    source "${HOME}/nodenames.txt"
+
+    for vmname in ${mmnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname}]"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    hostname
+                    date
+                    "
+        done
+
+
+    >   Node [Grerat]
+    >   Grerat
+    >   Tue  9 Jul 05:20:24 BST 2019
+    >   ---- ----
+    >   Node [Jeralenia]
+    >   Jeralenia
+    >   Tue  9 Jul 05:20:24 BST 2019
+
+# TODO
+# Now we need to reboot the zookeeper and Kafka nodes
+# Zookeeper should be fine
+# Kafka will try to re-index everything ..
+#
+
+
+# -----------------------------------------------------
+# Reboot our Zookeeper nodes.
+#[user@trop03]
+
+    source "${HOME}/nodenames.txt"
+    source "${HOME}/libvirt.settings"
+
+    for vmname in ${zknames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname}]"
+            virsh \
+                -c ${connection} \
+                reboot \
+                    "${vmname}"
+        done
+
+    >   Node [Fosauri]
+    >   Domain Fosauri is being rebooted
+    >   ---- ----
+    >   Node [Marpus]
+    >   Domain Marpus is being rebooted
+    >   ---- ----
+    >   Node [Byflame]
+    >   Domain Byflame is being rebooted
+
+
+

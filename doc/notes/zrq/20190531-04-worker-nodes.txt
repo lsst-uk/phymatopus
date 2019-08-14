@@ -1,0 +1,101 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+    # Install user account and keys on work02-04
+
+
+# -----------------------------------------------------
+# Add ssh keys to our user accounts.
+#[root@work02]
+#[root@work03]
+#[root@work04]
+
+    username=dmr
+
+    usermod \
+        --append \
+        --groups 'sudo' \
+        "${username:?}"
+
+    usermod \
+        --append \
+        --groups 'docker' \
+        "${username:?}"
+
+    sudo \
+        --shell \
+        --set-home \
+        --user "${username:?}" << 'EOF'
+
+    cd "${HOME:?}"
+
+    if [ ! -e '.ssh' ]
+    then
+        mkdir '.ssh'
+    fi
+
+    chown "$(id -u)"  '.ssh'
+    chgrp "$(id -g)"  '.ssh'
+    chmod g=,o=,u=rwx '.ssh'
+
+    pushd '.ssh'
+
+        wget 'http://data.metagrid.co.uk/sshkeys/dmr.roe.ac.uk.rsa.pub'
+        cat  'dmr.roe.ac.uk.rsa.pub' >> 'authorized_keys'
+
+        chown "$(id -u)"   'authorized_keys'
+        chgrp "$(id -g)"   'authorized_keys'
+        chmod g=r,o=r,u=rw 'authorized_keys'
+
+    popd
+
+EOF
+
+
+# -----------------------------------------------------
+# Sed script to create the ischnura machine list
+
+    # trop03=06:00:00:10:05:01,172.16.5.1,Umiawyth
+    # trop03  Umiawyth    06:00:00:10:05:01   172.16.5.1
+
+    sed -n '
+        s/^\([^=]*\)=\([^,]*\),\(.*\),\(.*\)$/\1  \4  \2  \3/p
+        ' lsst-machines.txt
+
+    sed -i '
+        s/^\([^=]*\)=\([^,]*\),\(.*\),\(.*\)$/\1  \4  \2  \3/
+        ' lsst-machines.txt
+
+# -----------------------------------------------------
+# Sed script to convert an ischnura machine list into a dnsmasq
+
+    work01  Onaukon     06:00:AC:10:00:01  172.16.0.1
+    dhcp-host=06:00:AC:10:00:01,172.16.0.1,Onaukon
+
+    sed '
+        /^[[:space:]]*$/ !{
+            s/^\([[:alnum:]]*\)[[:space:]]*\([[:alnum:]]*\)[[:space:]]*\([:[:alnum:]]*\)[[:space:]]*\([.[:alnum:]]*\)$/dhcp-host=\3,\4,\2/
+            }
+        ' lsst-machines.txt \
+        | tee lsst-dnsmasq.txt
+
+

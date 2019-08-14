@@ -1,0 +1,192 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+# -----------------------------------------------------
+# Login to the VM.
+#[user@work02]
+
+    ssh Nydiabaen
+    ssh Eraullan
+    ssh Dwerader
+    ssh Koiclya
+
+
+    # -----------------------------------------------------
+    # Create a container to work with.
+    #[user@virtual]
+
+        docker run \
+            --rm \
+            --tty \
+            --interactive \
+            --hostname builder \
+            --env SSH_AUTH_SOCK=/tmp/ssh_auth_sock \
+            --volume ${SSH_AUTH_SOCK}:/tmp/ssh_auth_sock \
+            firethorn/builder \
+            bash
+
+            >   Unable to find image 'firethorn/builder:latest' locally
+            >   latest: Pulling from firethorn/builder
+            >   ....
+            >   ....
+            >   Digest: sha256:8f984115c8ae158ba3ed45d28ffe656278cd3f2429f7af87cd3ffa3679237f1f
+            >   Status: Downloaded newer image for firethorn/builder:latest
+
+        # -----------------------------------------------------
+        # Checkout a copy of our source code.
+        #[user@builder]
+
+            PHYMATOPUS_REPO=https://github.com/Zarquan/phymatopus
+            PHYMATOPUS_CODE=/var/local/build/phymatopus
+
+            if [ ! -e "${PHYMATOPUS_CODE:?}" ]
+            then
+                if [ ! -e "$(dirname ${PHYMATOPUS_CODE:?})" ]
+                then
+                    mkdir -p "$(dirname ${PHYMATOPUS_CODE:?})"
+                fi
+                pushd "$(dirname ${PHYMATOPUS_CODE:?})"
+                    git clone "${PHYMATOPUS_REPO:?}" "$(basename ${PHYMATOPUS_CODE:?})"
+
+                popd
+            else
+                pushd "${PHYMATOPUS_CODE:?}"
+                    git pull
+                popd
+            fi
+
+        # -----------------------------------------------------
+        # Build and run our tests.
+        #[user@builder]
+
+            pushd "${PHYMATOPUS_CODE:?}"
+                pushd kafka-tools
+
+                    git pull
+
+                    mvn clean compile
+
+                    datetime=$(date +%Y%m%d%H%M%S)
+                    echo "datetime [${datetime}]"
+
+                    ztftopic=ztf_20190612_programid1
+                    lssttopic=lsst-test-20190624021706
+                    looplimit=1000
+
+                    mvn test -D 'test=AlertConversionTest'    -D "phymatopus.kafka.reader.topic=${ztftopic}" -D "phymatopus.kafka.writer.topic=${lssttopic}" -D "phymatopus.kafka.reader.looplimit=${looplimit}"
+                    mvn test -D 'test=AlertConversionTest'    -D "phymatopus.kafka.reader.topic=${ztftopic}" -D "phymatopus.kafka.writer.topic=${lssttopic}"
+
+    >   2019-06-24 02:26:31,420 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [4] threads read [278279] alerts from topic [ztf_20190612_programid1] in [453829.0]ms at [1.6308417]ms per alert
+
+                    mvn test -D 'test=ZtfAlertReaderTest'    -D "phymatopus.kafka.reader.topic=${ztftopic}"
+
+    >   2019-06-24 03:47:15,661 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [4] threads read [278279] alerts from topic [ztf_20190612_programid1] in [148150.0]ms at [0.5323794]ms per alert
+
+                    mvn test -D 'test=LsstAlertReaderTest'    -D "phymatopus.kafka.reader.topic=${lssttopic}"
+
+    >   2019-06-24 02:31:00,464 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [4] threads read [278279] alerts from topic [lsst-test-20190624021706] in [169788.0]ms at [0.61013585]ms per alert
+    >   2019-06-24 03:50:58,546 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [4] threads read [278279] alerts from topic [lsst-test-20190624021706] in [98323.0]ms at [0.35332525]ms per alert
+
+
+                    mvn test -D 'test=ZtfCandiateWriterTest'  -D "phymatopus.kafka.reader.topic=${ztftopic}"
+
+    >   2019-06-24 02:41:27,882 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [4] threads read [278279] alerts from topic [ztf_20190612_programid1] in [229912.0]ms at [0.82619244]ms per alert
+    >   2019-06-24 03:25:11,783 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [4] threads read [278279] alerts from topic [ztf_20190612_programid1] in [231363.0]ms at [0.8314066]ms per alert
+
+                    mvn test -D 'test=LsstCandiateWriterTest' -D "phymatopus.kafka.reader.topic=${lssttopic}"
+
+    >   2019-06-24 03:13:05,534 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [4] threads read [278279] alerts from topic [lsst-test-20190624021706] in [412509.0]ms at [1.4823576]ms per alert
+    >   2019-06-24 03:37:27,419 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [4] threads read [278279] alerts from topic [lsst-test-20190624021706] in [420354.0]ms at [1.5105487]ms per alert
+
+
+
+
+
+
+
+
+
+
+
+
+                    datetime=$(date +%Y%m%d%H%M%S)
+                    echo "datetime [${datetime}]"
+
+                    ztftopic=ztf_20190612_programid1
+                    lssttopic=lsst-test-${datetime}
+
+                    mvn test -D 'test=AlertConversionTest'    -D "phymatopus.kafka.reader.topic=${ztftopic}" -D "phymatopus.kafka.writer.topic=${lssttopic}"
+
+                    mvn test \
+                        -D 'test=AlertConversionTest' \
+                        -D "phymatopus.kafka.reader.threads=16" \
+                        -D "phymatopus.kafka.reader.topic=${ztftopic}" \
+                        -D "phymatopus.kafka.writer.topic=${lssttopic}"
+
+    >   2019-06-24 09:08:31,722 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [16] threads read [278279] alerts from topic [ztf_20190612_programid1] in [357066.0]ms at [1.2831223]ms per alert
+
+                    mvn test -D 'test=ZtfAlertReaderTest'    -D "phymatopus.kafka.reader.topic=${ztftopic}"
+
+    >   2019-06-24 09:14:05,188 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [4] threads read [278279] alerts from topic [ztf_20190612_programid1] in [150826.0]ms at [0.54199564]ms per alert
+
+                    mvn test -D 'test=LsstAlertReaderTest'    -D "phymatopus.kafka.reader.topic=${lssttopic}"
+
+    >   2019-06-24 09:31:32,339 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [4] threads read [278279] alerts from topic [lsst-test-20190624090024] in [146328.0]ms at [0.525832]ms per alert
+
+
+                    mvn test -D 'test=ZtfCandiateWriterTest'  -D "phymatopus.kafka.reader.topic=${ztftopic}"
+
+
+                    mvn test -D 'test=LsstCandiateWriterTest' -D "phymatopus.kafka.reader.topic=${lssttopic}"
+
+
+
+
+
+
+                    datetime=$(date +%Y%m%d%H%M%S)
+                    echo "datetime [${datetime}]"
+
+                    ztftopic=ztf_20190129_programid1
+                    lssttopic=lsst-test-${datetime}
+
+                    mvn test \
+                        -D 'test=AlertConversionTest' \
+                        -D "phymatopus.kafka.reader.threads=16" \
+                        -D "phymatopus.kafka.reader.topic=${ztftopic}" \
+                        -D "phymatopus.kafka.writer.topic=${lssttopic}"
+
+
+                    mvn test -D 'test=ZtfAlertReaderTest'    -D "phymatopus.kafka.reader.topic=${ztftopic}"
+
+
+                    mvn test -D 'test=LsstAlertReaderTest'    -D "phymatopus.kafka.reader.topic=${lssttopic}"
+
+
+
+                    mvn test -D 'test=ZtfCandiateWriterTest'  -D "phymatopus.kafka.reader.topic=${ztftopic}"
+
+
+                    mvn test -D 'test=LsstCandiateWriterTest' -D "phymatopus.kafka.reader.topic=${lssttopic}"
+
+
+

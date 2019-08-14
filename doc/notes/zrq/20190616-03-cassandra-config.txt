@@ -1,0 +1,231 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+    Primary config for Cassandra.
+    https://docs.datastax.com/en/archived/cassandra/3.0/cassandra/configuration/configCassandra_yaml.html
+
+
+    Docker container for Cassandra.
+    https://github.com/docker-library/cassandra
+
+    Small (fixed) set of environment variables :
+
+        CASSANDRA_NAME
+        CASSANDRA_SEEDS
+        CASSANDRA_RPC_ADDRESS
+        CASSANDRA_LISTEN_ADDRESS
+        CASSANDRA_BROADCAST_ADDRESS
+
+    Not includeds are the data directories.
+
+
+    cat /etc/cassandra/cassandra.yaml
+
+        ....
+        ....
+        # Directories where Cassandra should store data on disk.  Cassandra
+        # will spread data evenly across them, subject to the granularity of
+        # the configured compaction strategy.
+        # If not set, the default directory is $CASSANDRA_HOME/data/data.
+        data_file_directories:
+            - /var/lib/cassandra/data
+
+        # commit log.  when running on magnetic HDD, this should be a
+        # separate spindle than the data directories.
+        # If not set, the default directory is $CASSANDRA_HOME/data/commitlog.
+        commitlog_directory: /var/lib/cassandra/commitlog
+        ....
+        ....
+
+
+    We need to change these to match our data volumes:
+
+        ....
+        ....
+        data_file_directories:
+            - /data1/cassandra/data
+            - /data2/cassandra/data
+
+        commitlog_directory: /data3/cassandra/commitlog
+        ....
+        ....
+
+
+    GitHub issues:
+
+        Cannot mount a custom cassandra.yaml
+        https://github.com/docker-library/cassandra/issues/58
+
+        Adjust "sed" expressions so we can bind-mount the configuration file
+        https://github.com/docker-library/cassandra/pull/160
+        The Docker container entrypoint.sh has been updated to cope with bind
+
+    The concensus seems to be we use Docker volume to bind mount out own config file.
+
+
+
+# -----------------------------------------------------
+# Extract a copy of the config file.
+#[user@desktop]
+
+    docker ps -a
+
+    >   CONTAINER ID        IMAGE               COMMAND                  CREATED             STATUS                   PORTS               NAMES
+    >   ....
+    >   ....
+
+    docker create \
+        --name example \
+            cassandra:3.11
+
+    >   62f984fd3fb53d472eb57c6a272a4f793a6ca55bf4334afad0e1c4e5c90839fb
+
+
+    docker ps -a
+
+    >   CONTAINER ID        IMAGE               COMMAND                  CREATED                  STATUS                   PORTS               NAMES
+    >   62f984fd3fb5        cassandra:3.11      "docker-entrypoint.s…"   Less than a second ago   Created                                      example
+    >   ....
+    >   ....
+
+
+    docker cp \
+        example:/etc/cassandra/cassandra.yaml \
+        cassandra.yaml
+
+    >   
+
+
+    docker rm \
+        example
+
+    >   example
+
+
+    docker ps -a
+
+    >   CONTAINER ID        IMAGE               COMMAND                  CREATED                  STATUS                   PORTS               NAMES
+    >   ....
+    >   ....
+
+# -----------------------------------------------------
+# First few lines of the config file ..
+#[user@desktop]
+
+    head cassandra.yaml
+
+    >   # NOTE:
+    >   #   See http://wiki.apache.org/cassandra/StorageConfiguration for
+    >   #   full explanations of configuration directives
+    >   # /NOTE
+
+# -----------------------------------------------------
+# First few lines of the wiki page ..
+#[user@desktop]
+
+    firefox 'http://wiki.apache.org/cassandra/StorageConfiguration' &
+
+    >   Config Overview
+    >   Not going to cover every value, just the interesting ones. When in doubt, check out the comments on the default cassandra.yaml as they're well documented there.
+
+
+# -----------------------------------------------------
+# Single value 'commitlog_directory' is easy enough.
+#[user@desktop]
+
+    # Match the commitlog_directory entry.
+    sed -r -n '
+        /^[[:space:]]*commitlog_directory:/ {
+            p
+            }
+        ' cassandra.yaml
+
+    # Modify the commitlog_directory entry.
+    sed -n '
+        s/^\([[:space:]]*commitlog_directory:\)\(.*\)$/\1 \/data3\/cassandra\/commitlog\//p
+        ' cassandra.yaml
+
+    >   commitlog_directory: /data3/cassandra/commitlog/
+
+
+# -----------------------------------------------------
+# Multi-line data_file_directories is a bit more tricky.
+#[user@desktop]
+
+    # Match the data_file_directories block.
+    sed -r -n '
+        /^[[:space:]]*data_file_directories:/,/(^[[:space:]]*[^-[:space:]]|^$)/ {
+            p
+            }
+        ' cassandra.yaml
+
+    >   data_file_directories:
+    >       - /var/lib/cassandra/data
+    >   
+
+
+    # Match just the entries within the block.
+    sed -r -n '
+        /^[[:space:]]*data_file_directories:/,/(^[[:space:]]*[^-[:space:]]|^$)/ {
+            /^[[:space:]]*-/ {
+                p
+                }
+            }
+        ' cassandra.yaml
+
+    >       - /var/lib/cassandra/data
+
+
+    # Delete the entries within the block and then add new ones.
+    sed -r '
+        /^[[:space:]]*data_file_directories:/,/(^[[:space:]]*[^-[:space:]]|^$)/ {
+            /^[[:space:]]*-/ {
+                d
+                }
+            }
+        /^[[:space:]]*data_file_directories:/ {
+            a\
+\    - /data1/cassandra/data\
+\    - /data2/cassandra/data
+            }
+        ' cassandra.yaml \
+        > modified.yaml
+
+
+    >   
+
+
+    # Check the resulting block.
+
+    sed -r -n '
+        /^[[:space:]]*data_file_directories:/,/(^[[:space:]]*[^-[:space:]]|^$)/ {
+            p
+            }
+        ' modified.yaml
+
+    >   data_file_directories:
+    >       - /data1/cassandra/data
+    >       - /data2/cassandra/data
+    >   
+
+
+

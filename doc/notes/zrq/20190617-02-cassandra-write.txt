@@ -1,0 +1,367 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+
+# -----------------------------------------------------
+# Create a VM.
+#[user@work02]
+
+    createvm
+
+    >   INFO : Node name [Nydiabaen]
+    >   INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Disc name [Nydiabaen.qcow]
+    >   INFO : Disc size [8GiB]
+    >
+    >   INFO : MAC  [06:00:AC:10:02:01]
+    >   INFO : IPv4 [172.16.2.1]
+    >   INFO : IPv6 []
+
+
+    createvm
+
+    >   INFO : Node name [Eraullan]
+    >   INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Disc name [Eraullan.qcow]
+    >   INFO : Disc size [8GiB]
+    >
+    >   INFO : MAC  [06:00:AC:10:02:02]
+    >   INFO : IPv4 [172.16.2.2]
+    >   INFO : IPv6 []
+
+
+    createvm
+
+    >   INFO : Node name [Dwerader]
+    >   INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Disc name [Dwerader.qcow]
+    >   INFO : Disc size [8GiB]
+    >   
+    >   INFO : MAC  [06:00:AC:10:02:03]
+    >   INFO : IPv4 [172.16.2.3]
+    >   INFO : IPv6 []
+
+
+    createvm
+
+    >   INFO : Node name [Koiclya]
+    >   INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Disc name [Koiclya.qcow]
+    >   INFO : Disc size [8GiB]
+    >   
+    >   INFO : MAC  [06:00:AC:10:02:04]
+    >   INFO : IPv4 [172.16.2.4]
+    >   INFO : IPv6 []
+
+# -----------------------------------------------------
+# Login to the VM.
+#[user@work02]
+
+    ssh Nydiabaen
+    ssh Eraullan
+    ssh Dwerader
+    ssh Koiclya
+
+
+    # -----------------------------------------------------
+    # Create a container to work with.
+    #[user@virtual]
+
+        docker run \
+            --rm \
+            --tty \
+            --interactive \
+            --hostname builder \
+            --env SSH_AUTH_SOCK=/tmp/ssh_auth_sock \
+            --volume ${SSH_AUTH_SOCK}:/tmp/ssh_auth_sock \
+            firethorn/builder \
+            bash
+
+    >   Unable to find image 'firethorn/builder:latest' locally
+    >   latest: Pulling from firethorn/builder
+    >   ....
+    >   ....
+    >   Digest: sha256:8f984115c8ae158ba3ed45d28ffe656278cd3f2429f7af87cd3ffa3679237f1f
+    >   Status: Downloaded newer image for firethorn/builder:latest
+
+        # -----------------------------------------------------
+        # Checkout a copy of our source code.
+        #[user@builder]
+
+            PHYMATOPUS_REPO=https://github.com/Zarquan/phymatopus
+            PHYMATOPUS_CODE=/var/local/build/phymatopus
+
+            if [ ! -e "${PHYMATOPUS_CODE:?}" ]
+            then
+                if [ ! -e "$(dirname ${PHYMATOPUS_CODE:?})" ]
+                then
+                    mkdir -p "$(dirname ${PHYMATOPUS_CODE:?})"
+                fi
+                pushd "$(dirname ${PHYMATOPUS_CODE:?})"
+                    git clone "${PHYMATOPUS_REPO:?}" "$(basename ${PHYMATOPUS_CODE:?})"
+
+                popd
+            else
+                pushd "${PHYMATOPUS_CODE:?}"
+                    git pull
+                popd
+            fi
+
+        # -----------------------------------------------------
+        # Build and run our tests.
+        #[user@builder]
+
+            pushd "${PHYMATOPUS_CODE:?}"
+                pushd kafka-tools
+
+                    mkdir logs
+
+                    git checkout -- src/test/conf/test.properties
+                    git pull
+
+                    sed -i '
+                        s/rewind=.*$/rewind=false/
+                        ' src/test/conf/test.properties
+
+                    sed -i '
+                        s/hostname=.*$/hostname=Umiwiel/
+                        ' src/test/conf/test.properties
+                    sed -i '
+                        s/hostname=.*$/hostname=Waresean/
+                        ' src/test/conf/test.properties
+                    sed -i '
+                        s/hostname=.*$/hostname=Meng/
+                        ' src/test/conf/test.properties
+                    sed -i '
+                        s/hostname=.*$/hostname=Tromader/
+                        ' src/test/conf/test.properties
+
+                    sed -i '
+                        s/topic=.*$/topic=ztf_20181205_programid1/
+                        ' src/test/conf/test.properties
+                    sed -i '
+                        s/topic=.*$/topic=ztf_20181209_programid1/
+                        ' src/test/conf/test.properties
+
+
+
+                    sed -i '
+                        s/topic=.*$/topic=ztf_20190616_programid1/
+                        ' src/test/conf/test.properties
+                    sed -i '
+                        s/topic=.*$/topic=ztf_20190615_programid1/
+                        ' src/test/conf/test.properties
+                    sed -i '
+                        s/topic=.*$/topic=ztf_20190614_programid1/
+                        ' src/test/conf/test.properties
+                    sed -i '
+                        s/topic=.*$/topic=ztf_20190613_programid1/
+                        ' src/test/conf/test.properties
+
+
+
+                    sed -i '
+                        s/topic=.*$/topic=ztf_20190612_programid1/
+                        ' src/test/conf/test.properties
+                    sed -i '
+                        s/topic=.*$/topic=ztf_20190611_programid1/
+                        ' src/test/conf/test.properties
+                    sed -i '
+                        s/topic=.*$/topic=ztf_20190610_programid1/
+                        ' src/test/conf/test.properties
+                    sed -i '
+                        s/topic=.*$/topic=ztf_20190609_programid1/
+                        ' src/test/conf/test.properties
+                    sed -i '
+                        s/topic=.*$/topic=ztf_20190608_programid1/
+                        ' src/test/conf/test.properties
+                    sed -i '
+                        s/topic=.*$/topic=ztf_20190607_programid1/
+                        ' src/test/conf/test.properties
+                    sed -i '
+                        s/topic=.*$/topic=ztf_20190606_programid1/
+                        ' src/test/conf/test.properties
+
+                    cat src/test/conf/test.properties
+
+
+                    sed -i '
+                        s/topic=.*$/topic=ztf_20181205_programid1/
+                        ' src/test/conf/test.properties
+                    sed -i '
+                        s/topic=.*$/topic=ztf_20181209_programid1/
+                        ' src/test/conf/test.properties
+                    sed -i '
+                        s/topic=.*$/topic=ztf_20181210_programid1/
+                        ' src/test/conf/test.properties
+                    sed -i '
+                        s/topic=.*$/topic=ztf_20190212_programid1/
+                        ' src/test/conf/test.properties
+
+                    sed -i '
+                        s/topic=.*$/topic=ztf_20190210_programid1/
+                        ' src/test/conf/test.properties
+                    sed -i '
+                        s/topic=.*$/topic=ztf_20190209_programid1/
+                        ' src/test/conf/test.properties
+                    sed -i '
+                        s/topic=.*$/topic=ztf_20190208_programid1/
+                        ' src/test/conf/test.properties
+
+                    git pull
+                    mvn test -D 'test=CassandraCandidateWriterTest' -D 'phymatopus.kafka.topic=ztf_20190119_programid1'
+                    mvn test -D 'test=ZtfCandiateWriterTest' -D 'phymatopus.kafka.topic=ztf_20190120_programid1'
+
+
+        ztf_20181212_programid1
+        ztf_20181213_programid1
+        ztf_20181214_programid1
+        ztf_20181215_programid1
+        ztf_20181216_programid1
+        ztf_20181217_programid1
+        ztf_20181219_programid1
+        ztf_20181220_programid1
+        ztf_20181221_programid1
+        ztf_20181222_programid1
+        ztf_20181223_programid1
+        ztf_20181224_programid1
+
+        ztf_20181228_programid1
+        ztf_20181229_programid1
+        ztf_20181230_programid1
+        ztf_20181231_programid1
+
+
+
+
+
+
+
+
+
+topic [ztf_20190612_programid1]
+2019-06-17 14:50:28,343 INFO  [main] [CassandraCandidateWriterTest] Group [Epicallima] with [4] threads read [74067] alerts in [61535.0]ms at [0.83080184]ms per alert
+2019-06-17 14:50:30,125 INFO  [main] [CassandraCandidateWriterTest] Group [Epicallima] with [4] threads read [71968] alerts in [59638.0]ms at [0.82867384]ms per alert
+2019-06-17 14:50:29,373 INFO  [main] [CassandraCandidateWriterTest] Group [Epicallima] with [4] threads read [67153] alerts in [55772.0]ms at [0.83052135]ms per alert
+2019-06-17 14:50:31,706 INFO  [main] [CassandraCandidateWriterTest] Group [Epicallima] with [4] threads read [65091] alerts in [55468.0]ms at [0.8521608]ms per alert
+
+topic [ztf_20190611_programid1]
+2019-06-17 14:57:11,672 INFO  [main] [CassandraCandidateWriterTest] Group [Epicallima] with [4] threads read [40510] alerts in [217147.0]ms at [5.3603306]ms per alert
+2019-06-17 14:57:11,443 INFO  [main] [CassandraCandidateWriterTest] Group [Epicallima] with [4] threads read [39360] alerts in [211813.0]ms at [5.381428]ms per alert
+2019-06-17 14:57:11,885 INFO  [main] [CassandraCandidateWriterTest] Group [Epicallima] with [4] threads read [36341] alerts in [207028.0]ms at [5.6968164]ms per alert
+2019-06-17 14:57:08,416 INFO  [main] [CassandraCandidateWriterTest] Group [Epicallima] with [4] threads read [36347] alerts in [198685.0]ms at [5.466338]ms per alert
+
+topic [ztf_20190610_programid1]
+2019-06-17 15:02:39,965 INFO  [main] [CassandraCandidateWriterTest] Group [Epicallima] with [4] threads read [47481] alerts in [139595.0]ms at [2.9400182]ms per alert
+2019-06-17 15:03:27,904 INFO  [main] [CassandraCandidateWriterTest] Group [Epicallima] with [4] threads read [45612] alerts in [181539.0]ms at [3.980071]ms per alert
+2019-06-17 15:02:39,217 INFO  [main] [CassandraCandidateWriterTest] Group [Epicallima] with [4] threads read [43102] alerts in [130208.0]ms at [3.0209272]ms per alert
+2019-06-17 15:02:31,979 INFO  [main] [CassandraCandidateWriterTest] Group [Epicallima] with [4] threads read [40639] alerts in [119381.0]ms at [2.9375968]ms per alert
+
+topic [ztf_20190609_programid1]
+2019-06-17 15:09:03,276 INFO  [main] [CassandraCandidateWriterTest] Group [Epicallima] with [4] threads read [63756] alerts in [228036.0]ms at [3.5766988]ms per alert
+2019-06-17 15:08:06,654 INFO  [main] [CassandraCandidateWriterTest] Group [Epicallima] with [4] threads read [63619] alerts in [165902.0]ms at [2.607743]ms per alert
+2019-06-17 15:08:02,827 INFO  [main] [CassandraCandidateWriterTest] Group [Epicallima] with [4] threads read [54162] alerts in [154611.0]ms at [2.8546028]ms per alert
+2019-06-17 15:09:02,267 INFO  [main] [CassandraCandidateWriterTest] Group [Epicallima] with [4] threads read [50744] alerts in [207981.0]ms at [4.0986323]ms per alert
+
+topic [ztf_20190608_programid1]
+2019-06-17 15:20:10,507 INFO  [main] [CassandraCandidateWriterTest] Group [Epicallima] with [4] threads read [56224] alerts in [150441.0]ms at [2.6757433]ms per alert
+2019-06-17 15:20:11,763 INFO  [main] [CassandraCandidateWriterTest] Group [Epicallima] with [4] threads read [52784] alerts in [144634.0]ms at [2.7401106]ms per alert
+2019-06-17 15:21:09,851 INFO  [main] [CassandraCandidateWriterTest] Group [Epicallima] with [4] threads read [45927] alerts in [195240.0]ms at [4.2510943]ms per alert
+2019-06-17 15:19:51,096 INFO  [main] [CassandraCandidateWriterTest] Group [Epicallima] with [4] threads read [45280] alerts in [111789.0]ms at [2.4688385]ms per alert
+
+topic [ztf_20190607_programid1]
+2019-06-17 15:32:08,168 INFO  [main] [CassandraCandidateWriterTest] Group [Epicallima] with [4] threads read [51055] alerts in [143028.0]ms at [2.8014493]ms per alert
+2019-06-17 15:32:52,199 INFO  [main] [CassandraCandidateWriterTest] Group [Epicallima] with [4] threads read [48484] alerts in [183509.0]ms at [3.7849393]ms per alert
+2019-06-17 15:32:08,162 INFO  [main] [CassandraCandidateWriterTest] Group [Epicallima] with [4] threads read [45027] alerts in [135887.0]ms at [3.0179005]ms per alert
+2019-06-17 15:32:08,165 INFO  [main] [CassandraCandidateWriterTest] Group [Epicallima] with [4] threads read [43604] alerts in [132060.0]ms at [3.0286212]ms per alert
+
+
+topic [ztf_20190615_programid1]
+2019-06-18 08:28:16,448 INFO  [main] [CassandraCandidateWriterTest] Group [Epicallima] with [4] threads read [38017] alerts in [123217.0]ms at [3.2411027]ms per alert
+2019-06-18 08:29:05,655 INFO  [main] [CassandraCandidateWriterTest] Group [Epicallima] with [4] threads read [37561] alerts in [168041.0]ms at [4.473816]ms per alert
+2019-06-18 08:28:13,951 INFO  [main] [CassandraCandidateWriterTest] Group [Epicallima] with [4] threads read [32219] alerts in [110583.0]ms at [3.4322295]ms per alert
+2019-06-18 08:28:03,780 INFO  [main] [CassandraCandidateWriterTest] Group [Epicallima] with [4] threads read [29677] alerts in [95577.0]ms at [3.2205749]ms per alert
+
+topic [ztf_20190614_programid1]
+2019-06-18 10:27:11,805 INFO  [main] [CassandraCandidateWriterTest] Group [Epicallima] with [4] threads read [34660] alerts in [157028.0]ms at [4.530525]ms per alert
+2019-06-18 10:27:11,194 INFO  [main] [CassandraCandidateWriterTest] Group [Epicallima] with [4] threads read [27594] alerts in [154964.0]ms at [5.6158586]ms per alert
+2019-06-18 10:27:12,209 INFO  [main] [CassandraCandidateWriterTest] Group [Epicallima] with [4] threads read [30072] alerts in [153415.0]ms at [5.1015897]ms per alert
+2019-06-18 10:27:11,225 INFO  [main] [CassandraCandidateWriterTest] Group [Epicallima] with [4] threads read [28331] alerts in [150208.0]ms at [5.3018956]ms per alert
+
+topic [ztf_20190613_programid1]
+2019-06-18 11:30:41,909 INFO  [main] [CassandraCandidateWriterTest] Group [Epicallima] with [4] threads read [72835] alerts in [191760.0]ms at [2.6328]ms per alert
+2019-06-18 11:30:39,996 INFO  [main] [CassandraCandidateWriterTest] Group [Epicallima] with [4] threads read [61210] alerts in [172656.0]ms at [2.8207157]ms per alert
+2019-06-18 11:31:35,783 INFO  [main] [CassandraCandidateWriterTest] Group [Epicallima] with [4] threads read [57998] alerts in [221622.0]ms at [3.8212008]ms per alert
+2019-06-18 11:31:23,593 INFO  [main] [CassandraCandidateWriterTest] Group [Epicallima] with [4] threads read [49600] alerts in [202784.0]ms at [4.088387]ms per alert
+
+topic [ztf_20181205_programid1]
+2019-06-18 11:37:41,499 INFO  [main] [CassandraCandidateWriterTest] Group [Epicallima] with [4] threads read [0] alerts from topic [ztf_20181205_programid1] in [49.0]ms at [Infinity]ms per alert
+2019-06-18 11:37:48,961 INFO  [main] [CassandraCandidateWriterTest] Group [Epicallima] with [4] threads read [0] alerts from topic [ztf_20181205_programid1] in [150.0]ms at [Infinity]ms per alert
+2019-06-18 11:37:56,149 INFO  [main] [CassandraCandidateWriterTest] Group [Epicallima] with [4] threads read [0] alerts from topic [ztf_20181205_programid1] in [171.0]ms at [Infinity]ms per alert
+2019-06-18 11:37:59,283 INFO  [main] [CassandraCandidateWriterTest] Group [Epicallima] with [4] threads read [0] alerts from topic [ztf_20181205_programid1] in [200.0]ms at [Infinity]ms per alert
+
+topic [ztf_20181209_programid1]
+2019-06-18 11:56:05,834 INFO  [main] [CassandraCandidateWriterTest] Group [Epicallima] with [4] threads read [0] alerts from topic [ztf_20181209_programid1] in [189.0]ms at [Infinity]ms per alert
+2019-06-18 11:56:15,363 INFO  [main] [CassandraCandidateWriterTest] Group [Epicallima] with [4] threads read [0] alerts from topic [ztf_20181209_programid1] in [173.0]ms at [Infinity]ms per alert
+2019-06-18 11:56:25,488 INFO  [main] [CassandraCandidateWriterTest] Group [Epicallima] with [4] threads read [0] alerts from topic [ztf_20181209_programid1] in [159.0]ms at [Infinity]ms per alert
+2019-06-18 11:57:32,873 INFO  [main] [CassandraCandidateWriterTest] Group [Epicallima] with [4] threads read [0] alerts from topic [ztf_20181209_programid1] in [60154.0]ms at [Infinity]ms per alert
+
+topic [ztf_20181210_programid1]
+2019-06-18 12:07:11,851 INFO  [main] [CassandraCandidateWriterTest] Group [Epicallima] with [4] threads read [0] alerts from topic [ztf_20181210_programid1] in [51.0]ms at [Infinity]ms per alert
+2019-06-18 12:07:15,700 INFO  [main] [CassandraCandidateWriterTest] Group [Epicallima] with [4] threads read [0] alerts from topic [ztf_20181210_programid1] in [169.0]ms at [Infinity]ms per alert
+2019-06-18 12:07:35,048 INFO  [main] [CassandraCandidateWriterTest] Group [Epicallima] with [4] threads read [0] alerts from topic [ztf_20181210_programid1] in [155.0]ms at [Infinity]ms per alert
+2019-06-18 12:07:42,248 INFO  [main] [CassandraCandidateWriterTest] Group [Epicallima] with [4] threads read [0] alerts from topic [ztf_20181210_programid1] in [175.0]ms at [Infinity]ms per alert
+
+topic [ztf_20190212_programid1]
+2019-06-18 12:13:43,807 INFO  [main] [CassandraCandidateWriterTest] Group [Epicallima] with [4] threads read [32224] alerts from topic [ztf_20190212_programid1] in [106046.0]ms at [3.2909012]ms per alert
+2019-06-18 12:14:39,846 INFO  [main] [CassandraCandidateWriterTest] Group [Epicallima] with [4] threads read [22652] alerts from topic [ztf_20190212_programid1] in [122574.0]ms at [5.4111776]ms per alert
+2019-06-18 12:13:42,926 INFO  [main] [CassandraCandidateWriterTest] Group [Epicallima] with [4] threads read [27741] alerts from topic [ztf_20190212_programid1] in [84928.0]ms at [3.0614614]ms per alert
+
+topic [ztf_20190210_programid1]
+2019-06-18 12:23:08,515 INFO  [main] [CassandraCandidateWriterTest] Group [Epicallima] with [4] threads read [11071] alerts from topic [ztf_20190210_programid1] in [49339.0]ms at [4.4565983]ms per alert
+2019-06-18 12:23:08,505 INFO  [main] [CassandraCandidateWriterTest] Group [Epicallima] with [4] threads read [9517] alerts from topic [ztf_20190210_programid1] in [46134.0]ms at [4.847536]ms per alert
+2019-06-18 12:23:08,060 INFO  [main] [CassandraCandidateWriterTest] Group [Epicallima] with [4] threads read [7239] alerts from topic [ztf_20190210_programid1] in [37813.0]ms at [5.2235117]ms per alert
+2019-06-18 12:23:07,857 INFO  [main] [CassandraCandidateWriterTest] Group [Epicallima] with [4] threads read [7821] alerts from topic [ztf_20190210_programid1] in [31355.0]ms at [4.009078]ms per alert
+
+topic [ztf_20190209_programid1]
+2019-06-18 12:31:53,042 INFO  [main] [CassandraCandidateWriterTest] Group [Epicallima] with [4] threads read [29103] alerts from topic [ztf_20190209_programid1] in [100957.0]ms at [3.468955]ms per alert
+2019-06-18 12:31:38,371 INFO  [main] [CassandraCandidateWriterTest] Group [Epicallima] with [4] threads read [21919] alerts from topic [ztf_20190209_programid1] in [87282.0]ms at [3.9820247]ms per alert
+2019-06-18 12:31:58,540 INFO  [main] [CassandraCandidateWriterTest] Group [Epicallima] with [4] threads read [24477] alerts from topic [ztf_20190209_programid1] in [94064.0]ms at [3.8429546]ms per alert
+2019-06-18 12:32:39,455 INFO  [main] [CassandraCandidateWriterTest] Group [Epicallima] with [4] threads read [17833] alerts from topic [ztf_20190209_programid1] in [124897.0]ms at [7.003701]ms per alert
+
+topic [ztf_20190208_programid1]
+2019-06-18 12:37:28,511 INFO  [main] [CassandraCandidateWriterTest] Group [Epicallima] with [4] threads read [26617] alerts from topic [ztf_20190208_programid1] in [120662.0]ms at [4.533268]ms per alert
+2019-06-18 12:37:41,233 INFO  [main] [CassandraCandidateWriterTest] Group [Epicallima] with [4] threads read [35401] alerts from topic [ztf_20190208_programid1] in [129877.0]ms at [3.6687381]ms per alert
+2019-06-18 12:37:28,687 INFO  [main] [CassandraCandidateWriterTest] Group [Epicallima] with [4] threads read [9155] alerts from topic [ztf_20190208_programid1] in [113531.0]ms at [12.400983]ms per alert
+
+topic [ztf_20190119_programid1]
+2019-06-18 12:44:39,181 INFO  [main] [CassandraCandidateWriterTest] Group [Epicallima] with [4] threads read [4600] alerts from topic [ztf_20190119_programid1] in [14809.0]ms at [3.2193477]ms per alert
+2019-06-18 12:44:45,653 INFO  [main] [CassandraCandidateWriterTest] Group [Epicallima] with [4] threads read [6184] alerts from topic [ztf_20190119_programid1] in [17845.0]ms at [2.8856728]ms per alert
+2019-06-18 12:44:45,907 INFO  [main] [CassandraCandidateWriterTest] Group [Epicallima] with [4] threads read [4419] alerts from topic [ztf_20190119_programid1] in [14276.0]ms at [3.230595]ms per alert
+2019-06-18 12:44:43,910 INFO  [main] [CassandraCandidateWriterTest] Group [Epicallima] with [4] threads read [2408] alerts from topic [ztf_20190119_programid1] in [9343.0]ms at [3.8799834]ms per alert
+
+
+

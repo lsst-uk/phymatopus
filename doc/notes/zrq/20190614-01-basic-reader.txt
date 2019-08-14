@@ -1,0 +1,189 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+# -----------------------------------------------------
+# Create a VM.
+#[user@work02]
+
+    createvm
+
+    >   INFO : Node name [Nydiabaen]
+    >   INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Disc name [Nydiabaen.qcow]
+    >   INFO : Disc size [8GiB]
+    >   
+    >   INFO : MAC  [06:00:AC:10:02:01]
+    >   INFO : IPv4 [172.16.2.1]
+    >   INFO : IPv6 []
+
+    createvm
+
+    >   INFO : Node name [Eraullan]
+    >   INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Disc name [Eraullan.qcow]
+    >   INFO : Disc size [8GiB]
+    >   
+    >   INFO : MAC  [06:00:AC:10:02:02]
+    >   INFO : IPv4 [172.16.2.2]
+    >   INFO : IPv6 []
+
+    createvm
+
+    >   INFO : Node name [Dwerader]
+    >   INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Disc name [Dwerader.qcow]
+    >   INFO : Disc size [8GiB]
+    >   
+    >   INFO : MAC  [06:00:AC:10:02:03]
+    >   INFO : IPv4 [172.16.2.3]
+    >   INFO : IPv6 []
+
+    createvm
+
+    >   INFO : Node name [Koiclya]
+    >   INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Disc name [Koiclya.qcow]
+    >   INFO : Disc size [8GiB]
+    >   
+    >   INFO : MAC  [06:00:AC:10:02:04]
+    >   INFO : IPv4 [172.16.2.4]
+    >   INFO : IPv6 []
+
+
+# -----------------------------------------------------
+# Login to the VM.
+#[user@work02]
+
+    ssh Nydiabaen
+
+    # -----------------------------------------------------
+    # Create a container to work with.
+    #[user@virtual]
+
+        docker run \
+            --rm \
+            --tty \
+            --interactive \
+            --hostname builder \
+            --env SSH_AUTH_SOCK=/tmp/ssh_auth_sock \
+            --volume ${SSH_AUTH_SOCK}:/tmp/ssh_auth_sock \
+            firethorn/builder \
+            bash
+
+    >   Unable to find image 'firethorn/builder:latest' locally
+    >   latest: Pulling from firethorn/builder
+    >   ....
+    >   ....
+    >   Digest: sha256:8f984115c8ae158ba3ed45d28ffe656278cd3f2429f7af87cd3ffa3679237f1f
+    >   Status: Downloaded newer image for firethorn/builder:latest
+
+        # -----------------------------------------------------
+        # Checkout a copy of our source code.
+        #[user@builder]
+
+            PHYMATOPUS_REPO=https://github.com/Zarquan/phymatopus
+            PHYMATOPUS_CODE=/var/local/build/phymatopus
+
+            if [ ! -e "${PHYMATOPUS_CODE:?}" ]
+            then
+                if [ ! -e "$(dirname ${PHYMATOPUS_CODE:?})" ]
+                then
+                    mkdir -p "$(dirname ${PHYMATOPUS_CODE:?})"
+                fi
+                pushd "$(dirname ${PHYMATOPUS_CODE:?})"
+                    git clone "${PHYMATOPUS_REPO:?}" "$(basename ${PHYMATOPUS_CODE:?})"
+
+                popd
+            else
+                pushd "${PHYMATOPUS_CODE:?}"
+                    git pull
+                popd
+            fi
+
+        # -----------------------------------------------------
+        # Build and run our tests.
+        #[user@builder]
+
+            pushd "${PHYMATOPUS_CODE:?}"
+                pushd kafka-tools
+
+                    mkdir logs
+
+                    sed -i '
+                        /<logger name="uk.ac.roe.wfau.phymatopus">/,/<\/logger>/ {
+                            s/value="[^"]*"/value="INFO"/
+                            }
+                        ' src/test/conf/logback.xml
+
+                    sed -i '
+                        s/group=.*$/group='$(pwgen 16 1)'/
+                        ' src/test/conf/test.properties
+
+                    sed -i '
+                        s/threads=.*$/threads=4/
+                        ' src/test/conf/test.properties
+
+                    sed -i '
+                        s/rewind=.*$/rewind=true/
+                        ' src/test/conf/test.properties
+
+                    sed -i '
+                        s/looptimeout=.*$/looptimeout=PT1m/
+                        s/polltimeout=.*$/polltimeout=PT10s/
+                        ' src/test/conf/test.properties
+
+                    mvn test -D 'test=ZtfTestAlertReaderTest'
+
+
+
+    >   2019-06-14 12:46:08,818 INFO  [pool-1-thread-1] [ZtfTestAlertReader] Total : [17904] alerts in [39978526]?s [39978.0]ms  => [2232]?s [2.232909]ms per alert
+    >   2019-06-14 12:46:08,910 INFO  [pool-1-thread-3] [ZtfTestAlertReader] Total : [17842] alerts in [40085834]?s [40085.0]ms  => [2246]?s [2.2466652]ms per alert
+    >   2019-06-14 12:46:09,124 INFO  [pool-1-thread-2] [ZtfTestAlertReader] Total : [18030] alerts in [40290240]?s [40290.0]ms  => [2234]?s [2.234609]ms per alert
+    >   2019-06-14 12:46:09,166 INFO  [pool-1-thread-4] [ZtfTestAlertReader] Total : [17904] alerts in [40344496]?s [40344.0]ms  => [2253]?s [2.2533512]ms per alert
+    >   2019-06-14 12:46:09,176 INFO  [main] [ZtfTestAlertReaderTest] Group [java-test-001] with [4] threads read [71680] alerts in [40382.0]ms at [0.563365]ms per alert
+
+    >   2019-06-14 12:46:09,347 INFO  [pool-1-thread-4] [ZtfTestAlertReader] Total : [17201] alerts in [37444242]?s [37444.0]ms  => [2176]?s [2.17685]ms per alert
+    >   2019-06-14 12:46:09,373 INFO  [pool-1-thread-3] [ZtfTestAlertReader] Total : [17201] alerts in [37476734]?s [37476.0]ms  => [2178]?s [2.1787105]ms per alert
+    >   2019-06-14 12:46:09,399 INFO  [pool-1-thread-1] [ZtfTestAlertReader] Total : [17200] alerts in [37504535]?s [37504.0]ms  => [2180]?s [2.1804652]ms per alert
+    >   2019-06-14 12:46:09,998 INFO  [pool-1-thread-2] [ZtfTestAlertReader] Total : [17200] alerts in [38105500]?s [38105.0]ms  => [2215]?s [2.215407]ms per alert
+    >   2019-06-14 12:46:10,008 INFO  [main] [ZtfTestAlertReaderTest] Group [java-test-001] with [4] threads read [68802] alerts in [38274.0]ms at [0.556292]ms per alert
+
+    >   2019-06-14 12:46:10,955 INFO  [pool-1-thread-4] [ZtfTestAlertReader] Total : [17202] alerts in [38028050]?s [38028.0]ms  => [2210]?s [2.210673]ms per alert
+    >   ....
+    >   2019-06-14 12:46:11,501 INFO  [pool-1-thread-2] [ZtfTestAlertReader] Total : [17264] alerts in [38577076]?s [38577.0]ms  => [2234]?s [2.2345343]ms per alert
+    >   2019-06-14 12:46:11,506 INFO  [pool-1-thread-3] [ZtfTestAlertReader] Total : [17201] alerts in [38579039]?s [38579.0]ms  => [2242]?s [2.2428348]ms per alert
+    >   2019-06-14 12:46:11,780 INFO  [pool-1-thread-1] [ZtfTestAlertReader] Total : [17201] alerts in [38849222]?s [38849.0]ms  => [2258]?s [2.2585316]ms per alert
+    >   2019-06-14 12:46:11,793 INFO  [main] [ZtfTestAlertReaderTest] Group [java-test-001] with [4] threads read [68868] alerts in [39009.0]ms at [0.56643146]ms per alert
+
+    >   2019-06-14 12:46:09,982 INFO  [pool-1-thread-3] [ZtfTestAlertReader] Total : [17263] alerts in [35948882]?s [35948.0]ms  => [2082]?s [2.0823727]ms per alert
+    >   2019-06-14 12:46:10,516 INFO  [pool-1-thread-1] [ZtfTestAlertReader] Total : [17202] alerts in [36484599]?s [36484.0]ms  => [2120]?s [2.1209161]ms per alert
+    >   2019-06-14 12:46:10,634 INFO  [pool-1-thread-4] [ZtfTestAlertReader] Total : [17263] alerts in [36603214]?s [36603.0]ms  => [2120]?s [2.120315]ms per alert
+    >   2019-06-14 12:46:10,710 INFO  [pool-1-thread-2] [ZtfTestAlertReader] Total : [17201] alerts in [36677377]?s [36677.0]ms  => [2132]?s [2.1322598]ms per alert
+    >   2019-06-14 12:46:10,721 INFO  [main] [ZtfTestAlertReaderTest] Group [java-test-001] with [4] threads read [68929] alerts in [36814.0]ms at [0.5340858]ms per alert
+
+71680+68802+68868+68929=278279
+
+

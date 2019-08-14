@@ -1,0 +1,1315 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+    #
+    # Adding libvirt volumes to the Cassanrda nodes.
+    # Three 32G discs per node to start with.
+    #
+
+# -----------------------------------------------------
+# Load our node names.
+#[user@work02]
+
+    source "${HOME}/nodenames.txt"
+    echo "
+Node names   [${canames[@]}]
+Cluster name [${cacluster}]
+Client host  [${caclient}]
+"
+
+    >   Node names   [Umiwiel Waresean Meng Tromader]
+    >   Cluster name [Hofmannophila]
+    >   Client host  [Haosien]
+
+
+# -----------------------------------------------------
+# Create a VM.
+#[user@work02]
+
+    createvm
+
+    >   INFO : Node name [Umiwiel]
+    >   INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Disc name [Umiwiel.qcow]
+    >   INFO : Disc size [8GiB]
+    >   
+    >   INFO : MAC  [06:00:AC:10:02:08]
+    >   INFO : IPv4 [172.16.2.8]
+    >   INFO : IPv6 []
+
+
+    createvm
+
+    >   INFO : Node name [Waresean]
+    >   INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Disc name [Waresean.qcow]
+    >   INFO : Disc size [8GiB]
+    >   
+    >   INFO : MAC  [06:00:AC:10:02:09]
+    >   INFO : IPv4 [172.16.2.9]
+    >   INFO : IPv6 []
+
+
+    createvm
+
+    >   INFO : Node name [Meng]
+    >   INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Disc name [Meng.qcow]
+    >   INFO : Disc size [8GiB]
+    >   
+    >   INFO : MAC  [06:00:AC:10:02:0A]
+    >   INFO : IPv4 [172.16.2.10]
+    >   INFO : IPv6 []
+
+
+    createvm
+
+    >   INFO : Node name [Tromader]
+    >   INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Disc name [Tromader.qcow]
+    >   INFO : Disc size [8GiB]
+    >   
+    >   INFO : MAC  [06:00:AC:10:02:0B]
+    >   INFO : IPv4 [172.16.2.11]
+    >   INFO : IPv6 []
+
+
+# -----------------------------------------------------
+# Define a host lookup function.
+# https://askubuntu.com/questions/627906/why-is-my-etc-hosts-file-not-queried-when-nslookup-tries-to-resolve-an-address#comment1536517_627909
+# TODO Add this to a toolit script.
+#[user@work02]
+
+    getipv4()
+        {
+        getent hosts "${1:?}" | cut -d ' ' -f 1
+        }
+
+
+#---------------------------------------------------------------------
+# Update the ssh keys for each node.
+# TODO Add this to a toolit script.
+#[user@work02]
+
+    source "${HOME}/nodenames.txt"
+    source "${HOME}/libvirt.settings"
+
+    for vmname in ${canames[@]}
+        do
+            ssh-keygen \
+                -q -R \
+                    "${vmname:?}"
+
+            ssh-keyscan \
+                "${vmname:?}" \
+                >> "${HOME}/.ssh/known_hosts"
+
+            ssh-keyscan \
+                -t ecdsa $(getipv4 "${vmname:?}") \
+                >> "${HOME}/.ssh/known_hosts"
+
+        done
+
+    >   /home/dmr/.ssh/known_hosts updated.
+    >   Original contents retained as /home/dmr/.ssh/known_hosts.old
+    >   # Umiwiel:22 SSH-2.0-OpenSSH_7.8
+    >   # Umiwiel:22 SSH-2.0-OpenSSH_7.8
+    >   # Umiwiel:22 SSH-2.0-OpenSSH_7.8
+    >   # 172.16.2.8:22 SSH-2.0-OpenSSH_7.8
+    >   /home/dmr/.ssh/known_hosts updated.
+    >   Original contents retained as /home/dmr/.ssh/known_hosts.old
+    >   # Waresean:22 SSH-2.0-OpenSSH_7.8
+    >   # Waresean:22 SSH-2.0-OpenSSH_7.8
+    >   # Waresean:22 SSH-2.0-OpenSSH_7.8
+    >   # 172.16.2.9:22 SSH-2.0-OpenSSH_7.8
+    >   /home/dmr/.ssh/known_hosts updated.
+    >   Original contents retained as /home/dmr/.ssh/known_hosts.old
+    >   # Meng:22 SSH-2.0-OpenSSH_7.8
+    >   # Meng:22 SSH-2.0-OpenSSH_7.8
+    >   # Meng:22 SSH-2.0-OpenSSH_7.8
+    >   # 172.16.2.10:22 SSH-2.0-OpenSSH_7.8
+    >   /home/dmr/.ssh/known_hosts updated.
+    >   Original contents retained as /home/dmr/.ssh/known_hosts.old
+    >   # Tromader:22 SSH-2.0-OpenSSH_7.8
+    >   # Tromader:22 SSH-2.0-OpenSSH_7.8
+    >   # Tromader:22 SSH-2.0-OpenSSH_7.8
+    >   # 172.16.2.11:22 SSH-2.0-OpenSSH_7.8
+
+
+# -----------------------------------------------------
+# Check we can login to each node.
+#[user@work02]
+
+    source "${HOME}/ssh-options"
+    source "${HOME}/nodenames.txt"
+
+    for vmname in ${canames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname}]"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    hostname
+                    date
+                    "
+        done
+
+    >   ---- ----
+    >   Node [Umiwiel]
+    >   Umiwiel
+    >   Sun 16 Jun 16:45:58 BST 2019
+    >   ---- ----
+    >   Node [Waresean]
+    >   Waresean
+    >   Sun 16 Jun 16:45:58 BST 2019
+    >   ---- ----
+    >   Node [Meng]
+    >   Meng
+    >   Sun 16 Jun 16:45:59 BST 2019
+    >   ---- ----
+    >   Node [Tromader]
+    >   Tromader
+    >   Sun 16 Jun 16:45:59 BST 2019
+
+
+# -----------------------------------------------------
+# Create data volumes for each Cassandra node.
+#[user@work02]
+
+    source "${HOME}/libvirt.settings"
+
+    volnum=01
+    volsize=32G
+
+    unset volpools
+    declare -a volpools=(
+        data1
+        data2
+        data3
+        )
+
+    unset targets
+    declare -A targets=(
+        [data1]=vdc
+        [data2]=vdd
+        [data3]=vde
+        )
+
+
+    for vmname in ${canames[@]}
+        do
+            echo "---- ----"
+            echo "vmname [${vmname}]"
+            for volpool in ${volpools[@]}
+                do
+                    volname=${vmname}-${volpool}-${volnum}.qcow
+                    target=${targets[${volpool}]}
+                    echo "create [${vmname}][${target}][${volname}]"
+
+                    virsh \
+                        --connect "${connection:?}" \
+                        vol-create-as \
+                            "${volpool}" \
+                            "${volname}" \
+                            "${volsize}" \
+                            --allocation 0 \
+                            --format qcow2
+
+                    virsh \
+                        --connect "${connection:?}" \
+                        vol-info \
+                            --pool "${volpool:?}" \
+                            "${volname:?}"
+
+                done
+        done
+
+    >   ---- ----
+    >   vmname [Umiwiel]
+    >   create [Umiwiel][vdc][Umiwiel-data1-01.qcow]
+    >   Vol Umiwiel-data1-01.qcow created
+    >   
+    >   Name:           Umiwiel-data1-01.qcow
+    >   Type:           file
+    >   Capacity:       32.00 GiB
+    >   Allocation:     196.00 KiB
+    >   
+    >   create [Umiwiel][vdd][Umiwiel-data2-01.qcow]
+    >   Vol Umiwiel-data2-01.qcow created
+    >   
+    >   Name:           Umiwiel-data2-01.qcow
+    >   Type:           file
+    >   Capacity:       32.00 GiB
+    >   Allocation:     196.00 KiB
+    >   
+    >   create [Umiwiel][vde][Umiwiel-data3-01.qcow]
+    >   Vol Umiwiel-data3-01.qcow created
+    >   
+    >   Name:           Umiwiel-data3-01.qcow
+    >   Type:           file
+    >   Capacity:       32.00 GiB
+    >   Allocation:     196.00 KiB
+    >   
+    >   ---- ----
+    >   vmname [Waresean]
+    >   create [Waresean][vdc][Waresean-data1-01.qcow]
+    >   Vol Waresean-data1-01.qcow created
+    >   
+    >   Name:           Waresean-data1-01.qcow
+    >   Type:           file
+    >   Capacity:       32.00 GiB
+    >   Allocation:     196.00 KiB
+    >   
+    >   create [Waresean][vdd][Waresean-data2-01.qcow]
+    >   Vol Waresean-data2-01.qcow created
+    >   
+    >   Name:           Waresean-data2-01.qcow
+    >   Type:           file
+    >   Capacity:       32.00 GiB
+    >   Allocation:     196.00 KiB
+    >   
+    >   create [Waresean][vde][Waresean-data3-01.qcow]
+    >   Vol Waresean-data3-01.qcow created
+    >   
+    >   Name:           Waresean-data3-01.qcow
+    >   Type:           file
+    >   Capacity:       32.00 GiB
+    >   Allocation:     196.00 KiB
+    >   
+    >   ---- ----
+    >   vmname [Meng]
+    >   create [Meng][vdc][Meng-data1-01.qcow]
+    >   Vol Meng-data1-01.qcow created
+    >   
+    >   Name:           Meng-data1-01.qcow
+    >   Type:           file
+    >   Capacity:       32.00 GiB
+    >   Allocation:     196.00 KiB
+    >   
+    >   create [Meng][vdd][Meng-data2-01.qcow]
+    >   Vol Meng-data2-01.qcow created
+    >   
+    >   Name:           Meng-data2-01.qcow
+    >   Type:           file
+    >   Capacity:       32.00 GiB
+    >   Allocation:     196.00 KiB
+    >   
+    >   create [Meng][vde][Meng-data3-01.qcow]
+    >   Vol Meng-data3-01.qcow created
+    >   
+    >   Name:           Meng-data3-01.qcow
+    >   Type:           file
+    >   Capacity:       32.00 GiB
+    >   Allocation:     196.00 KiB
+    >   
+    >   ---- ----
+    >   vmname [Tromader]
+    >   create [Tromader][vdc][Tromader-data1-01.qcow]
+    >   Vol Tromader-data1-01.qcow created
+    >   
+    >   Name:           Tromader-data1-01.qcow
+    >   Type:           file
+    >   Capacity:       32.00 GiB
+    >   Allocation:     196.00 KiB
+    >   
+    >   create [Tromader][vdd][Tromader-data2-01.qcow]
+    >   Vol Tromader-data2-01.qcow created
+    >   
+    >   Name:           Tromader-data2-01.qcow
+    >   Type:           file
+    >   Capacity:       32.00 GiB
+    >   Allocation:     196.00 KiB
+    >   
+    >   create [Tromader][vde][Tromader-data3-01.qcow]
+    >   Vol Tromader-data3-01.qcow created
+    >   
+    >   Name:           Tromader-data3-01.qcow
+    >   Type:           file
+    >   Capacity:       32.00 GiB
+    >   Allocation:     196.00 KiB
+
+
+# -----------------------------------------------------
+# Attach data volumes for each Cassandra node.
+#[user@work02]
+
+    source "${HOME}/libvirt.settings"
+
+    for vmname in ${canames[@]}
+        do
+            echo "---- ----"
+            echo "vmname [${vmname}]"
+            for volpool in ${volpools[@]}
+                do
+                    volname=${vmname}-${volpool}-${volnum}.qcow
+                    target=${targets[${volpool}]}
+
+                    volpath=$(
+                        virsh \
+                            --connect "${connection:?}" \
+                            vol-path \
+                                --pool "${volpool:?}" \
+                                "${volname:?}"
+                        )
+
+                    echo "attach [${vmname}][${target}][${volpath}]"
+
+                    virsh \
+                        --connect "${connection:?}" \
+                        attach-disk \
+                            "${vmname:?}"  \
+                            "${volpath:?}" \
+                            "${target:?}"  \
+                            --subdriver qcow2 \
+                            --driver qemu  \
+                            --config
+                done
+        done
+
+    >   ---- ----
+    >   vmname [Umiwiel]
+    >   attach [Umiwiel][vdc][/data1/libvirt/images/data1/Umiwiel-data1-01.qcow]
+    >   Disk attached successfully
+    >   
+    >   attach [Umiwiel][vdd][/data2/libvirt/images/data2/Umiwiel-data2-01.qcow]
+    >   Disk attached successfully
+    >   
+    >   attach [Umiwiel][vde][/data3/libvirt/images/data3/Umiwiel-data3-01.qcow]
+    >   Disk attached successfully
+    >   
+    >   ---- ----
+    >   vmname [Waresean]
+    >   attach [Waresean][vdc][/data1/libvirt/images/data1/Waresean-data1-01.qcow]
+    >   Disk attached successfully
+    >   
+    >   attach [Waresean][vdd][/data2/libvirt/images/data2/Waresean-data2-01.qcow]
+    >   Disk attached successfully
+    >   
+    >   attach [Waresean][vde][/data3/libvirt/images/data3/Waresean-data3-01.qcow]
+    >   Disk attached successfully
+    >   
+    >   ---- ----
+    >   vmname [Meng]
+    >   attach [Meng][vdc][/data1/libvirt/images/data1/Meng-data1-01.qcow]
+    >   Disk attached successfully
+    >   
+    >   attach [Meng][vdd][/data2/libvirt/images/data2/Meng-data2-01.qcow]
+    >   Disk attached successfully
+    >   
+    >   attach [Meng][vde][/data3/libvirt/images/data3/Meng-data3-01.qcow]
+    >   Disk attached successfully
+    >   
+    >   ---- ----
+    >   vmname [Tromader]
+    >   attach [Tromader][vdc][/data1/libvirt/images/data1/Tromader-data1-01.qcow]
+    >   Disk attached successfully
+    >   
+    >   attach [Tromader][vdd][/data2/libvirt/images/data2/Tromader-data2-01.qcow]
+    >   Disk attached successfully
+    >   
+    >   attach [Tromader][vde][/data3/libvirt/images/data3/Tromader-data3-01.qcow]
+    >   Disk attached successfully
+
+
+# -----------------------------------------------------
+# List the volumes on each Cassandra node.
+# http://xmlstar.sourceforge.net/doc/UG/ch04.html
+# https://sourceforge.net/p/xmlstar/discussion/226076/thread/d5eca10f/#56b4
+#[user@work02]
+
+    for vmname in ${canames[@]}
+        do
+            echo "$(printf '+ %56s +' '')" | sed 's/ /-/g'
+            echo "$(printf '| %-56s |' 'Node ['${vmname:?}']')"
+            virsh \
+                --connect "${connection:?}" \
+                dumpxml \
+                    "${vmname}" \
+            | xmlstarlet \
+                select \
+                    --text \
+                    --template \
+                        --match '//disk' \
+                        --sort  'A:T:-' 'target/@dev' \
+                        --value-of "concat('| ', target/@dev, ' | ', str:align(source/@file, str:padding(50, ' '), 'left'), ' |')" \
+                        --nl
+        done \
+    ; echo "$(printf '+ %56s +' '')" | sed 's/ /-/g'
+
+    >   +----------------------------------------------------------+
+    >   | Node [Umiwiel]                                           |
+    >   | vda | /var/lib/libvirt/images/live/Umiwiel.qcow          |
+    >   | vdb | /var/lib/libvirt/images/init/Umiwiel.iso           |
+    >   +----------------------------------------------------------+
+    >   | Node [Waresean]                                          |
+    >   | vda | /var/lib/libvirt/images/live/Waresean.qcow         |
+    >   | vdb | /var/lib/libvirt/images/init/Waresean.iso          |
+    >   +----------------------------------------------------------+
+    >   | Node [Meng]                                              |
+    >   | vda | /var/lib/libvirt/images/live/Meng.qcow             |
+    >   | vdb | /var/lib/libvirt/images/init/Meng.iso              |
+    >   +----------------------------------------------------------+
+    >   | Node [Tromader]                                          |
+    >   | vda | /var/lib/libvirt/images/live/Tromader.qcow         |
+    >   | vdb | /var/lib/libvirt/images/init/Tromader.iso          |
+    >   +----------------------------------------------------------+
+
+
+# -----------------------------------------------------
+# Re-start the Cassandra nodes.
+# ** Needs a full shutdown and start, reboot isn't enough.
+#[user@work02]
+
+    source "${HOME}/libvirt.settings"
+
+    for vmname in ${canames[@]}
+        do
+            virsh \
+                --connect ${connection:?} \
+                    shutdown \
+                    ${vmname:?}
+        done
+
+    >   Domain Umiwiel is being shutdown
+    >   Domain Waresean is being shutdown
+    >   Domain Meng is being shutdown
+    >   Domain Tromader is being shutdown
+
+
+    source "${HOME}/libvirt.settings"
+
+    for vmname in ${canames[@]}
+        do
+            virsh \
+                --connect ${connection:?} \
+                    start \
+                    ${vmname:?}
+        done
+
+    >   Domain Umiwiel started
+    >   Domain Waresean started
+    >   Domain Meng started
+    >   Domain Tromader started
+
+
+# -----------------------------------------------------
+# Check we can login to each node.
+#[user@work02]
+
+    source "${HOME}/ssh-options"
+    source "${HOME}/nodenames.txt"
+
+    for vmname in ${canames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname}]"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    hostname
+                    date
+                    "
+        done
+
+    >   ---- ----
+    >   Node [Umiwiel]
+    >   Umiwiel
+    >   Sun 16 Jun 16:57:45 BST 2019
+    >   ---- ----
+    >   Node [Waresean]
+    >   Waresean
+    >   Sun 16 Jun 16:57:46 BST 2019
+    >   ---- ----
+    >   Node [Meng]
+    >   Meng
+    >   Sun 16 Jun 16:57:46 BST 2019
+    >   ---- ----
+    >   Node [Tromader]
+    >   Tromader
+    >   Sun 16 Jun 16:57:47 BST 2019
+
+
+# -----------------------------------------------------
+# List the volumes on each Cassandra node.
+# http://xmlstar.sourceforge.net/doc/UG/ch04.html
+# https://sourceforge.net/p/xmlstar/discussion/226076/thread/d5eca10f/#56b4
+#[user@work02]
+
+    for vmname in ${canames[@]}
+        do
+            echo "$(printf '+ %56s +' '')" | sed 's/ /-/g'
+            echo "$(printf '| %-56s |' 'Node ['${vmname:?}']')"
+            virsh \
+                --connect "${connection:?}" \
+                dumpxml \
+                    "${vmname}" \
+            | xmlstarlet \
+                select \
+                    --text \
+                    --template \
+                        --match '//disk' \
+                        --sort  'A:T:-' 'target/@dev' \
+                        --value-of "concat('| ', target/@dev, ' | ', str:align(source/@file, str:padding(50, ' '), 'left'), ' |')" \
+                        --nl
+        done \
+    ; echo "$(printf '+ %56s +' '')" | sed 's/ /-/g'
+
+    >   +----------------------------------------------------------+
+    >   | Node [Umiwiel]                                           |
+    >   | vda | /var/lib/libvirt/images/live/Umiwiel.qcow          |
+    >   | vdb | /var/lib/libvirt/images/init/Umiwiel.iso           |
+    >   | vdc | /data1/libvirt/images/data1/Umiwiel-data1-01.qcow  |
+    >   | vdd | /data2/libvirt/images/data2/Umiwiel-data2-01.qcow  |
+    >   | vde | /data3/libvirt/images/data3/Umiwiel-data3-01.qcow  |
+    >   +----------------------------------------------------------+
+    >   | Node [Waresean]                                          |
+    >   | vda | /var/lib/libvirt/images/live/Waresean.qcow         |
+    >   | vdb | /var/lib/libvirt/images/init/Waresean.iso          |
+    >   | vdc | /data1/libvirt/images/data1/Waresean-data1-01.qcow |
+    >   | vdd | /data2/libvirt/images/data2/Waresean-data2-01.qcow |
+    >   | vde | /data3/libvirt/images/data3/Waresean-data3-01.qcow |
+    >   +----------------------------------------------------------+
+    >   | Node [Meng]                                              |
+    >   | vda | /var/lib/libvirt/images/live/Meng.qcow             |
+    >   | vdb | /var/lib/libvirt/images/init/Meng.iso              |
+    >   | vdc | /data1/libvirt/images/data1/Meng-data1-01.qcow     |
+    >   | vdd | /data2/libvirt/images/data2/Meng-data2-01.qcow     |
+    >   | vde | /data3/libvirt/images/data3/Meng-data3-01.qcow     |
+    >   +----------------------------------------------------------+
+    >   | Node [Tromader]                                          |
+    >   | vda | /var/lib/libvirt/images/live/Tromader.qcow         |
+    >   | vdb | /var/lib/libvirt/images/init/Tromader.iso          |
+    >   | vdc | /data1/libvirt/images/data1/Tromader-data1-01.qcow |
+    >   | vdd | /data2/libvirt/images/data2/Tromader-data2-01.qcow |
+    >   | vde | /data3/libvirt/images/data3/Tromader-data3-01.qcow |
+    >   +----------------------------------------------------------+
+
+
+#---------------------------------------------------------------------
+# Create a script to mount a volume.
+#[user@work02]
+
+cat > '/tmp/volume-mount.sh' << 'EOSH'
+
+echo "---- ----"
+echo "hostname [$(hostname)]"
+echo "devpath  [${devpath:?}]"
+echo "mntpath  [${mntpath:?}]"
+echo "---- ----"
+
+#---------------------------------------------------------------------
+# Check if the new device has a filesystem.
+
+    sudo btrfs filesystem show "${devpath:?}" > /dev/null 2>&1
+    fscheck=$?
+
+#---------------------------------------------------------------------
+# Create a filesystem on the new device.
+
+    if [ ${fscheck} == 1 ]
+    then
+        echo "Creating btrfs filesystem [${devpath:?}]"
+        sudo \
+            mkfs.btrfs \
+                ${devpath:?}
+    else
+        echo "Found existing filesystem [${devpath:?}]"
+    fi
+
+#---------------------------------------------------------------------
+# Create our mount point.
+
+    echo "Creating mount point [${mntpath:?}]"
+    sudo mkdir -p "${mntpath:?}"
+    sudo touch "${mntpath:?}/mount-failed"
+
+#---------------------------------------------------------------------
+# Add the volume to our FileSystemTABle.
+# https://www.howtoforge.com/reducing-disk-io-by-mounting-partitions-with-noatime
+
+    devuuid=$(
+        lsblk --noheadings --output UUID "${devpath:?}"
+        )
+
+    echo "Registering filesystem [${mntpath:?}]"
+    sudo tee -a /etc/fstab << EOTAB
+UUID=${devuuid:?} ${mntpath:?}    btrfs    defaults,noatime    0  0
+EOTAB
+
+#---------------------------------------------------------------------
+# Mount the new volume.
+
+    sudo \
+        mount "${mntpath:?}"
+
+#---------------------------------------------------------------------
+# Check the new volume.
+
+    echo "Checking data space [${mntpath:?}]"
+    df -h "${mntpath:?}"
+
+EOSH
+
+# -----------------------------------------------------
+# Login and mount each of the data volumes.
+# https://www.linuxquestions.org/questions/linux-newbie-8/awk-special-character-as-delimiter-4175613862/
+#[user@work02]
+
+    for vmname in ${canames[@]}
+        do
+            echo "-------- -------- -------- --------"
+            echo "Node [${vmname:?}]"
+            tmpfile=$(mktemp)
+            virsh \
+                --connect "${connection:?}" \
+                dumpxml \
+                    "${vmname}" \
+            | xmlstarlet \
+                select \
+                    --text \
+                    --template \
+                        --match '//disk[starts-with(source/@file, "/data")]' \
+                        --sort  'A:T:-' 'target/@dev' \
+                        --output "${vmname}," \
+                        --value-of "concat(target/@dev, ',', source/@file)" \
+                        --nl \
+            > "${tmpfile}"
+
+            for line in $(cat "${tmpfile}")
+                do
+                    volpath=$(echo "${line}" | awk -F ',' '{print $3}')
+                    devname=$(echo "${line}" | awk -F ',' '{print $2}')
+                    devpath=/dev/${devname}
+                    mntpath=$(
+                        basename --suffix '.qcow' "${volpath}" \
+                        | sed '
+                            s/\([[:alnum:]]*\)-\([[:alnum:]]*\)-\([[:alnum:]]*\)/\/\2-\3/
+                            '
+                        )
+
+                    echo ""
+                    echo "[${devpath}][${mntpath}]"
+
+                    ssh ${sshopts[*]} \
+                        ${sshuser:?}@${vmname:?} \
+                            "
+                            export devpath=${devpath:?}
+                            export mntpath=${mntpath:?}
+                            date
+                            hostname
+                            echo "[\${devpath}][\${mntpath}]"
+
+                            $(cat /tmp/volume-mount.sh)
+                            "
+                done
+        done
+
+    >   -------- -------- -------- --------
+    >   Node [Umiwiel]
+    >   
+    >   [/dev/vdc][/data1-01]
+    >   Sun 16 Jun 16:58:30 BST 2019
+    >   Umiwiel
+    >   [/dev/vdc][/data1-01]
+    >   ---- ----
+    >   hostname [Umiwiel]
+    >   devpath  [/dev/vdc]
+    >   mntpath  [/data1-01]
+    >   ---- ----
+    >   Creating btrfs filesystem [/dev/vdc]
+    >   btrfs-progs v4.17.1
+    >   See http://btrfs.wiki.kernel.org for more information.
+    >   
+    >   Label:              (null)
+    >   UUID:               21b18915-ec21-40e0-adf4-4c4114d69aa1
+    >   Node size:          16384
+    >   Sector size:        4096
+    >   Filesystem size:    32.00GiB
+    >   Block group profiles:
+    >     Data:             single            8.00MiB
+    >     Metadata:         DUP               1.00GiB
+    >     System:           DUP               8.00MiB
+    >   SSD detected:       no
+    >   Incompat features:  extref, skinny-metadata
+    >   Number of devices:  1
+    >   Devices:
+    >      ID        SIZE  PATH
+    >       1    32.00GiB  /dev/vdc
+    >   
+    >   Creating mount point [/data1-01]
+    >   Registering filesystem [/data1-01]
+    >   UUID=21b18915-ec21-40e0-adf4-4c4114d69aa1 /data1-01    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data1-01]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdc         32G   17M   30G   1% /data1-01
+    >   
+    >   [/dev/vdd][/data2-01]
+    >   Sun 16 Jun 16:58:31 BST 2019
+    >   Umiwiel
+    >   [/dev/vdd][/data2-01]
+    >   ---- ----
+    >   hostname [Umiwiel]
+    >   devpath  [/dev/vdd]
+    >   mntpath  [/data2-01]
+    >   ---- ----
+    >   Creating btrfs filesystem [/dev/vdd]
+    >   btrfs-progs v4.17.1
+    >   See http://btrfs.wiki.kernel.org for more information.
+    >   
+    >   Label:              (null)
+    >   UUID:               438e8a5b-0a70-4a23-82c9-a8ddeed8fcad
+    >   Node size:          16384
+    >   Sector size:        4096
+    >   Filesystem size:    32.00GiB
+    >   Block group profiles:
+    >     Data:             single            8.00MiB
+    >     Metadata:         DUP               1.00GiB
+    >     System:           DUP               8.00MiB
+    >   SSD detected:       no
+    >   Incompat features:  extref, skinny-metadata
+    >   Number of devices:  1
+    >   Devices:
+    >      ID        SIZE  PATH
+    >       1    32.00GiB  /dev/vdd
+    >   
+    >   Creating mount point [/data2-01]
+    >   Registering filesystem [/data2-01]
+    >   UUID=438e8a5b-0a70-4a23-82c9-a8ddeed8fcad /data2-01    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data2-01]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdd         32G   17M   30G   1% /data2-01
+    >   
+    >   [/dev/vde][/data3-01]
+    >   Sun 16 Jun 16:58:32 BST 2019
+    >   Umiwiel
+    >   [/dev/vde][/data3-01]
+    >   ---- ----
+    >   hostname [Umiwiel]
+    >   devpath  [/dev/vde]
+    >   mntpath  [/data3-01]
+    >   ---- ----
+    >   Creating btrfs filesystem [/dev/vde]
+    >   btrfs-progs v4.17.1
+    >   See http://btrfs.wiki.kernel.org for more information.
+    >   
+    >   Label:              (null)
+    >   UUID:               b06edbd8-a764-4212-9030-382b4ba87ffe
+    >   Node size:          16384
+    >   Sector size:        4096
+    >   Filesystem size:    32.00GiB
+    >   Block group profiles:
+    >     Data:             single            8.00MiB
+    >     Metadata:         DUP               1.00GiB
+    >     System:           DUP               8.00MiB
+    >   SSD detected:       no
+    >   Incompat features:  extref, skinny-metadata
+    >   Number of devices:  1
+    >   Devices:
+    >      ID        SIZE  PATH
+    >       1    32.00GiB  /dev/vde
+    >   
+    >   Creating mount point [/data3-01]
+    >   Registering filesystem [/data3-01]
+    >   UUID=b06edbd8-a764-4212-9030-382b4ba87ffe /data3-01    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data3-01]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vde         32G   17M   30G   1% /data3-01
+    >   -------- -------- -------- --------
+    >   Node [Waresean]
+    >   
+    >   [/dev/vdc][/data1-01]
+    >   Sun 16 Jun 16:58:33 BST 2019
+    >   Waresean
+    >   [/dev/vdc][/data1-01]
+    >   ---- ----
+    >   hostname [Waresean]
+    >   devpath  [/dev/vdc]
+    >   mntpath  [/data1-01]
+    >   ---- ----
+    >   Creating btrfs filesystem [/dev/vdc]
+    >   btrfs-progs v4.17.1
+    >   See http://btrfs.wiki.kernel.org for more information.
+    >   
+    >   Label:              (null)
+    >   UUID:               f030b333-8514-4719-a255-0740c80a660e
+    >   Node size:          16384
+    >   Sector size:        4096
+    >   Filesystem size:    32.00GiB
+    >   Block group profiles:
+    >     Data:             single            8.00MiB
+    >     Metadata:         DUP               1.00GiB
+    >     System:           DUP               8.00MiB
+    >   SSD detected:       no
+    >   Incompat features:  extref, skinny-metadata
+    >   Number of devices:  1
+    >   Devices:
+    >      ID        SIZE  PATH
+    >       1    32.00GiB  /dev/vdc
+    >   
+    >   Creating mount point [/data1-01]
+    >   Registering filesystem [/data1-01]
+    >   UUID=f030b333-8514-4719-a255-0740c80a660e /data1-01    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data1-01]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdc         32G   17M   30G   1% /data1-01
+    >   
+    >   [/dev/vdd][/data2-01]
+    >   Sun 16 Jun 16:58:34 BST 2019
+    >   Waresean
+    >   [/dev/vdd][/data2-01]
+    >   ---- ----
+    >   hostname [Waresean]
+    >   devpath  [/dev/vdd]
+    >   mntpath  [/data2-01]
+    >   ---- ----
+    >   Creating btrfs filesystem [/dev/vdd]
+    >   btrfs-progs v4.17.1
+    >   See http://btrfs.wiki.kernel.org for more information.
+    >   
+    >   Label:              (null)
+    >   UUID:               f29e2c58-a37c-46cd-9096-65c16ca1852a
+    >   Node size:          16384
+    >   Sector size:        4096
+    >   Filesystem size:    32.00GiB
+    >   Block group profiles:
+    >     Data:             single            8.00MiB
+    >     Metadata:         DUP               1.00GiB
+    >     System:           DUP               8.00MiB
+    >   SSD detected:       no
+    >   Incompat features:  extref, skinny-metadata
+    >   Number of devices:  1
+    >   Devices:
+    >      ID        SIZE  PATH
+    >       1    32.00GiB  /dev/vdd
+    >   
+    >   Creating mount point [/data2-01]
+    >   Registering filesystem [/data2-01]
+    >   UUID=f29e2c58-a37c-46cd-9096-65c16ca1852a /data2-01    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data2-01]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdd         32G   17M   30G   1% /data2-01
+    >   
+    >   [/dev/vde][/data3-01]
+    >   Sun 16 Jun 16:58:35 BST 2019
+    >   Waresean
+    >   [/dev/vde][/data3-01]
+    >   ---- ----
+    >   hostname [Waresean]
+    >   devpath  [/dev/vde]
+    >   mntpath  [/data3-01]
+    >   ---- ----
+    >   Creating btrfs filesystem [/dev/vde]
+    >   btrfs-progs v4.17.1
+    >   See http://btrfs.wiki.kernel.org for more information.
+    >   
+    >   Label:              (null)
+    >   UUID:               87c70330-6d03-4230-aaa5-d8e553d1bedd
+    >   Node size:          16384
+    >   Sector size:        4096
+    >   Filesystem size:    32.00GiB
+    >   Block group profiles:
+    >     Data:             single            8.00MiB
+    >     Metadata:         DUP               1.00GiB
+    >     System:           DUP               8.00MiB
+    >   SSD detected:       no
+    >   Incompat features:  extref, skinny-metadata
+    >   Number of devices:  1
+    >   Devices:
+    >      ID        SIZE  PATH
+    >       1    32.00GiB  /dev/vde
+    >   
+    >   Creating mount point [/data3-01]
+    >   Registering filesystem [/data3-01]
+    >   UUID=87c70330-6d03-4230-aaa5-d8e553d1bedd /data3-01    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data3-01]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vde         32G   17M   30G   1% /data3-01
+    >   -------- -------- -------- --------
+    >   Node [Meng]
+    >   
+    >   [/dev/vdc][/data1-01]
+    >   Sun 16 Jun 16:58:37 BST 2019
+    >   Meng
+    >   [/dev/vdc][/data1-01]
+    >   ---- ----
+    >   hostname [Meng]
+    >   devpath  [/dev/vdc]
+    >   mntpath  [/data1-01]
+    >   ---- ----
+    >   Creating btrfs filesystem [/dev/vdc]
+    >   btrfs-progs v4.17.1
+    >   See http://btrfs.wiki.kernel.org for more information.
+    >   
+    >   Label:              (null)
+    >   UUID:               a3c29d4f-112e-466b-a5c1-5f9b676b142d
+    >   Node size:          16384
+    >   Sector size:        4096
+    >   Filesystem size:    32.00GiB
+    >   Block group profiles:
+    >     Data:             single            8.00MiB
+    >     Metadata:         DUP               1.00GiB
+    >     System:           DUP               8.00MiB
+    >   SSD detected:       no
+    >   Incompat features:  extref, skinny-metadata
+    >   Number of devices:  1
+    >   Devices:
+    >      ID        SIZE  PATH
+    >       1    32.00GiB  /dev/vdc
+    >   
+    >   Creating mount point [/data1-01]
+    >   Registering filesystem [/data1-01]
+    >   UUID=a3c29d4f-112e-466b-a5c1-5f9b676b142d /data1-01    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data1-01]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdc         32G   17M   30G   1% /data1-01
+    >   
+    >   [/dev/vdd][/data2-01]
+    >   Sun 16 Jun 16:58:38 BST 2019
+    >   Meng
+    >   [/dev/vdd][/data2-01]
+    >   ---- ----
+    >   hostname [Meng]
+    >   devpath  [/dev/vdd]
+    >   mntpath  [/data2-01]
+    >   ---- ----
+    >   Creating btrfs filesystem [/dev/vdd]
+    >   btrfs-progs v4.17.1
+    >   See http://btrfs.wiki.kernel.org for more information.
+    >   
+    >   Label:              (null)
+    >   UUID:               7e062471-e68e-4955-b3b4-6dd943f5f785
+    >   Node size:          16384
+    >   Sector size:        4096
+    >   Filesystem size:    32.00GiB
+    >   Block group profiles:
+    >     Data:             single            8.00MiB
+    >     Metadata:         DUP               1.00GiB
+    >     System:           DUP               8.00MiB
+    >   SSD detected:       no
+    >   Incompat features:  extref, skinny-metadata
+    >   Number of devices:  1
+    >   Devices:
+    >      ID        SIZE  PATH
+    >       1    32.00GiB  /dev/vdd
+    >   
+    >   Creating mount point [/data2-01]
+    >   Registering filesystem [/data2-01]
+    >   UUID=7e062471-e68e-4955-b3b4-6dd943f5f785 /data2-01    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data2-01]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdd         32G   17M   30G   1% /data2-01
+    >   
+    >   [/dev/vde][/data3-01]
+    >   Sun 16 Jun 16:58:39 BST 2019
+    >   Meng
+    >   [/dev/vde][/data3-01]
+    >   ---- ----
+    >   hostname [Meng]
+    >   devpath  [/dev/vde]
+    >   mntpath  [/data3-01]
+    >   ---- ----
+    >   Creating btrfs filesystem [/dev/vde]
+    >   btrfs-progs v4.17.1
+    >   See http://btrfs.wiki.kernel.org for more information.
+    >   
+    >   Label:              (null)
+    >   UUID:               0bb330d5-59bb-476f-90c8-5d183b52f2b8
+    >   Node size:          16384
+    >   Sector size:        4096
+    >   Filesystem size:    32.00GiB
+    >   Block group profiles:
+    >     Data:             single            8.00MiB
+    >     Metadata:         DUP               1.00GiB
+    >     System:           DUP               8.00MiB
+    >   SSD detected:       no
+    >   Incompat features:  extref, skinny-metadata
+    >   Number of devices:  1
+    >   Devices:
+    >      ID        SIZE  PATH
+    >       1    32.00GiB  /dev/vde
+    >   
+    >   Creating mount point [/data3-01]
+    >   Registering filesystem [/data3-01]
+    >   UUID=0bb330d5-59bb-476f-90c8-5d183b52f2b8 /data3-01    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data3-01]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vde         32G   17M   30G   1% /data3-01
+    >   -------- -------- -------- --------
+    >   Node [Tromader]
+    >   
+    >   [/dev/vdc][/data1-01]
+    >   Sun 16 Jun 16:58:40 BST 2019
+    >   Tromader
+    >   [/dev/vdc][/data1-01]
+    >   ---- ----
+    >   hostname [Tromader]
+    >   devpath  [/dev/vdc]
+    >   mntpath  [/data1-01]
+    >   ---- ----
+    >   Creating btrfs filesystem [/dev/vdc]
+    >   btrfs-progs v4.17.1
+    >   See http://btrfs.wiki.kernel.org for more information.
+    >   
+    >   Label:              (null)
+    >   UUID:               82cf189f-2c4f-4787-bb71-2b42d0c14051
+    >   Node size:          16384
+    >   Sector size:        4096
+    >   Filesystem size:    32.00GiB
+    >   Block group profiles:
+    >     Data:             single            8.00MiB
+    >     Metadata:         DUP               1.00GiB
+    >     System:           DUP               8.00MiB
+    >   SSD detected:       no
+    >   Incompat features:  extref, skinny-metadata
+    >   Number of devices:  1
+    >   Devices:
+    >      ID        SIZE  PATH
+    >       1    32.00GiB  /dev/vdc
+    >   
+    >   Creating mount point [/data1-01]
+    >   Registering filesystem [/data1-01]
+    >   UUID=82cf189f-2c4f-4787-bb71-2b42d0c14051 /data1-01    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data1-01]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdc         32G   17M   30G   1% /data1-01
+    >   
+    >   [/dev/vdd][/data2-01]
+    >   Sun 16 Jun 16:58:41 BST 2019
+    >   Tromader
+    >   [/dev/vdd][/data2-01]
+    >   ---- ----
+    >   hostname [Tromader]
+    >   devpath  [/dev/vdd]
+    >   mntpath  [/data2-01]
+    >   ---- ----
+    >   Creating btrfs filesystem [/dev/vdd]
+    >   btrfs-progs v4.17.1
+    >   See http://btrfs.wiki.kernel.org for more information.
+    >   
+    >   Label:              (null)
+    >   UUID:               2a610b91-105d-46a1-8e78-8b11b745f19d
+    >   Node size:          16384
+    >   Sector size:        4096
+    >   Filesystem size:    32.00GiB
+    >   Block group profiles:
+    >     Data:             single            8.00MiB
+    >     Metadata:         DUP               1.00GiB
+    >     System:           DUP               8.00MiB
+    >   SSD detected:       no
+    >   Incompat features:  extref, skinny-metadata
+    >   Number of devices:  1
+    >   Devices:
+    >      ID        SIZE  PATH
+    >       1    32.00GiB  /dev/vdd
+    >   
+    >   Creating mount point [/data2-01]
+    >   Registering filesystem [/data2-01]
+    >   UUID=2a610b91-105d-46a1-8e78-8b11b745f19d /data2-01    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data2-01]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdd         32G   17M   30G   1% /data2-01
+    >   
+    >   [/dev/vde][/data3-01]
+    >   Sun 16 Jun 16:58:42 BST 2019
+    >   Tromader
+    >   [/dev/vde][/data3-01]
+    >   ---- ----
+    >   hostname [Tromader]
+    >   devpath  [/dev/vde]
+    >   mntpath  [/data3-01]
+    >   ---- ----
+    >   Creating btrfs filesystem [/dev/vde]
+    >   btrfs-progs v4.17.1
+    >   See http://btrfs.wiki.kernel.org for more information.
+    >   
+    >   Label:              (null)
+    >   UUID:               e66b132a-94b3-4517-a60e-007a0a94b945
+    >   Node size:          16384
+    >   Sector size:        4096
+    >   Filesystem size:    32.00GiB
+    >   Block group profiles:
+    >     Data:             single            8.00MiB
+    >     Metadata:         DUP               1.00GiB
+    >     System:           DUP               8.00MiB
+    >   SSD detected:       no
+    >   Incompat features:  extref, skinny-metadata
+    >   Number of devices:  1
+    >   Devices:
+    >      ID        SIZE  PATH
+    >       1    32.00GiB  /dev/vde
+    >   
+    >   Creating mount point [/data3-01]
+    >   Registering filesystem [/data3-01]
+    >   UUID=e66b132a-94b3-4517-a60e-007a0a94b945 /data3-01    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data3-01]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vde         32G   17M   30G   1% /data3-01
+
+
+# -----------------------------------------------------
+# Check the disc space on each node.
+#[user@work02]
+
+    source "${HOME}/ssh-options"
+    source "${HOME}/nodenames.txt"
+
+    for vmname in ${canames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname}]"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    hostname
+                    date
+                    df -h
+                    "
+        done
+
+    >   ---- ----
+    >   Node [Umiwiel]
+    >   Umiwiel
+    >   Sun 16 Jun 16:59:12 BST 2019
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   devtmpfs        2.0G     0  2.0G   0% /dev
+    >   tmpfs           2.0G     0  2.0G   0% /dev/shm
+    >   tmpfs           2.0G  544K  2.0G   1% /run
+    >   tmpfs           2.0G     0  2.0G   0% /sys/fs/cgroup
+    >   /dev/vda3       6.8G  1.6G  4.7G  26% /
+    >   tmpfs           2.0G  4.0K  2.0G   1% /tmp
+    >   /dev/vda1       240M   89M  135M  40% /boot
+    >   /dev/vdc         32G   17M   30G   1% /data1-01
+    >   /dev/vdd         32G   17M   30G   1% /data2-01
+    >   /dev/vde         32G   17M   30G   1% /data3-01
+    >   tmpfs           395M     0  395M   0% /run/user/1001
+    >   ---- ----
+    >   Node [Waresean]
+    >   Waresean
+    >   Sun 16 Jun 16:59:13 BST 2019
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   devtmpfs        2.0G     0  2.0G   0% /dev
+    >   tmpfs           2.0G     0  2.0G   0% /dev/shm
+    >   tmpfs           2.0G  544K  2.0G   1% /run
+    >   tmpfs           2.0G     0  2.0G   0% /sys/fs/cgroup
+    >   /dev/vda3       6.8G  1.6G  4.7G  26% /
+    >   tmpfs           2.0G  4.0K  2.0G   1% /tmp
+    >   /dev/vda1       240M   89M  135M  40% /boot
+    >   /dev/vdc         32G   17M   30G   1% /data1-01
+    >   /dev/vdd         32G   17M   30G   1% /data2-01
+    >   /dev/vde         32G   17M   30G   1% /data3-01
+    >   tmpfs           395M     0  395M   0% /run/user/1001
+    >   ---- ----
+    >   Node [Meng]
+    >   Meng
+    >   Sun 16 Jun 16:59:14 BST 2019
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   devtmpfs        2.0G     0  2.0G   0% /dev
+    >   tmpfs           2.0G     0  2.0G   0% /dev/shm
+    >   tmpfs           2.0G  544K  2.0G   1% /run
+    >   tmpfs           2.0G     0  2.0G   0% /sys/fs/cgroup
+    >   /dev/vda3       6.8G  1.6G  4.6G  26% /
+    >   tmpfs           2.0G  4.0K  2.0G   1% /tmp
+    >   /dev/vda1       240M   89M  135M  40% /boot
+    >   /dev/vdc         32G   17M   30G   1% /data1-01
+    >   /dev/vdd         32G   17M   30G   1% /data2-01
+    >   /dev/vde         32G   17M   30G   1% /data3-01
+    >   tmpfs           395M     0  395M   0% /run/user/1001
+    >   ---- ----
+    >   Node [Tromader]
+    >   Tromader
+    >   Sun 16 Jun 16:59:14 BST 2019
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   devtmpfs        2.0G     0  2.0G   0% /dev
+    >   tmpfs           2.0G     0  2.0G   0% /dev/shm
+    >   tmpfs           2.0G  544K  2.0G   1% /run
+    >   tmpfs           2.0G     0  2.0G   0% /sys/fs/cgroup
+    >   /dev/vda3       6.8G  1.6G  4.7G  26% /
+    >   tmpfs           2.0G  4.0K  2.0G   1% /tmp
+    >   /dev/vda1       240M   89M  135M  40% /boot
+    >   /dev/vdc         32G   17M   30G   1% /data1-01
+    >   /dev/vdd         32G   17M   30G   1% /data2-01
+    >   /dev/vde         32G   17M   30G   1% /data3-01
+    >   tmpfs           395M     0  395M   0% /run/user/1001
+
+
+# -----------------------------------------------------
+# Check the disc space on each node.
+#[user@work02]
+
+    source "${HOME}/ssh-options"
+    source "${HOME}/nodenames.txt"
+
+    for vmname in ${canames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname}]"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    hostname
+                    date
+                    df -h /data*
+                    "
+        done
+
+    >   ---- ----
+    >   Node [Umiwiel]
+    >   Umiwiel
+    >   Sun 16 Jun 16:59:51 BST 2019
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdc         32G   17M   30G   1% /data1-01
+    >   /dev/vdd         32G   17M   30G   1% /data2-01
+    >   /dev/vde         32G   17M   30G   1% /data3-01
+    >   ---- ----
+    >   Node [Waresean]
+    >   Waresean
+    >   Sun 16 Jun 16:59:52 BST 2019
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdc         32G   17M   30G   1% /data1-01
+    >   /dev/vdd         32G   17M   30G   1% /data2-01
+    >   /dev/vde         32G   17M   30G   1% /data3-01
+    >   ---- ----
+    >   Node [Meng]
+    >   Meng
+    >   Sun 16 Jun 16:59:52 BST 2019
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdc         32G   17M   30G   1% /data1-01
+    >   /dev/vdd         32G   17M   30G   1% /data2-01
+    >   /dev/vde         32G   17M   30G   1% /data3-01
+    >   ---- ----
+    >   Node [Tromader]
+    >   Tromader
+    >   Sun 16 Jun 16:59:53 BST 2019
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdc         32G   17M   30G   1% /data1-01
+    >   /dev/vdd         32G   17M   30G   1% /data2-01
+    >   /dev/vde         32G   17M   30G   1% /data3-01
+

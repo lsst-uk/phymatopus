@@ -1,0 +1,835 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+
+
+
+# -----------------------------------------------------
+# Create our compose YAML file.
+#[user@work02]
+
+cat > /tmp/cassandra.yml << 'EOYML'
+
+version: "3.2"
+
+networks:
+    cassandra:
+
+services:
+
+    claire:
+        image:
+            cassandra:3.11
+        ports:
+            - "7000:7000"
+            - "7001:7001"
+            - "9042:9042"
+        environment:
+            - CASSANDRA_SEEDS=${CASSANDRA_SEEDS}
+            - CASSANDRA_CLUSTER_NAME=${CASSANDRA_CLUSTER_NAME}
+            - CASSANDRA_BROADCAST_ADDRESS=${CASSANDRA_BROADCAST_ADDRESS}
+        networks:
+            - cassandra
+        volumes:
+            - type:   "bind"
+              source: "${HOME}/cassandra.yaml"
+              target: "/etc/cassandra/cassandra.yaml"
+            - type:   "bind"
+              source: "/data1-01"
+              target: "/data1-01"
+            - type:   "bind"
+              source: "/data2-01"
+              target: "/data2-01"
+            - type:   "bind"
+              source: "/data3-01"
+              target: "/data3-01"
+
+
+EOYML
+
+# -----------------------------------------------------
+# Deploy our compose YAML file to each node.
+#[user@work02]
+
+    source "${HOME}/nodenames.txt"
+    source "${HOME}/libvirt.settings"
+
+    for vmname in ${canames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname}]"
+            scp \
+                ${scpopts[*]} \
+                /tmp/cassandra.yml \
+                ${sshuser:?}@${vmname:?}:cassandra.yml
+        done
+
+    >   Node [Umiwiel]
+    >   cassandra.yml       100%  763     1.1MB/s   00:00
+    >   ---- ----
+    >   Node [Waresean]
+    >   cassandra.yml       100%  763   893.5KB/s   00:00
+    >   ---- ----
+    >   Node [Meng]
+    >   cassandra.yml       100%  763   837.9KB/s   00:00
+    >   ---- ----
+    >   Node [Tromader]
+    >   cassandra.yml       100%  763     1.0MB/s   00:00
+
+
+# -----------------------------------------------------
+# Deploy a compose ENV file to each node.
+#[user@work02]
+
+    source "${HOME}/ssh-options"
+
+    for vmname in ${canames[@]}
+        do
+            echo "---- ----"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    hostname
+                    date
+
+cat > cassandra.env << EOF
+CASSANDRA_SEEDS=${canames[0]}
+CASSANDRA_CLUSTER_NAME=${cacluster}
+CASSANDRA_BROADCAST_ADDRESS=${vmname:?}
+EOF
+ln -sf cassandra.env .env
+                    "
+        done
+
+    >   ---- ----
+    >   Umiwiel
+    >   Mon 17 Jun 01:56:55 BST 2019
+    >   ---- ----
+    >   Waresean
+    >   Mon 17 Jun 01:56:55 BST 2019
+    >   ---- ----
+    >   Meng
+    >   Mon 17 Jun 01:56:56 BST 2019
+    >   ---- ----
+    >   Tromader
+    >   Mon 17 Jun 01:56:56 BST 2019
+
+
+# -----------------------------------------------------
+# Login to each node and extract a Cassandra config file from the container image.
+#[user@work02]
+
+    source "${HOME}/ssh-options"
+
+    for vmname in ${canames[@]}
+        do
+            echo "---- ----"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    hostname
+                    date
+
+                    docker create \
+                        --name config-temp \
+                            cassandra:3.11
+
+                    docker cp \
+                        config-temp:/etc/cassandra/cassandra.yaml \
+                        cassandra.yaml
+
+                    docker rm \
+                        config-temp
+
+                    "
+        done
+
+    >   Umiwiel
+    >   Mon 17 Jun 01:57:24 BST 2019
+    >   Unable to find image 'cassandra:3.11' locally
+    >   3.11: Pulling from library/cassandra
+    >   ....
+    >   ....
+    >   Digest: sha256:05eb2104b7d1e2d5dbdcfaef2b13398335c5e56426c1af724cbb2996edc3a674
+    >   Status: Downloaded newer image for cassandra:3.11
+    >   4a3361b1e04840c28bab014df7e05ca744e569b99f52ee2080e0add1b02e0bad
+    >   config-temp
+    >   ---- ----
+    >   Waresean
+    >   Mon 17 Jun 01:57:25 BST 2019
+    >   Unable to find image 'cassandra:3.11' locally
+    >   3.11: Pulling from library/cassandra
+    >   ....
+    >   ....
+    >   Digest: sha256:05eb2104b7d1e2d5dbdcfaef2b13398335c5e56426c1af724cbb2996edc3a674
+    >   Status: Downloaded newer image for cassandra:3.11
+    >   6eb58bc8020cbf6e7afc0bb1567d6a417e9db4923d9144b4429476af1ce7cd12
+    >   config-temp
+    >   ---- ----
+    >   Meng
+    >   Mon 17 Jun 01:57:26 BST 2019
+    >   Unable to find image 'cassandra:3.11' locally
+    >   3.11: Pulling from library/cassandra
+    >   ....
+    >   ....
+    >   Digest: sha256:05eb2104b7d1e2d5dbdcfaef2b13398335c5e56426c1af724cbb2996edc3a674
+    >   Status: Downloaded newer image for cassandra:3.11
+    >   a527fd763e6fd26493e0ab4f0d90f54df0c17fc218f4f2df85b8b8091893179b
+    >   config-temp
+    >   ---- ----
+    >   Tromader
+    >   Mon 17 Jun 01:57:27 BST 2019
+    >   Unable to find image 'cassandra:3.11' locally
+    >   3.11: Pulling from library/cassandra
+    >   ....
+    >   ....
+    >   Digest: sha256:05eb2104b7d1e2d5dbdcfaef2b13398335c5e56426c1af724cbb2996edc3a674
+    >   Status: Downloaded newer image for cassandra:3.11
+    >   533477532dabb2292d76a820c357ce8c966594044f1ce78ce1a8820a3cfc11ff
+    >   config-temp
+
+# -----------------------------------------------------
+# Login to each node and update the Cassandra config file.
+#[user@work02]
+
+    source "${HOME}/ssh-options"
+
+    for vmname in ${canames[@]}
+        do
+            echo "---- ----"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    hostname
+                    date
+
+                    # Update the commitlog_directory.
+                    sed -i '
+                        s/^\([[:space:]]*commitlog_directory:\).*$/\1 \/data3-01\/cassandra\/commitlog\//
+                        ' cassandra.yaml
+
+                    # Update the data_file_directories.
+                    sed -r -i '
+                        /^[[:space:]]*data_file_directories:/,/(^[[:space:]]*[^-[:space:]]|^$)/ {
+                            /^[[:space:]]*-/ {
+                                d
+                                }
+                            }
+                        /^[[:space:]]*data_file_directories:/ {
+                            a\
+\    - /data1-01/cassandra/data
+                            a\
+\    - /data2-01/cassandra/data
+                            }
+                        ' cassandra.yaml \
+
+                    # Check the results.
+                    sed -r -n '
+                        /^[[:space:]]*commitlog_directory:/ {
+                            p
+                            }
+                        /^[[:space:]]*data_file_directories:/,/(^[[:space:]]*[^-[:space:]]|^$)/ {
+                            p
+                            }
+                        ' cassandra.yaml \
+                    "
+        done
+
+    >   ---- ----
+    >   Umiwiel
+    >   Mon 17 Jun 01:58:27 BST 2019
+    >   data_file_directories:
+    >       - /data1-01/cassandra/data
+    >       - /data2-01/cassandra/data
+    >   
+    >   commitlog_directory: /data3-01/cassandra/commitlog/
+    >   ---- ----
+    >   Waresean
+    >   Mon 17 Jun 01:58:28 BST 2019
+    >   data_file_directories:
+    >       - /data1-01/cassandra/data
+    >       - /data2-01/cassandra/data
+    >   
+    >   commitlog_directory: /data3-01/cassandra/commitlog/
+    >   ---- ----
+    >   Meng
+    >   Mon 17 Jun 01:58:28 BST 2019
+    >   data_file_directories:
+    >       - /data1-01/cassandra/data
+    >       - /data2-01/cassandra/data
+    >   
+    >   commitlog_directory: /data3-01/cassandra/commitlog/
+    >   ---- ----
+    >   Tromader
+    >   Mon 17 Jun 01:58:29 BST 2019
+    >   data_file_directories:
+    >       - /data1-01/cassandra/data
+    >       - /data2-01/cassandra/data
+    >   
+    >   commitlog_directory: /data3-01/cassandra/commitlog/
+
+
+# -----------------------------------------------------
+# Check our deployed config files.
+#[user@work02]
+
+    source "${HOME}/nodenames.txt"
+    source "${HOME}/ssh-options"
+
+    for vmname in ${canames[@]}
+        do
+            echo "---- ----"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    hostname
+                    date
+
+                    ls -al .env
+                    echo '----'
+                    cat cassandra.env
+                    echo '----'
+                    cat cassandra.yml
+                    echo '----'
+                    sed -r -n '
+                        /^[[:space:]]*commitlog_directory:/ {
+                            p
+                            }
+                        /^[[:space:]]*data_file_directories:/,/(^[[:space:]]*[^-[:space:]]|^$)/ {
+                            p
+                            }
+                        ' cassandra.yaml \
+                    "
+        done
+
+
+    >   ---- ----
+    >   Umiwiel
+    >   Mon 17 Jun 01:59:44 BST 2019
+    >   lrwxrwxrwx. 1 Stevedore Stevedore 13 Jun 17 01:56 .env -> cassandra.env
+    >   ----
+    >   CASSANDRA_SEEDS=Umiwiel
+    >   CASSANDRA_CLUSTER_NAME=Hofmannophila
+    >   CASSANDRA_BROADCAST_ADDRESS=Umiwiel
+    >   ----
+    >   
+    >   version: "3.2"
+    >   
+    >   networks:
+    >       cassandra:
+    >   
+    >   services:
+    >   
+    >       claire:
+    >           image:
+    >               cassandra:3.11
+    >           ports:
+    >               - "7000:7000"
+    >               - "7001:7001"
+    >               - "9042:9042"
+    >           environment:
+    >               - CASSANDRA_SEEDS=${CASSANDRA_SEEDS}
+    >               - CASSANDRA_CLUSTER_NAME=${CASSANDRA_CLUSTER_NAME}
+    >               - CASSANDRA_BROADCAST_ADDRESS=${CASSANDRA_BROADCAST_ADDRESS}
+    >           networks:
+    >               - cassandra
+    >           volumes:
+    >               - type:   "bind"
+    >                 source: "${HOME}/cassandra.yaml"
+    >                 target: "/etc/cassandra/cassandra.yaml"
+    >               - type:   "bind"
+    >                 source: "/data1-01"
+    >                 target: "/data1-01"
+    >               - type:   "bind"
+    >                 source: "/data2-01"
+    >                 target: "/data2-01"
+    >               - type:   "bind"
+    >                 source: "/data3-01"
+    >                 target: "/data3-01"
+    >   
+    >   
+    >   ----
+    >   data_file_directories:
+    >       - /data1-01/cassandra/data
+    >       - /data2-01/cassandra/data
+    >   
+    >   commitlog_directory: /data3-01/cassandra/commitlog/
+    >   ---- ----
+    >   Waresean
+    >   Mon 17 Jun 01:59:45 BST 2019
+    >   lrwxrwxrwx. 1 Stevedore Stevedore 13 Jun 17 01:56 .env -> cassandra.env
+    >   ----
+    >   CASSANDRA_SEEDS=Umiwiel
+    >   CASSANDRA_CLUSTER_NAME=Hofmannophila
+    >   CASSANDRA_BROADCAST_ADDRESS=Waresean
+    >   ----
+    >   
+    >   version: "3.2"
+    >   
+    >   networks:
+    >       cassandra:
+    >   
+    >   services:
+    >   
+    >       claire:
+    >           image:
+    >               cassandra:3.11
+    >           ports:
+    >               - "7000:7000"
+    >               - "7001:7001"
+    >               - "9042:9042"
+    >           environment:
+    >               - CASSANDRA_SEEDS=${CASSANDRA_SEEDS}
+    >               - CASSANDRA_CLUSTER_NAME=${CASSANDRA_CLUSTER_NAME}
+    >               - CASSANDRA_BROADCAST_ADDRESS=${CASSANDRA_BROADCAST_ADDRESS}
+    >           networks:
+    >               - cassandra
+    >           volumes:
+    >               - type:   "bind"
+    >                 source: "${HOME}/cassandra.yaml"
+    >                 target: "/etc/cassandra/cassandra.yaml"
+    >               - type:   "bind"
+    >                 source: "/data1-01"
+    >                 target: "/data1-01"
+    >               - type:   "bind"
+    >                 source: "/data2-01"
+    >                 target: "/data2-01"
+    >               - type:   "bind"
+    >                 source: "/data3-01"
+    >                 target: "/data3-01"
+    >   
+    >   
+    >   ----
+    >   data_file_directories:
+    >       - /data1-01/cassandra/data
+    >       - /data2-01/cassandra/data
+    >   
+    >   commitlog_directory: /data3-01/cassandra/commitlog/
+    >   ---- ----
+    >   Meng
+    >   Mon 17 Jun 01:59:46 BST 2019
+    >   lrwxrwxrwx. 1 Stevedore Stevedore 13 Jun 17 01:56 .env -> cassandra.env
+    >   ----
+    >   CASSANDRA_SEEDS=Umiwiel
+    >   CASSANDRA_CLUSTER_NAME=Hofmannophila
+    >   CASSANDRA_BROADCAST_ADDRESS=Meng
+    >   ----
+    >   
+    >   version: "3.2"
+    >   
+    >   networks:
+    >       cassandra:
+    >   
+    >   services:
+    >   
+    >       claire:
+    >           image:
+    >               cassandra:3.11
+    >           ports:
+    >               - "7000:7000"
+    >               - "7001:7001"
+    >               - "9042:9042"
+    >           environment:
+    >               - CASSANDRA_SEEDS=${CASSANDRA_SEEDS}
+    >               - CASSANDRA_CLUSTER_NAME=${CASSANDRA_CLUSTER_NAME}
+    >               - CASSANDRA_BROADCAST_ADDRESS=${CASSANDRA_BROADCAST_ADDRESS}
+    >           networks:
+    >               - cassandra
+    >           volumes:
+    >               - type:   "bind"
+    >                 source: "${HOME}/cassandra.yaml"
+    >                 target: "/etc/cassandra/cassandra.yaml"
+    >               - type:   "bind"
+    >                 source: "/data1-01"
+    >                 target: "/data1-01"
+    >               - type:   "bind"
+    >                 source: "/data2-01"
+    >                 target: "/data2-01"
+    >               - type:   "bind"
+    >                 source: "/data3-01"
+    >                 target: "/data3-01"
+    >   
+    >   
+    >   ----
+    >   data_file_directories:
+    >       - /data1-01/cassandra/data
+    >       - /data2-01/cassandra/data
+    >   
+    >   commitlog_directory: /data3-01/cassandra/commitlog/
+    >   ---- ----
+    >   Tromader
+    >   Mon 17 Jun 01:59:46 BST 2019
+    >   lrwxrwxrwx. 1 Stevedore Stevedore 13 Jun 17 01:56 .env -> cassandra.env
+    >   ----
+    >   CASSANDRA_SEEDS=Umiwiel
+    >   CASSANDRA_CLUSTER_NAME=Hofmannophila
+    >   CASSANDRA_BROADCAST_ADDRESS=Tromader
+    >   ----
+    >   
+    >   version: "3.2"
+    >   
+    >   networks:
+    >       cassandra:
+    >   
+    >   services:
+    >   
+    >       claire:
+    >           image:
+    >               cassandra:3.11
+    >           ports:
+    >               - "7000:7000"
+    >               - "7001:7001"
+    >               - "9042:9042"
+    >           environment:
+    >               - CASSANDRA_SEEDS=${CASSANDRA_SEEDS}
+    >               - CASSANDRA_CLUSTER_NAME=${CASSANDRA_CLUSTER_NAME}
+    >               - CASSANDRA_BROADCAST_ADDRESS=${CASSANDRA_BROADCAST_ADDRESS}
+    >           networks:
+    >               - cassandra
+    >           volumes:
+    >               - type:   "bind"
+    >                 source: "${HOME}/cassandra.yaml"
+    >                 target: "/etc/cassandra/cassandra.yaml"
+    >               - type:   "bind"
+    >                 source: "/data1-01"
+    >                 target: "/data1-01"
+    >               - type:   "bind"
+    >                 source: "/data2-01"
+    >                 target: "/data2-01"
+    >               - type:   "bind"
+    >                 source: "/data3-01"
+    >                 target: "/data3-01"
+    >   
+    >   
+    >   ----
+    >   data_file_directories:
+    >       - /data1-01/cassandra/data
+    >       - /data2-01/cassandra/data
+    >   
+    >   commitlog_directory: /data3-01/cassandra/commitlog/
+
+
+# -----------------------------------------------------
+# Create our data directories.
+#[user@work02]
+
+    # Issue - uid and gid missmatch.
+    # In the Debian based container, cassandra has uid 999 and gid 999.
+    # In the Fedora virtual machine hosting the container, uid 999 and gid 999 are already taken by polkitd.
+    # No clean solution .. yet.
+
+    source "${HOME}/nodenames.txt"
+    source "${HOME}/ssh-options"
+
+    for vmname in ${canames[@]}
+        do
+            echo "---- ----"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    hostname
+                    date
+
+                    sudo mkdir /data1-01/cassandra
+                    sudo mkdir /data2-01/cassandra
+                    sudo mkdir /data3-01/cassandra
+
+                    sudo chown 999 /data1-01/cassandra
+                    sudo chown 999 /data2-01/cassandra
+                    sudo chown 999 /data3-01/cassandra
+
+                    sudo chgrp 999 /data1-01/cassandra
+                    sudo chgrp 999 /data2-01/cassandra
+                    sudo chgrp 999 /data3-01/cassandra
+
+                    sudo chmod u=rwxs,g=rwxs,o=rx /data1-01/cassandra
+                    sudo chmod u=rwxs,g=rwxs,o=rx /data2-01/cassandra
+                    sudo chmod u=rwxs,g=rwxs,o=rx /data3-01/cassandra
+
+                    du -h /data*
+
+                    "
+        done
+
+    >   Umiwiel
+    >   Mon 17 Jun 00:37:01 BST 2019
+    >   0	/data1-01/cassandra
+    >   16K	/data1-01
+    >   0	/data2-01/cassandra
+    >   16K	/data2-01
+    >   0	/data3-01/cassandra
+    >   16K	/data3-01
+    >   ---- ----
+    >   Waresean
+    >   Mon 17 Jun 00:37:02 BST 2019
+    >   0	/data1-01/cassandra
+    >   16K	/data1-01
+    >   0	/data2-01/cassandra
+    >   16K	/data2-01
+    >   0	/data3-01/cassandra
+    >   16K	/data3-01
+    >   ---- ----
+    >   Node [Meng]
+    >   Meng
+    >   Mon 17 Jun 00:37:03 BST 2019
+    >   0	/data1-01/cassandra
+    >   16K	/data1-01
+    >   0	/data2-01/cassandra
+    >   16K	/data2-01
+    >   0	/data3-01/cassandra
+    >   16K	/data3-01
+    >   ---- ----
+    >   Node [Tromader]
+    >   Tromader
+    >   Mon 17 Jun 00:37:04 BST 2019
+    >   0	/data1-01/cassandra
+    >   16K	/data1-01
+    >   0	/data2-01/cassandra
+    >   16K	/data2-01
+    >   0	/data3-01/cassandra
+    >   16K	/data3-01
+
+
+# -----------------------------------------------------
+# Start Cassandra on each node - slowly.
+#[user@work02]
+
+    source "${HOME}/nodenames.txt"
+    source "${HOME}/ssh-options"
+
+    delay=30
+
+    for i in {0..3}
+        do
+            vmname=${canames[${i}]}
+
+            if [ ${i} -ne 0 ]
+            then
+                echo "----"
+                echo "Sleeping [${delay}]"
+                sleep ${delay}
+                echo "----"
+            fi
+
+            ssh \
+                ${scpopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                hostname
+                date
+                docker-compose \
+                    --file cassandra.yml \
+                    up -d
+                "
+        done
+
+    >   Umiwiel
+    >   Mon 17 Jun 02:09:58 BST 2019
+    >   Starting stevedore_claire_1 ... done
+    >   ----
+    >   Sleeping [20]
+    >   ----
+    >   Waresean
+    >   Mon 17 Jun 02:10:20 BST 2019
+    >   Starting stevedore_claire_1 ... done
+    >   ----
+    >   Sleeping [40]
+    >   ----
+    >   Meng
+    >   Mon 17 Jun 02:11:02 BST 2019
+    >   Starting stevedore_claire_1 ... done
+    >   ----
+    >   Sleeping [60]
+    >   ----
+    >   Tromader
+    >   Mon 17 Jun 02:12:04 BST 2019
+    >   Starting stevedore_claire_1 ... done
+
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+# Tail the logs on each node.
+# https://www.systutorials.com/docs/linux/man/1-gnome-terminal/
+# https://www.systutorials.com/docs/linux/man/7-X/#lbAH
+#[user@desktop]
+
+    mate-terminal \
+        --geometry '180x10+25+25' \
+        --command '
+            ssh -t Umiwiel "
+                docker logs -f stevedore_claire_1
+                ${SHELL}
+                "
+            '
+    sleep 1
+
+    mate-terminal \
+        --geometry '180x10+125+125' \
+        --command '
+            ssh -t Waresean "
+                docker logs -f stevedore_claire_1
+                ${SHELL}
+                "
+            '
+    sleep 1
+
+    mate-terminal \
+        --geometry '180x10+225+225' \
+        --command '
+            ssh -t Meng "
+                docker logs -f stevedore_claire_1
+                ${SHELL}
+                "
+            '
+    sleep 1
+
+    mate-terminal \
+        --geometry '180x10+325+325' \
+        --command '
+            ssh -t Tromader "
+                docker logs -f stevedore_claire_1
+                ${SHELL}
+                "
+            '
+
+    # Swapp off
+    # Directory permissions.
+
+    >   INFO  [HANDSHAKE-/172.16.2.10] 2019-06-16 23:54:45,943 OutboundTcpConnection.java:561 - Handshaking version with /172.16.2.10
+    >   INFO  [GossipStage:1] 2019-06-16 23:54:48,660 Gossiper.java:1047 - Node /172.16.2.10 is now part of the cluster
+    >   INFO  [RequestResponseStage-1] 2019-06-16 23:54:48,670 Gossiper.java:1011 - InetAddress /172.16.2.10 is now UP
+    >   INFO  [HANDSHAKE-/172.16.2.10] 2019-06-16 23:54:49,225 OutboundTcpConnection.java:561 - Handshaking version with /172.16.2.10
+    >   INFO  [STREAM-INIT-/172.16.2.10:53938] 2019-06-16 23:55:38,933 StreamResultFuture.java:116 - [Stream #3dbfdd80-9092-11e9-a1c1-d7ee8570c286 ID#0] Creating new streaming plan for Bootstrap
+    >   INFO  [STREAM-INIT-/172.16.2.10:53938] 2019-06-16 23:55:38,935 StreamResultFuture.java:123 - [Stream #3dbfdd80-9092-11e9-a1c1-d7ee8570c286, ID#0] Received streaming plan for Bootstrap
+    >   INFO  [STREAM-INIT-/172.16.2.10:53940] 2019-06-16 23:55:38,937 StreamResultFuture.java:123 - [Stream #3dbfdd80-9092-11e9-a1c1-d7ee8570c286, ID#0] Received streaming plan for Bootstrap
+    >   INFO  [STREAM-IN-/172.16.2.10:53940] 2019-06-16 23:55:38,993 StreamResultFuture.java:187 - [Stream #3dbfdd80-9092-11e9-a1c1-d7ee8570c286] Session with /172.16.2.10 is complete
+    >   INFO  [STREAM-IN-/172.16.2.10:53940] 2019-06-16 23:55:38,994 StreamResultFuture.java:219 - [Stream #3dbfdd80-9092-11e9-a1c1-d7ee8570c286] All sessions completed
+
+
+    >   INFO  [HANDSHAKE-/172.16.2.10] 2019-06-16 23:54:49,300 OutboundTcpConnection.java:561 - Handshaking version with /172.16.2.10
+    >   INFO  [GossipStage:1] 2019-06-16 23:54:51,211 Gossiper.java:1047 - Node /172.16.2.10 is now part of the cluster
+    >   INFO  [HANDSHAKE-/172.16.2.10] 2019-06-16 23:54:51,215 OutboundTcpConnection.java:561 - Handshaking version with /172.16.2.10
+    >   INFO  [RequestResponseStage-1] 2019-06-16 23:54:51,220 Gossiper.java:1011 - InetAddress /172.16.2.10 is now UP
+    >   INFO  [STREAM-INIT-/172.16.2.10:37128] 2019-06-16 23:55:39,027 StreamResultFuture.java:116 - [Stream #3dbfdd80-9092-11e9-a1c1-d7ee8570c286 ID#0] Creating new streaming plan for Bootstrap
+    >   INFO  [STREAM-INIT-/172.16.2.10:37128] 2019-06-16 23:55:39,028 StreamResultFuture.java:123 - [Stream #3dbfdd80-9092-11e9-a1c1-d7ee8570c286, ID#0] Received streaming plan for Bootstrap
+    >   INFO  [STREAM-INIT-/172.16.2.10:37130] 2019-06-16 23:55:39,030 StreamResultFuture.java:123 - [Stream #3dbfdd80-9092-11e9-a1c1-d7ee8570c286, ID#0] Received streaming plan for Bootstrap
+    >   INFO  [STREAM-IN-/172.16.2.10:37130] 2019-06-16 23:55:39,085 StreamResultFuture.java:187 - [Stream #3dbfdd80-9092-11e9-a1c1-d7ee8570c286] Session with /172.16.2.10 is complete
+    >   INFO  [STREAM-IN-/172.16.2.10:37130] 2019-06-16 23:55:39,085 StreamResultFuture.java:219 - [Stream #3dbfdd80-9092-11e9-a1c1-d7ee8570c286] All sessions completed
+
+
+    >   INFO  [main] 2019-06-16 23:55:39,173 StorageService.java:1483 - JOINING: Finish joining ring
+    >   INFO  [main] 2019-06-16 23:55:40,612 Gossiper.java:1684 - Waiting for gossip to settle...
+    >   INFO  [main] 2019-06-16 23:55:48,614 Gossiper.java:1715 - No gossip backlog; proceeding
+    >   INFO  [main] 2019-06-16 23:55:48,775 NativeTransportService.java:70 - Netty using native Epoll event loop
+    >   INFO  [main] 2019-06-16 23:55:48,811 Server.java:155 - Using Netty Version: [netty-buffer=netty-buffer-4.0.44.Final.452812a, netty-codec=netty-codec-4.0.44.Final.452812a, netty-codec-haproxy=netty-codec-haproxy-4.0.44.Final.452812a, netty-codec-http=netty-codec-http-4.0.44.Final.452812a, netty-codec-socks=netty-codec-socks-4.0.44.Final.452812a, netty-common=netty-common-4.0.44.Final.452812a, netty-handler=netty-handler-4.0.44.Final.452812a, netty-tcnative=netty-tcnative-1.1.33.Fork26.142ecbb, netty-transport=netty-transport-4.0.44.Final.452812a, netty-transport-native-epoll=netty-transport-native-epoll-4.0.44.Final.452812a, netty-transport-rxtx=netty-transport-rxtx-4.0.44.Final.452812a, netty-transport-sctp=netty-transport-sctp-4.0.44.Final.452812a, netty-transport-udt=netty-transport-udt-4.0.44.Final.452812a]
+    >   INFO  [main] 2019-06-16 23:55:48,811 Server.java:156 - Starting listening for CQL clients on /0.0.0.0:9042 (unencrypted)...
+    >   INFO  [main] 2019-06-16 23:55:48,844 CassandraDaemon.java:556 - Not starting RPC server as requested. Use JMX (StorageService->startRPCServer()) or nodetool (enablethrift) to start it
+
+
+    >   INFO  [HANDSHAKE-/172.16.2.10] 2019-06-16 23:54:49,343 OutboundTcpConnection.java:561 - Handshaking version with /172.16.2.10
+    >   INFO  [GossipStage:1] 2019-06-16 23:54:50,211 Gossiper.java:1047 - Node /172.16.2.10 is now part of the cluster
+    >   INFO  [HANDSHAKE-/172.16.2.10] 2019-06-16 23:54:50,214 OutboundTcpConnection.java:561 - Handshaking version with /172.16.2.10
+    >   INFO  [RequestResponseStage-1] 2019-06-16 23:54:50,224 Gossiper.java:1011 - InetAddress /172.16.2.10 is now UP
+    >   INFO  [STREAM-INIT-/172.16.2.10:53164] 2019-06-16 23:55:39,099 StreamResultFuture.java:116 - [Stream #3dbfdd80-9092-11e9-a1c1-d7ee8570c286 ID#0] Creating new streaming plan for Bootstrap
+    >   INFO  [STREAM-INIT-/172.16.2.10:53164] 2019-06-16 23:55:39,103 StreamResultFuture.java:123 - [Stream #3dbfdd80-9092-11e9-a1c1-d7ee8570c286, ID#0] Received streaming plan for Bootstrap
+    >   INFO  [STREAM-INIT-/172.16.2.10:53166] 2019-06-16 23:55:39,105 StreamResultFuture.java:123 - [Stream #3dbfdd80-9092-11e9-a1c1-d7ee8570c286, ID#0] Received streaming plan for Bootstrap
+    >   INFO  [STREAM-IN-/172.16.2.10:53166] 2019-06-16 23:55:39,149 StreamResultFuture.java:187 - [Stream #3dbfdd80-9092-11e9-a1c1-d7ee8570c286] Session with /172.16.2.10 is complete
+    >   INFO  [STREAM-IN-/172.16.2.10:53166] 2019-06-16 23:55:39,149 StreamResultFuture.java:219 - [Stream #3dbfdd80-9092-11e9-a1c1-d7ee8570c286] All sessions completed
+
+
+
+
+
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+# Check the disc space on our nodes.
+#[user@work02]
+
+    source "${HOME}/nodenames.txt"
+    source "${HOME}/ssh-options"
+
+    spacecheck()
+        {
+        for vmname in ${canames[@]}
+            do
+                echo "---- ----"
+                ssh \
+                    ${scpopts[*]} \
+                    ${sshuser:?}@${vmname:?} \
+                    "
+                    hostname
+                    date
+                    df -h /data*
+                    "
+            done
+        }
+
+    spacecheck
+
+# -----------------------------------------------------
+# Shutdown our Cassandra containers.
+#[user@work02]
+
+    source "${HOME}/nodenames.txt"
+    source "${HOME}/ssh-options"
+
+    for vmname in ${canames[@]}
+        do
+            echo "---- ----"
+            ssh \
+                ${scpopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                hostname
+                date
+                docker-compose \
+                    --file cassandra.yml \
+                    down
+                "
+        done
+
+    >   Umiwiel
+    >   Mon 17 Jun 00:11:04 BST 2019
+    >   Removing stevedore_claire_1 ... done
+    >   Removing network stevedore_cassandra
+    >   ---- ----
+    >   Waresean
+    >   Mon 17 Jun 00:11:06 BST 2019
+    >   Removing stevedore_claire_1 ... done
+    >   Removing network stevedore_cassandra
+    >   ---- ----
+    >   Meng
+    >   Mon 17 Jun 00:11:08 BST 2019
+    >   Removing stevedore_claire_1 ... done
+    >   Removing network stevedore_cassandra
+    >   ---- ----
+    >   Tromader
+    >   Mon 17 Jun 00:11:10 BST 2019
+    >   Removing stevedore_claire_1 ... done
+    >   Removing network stevedore_cassandra
+

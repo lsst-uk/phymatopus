@@ -1,0 +1,440 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+# -----------------------------------------------------
+# Edit the iptables on trop03
+#[root@trop03]
+
+    cat > /var/lib/iptables/active << EOF
+# Note: no blank lines in this file!!
+*filter
+:INPUT DROP [0:0]
+:FORWARD DROP [0:0]
+:OUTPUT DROP [0:0]
+:frasynrel - [0:0]
+:override - [0:0]
+:vitalicmp - [0:0]
+#
+# The INPUT chain.
+# Internal DHCP requests - allow
+[0:0] -A INPUT -i virbr0 -p udp --dport 67 -j ACCEPT
+[0:0] -A INPUT -i virbr0 -p tcp --dport 67 -j ACCEPT
+# Standard chain
+[0:0] -A INPUT -j override
+[0:0] -A INPUT -i lo -j ACCEPT
+#
+# Allow from LSST LAN
+[0:0] -A INPUT -s 172.16.0.0/255.255.0.0 -p udp -j ACCEPT
+[0:0] -A INPUT -s 172.16.0.0/255.255.0.0 -p tcp -j ACCEPT
+# Allow SSH access from ROE LAN (wired desktops etc.)
+[0:0] -A INPUT -s 195.194.120.0/255.255.252.0 -p tcp -m tcp --dport 22 -j ACCEPT
+# Allow SSH access from ROE VPN.
+[0:0] -A INPUT -s 195.194.121.0/255.255.255.0 -p tcp -m tcp --dport 22 -j ACCEPT
+# Allow SSH access from ROE servers (ULAN and ROEEduroam etc.)
+[0:0] -A INPUT -s 192.108.120.0/255.255.255.0 -p tcp -m tcp --dport 22 -j ACCEPT
+[0:0] -A INPUT -s 192.41.108.0/255.255.255.0      -p tcp -m tcp --dport 22 -j ACCEPT
+# Allow SSH access from Main uni network (Uni VPN, OpenStack, trop machines etc.)
+[0:0] -A INPUT -s 129.215.0.0/255.255.0.0     -p tcp -m tcp --dport 22 -j ACCEPT
+# SSH access from trop machines.
+[0:0] -A INPUT -s 129.215.175.100/255.255.255.252 -p tcp -m tcp --dport 22 -j ACCEPT
+# Allow SSH acces for Dave Morris
+[0:0] -A INPUT -s 81.187.247.196 -p tcp -m tcp --dport 22 -j ACCEPT
+[0:0] -A INPUT -s 81.187.46.67   -p tcp -m tcp --dport 22 -j ACCEPT
+# External DHCP requests, just drop
+[0:0] -A INPUT -i br0 -p udp --dport 67 -j DROP
+[0:0] -A INPUT -i br0 -p tcp --dport 67 -j DROP
+# All else, log and drop.
+[0:0] -A INPUT -j LOG --log-prefix "drop "
+[0:0] -A INPUT -j DROP
+#
+# The FORWARD chain.
+#
+[0:0] -A FORWARD -i virbr0 -o virbr0 -j ACCEPT
+[0:0] -A FORWARD -o virbr0 -j REJECT --reject-with icmp-port-unreachable
+[0:0] -A FORWARD -i virbr0 -j REJECT --reject-with icmp-port-unreachable
+[0:0] -A FORWARD -j LOG --log-prefix "drop "
+[0:0] -A FORWARD -j DROP
+#
+# The OUTPUT chain.
+#
+# Allow internal DHCP offers.
+[0:0] -A OUTPUT -o virbr0 -p udp -m udp --dport 68 -j ACCEPT
+[0:0] -A OUTPUT -j override
+[0:0] -A OUTPUT -o lo -j ACCEPT
+# Allow DNS by UDP and TCP.
+[0:0] -A OUTPUT -p udp -m udp --sport 1024:65535 --dport 53 -j ACCEPT
+[0:0] -A OUTPUT -p tcp -m tcp --sport 1024:65535 --dport 53 -j ACCEPT
+# Allow NTP by UDP.
+[0:0] -A OUTPUT -p udp -m udp --dport 123 -j ACCEPT
+# Allow outgoing TCP.
+[0:0] -A OUTPUT -p tcp -j ACCEPT
+# All else, log and drop.
+[0:0] -A OUTPUT -j LOG --log-prefix "drop "
+[0:0] -A OUTPUT -j DROP
+#
+# The frasynrel chain takes care of allowing fragments and
+# of allowing packets that belong to an established connection or
+# are related to an established connection.
+#
+[0:0] -A frasynrel -f -j ACCEPT
+[0:0] -A frasynrel -m state --state ESTABLISHED -j ACCEPT
+[0:0] -A frasynrel -p tcp -m tcp --tcp-flags SYN,RST,ACK SYN -m state --state RELATED -j ACCEPT
+#
+# The override chain combines the frasynrel and vitalicmp chains
+# and is the first element of the INPUT and OUTPUT chains.
+#
+[0:0] -A override -j frasynrel
+[0:0] -A override -j vitalicmp
+#
+# The vitalicmp chain takes care of allowing the really important
+# bits of ICMP traffic.  This does not include ping.
+#
+[0:0] -A vitalicmp -p icmp -m icmp --icmp-type 3 -j ACCEPT
+[0:0] -A vitalicmp -p icmp -m icmp --icmp-type 12 -j ACCEPT
+[0:0] -A vitalicmp -p icmp -m icmp --icmp-type 4 -j ACCEPT
+[0:0] -A vitalicmp -p icmp -m icmp --icmp-type 11 -j ACCEPT
+COMMIT
+EOF
+
+
+# -----------------------------------------------------
+# Edit the iptables on trop04
+#[root@trop04]
+
+
+    cat > /var/lib/iptables/active << EOF
+# Note: no blank lines in this file!!
+*filter
+:INPUT DROP [0:0]
+:FORWARD DROP [0:0]
+:OUTPUT DROP [0:0]
+:frasynrel - [0:0]
+:override - [0:0]
+:vitalicmp - [0:0]
+#
+# The INPUT chain.
+# Internal DHCP requests - allow
+[0:0] -A INPUT -i virbr0 -p udp --dport 67 -j ACCEPT
+[0:0] -A INPUT -i virbr0 -p tcp --dport 67 -j ACCEPT
+# Standard chain
+[0:0] -A INPUT -j override
+[0:0] -A INPUT -i lo -j ACCEPT
+#
+# Allow from LSST LAN
+[0:0] -A INPUT -s 172.16.0.0/255.255.0.0 -p udp -j ACCEPT
+[0:0] -A INPUT -s 172.16.0.0/255.255.0.0 -p tcp -j ACCEPT
+# Allow SSH access from ROE LAN (wired desktops etc.)
+[0:0] -A INPUT -s 195.194.120.0/255.255.252.0 -p tcp -m tcp --dport 22 -j ACCEPT
+# Allow SSH access from ROE VPN.
+[0:0] -A INPUT -s 195.194.121.0/255.255.255.0 -p tcp -m tcp --dport 22 -j ACCEPT
+# Allow SSH access from ROE servers (ULAN and ROEEduroam etc.)
+[0:0] -A INPUT -s 192.108.120.0/255.255.255.0 -p tcp -m tcp --dport 22 -j ACCEPT
+[0:0] -A INPUT -s 192.41.108.0/255.255.255.0      -p tcp -m tcp --dport 22 -j ACCEPT
+# Allow SSH access from Main uni network (Uni VPN, OpenStack, trop machines etc.)
+[0:0] -A INPUT -s 129.215.0.0/255.255.0.0     -p tcp -m tcp --dport 22 -j ACCEPT
+# SSH access from trop machines.
+[0:0] -A INPUT -s 129.215.175.100/255.255.255.252 -p tcp -m tcp --dport 22 -j ACCEPT
+# Allow SSH acces for Dave Morris
+[0:0] -A INPUT -s 81.187.247.196 -p tcp -m tcp --dport 22 -j ACCEPT
+[0:0] -A INPUT -s 81.187.46.67   -p tcp -m tcp --dport 22 -j ACCEPT
+# External DHCP requests, just drop
+[0:0] -A INPUT -i br0 -p udp --dport 67 -j DROP
+[0:0] -A INPUT -i br0 -p tcp --dport 67 -j DROP
+# All else, log and drop.
+[0:0] -A INPUT -j LOG --log-prefix "drop "
+[0:0] -A INPUT -j DROP
+#
+# The FORWARD chain.
+#
+[0:0] -A FORWARD -i virbr0 -o virbr0 -j ACCEPT
+[0:0] -A FORWARD -o virbr0 -j REJECT --reject-with icmp-port-unreachable
+[0:0] -A FORWARD -i virbr0 -j REJECT --reject-with icmp-port-unreachable
+[0:0] -A FORWARD -j LOG --log-prefix "drop "
+[0:0] -A FORWARD -j DROP
+#
+# The OUTPUT chain.
+#
+# Allow internal DHCP offers.
+[0:0] -A OUTPUT -o virbr0 -p udp -m udp --dport 68 -j ACCEPT
+[0:0] -A OUTPUT -j override
+[0:0] -A OUTPUT -o lo -j ACCEPT
+# Allow DNS by UDP and TCP.
+[0:0] -A OUTPUT -p udp -m udp --sport 1024:65535 --dport 53 -j ACCEPT
+[0:0] -A OUTPUT -p tcp -m tcp --sport 1024:65535 --dport 53 -j ACCEPT
+# Allow NTP by UDP.
+[0:0] -A OUTPUT -p udp -m udp --dport 123 -j ACCEPT
+# Allow outgoing TCP.
+[0:0] -A OUTPUT -p tcp -j ACCEPT
+# All else, log and drop.
+[0:0] -A OUTPUT -j LOG --log-prefix "drop "
+[0:0] -A OUTPUT -j DROP
+#
+# The frasynrel chain takes care of allowing fragments and
+# of allowing packets that belong to an established connection or
+# are related to an established connection.
+#
+[0:0] -A frasynrel -f -j ACCEPT
+[0:0] -A frasynrel -m state --state ESTABLISHED -j ACCEPT
+[0:0] -A frasynrel -p tcp -m tcp --tcp-flags SYN,RST,ACK SYN -m state --state RELATED -j ACCEPT
+#
+# The override chain combines the frasynrel and vitalicmp chains
+# and is the first element of the INPUT and OUTPUT chains.
+#
+[0:0] -A override -j frasynrel
+[0:0] -A override -j vitalicmp
+#
+# The vitalicmp chain takes care of allowing the really important
+# bits of ICMP traffic.  This does not include ping.
+#
+[0:0] -A vitalicmp -p icmp -m icmp --icmp-type 3 -j ACCEPT
+[0:0] -A vitalicmp -p icmp -m icmp --icmp-type 12 -j ACCEPT
+[0:0] -A vitalicmp -p icmp -m icmp --icmp-type 4 -j ACCEPT
+[0:0] -A vitalicmp -p icmp -m icmp --icmp-type 11 -j ACCEPT
+COMMIT
+EOF
+
+
+# -----------------------------------------------------
+# Start Umiawyth on trop03.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        -c $connection \
+        start \
+            Umiawyth
+
+
+# -----------------------------------------------------
+# Start Wumar on trop04.
+#[user@trop04]
+
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        -c $connection \
+        start \
+            Wumar
+
+
+# -----------------------------------------------------
+# Login to Umiawyth from trop03, using its 192 addresses.
+#[user@trop03]
+
+    ssh Stevedore@192.168.5.1 \
+        '
+        date
+        hostname
+        '
+
+    >   Fri 31 May 04:57:51 BST 2019
+    >   Umiawyth
+
+
+# -----------------------------------------------------
+# Login to Wumar from trop04, using its 192 addresses.
+#[user@trop03]
+
+    ssh Stevedore@192.168.6.1 \
+        '
+        date
+        hostname
+        '
+
+    >   Fri 31 May 04:58:29 BST 2019
+    >   Wumar
+
+
+# -----------------------------------------------------
+# Login to Umiawyth and Wumar from trop03 using their 172 addresses.
+#[user@trop03]
+
+    ssh Stevedore@Umiawyth \
+        '
+        date
+        hostname
+        '
+
+    >   HANGS
+
+
+    ssh Stevedore@Wumar \
+        '
+        date
+        hostname
+        '
+
+    >   ssh: connect to host wumar port 22: No route to host
+
+
+    #
+    # Connections and roputes are not symetrical.
+    #
+
+
+# -----------------------------------------------------
+#[user@trop04]
+
+    ssh -v Stevedore@172.17.5.1
+
+    >   HANGS
+
+
+# -----------------------------------------------------
+#[user@trop04]
+
+    ssh -v Stevedore@172.17.6.1
+
+    >   OpenSSH_7.4p1 Debian-10+deb9u6, OpenSSL 1.0.2r  26 Feb 2019
+    >   debug1: Reading configuration data /home/dmr/.ssh/config
+    >   debug1: Reading configuration data /etc/ssh/ssh_config
+    >   debug1: /etc/ssh/ssh_config line 19: Applying options for *
+    >   debug1: Connecting to 172.17.6.1 [172.17.6.1] port 22.
+    >   debug1: connect to address 172.17.6.1 port 22: No route to host
+    >   ssh: connect to host 172.17.6.1 port 22: No route to host
+
+
+# -----------------------------------------------------
+#[user@trop04]
+
+    ssh Stevedore@192.168.6.1
+
+    >   Last login: Fri May 31 04:59:19 2019 from 192.168.6.254
+    >   [Stevedore@Wumar ~]$
+
+
+# -----------------------------------------------------
+#[user@trop03]
+
+    ssh -v Stevedore@172.17.5.1
+
+    >   OpenSSH_7.4p1 Debian-10+deb9u6, OpenSSL 1.0.2r  26 Feb 2019
+    >   debug1: Reading configuration data /home/dmr/.ssh/config
+    >   debug1: Reading configuration data /etc/ssh/ssh_config
+    >   debug1: /etc/ssh/ssh_config line 19: Applying options for *
+    >   debug1: Connecting to 172.17.5.1 [172.17.5.1] port 22.
+    >   HANGS
+    >   ^C
+
+
+# -----------------------------------------------------
+#[user@trop03]
+
+    ssh -v Stevedore@172.17.6.1
+
+    >   OpenSSH_7.4p1 Debian-10+deb9u6, OpenSSL 1.0.2r  26 Feb 2019
+    >   debug1: Reading configuration data /home/dmr/.ssh/config
+    >   debug1: Reading configuration data /etc/ssh/ssh_config
+    >   debug1: /etc/ssh/ssh_config line 19: Applying options for *
+    >   debug1: Connecting to 172.17.6.1 [172.17.6.1] port 22.
+    >   debug1: connect to address 172.17.6.1 port 22: No route to host
+    >   ssh: connect to host 172.17.6.1 port 22: No route to host
+
+
+# -----------------------------------------------------
+#[user@trop03]
+
+    ssh Stevedore@192.168.5.1
+
+    >   Last login: Fri May 31 04:59:31 2019 from 172.16.6.1
+    >   [Stevedore@Umiawyth ~]$
+
+
+# -----------------------------------------------------
+#[user@Umiawyth]
+
+    ssh Wumar 'hostname'
+
+    >   ssh: connect to host wumar port 22: No route to host
+
+
+# -----------------------------------------------------
+#[user@Wumar]
+
+    ssh Umiawyth 'hostname'
+
+    >   Umiawyth
+
+
+# -----------------------------------------------------
+#[root@trop03]
+
+    sudo modprobe br_netfilter
+    sudo sysctl 'net.bridge'
+
+    >   net.bridge.bridge-nf-call-arptables = 1
+    >   net.bridge.bridge-nf-call-ip6tables = 1
+    >   net.bridge.bridge-nf-call-iptables = 1
+    >   net.bridge.bridge-nf-filter-pppoe-tagged = 0
+    >   net.bridge.bridge-nf-filter-vlan-tagged = 0
+    >   net.bridge.bridge-nf-pass-vlan-input-dev = 0
+
+
+    sysctl 'net.bridge.bridge-nf-call-iptables=0'
+
+    >   net.bridge.bridge-nf-call-iptables = 0
+
+
+# -----------------------------------------------------
+#[root@trop04]
+
+    modprobe br_netfilter
+    sysctl 'net.bridge'
+
+    >   net.bridge.bridge-nf-call-arptables = 1
+    >   net.bridge.bridge-nf-call-ip6tables = 1
+    >   net.bridge.bridge-nf-call-iptables = 1
+    >   net.bridge.bridge-nf-filter-pppoe-tagged = 0
+    >   net.bridge.bridge-nf-filter-vlan-tagged = 0
+    >   net.bridge.bridge-nf-pass-vlan-input-dev = 0
+
+
+    sysctl 'net.bridge.bridge-nf-call-iptables=0'
+
+    >   net.bridge.bridge-nf-call-iptables = 0
+
+
+# -----------------------------------------------------
+#[user@trop03]
+
+    ssh -v Stevedore@Wumar
+
+    >   OpenSSH_7.4p1 Debian-10+deb9u6, OpenSSL 1.0.2r  26 Feb 2019
+    >   debug1: Reading configuration data /home/dmr/.ssh/config
+    >   debug1: /home/dmr/.ssh/config line 22: Applying options for Wumar
+    >   debug1: Reading configuration data /etc/ssh/ssh_config
+    >   debug1: /etc/ssh/ssh_config line 19: Applying options for *
+    >   debug1: Connecting to wumar [172.17.6.1] port 22.
+    >   debug1: connect to address 172.17.6.1 port 22: No route to host
+    >   ssh: connect to host wumar port 22: No route to host
+
+    ssh -v Stevedore@Umiawyth
+
+    >   OpenSSH_7.4p1 Debian-10+deb9u6, OpenSSL 1.0.2r  26 Feb 2019
+    >   debug1: Reading configuration data /home/dmr/.ssh/config
+    >   debug1: /home/dmr/.ssh/config line 18: Applying options for Umiawyth
+    >   debug1: Reading configuration data /etc/ssh/ssh_config
+    >   debug1: /etc/ssh/ssh_config line 19: Applying options for *
+    >   debug1: Connecting to umiawyth [172.17.5.1] port 22.
+    >   ^C
+

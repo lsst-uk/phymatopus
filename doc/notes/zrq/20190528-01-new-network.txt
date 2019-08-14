@@ -1,0 +1,627 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+
+    #
+    # How to build a simple router with Ubuntu 18
+    https://www.ascinc.com/blog/linux/how-to-build-a-simple-router-with-ubuntu-server-18-04-1-lts-bionic-beaver/
+
+    #
+    # Simple questions - how are the ipytables rules configured ?
+    # Manual editing or UFW ?
+
+
+
+# -----------------------------------------------------
+# Add a default route to work02
+#[root@work02]
+
+    ip route add default via 172.16.1.1
+
+    ip route
+
+    >   default via 172.16.1.1 dev br1
+    >   172.16.0.0/16 dev br1 proto kernel scope link src 172.16.1.2
+
+# -----------------------------------------------------
+# List the iptables config on work01.
+#[root@work01]
+
+    iptables --list
+
+
+    >   Chain INPUT (policy DROP)
+    >   target     prot opt source               destination
+    >   ACCEPT     udp  --  anywhere             anywhere             udp dpt:bootps
+    >   ACCEPT     tcp  --  anywhere             anywhere             tcp dpt:bootps
+    >   override   all  --  anywhere             anywhere
+    >   ACCEPT     all  --  anywhere             anywhere
+    >   ACCEPT     udp  --  172.16.0.0/16        anywhere
+    >   ACCEPT     tcp  --  172.16.0.0/16        anywhere
+    >   ACCEPT     tcp  --  195.194.120.0/22     anywhere             tcp dpt:ssh
+    >   ACCEPT     tcp  --  195.194.121.0/24     anywhere             tcp dpt:ssh
+    >   ACCEPT     tcp  --  192.108.120.0/24     anywhere             tcp dpt:ssh
+    >   ACCEPT     tcp  --  192.41.108.0/24      anywhere             tcp dpt:ssh
+    >   ACCEPT     tcp  --  EdLAN.net.ed.ac.uk/16  anywhere             tcp dpt:ssh
+    >   ACCEPT     tcp  --  polymer.andrews.metagrid.co.uk  anywhere             tcp dpt:ssh
+    >   ACCEPT     tcp  --  67.46.187.81.in-addr.arpa  anywhere             tcp dpt:ssh
+    >   DROP       udp  --  anywhere             anywhere             udp dpt:bootps
+    >   DROP       tcp  --  anywhere             anywhere             tcp dpt:bootps
+    >   LOG        all  --  anywhere             anywhere             LOG level warning prefix "drop "
+    >   DROP       all  --  anywhere             anywhere
+    >
+    >   Chain FORWARD (policy DROP)
+    >   target     prot opt source               destination
+    >   DOCKER-USER  all  --  anywhere             anywhere
+    >   DOCKER-ISOLATION-STAGE-1  all  --  anywhere             anywhere
+    >   ACCEPT     all  --  anywhere             anywhere             ctstate RELATED,ESTABLISHED
+    >   DOCKER     all  --  anywhere             anywhere
+    >   ACCEPT     all  --  anywhere             anywhere
+    >   ACCEPT     all  --  anywhere             anywhere
+    >   ACCEPT     all  --  anywhere             anywhere
+    >   REJECT     all  --  anywhere             anywhere             reject-with icmp-port-unreachable
+    >   REJECT     all  --  anywhere             anywhere             reject-with icmp-port-unreachable
+    >   LOG        all  --  anywhere             anywhere             LOG level warning prefix "drop "
+    >   DROP       all  --  anywhere             anywhere
+    >
+    >   Chain OUTPUT (policy DROP)
+    >   target     prot opt source               destination
+    >   ACCEPT     udp  --  anywhere             anywhere             udp dpt:bootpc
+    >   override   all  --  anywhere             anywhere
+    >   ACCEPT     all  --  anywhere             anywhere
+    >   ACCEPT     udp  --  anywhere             anywhere             udp spts:1024:65535 dpt:domain
+    >   ACCEPT     tcp  --  anywhere             anywhere             tcp spts:1024:65535 dpt:domain
+    >   ACCEPT     udp  --  anywhere             anywhere             udp dpt:ntp
+    >   ACCEPT     tcp  --  anywhere             anywhere
+    >   LOG        all  --  anywhere             anywhere             LOG level warning prefix "drop "
+    >   DROP       all  --  anywhere             anywhere
+    >
+    >   Chain DOCKER (1 references)
+    >   target     prot opt source               destination
+    >
+    >   Chain DOCKER-ISOLATION-STAGE-1 (1 references)
+    >   target     prot opt source               destination
+    >   DOCKER-ISOLATION-STAGE-2  all  --  anywhere             anywhere
+    >   RETURN     all  --  anywhere             anywhere
+    >
+    >   Chain DOCKER-ISOLATION-STAGE-2 (1 references)
+    >   target     prot opt source               destination
+    >   DROP       all  --  anywhere             anywhere
+    >   RETURN     all  --  anywhere             anywhere
+    >
+    >   Chain DOCKER-USER (1 references)
+    >   target     prot opt source               destination
+    >   RETURN     all  --  anywhere             anywhere
+    >
+    >   Chain frasynrel (1 references)
+    >   target     prot opt source               destination
+    >   ACCEPT     all  -f  anywhere             anywhere
+    >   ACCEPT     all  --  anywhere             anywhere             state ESTABLISHED
+    >   ACCEPT     tcp  --  anywhere             anywhere             tcp flags:SYN,RST,ACK/SYN state RELATED
+    >
+    >   Chain override (2 references)
+    >   target     prot opt source               destination
+    >   frasynrel  all  --  anywhere             anywhere
+    >   vitalicmp  all  --  anywhere             anywhere
+    >
+    >   Chain vitalicmp (1 references)
+    >   target     prot opt source               destination
+    >   ACCEPT     icmp --  anywhere             anywhere             icmp destination-unreachable
+    >   ACCEPT     icmp --  anywhere             anywhere             icmp parameter-problem
+    >   ACCEPT     icmp --  anywhere             anywhere             icmp source-quench
+    >   ACCEPT     icmp --  anywhere             anywhere             icmp time-exceeded
+
+
+# -----------------------------------------------------
+# List the INPUT filter rules on work0.
+#[root@work01]
+
+    iptables \
+        --verbose \
+        --line-numbers \
+        --table filter \
+        --list INPUT
+
+    >   Chain INPUT (policy DROP 0 packets, 0 bytes)
+    >   num   pkts bytes target     prot opt in     out     source               destination
+    >   1        0     0 ACCEPT     udp  --  virbr0 any     anywhere             anywhere             udp dpt:bootps
+    >   2        0     0 ACCEPT     tcp  --  virbr0 any     anywhere             anywhere             tcp dpt:bootps
+    >   3      11M 4730M override   all  --  any    any     anywhere             anywhere
+    >   4     6471  482K ACCEPT     all  --  lo     any     anywhere             anywhere
+    >   5        0     0 ACCEPT     udp  --  any    any     172.16.0.0/16        anywhere
+    >   6      603 36180 ACCEPT     tcp  --  any    any     172.16.0.0/16        anywhere
+    >   7        0     0 ACCEPT     tcp  --  any    any     195.194.120.0/22     anywhere             tcp dpt:ssh
+    >   8        0     0 ACCEPT     tcp  --  any    any     195.194.121.0/24     anywhere             tcp dpt:ssh
+    >   9        4  1352 ACCEPT     tcp  --  any    any     192.108.120.0/24     anywhere             tcp dpt:ssh
+    >   10       0     0 ACCEPT     tcp  --  any    any     192.41.108.0/24      anywhere             tcp dpt:ssh
+    >   11       0     0 ACCEPT     tcp  --  any    any     EdLAN.net.ed.ac.uk/16  anywhere             tcp dpt:ssh
+    >   12      11   660 ACCEPT     tcp  --  any    any     polymer.andrews.metagrid.co.uk  anywhere             tcp dpt:ssh
+    >   13       0     0 ACCEPT     tcp  --  any    any     67.46.187.81.in-addr.arpa  anywhere             tcp dpt:ssh
+    >   14   3437K 1619M DROP       udp  --  eno2   any     anywhere             anywhere             udp dpt:bootps
+    >   15       0     0 DROP       tcp  --  eno2   any     anywhere             anywhere             tcp dpt:bootps
+    >   16   7302K 2430M LOG        all  --  any    any     anywhere             anywhere             LOG level warning prefix "drop "
+    >   17   7302K 2430M DROP       all  --  any    any     anywhere             anywhere
+
+
+# -----------------------------------------------------
+# List the FORWARD filter rules on work0.
+#[root@work01]
+
+    iptables \
+        --verbose \
+        --line-numbers \
+        --table filter \
+        --list FORWARD
+
+    >   Chain FORWARD (policy DROP 0 packets, 0 bytes)
+    >   num   pkts bytes target     prot opt in     out     source               destination
+    >   1        8   480 DOCKER-USER  all  --  any    any     anywhere             anywhere
+    >   2        8   480 DOCKER-ISOLATION-STAGE-1  all  --  any    any     anywhere             anywhere
+    >   3        0     0 ACCEPT     all  --  any    docker0  anywhere             anywhere             ctstate RELATED,ESTABLISHED
+    >   4        0     0 DOCKER     all  --  any    docker0  anywhere             anywhere
+    >   5        0     0 ACCEPT     all  --  docker0 !docker0  anywhere             anywhere
+    >   6        0     0 ACCEPT     all  --  docker0 docker0  anywhere             anywhere
+    >   7        0     0 ACCEPT     all  --  virbr0 virbr0  anywhere             anywhere
+    >   8        0     0 REJECT     all  --  any    virbr0  anywhere             anywhere             reject-with icmp-port-unreachable
+    >   9        0     0 REJECT     all  --  virbr0 any     anywhere             anywhere             reject-with icmp-port-unreachable
+    >   10       8   480 LOG        all  --  any    any     anywhere             anywhere             LOG level warning prefix "drop "
+    >   11       8   480 DROP       all  --  any    any     anywhere             anywhere
+
+
+# -----------------------------------------------------
+# List the NAT POSTROUTING rules on work0.
+#[root@work01]
+
+    iptables \
+        --verbose \
+        --line-numbers \
+        --table nat \
+        --list POSTROUTING
+
+    >   Chain POSTROUTING (policy ACCEPT 1099 packets, 79364 bytes)
+    >   num   pkts bytes target     prot opt in     out     source               destination
+    >   1        0     0 MASQUERADE  all  --  any    !docker0  172.17.0.0/16        anywhere
+
+
+# -----------------------------------------------------
+# Add a rule to allow incoming packets from the external
+# interface IF the router initiated the connection.
+#[root@work01]
+
+    iptables \
+        --table filter \
+        --insert INPUT 14 \
+            -i eno2 \
+            -m conntrack \
+            --ctstate ESTABLISHED,RELATED \
+            -j ACCEPT
+
+
+    iptables \
+        --verbose \
+        --line-numbers \
+        --table filter \
+        --list INPUT
+
+    >   Chain INPUT (policy DROP 0 packets, 0 bytes)
+    >   num   pkts bytes target     prot opt in     out     source               destination
+    >   1        0     0 ACCEPT     udp  --  virbr0 any     anywhere             anywhere             udp dpt:bootps
+    >   2        0     0 ACCEPT     tcp  --  virbr0 any     anywhere             anywhere             tcp dpt:bootps
+    >   3      11M 4730M override   all  --  any    any     anywhere             anywhere
+    >   4     6471  482K ACCEPT     all  --  lo     any     anywhere             anywhere
+    >   5        0     0 ACCEPT     udp  --  any    any     172.16.0.0/16        anywhere
+    >   6      603 36180 ACCEPT     tcp  --  any    any     172.16.0.0/16        anywhere
+    >   7        0     0 ACCEPT     tcp  --  any    any     195.194.120.0/22     anywhere             tcp dpt:ssh
+    >   8        0     0 ACCEPT     tcp  --  any    any     195.194.121.0/24     anywhere             tcp dpt:ssh
+    >   9        4  1352 ACCEPT     tcp  --  any    any     192.108.120.0/24     anywhere             tcp dpt:ssh
+    >   10       0     0 ACCEPT     tcp  --  any    any     192.41.108.0/24      anywhere             tcp dpt:ssh
+    >   11       0     0 ACCEPT     tcp  --  any    any     EdLAN.net.ed.ac.uk/16  anywhere             tcp dpt:ssh
+    >   12      11   660 ACCEPT     tcp  --  any    any     polymer.andrews.metagrid.co.uk  anywhere             tcp dpt:ssh
+    >   13       0     0 ACCEPT     tcp  --  any    any     67.46.187.81.in-addr.arpa  anywhere             tcp dpt:ssh
+    >   14       0     0 ACCEPT     all  --  eno2   any     anywhere             anywhere             ctstate RELATED,ESTABLISHED
+    >   15   3437K 1619M DROP       udp  --  eno2   any     anywhere             anywhere             udp dpt:bootps
+    >   16       0     0 DROP       tcp  --  eno2   any     anywhere             anywhere             tcp dpt:bootps
+    >   17   7302K 2430M LOG        all  --  any    any     anywhere             anywhere             LOG level warning prefix "drop "
+    >   18   7302K 2430M DROP       all  --  any    any     anywhere             anywhere
+
+
+# -----------------------------------------------------
+# Add a rule to forward packets from the internal bridge interface to the external interface.
+#[root@work01]
+
+    iptables \
+        --table filter \
+        --insert FORWARD 1 \
+            -i br1 \
+            -o eno2 \
+            -j ACCEPT
+
+
+    iptables \
+        --verbose \
+        --line-numbers \
+        --table filter \
+        --list FORWARD
+
+    >   Chain FORWARD (policy DROP 0 packets, 0 bytes)
+    >   num   pkts bytes target     prot opt in     out     source               destination
+    >   1        0     0 ACCEPT     all  --  br1    eno2    anywhere             anywhere
+    >   2        8   480 DOCKER-USER  all  --  any    any     anywhere             anywhere
+    >   3        8   480 DOCKER-ISOLATION-STAGE-1  all  --  any    any     anywhere             anywhere
+    >   4        0     0 ACCEPT     all  --  any    docker0  anywhere             anywhere             ctstate RELATED,ESTABLISHED
+    >   5        0     0 DOCKER     all  --  any    docker0  anywhere             anywhere
+    >   6        0     0 ACCEPT     all  --  docker0 !docker0  anywhere             anywhere
+    >   7        0     0 ACCEPT     all  --  docker0 docker0  anywhere             anywhere
+    >   8        0     0 ACCEPT     all  --  virbr0 virbr0  anywhere             anywhere
+    >   9        0     0 REJECT     all  --  any    virbr0  anywhere             anywhere             reject-with icmp-port-unreachable
+    >   10       0     0 REJECT     all  --  virbr0 any     anywhere             anywhere             reject-with icmp-port-unreachable
+    >   11       8   480 LOG        all  --  any    any     anywhere             anywhere             LOG level warning prefix "drop "
+    >   12       8   480 DROP       all  --  any    any     anywhere             anywhere
+
+
+# -----------------------------------------------------
+# Add a rule to forward packets from the external interface to the internal interface
+# IF the LAN initiated the connection.
+#[root@work01]
+
+    iptables \
+        --table filter \
+        --insert FORWARD 2 \
+            -i eno2 \
+            -o br1 \
+            -m conntrack \
+            --ctstate ESTABLISHED,RELATED \
+            -j ACCEPT
+
+
+    iptables \
+        --verbose \
+        --line-numbers \
+        --table filter \
+        --list FORWARD
+
+    >   Chain FORWARD (policy DROP 0 packets, 0 bytes)
+    >   num   pkts bytes target     prot opt in     out     source               destination
+    >   1        0     0 ACCEPT     all  --  br1    eno2    anywhere             anywhere
+    >   2        0     0 ACCEPT     all  --  eno2   br1     anywhere             anywhere             ctstate RELATED,ESTABLISHED
+    >   3        8   480 DOCKER-USER  all  --  any    any     anywhere             anywhere
+    >   4        8   480 DOCKER-ISOLATION-STAGE-1  all  --  any    any     anywhere             anywhere
+    >   5        0     0 ACCEPT     all  --  any    docker0  anywhere             anywhere             ctstate RELATED,ESTABLISHED
+    >   6        0     0 DOCKER     all  --  any    docker0  anywhere             anywhere
+    >   7        0     0 ACCEPT     all  --  docker0 !docker0  anywhere             anywhere
+    >   8        0     0 ACCEPT     all  --  docker0 docker0  anywhere             anywhere
+    >   9        0     0 ACCEPT     all  --  virbr0 virbr0  anywhere             anywhere
+    >   10       0     0 REJECT     all  --  any    virbr0  anywhere             anywhere             reject-with icmp-port-unreachable
+    >   11       0     0 REJECT     all  --  virbr0 any     anywhere             anywhere             reject-with icmp-port-unreachable
+    >   12       8   480 LOG        all  --  any    any     anywhere             anywhere             LOG level warning prefix "drop "
+    >   13       8   480 DROP       all  --  any    any     anywhere             anywhere
+
+
+# -----------------------------------------------------
+# Add a rule to masquerade packets going out the external interface.
+#[root@work01]
+
+    iptables \
+        --table nat \
+        --insert POSTROUTING 1 \
+            -o eno2 \
+            -j MASQUERADE
+
+    iptables \
+        --verbose \
+        --line-numbers \
+        --table nat \
+        --list POSTROUTING
+
+# -----------------------------------------------------
+# Check if bridged packets are filtered on work01.
+# https://news.ycombinator.com/item?id=16427686
+# https://wiki.libvirt.org/page/Net.bridge.bridge-nf-call_and_sysctl.conf
+#[root@work01]
+
+    modprobe br_netfilter
+
+    sysctl \
+        'net.bridge'
+
+
+    >   net.bridge.bridge-nf-call-arptables = 1
+    >   net.bridge.bridge-nf-call-ip6tables = 1
+    >   net.bridge.bridge-nf-call-iptables = 1
+    >   net.bridge.bridge-nf-filter-pppoe-tagged = 0
+    >   net.bridge.bridge-nf-filter-vlan-tagged = 0
+    >   net.bridge.bridge-nf-pass-vlan-input-dev = 0
+
+
+# -----------------------------------------------------
+# List the resulting rules.
+#[root@work01]
+
+    iptables \
+        --verbose \
+        --line-numbers \
+        --table filter \
+        --list INPUT
+
+    >   Chain INPUT (policy DROP 0 packets, 0 bytes)
+    >   num   pkts bytes target     prot opt in     out     source               destination
+    >   1        0     0 ACCEPT     udp  --  virbr0 any     anywhere             anywhere             udp dpt:bootps
+    >   2        0     0 ACCEPT     tcp  --  virbr0 any     anywhere             anywhere             tcp dpt:bootps
+    >   3      11M 4773M override   all  --  any    any     anywhere             anywhere
+    >   4     6510  485K ACCEPT     all  --  lo     any     anywhere             anywhere
+    >   5        0     0 ACCEPT     udp  --  any    any     172.16.0.0/16        anywhere
+    >   6      606 36360 ACCEPT     tcp  --  any    any     172.16.0.0/16        anywhere
+    >   7        0     0 ACCEPT     tcp  --  any    any     195.194.120.0/22     anywhere             tcp dpt:ssh
+    >   8        0     0 ACCEPT     tcp  --  any    any     195.194.121.0/24     anywhere             tcp dpt:ssh
+    >   9        5  1404 ACCEPT     tcp  --  any    any     192.108.120.0/24     anywhere             tcp dpt:ssh
+    >   10       0     0 ACCEPT     tcp  --  any    any     192.41.108.0/24      anywhere             tcp dpt:ssh
+    >   11       0     0 ACCEPT     tcp  --  any    any     EdLAN.net.ed.ac.uk/16  anywhere             tcp dpt:ssh
+    >   12      11   660 ACCEPT     tcp  --  any    any     polymer.andrews.metagrid.co.uk  anywhere             tcp dpt:ssh
+    >   13       0     0 ACCEPT     tcp  --  any    any     67.46.187.81.in-addr.arpa  anywhere             tcp dpt:ssh
+    >   14       0     0 ACCEPT     all  --  eno2   any     anywhere             anywhere             ctstate RELATED,ESTABLISHED
+    >   15   3441K 1621M DROP       udp  --  eno2   any     anywhere             anywhere             udp dpt:bootps
+    >   16       0     0 DROP       tcp  --  eno2   any     anywhere             anywhere             tcp dpt:bootps
+    >   17   7311K 2433M LOG        all  --  any    any     anywhere             anywhere             LOG level warning prefix "drop "
+    >   18   7311K 2433M DROP       all  --  any    any     anywhere             anywhere
+
+
+    iptables \
+        --verbose \
+        --line-numbers \
+        --table filter \
+        --list FORWARD
+
+    >   Chain FORWARD (policy DROP 0 packets, 0 bytes)
+    >   num   pkts bytes target     prot opt in     out     source               destination
+    >   1       30  1846 ACCEPT     all  --  br1    eno2    anywhere             anywhere
+    >   2        5   466 ACCEPT     all  --  eno2   br1     anywhere             anywhere             ctstate RELATED,ESTABLISHED
+    >   3        8   480 DOCKER-USER  all  --  any    any     anywhere             anywhere
+    >   4        8   480 DOCKER-ISOLATION-STAGE-1  all  --  any    any     anywhere             anywhere
+    >   5        0     0 ACCEPT     all  --  any    docker0  anywhere             anywhere             ctstate RELATED,ESTABLISHED
+    >   6        0     0 DOCKER     all  --  any    docker0  anywhere             anywhere
+    >   7        0     0 ACCEPT     all  --  docker0 !docker0  anywhere             anywhere
+    >   8        0     0 ACCEPT     all  --  docker0 docker0  anywhere             anywhere
+    >   9        0     0 ACCEPT     all  --  virbr0 virbr0  anywhere             anywhere
+    >   10       0     0 REJECT     all  --  any    virbr0  anywhere             anywhere             reject-with icmp-port-unreachable
+    >   11       0     0 REJECT     all  --  virbr0 any     anywhere             anywhere             reject-with icmp-port-unreachable
+    >   12       8   480 LOG        all  --  any    any     anywhere             anywhere             LOG level warning prefix "drop "
+    >   13       8   480 DROP       all  --  any    any     anywhere             anywhere
+
+
+    iptables \
+        --verbose \
+        --line-numbers \
+        --table nat \
+        --list POSTROUTING
+
+    >   Chain POSTROUTING (policy ACCEPT 10 packets, 818 bytes)
+    >   num   pkts bytes target     prot opt in     out     source               destination
+    >   1        6   465 MASQUERADE  all  --  any    eno2    anywhere             anywhere
+    >   2        0     0 MASQUERADE  all  --  any    !docker0  172.17.0.0/16        anywhere
+
+
+# -----------------------------------------------------
+# Check we can see the outside world from work02.
+#[root@work01]
+
+    curl --head 'http://178.79.157.93/temp/'
+
+    >   HTTP/1.1 200 OK
+    >   Date: Tue, 28 May 2019 16:24:09 GMT
+    >   Server: Apache/2.2.15 (CentOS)
+    >   Connection: close
+    >   Content-Type: text/html;charset=UTF-8
+
+
+# -----------------------------------------------------
+# Reboot and see if the rules persist (they won't).
+#[root@work01]
+
+    reboot
+
+    >   Connection to 192.41.108.44 closed by remote host.
+    >   Connection to 192.41.108.44 closed.
+
+    ssh root@work01
+
+    >   Welcome to Ubuntu 18.04.2 LTS (GNU/Linux 4.15.0-50-generic x86_64)
+    >   ....
+    >   ....
+
+
+# -----------------------------------------------------
+# List the current rules.
+#[root@work01]
+
+    iptables \
+        --verbose \
+        --line-numbers \
+        --table filter \
+        --list INPUT
+
+    >   Chain INPUT (policy DROP 0 packets, 0 bytes)
+    >   num   pkts bytes target     prot opt in     out     source               destination
+    >   1        0     0 ACCEPT     udp  --  virbr0 any     anywhere             anywhere             udp dpt:bootps
+    >   2        0     0 ACCEPT     tcp  --  virbr0 any     anywhere             anywhere             tcp dpt:bootps
+    >   3      582  151K override   all  --  any    any     anywhere             anywhere
+    >   4       51  3759 ACCEPT     all  --  lo     any     anywhere             anywhere
+    >   5        0     0 ACCEPT     udp  --  any    any     172.16.0.0/16        anywhere
+    >   6        0     0 ACCEPT     tcp  --  any    any     172.16.0.0/16        anywhere
+    >   7        0     0 ACCEPT     tcp  --  any    any     195.194.120.0/22     anywhere             tcp dpt:ssh
+    >   8        0     0 ACCEPT     tcp  --  any    any     195.194.121.0/24     anywhere             tcp dpt:ssh
+    >   9        0     0 ACCEPT     tcp  --  any    any     192.108.120.0/24     anywhere             tcp dpt:ssh
+    >   10       0     0 ACCEPT     tcp  --  any    any     192.41.108.0/24      anywhere             tcp dpt:ssh
+    >   11       0     0 ACCEPT     tcp  --  any    any     EdLAN.net.ed.ac.uk/16  anywhere             tcp dpt:ssh
+    >   12       1    60 ACCEPT     tcp  --  any    any     polymer.andrews.metagrid.co.uk  anywhere             tcp dpt:ssh
+    >   13       0     0 ACCEPT     tcp  --  any    any     67.46.187.81.in-addr.arpa  anywhere             tcp dpt:ssh
+    >   14      91 41256 DROP       udp  --  eno2   any     anywhere             anywhere             udp dpt:bootps
+    >   15       0     0 DROP       tcp  --  eno2   any     anywhere             anywhere             tcp dpt:bootps
+    >   16     251 84300 LOG        all  --  any    any     anywhere             anywhere             LOG level warning prefix "drop "
+    >   17     251 84300 DROP       all  --  any    any     anywhere             anywhere
+
+
+    iptables \
+        --verbose \
+        --line-numbers \
+        --table filter \
+        --list FORWARD
+
+    >   Chain FORWARD (policy DROP 0 packets, 0 bytes)
+    >   num   pkts bytes target     prot opt in     out     source               destination
+    >   1        0     0 ACCEPT     all  --  virbr0 virbr0  anywhere             anywhere
+    >   2        0     0 REJECT     all  --  any    virbr0  anywhere             anywhere             reject-with icmp-port-unreachable
+    >   3        0     0 REJECT     all  --  virbr0 any     anywhere             anywhere             reject-with icmp-port-unreachable
+    >   4        0     0 LOG        all  --  any    any     anywhere             anywhere             LOG level warning prefix "drop "
+    >   5        0     0 DROP       all  --  any    any     anywhere             anywhere
+
+
+    iptables \
+        --verbose \
+        --line-numbers \
+        --table nat \
+        --list POSTROUTING
+
+    >   Chain POSTROUTING (policy ACCEPT 0 packets, 0 bytes)
+    >   num   pkts bytes target     prot opt in     out     source               destination
+
+
+# -----------------------------------------------------
+# Add the new rules to the iptables config file.
+# https://www.digitalocean.com/community/tutorials/how-to-implement-a-basic-firewall-template-with-iptables-on-ubuntu-14-04
+#[root@work01]
+
+    vi /etc/iptables/rules.v4
+
+        ....
+        # Allow SSH acces for Dave Morris
+        [0:0] -A INPUT -s 81.187.247.196 -p tcp -m tcp --dport 22 -j ACCEPT
+        [0:0] -A INPUT -s 81.187.46.67   -p tcp -m tcp --dport 22 -j ACCEPT
+    +   # Allow packets from the external interface IF the router initiated the connection.
+    +   [0:0] -A INPUT -i eno2 -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+        # External DHCP requests, just drop
+        [0:0] -A INPUT -i eno2 -p udp --dport 67 -j DROP
+        [0:0] -A INPUT -i eno2 -p tcp --dport 67 -j DROP
+        ....
+
+        ....
+    +   # Forward packets from the internal bridge interface to the external interface.
+    +   [0:0] -A FORWARD -i br1 -o eno2 -j ACCEPT
+    +   # Forward packets from the external interface to the internal interface IF the LAN initiated the connection.
+    +   [0:0] -A FORWARD -i eno2 -o br1 -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+        [0:0] -A FORWARD -i virbr0 -o virbr0 -j ACCEPT
+        [0:0] -A FORWARD -o virbr0 -j REJECT --reject-with icmp-port-unreachable
+        [0:0] -A FORWARD -i virbr0 -j REJECT --reject-with icmp-port-unreachable
+        ....
+        COMMIT
+    +   #
+    +   # The nat table.
+    +   *nat
+    +   :PREROUTING ACCEPT [0:0]
+    +   :INPUT ACCEPT [0:0]
+    +   :OUTPUT ACCEPT [0:0]
+    +   :POSTROUTING ACCEPT [0:0]
+    +   #
+    +   # The POSTROUTING chain.
+    +   #
+    +   # Masquerade packets exiting the external interface.
+    +   [0:0] -A POSTROUTING -o eno2 -j MASQUERADE
+    +   COMMIT
+        ....
+    +   # Updated on Wed May 29 2019 by D.Morris
+
+# -----------------------------------------------------
+# Reboot and see if the rules persist (they should).
+#[root@work01]
+
+    reboot
+
+    >   Connection to 192.41.108.44 closed by remote host.
+    >   Connection to 192.41.108.44 closed.
+
+    ssh root@work01
+
+    >   Welcome to Ubuntu 18.04.2 LTS (GNU/Linux 4.15.0-50-generic x86_64)
+    >   ....
+    >   ....
+
+
+# -----------------------------------------------------
+# List the current rules.
+#[root@work01]
+
+    iptables \
+        --verbose \
+        --line-numbers \
+        --table filter \
+        --list INPUT
+
+    >   Chain INPUT (policy DROP 0 packets, 0 bytes)
+    >   num   pkts bytes target     prot opt in     out     source               destination
+    >   1        0     0 ACCEPT     udp  --  virbr0 any     anywhere             anywhere             udp dpt:bootps
+    >   2        0     0 ACCEPT     tcp  --  virbr0 any     anywhere             anywhere             tcp dpt:bootps
+    >   3     3082 1123K override   all  --  any    any     anywhere             anywhere
+    >   4       18  1301 ACCEPT     all  --  lo     any     anywhere             anywhere
+    >   5        0     0 ACCEPT     udp  --  any    any     172.16.0.0/16        anywhere
+    >   6        0     0 ACCEPT     tcp  --  any    any     172.16.0.0/16        anywhere
+    >   7        0     0 ACCEPT     tcp  --  any    any     195.194.120.0/22     anywhere             tcp dpt:ssh
+    >   8        0     0 ACCEPT     tcp  --  any    any     195.194.121.0/24     anywhere             tcp dpt:ssh
+    >   9        0     0 ACCEPT     tcp  --  any    any     192.108.120.0/24     anywhere             tcp dpt:ssh
+    >   10       0     0 ACCEPT     tcp  --  any    any     192.41.108.0/24      anywhere             tcp dpt:ssh
+    >   11       0     0 ACCEPT     tcp  --  any    any     EdLAN.net.ed.ac.uk/16  anywhere             tcp dpt:ssh
+    >   12       1    60 ACCEPT     tcp  --  any    any     polymer.andrews.metagrid.co.uk  anywhere             tcp dpt:ssh
+    >   13       0     0 ACCEPT     tcp  --  any    any     67.46.187.81.in-addr.arpa  anywhere             tcp dpt:ssh
+    >   14       0     0 ACCEPT     all  --  eno2   any     anywhere             anywhere             ctstate RELATED,ESTABLISHED
+    >   15     987  465K DROP       udp  --  eno2   any     anywhere             anywhere             udp dpt:bootps
+    >   16       0     0 DROP       tcp  --  eno2   any     anywhere             anywhere             tcp dpt:bootps
+    >   17    1928  641K LOG        all  --  any    any     anywhere             anywhere             LOG level warning prefix "drop "
+    >   18    1928  641K DROP       all  --  any    any     anywhere             anywhere
+
+
+    iptables \
+        --verbose \
+        --line-numbers \
+        --table filter \
+        --list FORWARD
+
+    >   Chain FORWARD (policy DROP 0 packets, 0 bytes)
+    >   num   pkts bytes target     prot opt in     out     source               destination
+    >   1        0     0 ACCEPT     all  --  br1    eno2    anywhere             anywhere
+    >   2        0     0 ACCEPT     all  --  eno2   br1     anywhere             anywhere             ctstate RELATED,ESTABLISHED
+    >   3        0     0 ACCEPT     all  --  virbr0 virbr0  anywhere             anywhere
+    >   4        0     0 REJECT     all  --  any    virbr0  anywhere             anywhere             reject-with icmp-port-unreachable
+    >   5        0     0 REJECT     all  --  virbr0 any     anywhere             anywhere             reject-with icmp-port-unreachable
+    >   6        0     0 LOG        all  --  any    any     anywhere             anywhere             LOG level warning prefix "drop "
+    >   7        0     0 DROP       all  --  any    any     anywhere             anywhere
+
+
+    iptables \
+        --verbose \
+        --line-numbers \
+        --table nat \
+        --list POSTROUTING
+
+    >   Chain POSTROUTING (policy ACCEPT 22 packets, 1740 bytes)
+    >   num   pkts bytes target     prot opt in     out     source               destination
+    >   1       24  1846 MASQUERADE  all  --  any    eno2    anywhere             anywhere
+
+
+

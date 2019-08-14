@@ -18,15 +18,13 @@
 
 package uk.ac.roe.wfau.phymatopus.kafka.tools;
 
-import org.junit.After;
-import org.junit.Before;
 import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 import lombok.extern.slf4j.Slf4j;
+import uk.ac.roe.wfau.phymatopus.kafka.BaseClient;
+import uk.ac.roe.wfau.phymatopus.kafka.KafkaReaderTestBase;
+import uk.ac.roe.wfau.phymatopus.kafka.alert.AlertProcessor;
+import uk.ac.roe.wfau.phymatopus.kafka.alert.AlertReader.CallableAlertReader;
 
 /**
  * 
@@ -34,7 +32,7 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 public class StringWriterTest
-extends KafkaTestBase 
+extends KafkaReaderTestBase 
     {
 
     /**
@@ -54,11 +52,28 @@ extends KafkaTestBase
         {
         log.debug("Write test ..");
         final StringWriter writer = new StringWriter(
-            servers,
-            topic
+            new BaseClient.ConfigurationBean(
+                servers,
+                topic,
+                group
+                )
             ); 
         writer.write(
             10000
             );
+        }
+
+    @Override
+    public AlertProcessor processor()
+        {
+        // TODO Auto-generated method stub
+        return null;
+        }
+
+    @Override
+    public CallableAlertReader reader()
+        {
+        // TODO Auto-generated method stub
+        return null;
         }
     }

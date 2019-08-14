@@ -1,0 +1,705 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+# -----------------------------------------------------
+# Configure our node names.
+#[user@trop03]
+
+    cat > "${HOME}/nodenames" << 'EOF'
+
+    # Zookeeper nodes.
+    unset zknames
+    zknames=(
+        Fosauri
+        Marpus
+        Byflame
+        )
+
+    # Kafka nodes.
+    unset kfnames
+    kfnames=(
+        Stedigo
+        Angece
+        Edwalafia
+        Onoza
+        )
+
+    # Mirror-maker nodes.
+    unset mmnames
+    mmnames=(
+        Grerat
+        Jeralenia
+        )
+
+    echo "Zookeepers    [${zknames[@]}]"
+    echo "Kafka nodes   [${kfnames[@]}]"
+    echo "Mirror makers [${mmnames[@]}]"
+
+EOF
+
+# -----------------------------------------------------
+# Load our node names.
+#[user@trop03]
+
+    source "${HOME}/nodenames"
+
+    >   Zookeepers    [Fosauri Marpus Byflame]
+    >   Kafka nodes   [Stedigo Angece Edwalafia Onoza]
+    >   Mirror makers [Grerat Jeralenia]
+
+
+# -----------------------------------------------------
+# Create our Zookeeper nodes.
+# TODO scriptable createvm
+#[user@trop03]
+
+    createvm
+
+    >   INFO : Node name [Fosauri]
+    >   INFO : Base name [fedora-29-docker-base-20190715.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-29-docker-base-20190715.qcow]
+    >   INFO : Disc name [Fosauri.qcow]
+    >   INFO : Disc size [16GiB]
+    >   
+    >   INFO : MAC  [06:00:AC:10:05:0E]
+    >   INFO : IPv4 [172.16.5.14]
+    >   INFO : IPv6 []
+
+
+    createvm
+
+    >   INFO : Node name [Marpus]
+    >   INFO : Base name [fedora-29-docker-base-20190715.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-29-docker-base-20190715.qcow]
+    >   INFO : Disc name [Marpus.qcow]
+    >   INFO : Disc size [16GiB]
+    >   
+    >   INFO : MAC  [06:00:AC:10:05:0F]
+    >   INFO : IPv4 [172.16.5.15]
+    >   INFO : IPv6 []
+
+
+    createvm
+
+    >   INFO : Node name [Byflame]
+    >   INFO : Base name [fedora-29-docker-base-20190715.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-29-docker-base-20190715.qcow]
+    >   INFO : Disc name [Byflame.qcow]
+    >   INFO : Disc size [16GiB]
+    >   
+    >   INFO : MAC  [06:00:AC:10:05:10]
+    >   INFO : IPv4 [172.16.5.16]
+    >   INFO : IPv6 []
+
+
+# -----------------------------------------------------
+# Define a host lookup function.
+# https://askubuntu.com/questions/627906/why-is-my-etc-hosts-file-not-queried-when-nslookup-tries-to-resolve-an-address#comment1536517_627909
+#[user@trop03]
+
+    getipv4()
+        {
+        getent hosts "${1:?}" | cut -d ' ' -f 1
+        }
+
+#---------------------------------------------------------------------
+# Update the ssh keys for each node.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+    source "${HOME}/ssh-options"
+
+    for vmname in ${zknames[@]}
+        do
+            ssh-keygen \
+                -q -R \
+                    "${vmname:?}"
+
+            ssh-keyscan \
+                "${vmname:?}" \
+                >> "${HOME}/.ssh/known_hosts"
+
+            ssh-keyscan \
+                -t ecdsa $(getipv4 "${vmname:?}") \
+                >> "${HOME}/.ssh/known_hosts"
+
+        done
+
+    >   Host Fosauri not found in /home/dmr/.ssh/known_hosts
+    >   # Fosauri:22 SSH-2.0-OpenSSH_7.9
+    >   # Fosauri:22 SSH-2.0-OpenSSH_7.9
+    >   # Fosauri:22 SSH-2.0-OpenSSH_7.9
+    >   # 172.16.5.14:22 SSH-2.0-OpenSSH_7.9
+    >   Host Marpus not found in /home/dmr/.ssh/known_hosts
+    >   # Marpus:22 SSH-2.0-OpenSSH_7.9
+    >   # Marpus:22 SSH-2.0-OpenSSH_7.9
+    >   # Marpus:22 SSH-2.0-OpenSSH_7.9
+    >   # 172.16.5.15:22 SSH-2.0-OpenSSH_7.9
+    >   Host Byflame not found in /home/dmr/.ssh/known_hosts
+    >   # Byflame:22 SSH-2.0-OpenSSH_7.9
+    >   # Byflame:22 SSH-2.0-OpenSSH_7.9
+    >   # Byflame:22 SSH-2.0-OpenSSH_7.9
+    >   # 172.16.5.16:22 SSH-2.0-OpenSSH_7.9
+
+
+# -----------------------------------------------------
+# Check we can login to each node.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+    source "${HOME}/ssh-options"
+
+    for vmname in ${zknames[@]}
+        do
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    date
+                    hostname
+                    "
+        done
+
+    >   Wed 31 Jul 05:43:15 BST 2019
+    >   Fosauri
+    >   Wed 31 Jul 05:43:16 BST 2019
+    >   Marpus
+    >   Wed 31 Jul 05:43:17 BST 2019
+    >   Byflame
+
+
+# -----------------------------------------------------
+# Update the number of cores on each node.
+# TODO scriptable createvm
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+    for vmname in ${zknames[@]}
+        do
+            virsh \
+                --connect ${libvirtcon:?} \
+                    setvcpus \
+                    ${vmname:?} \
+                    2 \
+                    --maximum \
+                    --config
+        done
+
+# -----------------------------------------------------
+# Shutdown and restart each node.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+    for vmname in ${zknames[@]}
+        do
+            virsh \
+                --connect ${libvirtcon:?} \
+                    shutdown \
+                    ${vmname:?}
+        done
+
+    >   Domain Fosauri is being shutdown
+    >   Domain Marpus is being shutdown
+    >   Domain Byflame is being shutdown
+
+    sleep 30
+
+    for vmname in ${zknames[@]}
+        do
+            virsh \
+                --connect ${libvirtcon:?} \
+                    start \
+                    ${vmname:?}
+        done
+
+    >   Domain Fosauri started
+    >   Domain Marpus started
+    >   Domain Byflame started
+
+
+# -----------------------------------------------------
+# Check we can login to each node.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+    for vmname in ${zknames[@]}
+        do
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    date
+                    hostname
+                    "
+        done
+
+    >   Wed 31 Jul 05:45:59 BST 2019
+    >   Fosauri
+    >   Wed 31 Jul 05:46:01 BST 2019
+    >   Marpus
+    >   Wed 31 Jul 05:46:01 BST 2019
+    >   Byflame
+
+
+# -----------------------------------------------------
+# Build a list of lists of zookeeper addresses.
+# Each instance gets a lits of the other server names,
+# with it's own address set to 0.0.0.0 to make this
+# instance listen on all interfaces.
+#[user@trop03]
+
+    unset zkservers
+    declare -a zkservers=()
+
+    for i in {0..2}
+    do
+
+        delim=''
+        ports=':2888:3888'
+        servers=''
+
+        for j in {0..2}
+        do
+            if [[ $i -eq $j ]]
+            then
+                server="0.0.0.0"
+            else
+                server="${zknames[${j}]}"
+            fi
+            servers=${servers}${delim}${server}${ports}
+            delim=';'
+            j=$(($j + 1))
+        done
+
+        zkservers+=(${servers})
+
+    done
+
+    for i in {0..2}
+    do
+        echo "list[${i}] [${zkservers[${i}]}]"
+    done
+
+    >   list[0] [0.0.0.0:2888:3888;Marpus:2888:3888;Byflame:2888:3888]
+    >   list[1] [Fosauri:2888:3888;0.0.0.0:2888:3888;Byflame:2888:3888]
+    >   list[2] [Fosauri:2888:3888;Marpus:2888:3888;0.0.0.0:2888:3888]
+
+
+# -----------------------------------------------------
+# Create our compose YAML file.
+#[user@trop03]
+
+cat > /tmp/zookeeper.yml << 'EOYML'
+
+version: '3'
+
+networks:
+    zookeeper:
+
+volumes:
+    zklog:
+    zkdata:
+
+services:
+
+    courtney:
+        image:
+            confluentinc/cp-zookeeper:4.1.1
+        ports:
+            - "2181:2181"
+            - "2888:2888"
+            - "3888:3888"
+        environment:
+            - ZOOKEEPER_SERVER_ID=${ZOOKEEPER_SERVER_ID}
+            - ZOOKEEPER_SERVERS=${ZOOKEEPER_SERVERS}
+            - ZOOKEEPER_TICK_TIME=2000
+            - ZOOKEEPER_INIT_LIMIT=5
+            - ZOOKEEPER_SYNC_LIMIT=2
+            - ZOOKEEPER_CLIENT_PORT=2181
+            - ZOOKEEPER_CLIENT_PORT_ADDRESS=0.0.0.0
+        volumes:
+            - "zklog:/var/lib/zookeeper/log"
+            - "zkdata:/var/lib/zookeeper/data"
+        networks:
+            - zookeeper
+
+EOYML
+
+# -----------------------------------------------------
+# Deploy our compose YAML file to each node.
+#[user@trop03]
+
+    source "${HOME}/ssh-options"
+
+    for vmname in ${zknames[@]}
+        do
+            scp \
+                ${scpopts[*]} \
+                /tmp/zookeeper.yml \
+                ${sshuser:?}@${vmname:?}:zookeeper.yml
+        done
+
+    >   zookeeper.yml       100%  740   808.6KB/s   00:00
+    >   zookeeper.yml       100%  740   832.5KB/s   00:00
+    >   zookeeper.yml       100%  740   866.1KB/s   00:00
+
+
+# -----------------------------------------------------
+# Deploy a compose ENV file to each node.
+#[user@trop03]
+
+    source "${HOME}/ssh-options"
+
+    for (( i=0 ; i < ${#zknames[@]} ; i++ ))
+        do
+            vmname=${zknames[${i}]}
+            echo "Node [${i}][${vmname}]"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+cat > zookeeper.env << EOF
+ZOOKEEPER_SERVER_ID=$((i + 1))
+ZOOKEEPER_SERVERS=${zkservers[${i}]}
+EOF
+ln -sf zookeeper.env .env
+                    "
+        done
+
+    >   Node [0][Fosauri]
+    >   Node [1][Marpus]
+    >   Node [2][Byflame]
+
+
+# -----------------------------------------------------
+# Check the compose ENV file on each node.
+#[user@trop03]
+
+    for vmname in ${zknames[@]}
+        do
+            echo "---- ----"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                date
+                hostname
+                cat .env
+                "
+        done
+
+    >   ---- ----
+    >   Wed 31 Jul 05:47:55 BST 2019
+    >   Fosauri
+    >   ZOOKEEPER_SERVER_ID=1
+    >   ZOOKEEPER_SERVERS=0.0.0.0:2888:3888;Marpus:2888:3888;Byflame:2888:3888
+    >   ---- ----
+    >   Wed 31 Jul 05:47:55 BST 2019
+    >   Marpus
+    >   ZOOKEEPER_SERVER_ID=2
+    >   ZOOKEEPER_SERVERS=Fosauri:2888:3888;0.0.0.0:2888:3888;Byflame:2888:3888
+    >   ---- ----
+    >   Wed 31 Jul 05:47:56 BST 2019
+    >   Byflame
+    >   ZOOKEEPER_SERVER_ID=3
+    >   ZOOKEEPER_SERVERS=Fosauri:2888:3888;Marpus:2888:3888;0.0.0.0:2888:3888
+
+
+# -----------------------------------------------------
+# Start Zookeeper on each node.
+#[user@trop03]
+
+    for vmname in ${zknames[@]}
+        do
+            echo "---- ----"
+            ssh \
+                ${scpopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                hostname
+                date
+                docker-compose \
+                    --file zookeeper.yml \
+                    up -d
+                "
+        done
+
+    >   ---- ----
+    >   Fosauri
+    >   Wed 31 Jul 05:48:12 BST 2019
+    >   Creating network "stevedore_zookeeper" with the default driver
+    >   Creating volume "stevedore_zklog" with default driver
+    >   Creating volume "stevedore_zkdata" with default driver
+    >   Pulling courtney (confluentinc/cp-zookeeper:4.1.1)...
+    >   4.1.1: Pulling from confluentinc/cp-zookeeper
+    >   Digest: sha256:9a43b9618170ae1093857b23a3fec2ed44871a63653ec390eaec272d8c18da18
+    >   Status: Downloaded newer image for confluentinc/cp-zookeeper:4.1.1
+    >   Creating stevedore_courtney_1 ... done
+    >   ---- ----
+    >   Marpus
+    >   Wed 31 Jul 05:48:36 BST 2019
+    >   Creating network "stevedore_zookeeper" with the default driver
+    >   Creating volume "stevedore_zklog" with default driver
+    >   Creating volume "stevedore_zkdata" with default driver
+    >   Pulling courtney (confluentinc/cp-zookeeper:4.1.1)...
+    >   4.1.1: Pulling from confluentinc/cp-zookeeper
+    >   Digest: sha256:9a43b9618170ae1093857b23a3fec2ed44871a63653ec390eaec272d8c18da18
+    >   Status: Downloaded newer image for confluentinc/cp-zookeeper:4.1.1
+    >   Creating stevedore_courtney_1 ... done
+    >   ---- ----
+    >   Byflame
+    >   Wed 31 Jul 05:48:59 BST 2019
+    >   Creating network "stevedore_zookeeper" with the default driver
+    >   Creating volume "stevedore_zklog" with default driver
+    >   Creating volume "stevedore_zkdata" with default driver
+    >   Pulling courtney (confluentinc/cp-zookeeper:4.1.1)...
+    >   4.1.1: Pulling from confluentinc/cp-zookeeper
+    >   Digest: sha256:9a43b9618170ae1093857b23a3fec2ed44871a63653ec390eaec272d8c18da18
+    >   Status: Downloaded newer image for confluentinc/cp-zookeeper:4.1.1
+    >   Creating stevedore_courtney_1 ... done
+
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+# Define a host lookup function.
+# https://askubuntu.com/questions/627906/why-is-my-etc-hosts-file-not-queried-when-nslookup-tries-to-resolve-an-address#comment1536517_627909
+#[user@desktop]
+
+    getipv4()
+        {
+        getent hosts "${1:?}" | cut -d ' ' -f 1
+        }
+
+# -----------------------------------------------------
+# Configure our our ssh options.
+#[user@desktop]
+
+    cat > "${HOME}/ssh-options" << EOF
+
+    sshuser=Stevedore
+
+    sshopts=(
+        '-A'
+        '-o LogLevel=ERROR'
+        )
+
+    scpopts=(
+        '-o LogLevel=ERROR'
+        '-o CheckHostIP=no'
+        '-o UserKnownHostsFile=/dev/null'
+        '-o StrictHostKeyChecking=no'
+        )
+
+EOF
+
+
+# -----------------------------------------------------
+# Configure our node names.
+#[user@desktop]
+
+    cat > "${HOME}/nodenames" << 'EOF'
+
+    # Zookeeper nodes.
+    unset zknames
+    zknames=(
+        Fosauri
+        Marpus
+        Byflame
+        )
+
+    # Kafka nodes.
+    unset kfnames
+    kfnames=(
+        Stedigo
+        Angece
+        Edwalafia
+        Onoza
+        )
+
+    # Mirror-maker nodes.
+    unset mmnames
+    mmnames=(
+        Grerat
+        Jeralenia
+        )
+
+    echo "Zookeepers    [${zknames[@]}]"
+    echo "Kafka nodes   [${kfnames[@]}]"
+    echo "Mirror makers [${mmnames[@]}]"
+
+EOF
+
+# -----------------------------------------------------
+# Load our node names.
+#[user@desktop]
+
+    source "${HOME}/nodenames"
+
+    >   Zookeepers    [Fosauri Marpus Byflame]
+    >   Kafka nodes   [Stedigo Angece Edwalafia Onoza]
+    >   Mirror makers [Grerat Jeralenia]
+
+
+#---------------------------------------------------------------------
+# Update the ssh keys for each node.
+#[user@desktop]
+
+    source "${HOME}/libvirt.settings"
+    source "${HOME}/ssh-options"
+
+    for vmname in ${zknames[@]}
+        do
+            ssh-keygen \
+                -q -R \
+                    "${vmname:?}"
+
+        done
+
+    >   /home/Zarquan/.ssh/known_hosts updated.
+    >   Original contents retained as /home/Zarquan/.ssh/known_hosts.old
+    >   /home/Zarquan/.ssh/known_hosts updated.
+    >   Original contents retained as /home/Zarquan/.ssh/known_hosts.old
+    >   /home/Zarquan/.ssh/known_hosts updated.
+    >   Original contents retained as /home/Zarquan/.ssh/known_hosts.old
+
+
+# -----------------------------------------------------
+# Check we can login to each node.
+#[user@desktop]
+
+    source "${HOME}/libvirt.settings"
+    source "${HOME}/ssh-options"
+
+    for vmname in ${zknames[@]}
+        do
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    date
+                    hostname
+                    "
+        done
+
+    >   The authenticity of host 'fosauri (<no hostip for proxy command>)' can't be established.
+    >   ECDSA key fingerprint is SHA256:IMucCsPxM3X4uSyI9V/pHAX2NoTQfkFIwSMZDwRbdcw.
+    >   Are you sure you want to continue connecting (yes/no)? yes
+    >   Wed 31 Jul 05:53:53 BST 2019
+    >   Fosauri
+    >   The authenticity of host 'marpus (<no hostip for proxy command>)' can't be established.
+    >   ECDSA key fingerprint is SHA256:2FMvaRaz8KJnl+puUJL2YEgR5HCEANN5xm2EtDnMtzM.
+    >   Are you sure you want to continue connecting (yes/no)? yes
+    >   Wed 31 Jul 05:53:55 BST 2019
+    >   Marpus
+    >   The authenticity of host 'byflame (<no hostip for proxy command>)' can't be established.
+    >   ECDSA key fingerprint is SHA256:MQN4VbRZJg4unr4amjsUmfLVAvJYIpRaENQgkKp7rn4.
+    >   Are you sure you want to continue connecting (yes/no)? yes
+    >   Wed 31 Jul 05:53:58 BST 2019
+    >   Byflame
+
+
+# -----------------------------------------------------
+# Tail the logs on each node.
+# https://www.systutorials.com/docs/linux/man/1-gnome-terminal/
+# https://www.systutorials.com/docs/linux/man/7-X/#lbAH
+#[user@desktop]
+
+    mate-terminal \
+        --geometry '160x10+25+25' \
+        --command '
+            ssh -t Fosauri "
+                docker logs -f stevedore_courtney_1
+                ${SHELL}
+                "
+            '
+
+    >   [2019-07-31 04:49:06,659] INFO Created server with tickTime 2000 minSessionTimeout 4000 maxSessionTimeout 40000 datadir /var/lib/zookeeper/log/version-2 snapdir /var/lib/zookeeper/data/version-2 (org.apache.zookeeper.server.ZooKeeperServer)
+    >   [2019-07-31 04:49:06,661] INFO FOLLOWING - LEADER ELECTION TOOK - 23940 (org.apache.zookeeper.server.quorum.Learner)
+    >   [2019-07-31 04:49:06,664] INFO Resolved hostname: Marpus to address: Marpus/172.16.5.15 (org.apache.zookeeper.server.quorum.QuorumPeer)
+    >   [2019-07-31 04:49:06,665] WARN Unexpected exception, tries=0, connecting to Marpus/172.16.5.15:2888 (org.apache.zookeeper.server.quorum.Learner)
+    >   java.net.ConnectException: Connection refused (Connection refused)
+    >   	at java.net.PlainSocketImpl.socketConnect(Native Method)
+    >   	at java.net.AbstractPlainSocketImpl.doConnect(AbstractPlainSocketImpl.java:350)
+    >   	at java.net.AbstractPlainSocketImpl.connectToAddress(AbstractPlainSocketImpl.java:206)
+    >   	at java.net.AbstractPlainSocketImpl.connect(AbstractPlainSocketImpl.java:188)
+    >   	at java.net.SocksSocketImpl.connect(SocksSocketImpl.java:392)
+    >   	at java.net.Socket.connect(Socket.java:589)
+    >   	at org.apache.zookeeper.server.quorum.Learner.connectToLeader(Learner.java:229)
+    >   	at org.apache.zookeeper.server.quorum.Follower.followLeader(Follower.java:71)
+    >   	at org.apache.zookeeper.server.quorum.QuorumPeer.run(QuorumPeer.java:937)
+    >   [2019-07-31 04:49:07,718] INFO Getting a diff from the leader 0x0 (org.apache.zookeeper.server.quorum.Learner)
+    >   [2019-07-31 04:49:30,201] INFO Received connection request /172.16.5.16:47218 (org.apache.zookeeper.server.quorum.QuorumCnxManager)
+    >   [2019-07-31 04:49:30,205] INFO Notification: 1 (message format version), 3 (n.leader), 0x0 (n.zxid), 0x1 (n.round), LOOKING (n.state), 3 (n.sid), 0x0 (n.peerEpoch) FOLLOWING (my state) (org.apache.zookeeper.server.quorum.FastLeaderElection)
+
+    sleep 1
+    mate-terminal \
+        --geometry '160x10+125+125' \
+        --command '
+            ssh -t Marpus "
+                docker logs -f stevedore_courtney_1
+                ${SHELL}
+                "
+            '
+
+    >   [2019-07-31 04:49:06,673] INFO Created server with tickTime 2000 minSessionTimeout 4000 maxSessionTimeout 40000 datadir /var/lib/zookeeper/log/version-2 snapdir /var/lib/zookeeper/data/version-2 (org.apache.zookeeper.server.ZooKeeperServer)
+    >   [2019-07-31 04:49:06,676] INFO LEADING - LEADER ELECTION TOOK - 258 (org.apache.zookeeper.server.quorum.Leader)
+    >   [2019-07-31 04:49:07,681] INFO Follower sid: 1 : info : org.apache.zookeeper.server.quorum.QuorumPeer$QuorumServer@62f200ad (org.apache.zookeeper.server.quorum.LearnerHandler)
+    >   [2019-07-31 04:49:07,716] INFO Synchronizing with Follower sid: 1 maxCommittedLog=0x0 minCommittedLog=0x0 peerLastZxid=0x0 (org.apache.zookeeper.server.quorum.LearnerHandler)
+    >   [2019-07-31 04:49:07,717] INFO leader and follower are in sync, zxid=0x0 (org.apache.zookeeper.server.quorum.LearnerHandler)
+    >   [2019-07-31 04:49:07,717] INFO Sending DIFF (org.apache.zookeeper.server.quorum.LearnerHandler)
+    >   [2019-07-31 04:49:07,746] INFO Received NEWLEADER-ACK message from 1 (org.apache.zookeeper.server.quorum.LearnerHandler)
+    >   [2019-07-31 04:49:07,754] INFO Have quorum of supporters, sids: [ 1,2 ]; starting up and setting last processed zxid: 0x100000000 (org.apache.zookeeper.server.quorum.Leader)
+    >   [2019-07-31 04:49:30,207] INFO Received connection request /172.16.5.16:56392 (org.apache.zookeeper.server.quorum.QuorumCnxManager)
+    >   [2019-07-31 04:49:30,211] INFO Notification: 1 (message format version), 3 (n.leader), 0x0 (n.zxid), 0x1 (n.round), LOOKING (n.state), 3 (n.sid), 0x0 (n.peerEpoch) LEADING (my state) (org.apache.zookeeper.server.quorum.FastLeaderElection)
+    >   [2019-07-31 04:49:30,240] INFO Follower sid: 3 : info : org.apache.zookeeper.server.quorum.QuorumPeer$QuorumServer@176ba496 (org.apache.zookeeper.server.quorum.LearnerHandler)
+    >   [2019-07-31 04:49:30,255] INFO Synchronizing with Follower sid: 3 maxCommittedLog=0x0 minCommittedLog=0x0 peerLastZxid=0x0 (org.apache.zookeeper.server.quorum.LearnerHandler)
+    >   [2019-07-31 04:49:30,256] INFO Sending SNAP (org.apache.zookeeper.server.quorum.LearnerHandler)
+    >   [2019-07-31 04:49:30,256] INFO Sending snapshot last zxid of peer is 0x0  zxid of leader is 0x100000000sent zxid of db as 0x100000000 (org.apache.zookeeper.server.quorum.LearnerHandler)
+    >   [2019-07-31 04:49:30,281] INFO Received NEWLEADER-ACK message from 3 (org.apache.zookeeper.server.quorum.LearnerHandler)
+
+    sleep 1
+    mate-terminal \
+        --geometry '160x10+225+225' \
+        --command '
+            ssh -t Byflame "
+                docker logs -f stevedore_courtney_1
+                ${SHELL}
+                "
+            '
+
+    >   [2019-07-31 04:49:30,233] INFO Created server with tickTime 2000 minSessionTimeout 4000 maxSessionTimeout 40000 datadir /var/lib/zookeeper/log/version-2 snapdir /var/lib/zookeeper/data/version-2 (org.apache.zookeeper.server.ZooKeeperServer)
+    >   [2019-07-31 04:49:30,234] INFO FOLLOWING - LEADER ELECTION TOOK - 39 (org.apache.zookeeper.server.quorum.Learner)
+    >   [2019-07-31 04:49:30,235] INFO Resolved hostname: Marpus to address: Marpus/172.16.5.15 (org.apache.zookeeper.server.quorum.QuorumPeer)
+    >   [2019-07-31 04:49:30,256] INFO Getting a snapshot from leader (org.apache.zookeeper.server.quorum.Learner)
+    >   [2019-07-31 04:49:30,264] INFO Snapshotting: 0x100000000 to /var/lib/zookeeper/data/version-2/snapshot.100000000 (org.apache.zookeeper.server.persistence.FileTxnSnapLog)
+
+
+
+
+
+
+
+
+

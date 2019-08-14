@@ -1,0 +1,106 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+
+    Polymorphic Alert interface.
+    Wraps Avro beans to insulate Java code from schema changes.
+    Wraps Avro beans to provide lazy loading of Lists and image data.
+
+    Modify the Avro schema to add a version number.
+
+    Create our own mirror maker.
+    Imports ZTF alerts, separates the images and lists and replaces them with placeholder URLs.
+    Uses generic event to compensate for Avro schema version changes.
+    Sends generic events downstream.
+
+    Multiplier
+
+        Add random offset to duplicate events by multiplication factor.
+        Random small ra.dec offset - check for conflicts ?
+        Random postfix extends candidate and object identifiers.
+
+        LSST target per visit
+             1kHz minimum
+            10kHz design
+           100kHz stretch
+
+        ZTF data rate
+            256k per night
+            256k / 8hr
+            256k / (8 * 60min)
+            256k / (8 * 60 * 60 sec)
+            256000 / 28800
+            ~= 8Hz (average)
+
+        LSST stretch target is order of 12,500 larger than ZTF.
+        ** Bad math, comparing max apples and max oranges.
+        Need to know the max events per visit from ZTF and multiply that up.
+        Add something to our code to extract the value from the data.
+            Calculate ZTF equivalent to the LSST targets per visit number
+            Sum of ZTF alerts per ZTF field per night ?
+
+    Object matcher
+
+        ObjectFactory
+        Check memcached for objectId.
+        If not in memcached, scan Zone for match.
+            If no Zone, load Zone from Cassandra.
+            If no Zone in Cassandra.
+                Create new zone.
+                Send new Zone to new-zone stream.
+                    Background write to Cassandra.
+
+            If no match, add Object to zone.
+                Send new Object to new-object stream.
+                    Background write to Cassandra.
+            Add found Object to memcached.
+            Return found Object.
+
+
+    Candidate matcher
+
+        CandidateFactory
+        Check memcached for candidateId.
+        If not in memcached, scan Zone for match.
+            If no Zone, load Zone from Cassandra.
+            If no Zone in Cassandra.
+                Create new zone.
+                Send new Zone to new-zone stream.
+                    Background write to Cassandra.
+
+            If no match, add Candidate to zone.
+                Send new Candidate to new-candidate stream.
+                    Background write to Cassandra.
+            Add found Candidate to memcached.
+            Return found Candidate.
+
+
+
+
+
+
+    Cassandra database
+        Write objects
+
+    Cassandra database
+        Write candidates
+

@@ -1,0 +1,518 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+    Local MAC addresses
+    https://serverfault.com/a/40720
+    https://en.wikipedia.org/wiki/MAC_address#Universal_vs._local
+
+    Fantasy name generator
+    https://www.namegenerator.biz/fantasy-name-generator.php
+
+# -----------------------------------------------------
+# Create the dnsmasq config files.
+#[root@work01]
+
+    mkdir /etc/dnsmasq
+
+    cat > /etc/dnsmasq/00.debug.conf << EOF
+log-dhcp
+log-queries
+EOF
+
+    cat > /etc/dnsmasq/01.base.conf << EOF
+bogus-priv
+no-hosts
+no-resolv
+keep-in-foreground
+dhcp-broadcast
+expand-hosts
+server=195.194.120.1
+server=195.194.120.2
+server=8.8.8.8
+no-daemon
+log-facility=-
+interface=br1
+bind-interfaces
+
+domain-needed
+domain=lsstuk,172.16.0.0/16,local
+dhcp-option=option:domain-search,lsstuk,roe.ac.uk
+
+EOF
+
+    cat > /etc/dnsmasq/02.lsstuk-names.conf << EOF
+host-record=work01,work01.lsstuk,172.16.1.1
+host-record=work02,work02.lsstuk,172.16.1.2
+host-record=work03,work03.lsstuk,172.16.1.3
+host-record=work04,work04.lsstuk,172.16.1.4
+host-record=trop03,trop03.lsstuk,172.16.1.5
+host-record=trop04,trop04.lsstuk,172.16.1.6
+host-record=data01,data01.lsstuk,172.16.1.7
+host-record=data02,data02.lsstuk,172.16.1.8
+host-record=gaia01,gaia01.lsstuk,172.16.1.9
+host-record=gaia02,gaia02.lsstuk,172.16.1.10
+EOF
+
+    cat > /etc/dnsmasq/03.trop-public.conf << EOF
+host-record=trop01.roe.ac.uk,129.215.175.96
+host-record=trop02.roe.ac.uk,129.215.175.97
+host-record=trop03.roe.ac.uk,129.215.175.98
+host-record=trop04.roe.ac.uk,129.215.175.99
+EOF
+
+    cat > /etc/dnsmasq/04.dhcp-work01.conf << EOF
+dhcp-range=set:work01,172.16.0.1,static,5m
+
+dhcp-host=06:00:AC:10:00:01,172.16.0.1,Onaukon
+dhcp-host=06:00:AC:10:00:02,172.16.0.2,Kedaessa
+dhcp-host=06:00:AC:10:00:03,172.16.0.3,Arardobwyn
+dhcp-host=06:00:AC:10:00:04,172.16.0.4,Graudia
+dhcp-host=06:00:AC:10:00:05,172.16.0.5,Legiesh
+dhcp-host=06:00:AC:10:00:06,172.16.0.6,Oneawiel
+dhcp-host=06:00:AC:10:00:07,172.16.0.7,Afelav
+dhcp-host=06:00:AC:10:00:08,172.16.0.8,Tiesa
+dhcp-host=06:00:AC:10:00:09,172.16.0.9,Qynwan
+dhcp-host=06:00:AC:10:00:0A,172.16.0.10,Grissa
+dhcp-host=06:00:AC:10:00:0B,172.16.0.11,Treared
+dhcp-host=06:00:AC:10:00:0C,172.16.0.12,Faewien
+dhcp-host=06:00:AC:10:00:0D,172.16.0.13,Tienwan
+dhcp-host=06:00:AC:10:00:0E,172.16.0.14,Triesa
+dhcp-host=06:00:AC:10:00:0F,172.16.0.15,Troath
+dhcp-host=06:00:AC:10:00:10,172.16.0.16,Lareliwiel
+dhcp-host=06:00:AC:10:00:11,172.16.0.17,Iberigan
+dhcp-host=06:00:AC:10:00:12,172.16.0.18,Criressa
+dhcp-host=06:00:AC:10:00:13,172.16.0.19,Adagan
+dhcp-host=06:00:AC:10:00:14,172.16.0.20,Kardoswen
+dhcp-host=06:00:AC:10:00:15,172.16.0.21,Cedrijan
+dhcp-host=06:00:AC:10:00:16,172.16.0.22,Vaelle
+dhcp-host=06:00:AC:10:00:17,172.16.0.23,Ocelisean
+dhcp-host=06:00:AC:10:00:18,172.16.0.24,Araeri
+dhcp-host=06:00:AC:10:00:19,172.16.0.25,Nyderrad
+dhcp-host=06:00:AC:10:00:1A,172.16.0.26,Rhoawien
+dhcp-host=06:00:AC:10:00:1B,172.16.0.27,Gwirabard
+dhcp-host=06:00:AC:10:00:1C,172.16.0.28,Boasien
+dhcp-host=06:00:AC:10:00:1D,172.16.0.29,Falidon
+dhcp-host=06:00:AC:10:00:1E,172.16.0.30,Brawia
+dhcp-host=06:00:AC:10:00:1F,172.16.0.31,Glaubard
+dhcp-host=06:00:AC:10:00:20,172.16.0.32,Legendamwen
+
+EOF
+
+    cat > /etc/dnsmasq/05.dhcp-work02.conf << EOF
+dhcp-range=set:work02,172.16.2.1,static,5m
+
+dhcp-host=06:00:AC:10:02:01,172.16.2.1,Nydiabaen
+dhcp-host=06:00:AC:10:02:02,172.16.2.2,Eraullan
+dhcp-host=06:00:AC:10:02:03,172.16.2.3,Dwerader
+dhcp-host=06:00:AC:10:02:04,172.16.2.4,Koiclya
+dhcp-host=06:00:AC:10:02:05,172.16.2.5,Afeadon
+dhcp-host=06:00:AC:10:02:06,172.16.2.6,Arieven
+dhcp-host=06:00:AC:10:02:07,172.16.2.7,Yberil
+dhcp-host=06:00:AC:10:02:08,172.16.2.8,Umiwiel
+dhcp-host=06:00:AC:10:02:09,172.16.2.9,Waresean
+dhcp-host=06:00:AC:10:02:0A,172.16.2.10,Meng
+dhcp-host=06:00:AC:10:02:0B,172.16.2.11,Tromader
+dhcp-host=06:00:AC:10:02:0C,172.16.2.12,Haosien
+dhcp-host=06:00:AC:10:02:0D,172.16.2.13,Year
+dhcp-host=06:00:AC:10:02:0E,172.16.2.14,Glerraswen
+dhcp-host=06:00:AC:10:02:0F,172.16.2.15,Gworekin
+dhcp-host=06:00:AC:10:02:10,172.16.2.16,Elaven
+dhcp-host=06:00:AC:10:02:11,172.16.2.17,Ybigorid
+dhcp-host=06:00:AC:10:02:12,172.16.2.18,Ereagord
+dhcp-host=06:00:AC:10:02:13,172.16.2.19,Etherralian
+dhcp-host=06:00:AC:10:02:14,172.16.2.20,Drilawyr
+dhcp-host=06:00:AC:10:02:15,172.16.2.21,Kaaucien
+dhcp-host=06:00:AC:10:02:16,172.16.2.22,Dwiralin
+dhcp-host=06:00:AC:10:02:17,172.16.2.23,Rhaelson
+dhcp-host=06:00:AC:10:02:18,172.16.2.24,Shllips
+dhcp-host=06:00:AC:10:02:19,172.16.2.25,Wafire
+dhcp-host=06:00:AC:10:02:1A,172.16.2.26,Owensag
+dhcp-host=06:00:AC:10:02:1B,172.16.2.27,Spus
+dhcp-host=06:00:AC:10:02:1C,172.16.2.28,Hadelia
+dhcp-host=06:00:AC:10:02:1D,172.16.2.29,Anticla
+dhcp-host=06:00:AC:10:02:1E,172.16.2.30,Broocal
+dhcp-host=06:00:AC:10:02:1F,172.16.2.31,Saunobby
+dhcp-host=06:00:AC:10:02:20,172.16.2.32,Hartatoria
+
+EOF
+
+    cat > /etc/dnsmasq/06.dhcp-work03.conf << EOF
+dhcp-range=set:work03,172.16.3.1,static,5m
+
+dhcp-host=06:00:AC:10:03:01,172.16.3.1,Umynd
+dhcp-host=06:00:AC:10:03:02,172.16.3.2,Lothaedien
+dhcp-host=06:00:AC:10:03:03,172.16.3.3,Afaod
+dhcp-host=06:00:AC:10:03:04,172.16.3.4,Rhaussa
+dhcp-host=06:00:AC:10:03:05,172.16.3.5,Etiach
+dhcp-host=06:00:AC:10:03:06,172.16.3.6,Ederradda
+dhcp-host=06:00:AC:10:03:07,172.16.3.7,Ethaledric
+dhcp-host=06:00:AC:10:03:08,172.16.3.8,Piramma
+dhcp-host=06:00:AC:10:03:09,172.16.3.9,Weag
+dhcp-host=06:00:AC:10:03:0A,172.16.3.10,Adririen
+dhcp-host=06:00:AC:10:03:0B,172.16.3.11,Boader
+dhcp-host=06:00:AC:10:03:0C,172.16.3.12,Loidda
+dhcp-host=06:00:AC:10:03:0D,172.16.3.13,Keriron
+dhcp-host=06:00:AC:10:03:0E,172.16.3.14,Wiciavia
+dhcp-host=06:00:AC:10:03:0F,172.16.3.15,Galeas
+dhcp-host=06:00:AC:10:03:10,172.16.3.16,Ocaredia
+dhcp-host=06:00:AC:10:03:11,172.16.3.17,Sevardokath
+dhcp-host=06:00:AC:10:03:12,172.16.3.18,Pilima
+dhcp-host=06:00:AC:10:03:13,172.16.3.19,Dwerralath
+dhcp-host=06:00:AC:10:03:14,172.16.3.20,Elardolind
+dhcp-host=06:00:AC:10:03:15,172.16.3.21,Ethaw
+dhcp-host=06:00:AC:10:03:16,172.16.3.22,Sericia
+dhcp-host=06:00:AC:10:03:17,172.16.3.23,Ceihan
+dhcp-host=06:00:AC:10:03:18,172.16.3.24,Glassa
+dhcp-host=06:00:AC:10:03:19,172.16.3.25,Umelakor
+dhcp-host=06:00:AC:10:03:1A,172.16.3.26,Galirien
+dhcp-host=06:00:AC:10:03:1B,172.16.3.27,Tilader
+dhcp-host=06:00:AC:10:03:1C,172.16.3.28,Grywiel
+dhcp-host=06:00:AC:10:03:1D,172.16.3.29,Payw
+dhcp-host=06:00:AC:10:03:1E,172.16.3.30,Paowien
+dhcp-host=06:00:AC:10:03:1F,172.16.3.31,Yorevudd
+dhcp-host=06:00:AC:10:03:20,172.16.3.32,Haaewia
+
+EOF
+
+    cat > /etc/dnsmasq/07.dhcp-work04.conf << EOF
+dhcp-range=set:work04,172.16.4.1,static,5m
+
+dhcp-host=06:00:AC:10:04:01,172.16.4.1,Rhaler
+dhcp-host=06:00:AC:10:04:02,172.16.4.2,Asaoria
+dhcp-host=06:00:AC:10:04:03,172.16.4.3,Miejar
+dhcp-host=06:00:AC:10:04:04,172.16.4.4,Ocerasa
+dhcp-host=06:00:AC:10:04:05,172.16.4.5,Frendakith
+dhcp-host=06:00:AC:10:04:06,172.16.4.6,Cieng
+dhcp-host=06:00:AC:10:04:07,172.16.4.7,Calelath
+dhcp-host=06:00:AC:10:04:08,172.16.4.8,Loreviel
+dhcp-host=06:00:AC:10:04:09,172.16.4.9,Jilam
+dhcp-host=06:00:AC:10:04:0A,172.16.4.10,Heraveth
+dhcp-host=06:00:AC:10:04:0B,172.16.4.11,Elyth
+dhcp-host=06:00:AC:10:04:0C,172.16.4.12,Qirassi
+dhcp-host=06:00:AC:10:04:0D,172.16.4.13,Ybib
+dhcp-host=06:00:AC:10:04:0E,172.16.4.14,Qardode
+dhcp-host=06:00:AC:10:04:0F,172.16.4.15,Vardodric
+dhcp-host=06:00:AC:10:04:10,172.16.4.16,Legianiel
+dhcp-host=06:00:AC:10:04:11,172.16.4.17,Deranyth
+dhcp-host=06:00:AC:10:04:12,172.16.4.18,Wicella
+dhcp-host=06:00:AC:10:04:13,172.16.4.19,Kardoloth
+dhcp-host=06:00:AC:10:04:14,172.16.4.20,Thoedith
+dhcp-host=06:00:AC:10:04:15,172.16.4.21,Nydiratlan
+dhcp-host=06:00:AC:10:04:16,172.16.4.22,Hadith
+dhcp-host=06:00:AC:10:04:17,172.16.4.23,Aeakith
+dhcp-host=06:00:AC:10:04:18,172.16.4.24,Jerywien
+dhcp-host=06:00:AC:10:04:19,172.16.4.25,Joric
+dhcp-host=06:00:AC:10:04:1A,172.16.4.26,Nyderradda
+dhcp-host=06:00:AC:10:04:1B,172.16.4.27,Oloend
+dhcp-host=06:00:AC:10:04:1C,172.16.4.28,Ethewia
+dhcp-host=06:00:AC:10:04:1D,172.16.4.29,Afeb
+dhcp-host=06:00:AC:10:04:1E,172.16.4.30,Ocianiel
+dhcp-host=06:00:AC:10:04:1F,172.16.4.31,Umywin
+dhcp-host=06:00:AC:10:04:20,172.16.4.32,Grywen
+
+EOF
+
+    cat > /etc/dnsmasq/08.dhcp-trop03.conf << EOF
+dhcp-range=set:trop03,172.16.5.1,static,5m
+
+dhcp-host=06:00:AC:10:05:01,172.16.5.1,Umiawyth
+dhcp-host=06:00:AC:10:05:02,172.16.5.2,Etalema
+dhcp-host=06:00:AC:10:05:03,172.16.5.3,Greand
+dhcp-host=06:00:AC:10:05:04,172.16.5.4,Nydiralle
+dhcp-host=06:00:AC:10:05:05,172.16.5.5,Kedaekoth
+dhcp-host=06:00:AC:10:05:06,172.16.5.6,Onelith
+dhcp-host=06:00:AC:10:05:07,172.16.5.7,Elaleld
+dhcp-host=06:00:AC:10:05:08,172.16.5.8,Afoaviel
+dhcp-host=06:00:AC:10:05:09,172.16.5.9,Rusaldez
+dhcp-host=06:00:AC:10:05:0A,172.16.5.10,Stedigo
+dhcp-host=06:00:AC:10:05:0B,172.16.5.11,Angece
+dhcp-host=06:00:AC:10:05:0C,172.16.5.12,Edwalafia
+dhcp-host=06:00:AC:10:05:0D,172.16.5.13,Onoza
+dhcp-host=06:00:AC:10:05:0E,172.16.5.14,Fosauri
+dhcp-host=06:00:AC:10:05:0F,172.16.5.15,Marpus
+dhcp-host=06:00:AC:10:05:10,172.16.5.16,Byflame
+dhcp-host=06:00:AC:10:05:11,172.16.5.17,Grerat
+dhcp-host=06:00:AC:10:05:12,172.16.5.18,Jeralenia
+dhcp-host=06:00:AC:10:05:13,172.16.5.19,Dwardoa
+dhcp-host=06:00:AC:10:05:14,172.16.5.20,Larohac
+dhcp-host=06:00:AC:10:05:15,172.16.5.21,Kaaeclya
+dhcp-host=06:00:AC:10:05:16,172.16.5.22,Elirannor
+dhcp-host=06:00:AC:10:05:17,172.16.5.23,Jeroaveth
+dhcp-host=06:00:AC:10:05:18,172.16.5.24,Rorekon
+dhcp-host=06:00:AC:10:05:19,172.16.5.25,Astalenna
+dhcp-host=06:00:AC:10:05:1A,172.16.5.26,Afib
+dhcp-host=06:00:AC:10:05:1B,172.16.5.27,Lotholia
+dhcp-host=06:00:AC:10:05:1C,172.16.5.28,Astilamos
+dhcp-host=06:00:AC:10:05:1D,172.16.5.29,Uloreth
+dhcp-host=06:00:AC:10:05:1E,172.16.5.30,Comwen
+dhcp-host=06:00:AC:10:05:1F,172.16.5.31,Etardowyn
+dhcp-host=06:00:AC:10:05:20,172.16.5.32,Legaleniel
+
+EOF
+
+    cat > /etc/dnsmasq/09.dhcp-trop04.conf << EOF
+dhcp-range=set:trop04,172.16.6.1,static,5m
+
+dhcp-host=06:00:AC:10:06:01,172.16.6.1,Wumar
+dhcp-host=06:00:AC:10:06:02,172.16.6.2,Larilaweth
+dhcp-host=06:00:AC:10:06:03,172.16.6.3,Ror
+dhcp-host=06:00:AC:10:06:04,172.16.6.4,Asterade
+dhcp-host=06:00:AC:10:06:05,172.16.6.5,Ibedrinnon
+dhcp-host=06:00:AC:10:06:06,172.16.6.6,Arigorith
+dhcp-host=06:00:AC:10:06:07,172.16.6.7,Glydan
+dhcp-host=06:00:AC:10:06:08,172.16.6.8,Clarith
+dhcp-host=06:00:AC:10:06:09,172.16.6.9,Cadoired
+dhcp-host=06:00:AC:10:06:0A,172.16.6.10,Adweasien
+dhcp-host=06:00:AC:10:06:0B,172.16.6.11,Etemar
+dhcp-host=06:00:AC:10:06:0C,172.16.6.12,Sevaymwen
+dhcp-host=06:00:AC:10:06:0D,172.16.6.13,Rydan
+dhcp-host=06:00:AC:10:06:0E,172.16.6.14,Kaaclya
+dhcp-host=06:00:AC:10:06:0F,172.16.6.15,Crohab
+dhcp-host=06:00:AC:10:06:10,172.16.6.16,Iberani
+dhcp-host=06:00:AC:10:06:11,172.16.6.17,Nerrawan
+dhcp-host=06:00:AC:10:06:12,172.16.6.18,Gwauswen
+dhcp-host=06:00:AC:10:06:13,172.16.6.19,Cirel
+dhcp-host=06:00:AC:10:06:14,172.16.6.20,Gendaswen
+dhcp-host=06:00:AC:10:06:15,172.16.6.21,Ocede
+dhcp-host=06:00:AC:10:06:16,172.16.6.22,Crilird
+dhcp-host=06:00:AC:10:06:17,172.16.6.23,Astendawen
+dhcp-host=06:00:AC:10:06:18,172.16.6.24,Nendalith
+dhcp-host=06:00:AC:10:06:19,172.16.6.25,Saelia
+dhcp-host=06:00:AC:10:06:1A,172.16.6.26,Adwaeric
+dhcp-host=06:00:AC:10:06:1B,172.16.6.27,Moemond
+dhcp-host=06:00:AC:10:06:1C,172.16.6.28,Iberidia
+dhcp-host=06:00:AC:10:06:1D,172.16.6.29,Thelinidd
+dhcp-host=06:00:AC:10:06:1E,172.16.6.30,Sendalin
+dhcp-host=06:00:AC:10:06:1F,172.16.6.31,Dwalewen
+dhcp-host=06:00:AC:10:06:20,172.16.6.32,Gwoeric
+
+EOF
+
+    cat > /etc/dnsmasq/99.dhcp-extra.conf << EOF
+dhcp-range=set:extra,172.16.252.1,172.16.252.252,5m
+dhcp-generate-names=tag:extra
+EOF
+
+
+# -----------------------------------------------------
+# Run the dnsmasq container linked to the host interfaces.
+# Configure dnsmasq to bind to the bridge interface by name,
+# and prevent it from connecting to the wildcard address.
+#[root@work01]
+
+    docker run \
+        --tty \
+        --interactive \
+        --network host \
+        --volume /etc/dnsmasq:/etc/dnsmasq \
+        storytel/dnsmasq
+
+    >   dnsmasq[1]: started, version 2.78 cachesize 150
+    >   dnsmasq[1]: compile time options: IPv6 GNU-getopt no-DBus no-i18n no-IDN DHCP DHCPv6 no-Lua TFTP no-conntrack ipset auth no-DNSSEC loop-detect inotify
+    >   dnsmasq-dhcp[1]: DHCP, IP range 172.16.5.1 -- 172.16.5.255, lease time 5m
+    >   dnsmasq-dhcp[1]: DHCP, IP range 172.16.4.1 -- 172.16.4.255, lease time 5m
+    >   dnsmasq-dhcp[1]: DHCP, IP range 172.16.2.1 -- 172.16.2.255, lease time 5m
+    >   dnsmasq-dhcp[1]: DHCP, IP range 172.16.6.1 -- 172.16.6.255, lease time 5m
+    >   dnsmasq-dhcp[1]: DHCP, IP range 172.16.3.1 -- 172.16.3.255, lease time 5m
+    >   dnsmasq-dhcp[1]: DHCP, IP range 172.16.0.1 -- 172.16.0.255, lease time 5m
+    >   dnsmasq-dhcp[1]: DHCP, sockets bound exclusively to interface br1
+    >   dnsmasq[1]: using nameserver 8.8.8.8#53
+    >   dnsmasq[1]: using nameserver 195.194.120.2#53
+    >   dnsmasq[1]: using nameserver 195.194.120.1#53
+    >   dnsmasq[1]: cleared cache
+
+
+# -----------------------------------------------------
+# Update the DNS config on work01
+#[root@work01]
+
+    vi /etc/netplan/01-netcfg.yaml
+
+        eno2:
+          addresses: [ 192.41.108.44/24 ]
+          gateway4: 192.41.108.126
+    -     nameservers:
+    -         search: [ roe.ac.uk ]
+    -         addresses:
+    -             - "195.194.120.1"
+    -             - "195.194.120.2"
+    -             - "8.8.8.8"
+
+
+# -----------------------------------------------------
+# Update the DNS config on work02-04
+#[root@work02]
+#[root@work03]
+#[root@work04]
+
+    vi /etc/netplan/01-netcfg.yaml
+
+        bridges:
+          br1:
+            addresses: [ 172.16.1.2/16 ]
+            interfaces: [ eno1 ]
+            gateway4: 172.16.1.1
+            dhcp4: false
+            optional: true
+    +       nameservers:
+    +         search: [ lsstuk, roe.ac.uk ]
+    +         addresses:
+    +           - "172.16.1.1"
+
+
+    netplan generate
+
+    netplan apply
+
+
+# -----------------------------------------------------
+# Remove the hosts entries from work01-04.
+#[root@work01]
+#[root@work02]
+#[root@work03]
+#[root@work04]
+
+    vi /etc/hosts
+
+        127.0.0.1       localhost
+
+    -   172.16.1.1      work0
+    -   172.16.1.2      work1
+    -   172.16.1.3      work2
+    -   172.16.1.4      work3
+    -   172.16.1.5      trop3
+    -   172.16.1.6      trop4
+    -   172.16.1.7      data1
+    -   172.16.1.8      data2
+    -   172.16.1.9      gaia1
+    -   172.16.1.10     gaia2
+
+
+# -----------------------------------------------------
+# Test the DNS resolver on work01-04.
+#[root@work01]
+#[root@work02]
+#[root@work03]
+#[root@work04]
+
+    host work-01
+
+    >   work-01.lsstuk has address 172.16.1.1
+
+
+    host work-01.lsstuk
+
+    >   work-01.lsstuk has address 172.16.1.1
+
+
+    host -v work-01.lsstuk
+
+    >   Trying "work-01.lsstuk"
+    >   ;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 14075
+    >   ;; flags: qr rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 0
+    >
+    >   ;; QUESTION SECTION:
+    >   ;work-01.lsstuk.			IN	A
+    >
+    >   ;; ANSWER SECTION:
+    >   work-01.lsstuk.		0	IN	A	172.16.1.1
+    >
+    >   Received 48 bytes from 127.0.0.53#53 in 1 ms
+    >   Trying "work-01.lsstuk"
+    >   ;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 47216
+    >   ;; flags: qr rd ra; QUERY: 1, ANSWER: 0, AUTHORITY: 0, ADDITIONAL: 0
+    >
+    >   ;; QUESTION SECTION:
+    >   ;work-01.lsstuk.			IN	AAAA
+    >
+    >   Received 32 bytes from 127.0.0.53#53 in 0 ms
+    >   Trying "work-01.lsstuk"
+    >   ;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 61995
+    >   ;; flags: qr rd ra; QUERY: 1, ANSWER: 0, AUTHORITY: 0, ADDITIONAL: 0
+    >
+    >   ;; QUESTION SECTION:
+    >   ;work-01.lsstuk.			IN	MX
+    >
+    >   Received 32 bytes from 127.0.0.53#53 in 20 ms
+
+
+# -----------------------------------------------------
+# Test the DNS resolver on work01-04.
+#[root@work01]
+#[root@work02]
+#[root@work03]
+#[root@work04]
+
+    host data.metagrid.co.uk
+
+    >   data.metagrid.co.uk is an alias for bullfinch.linode.metagrid.co.uk.
+    >   bullfinch.linode.metagrid.co.uk has address 178.79.157.93
+    >   bullfinch.linode.metagrid.co.uk has IPv6 address 2a01:7e00::f03c:91ff:fedf:f8b
+
+
+    host -v data.metagrid.co.uk
+
+    >   Trying "data.metagrid.co.uk"
+    >   ;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 3217
+    >   ;; flags: qr rd ra; QUERY: 1, ANSWER: 2, AUTHORITY: 0, ADDITIONAL: 0
+    >
+    >   ;; QUESTION SECTION:
+    >   ;data.metagrid.co.uk.		IN	A
+    >
+    >   ;; ANSWER SECTION:
+    >   data.metagrid.co.uk.	7187	IN	CNAME	bullfinch.linode.metagrid.co.uk.
+    >   bullfinch.linode.metagrid.co.uk. 7164 IN A	178.79.157.93
+    >
+    >   Received 84 bytes from 127.0.0.53#53 in 1 ms
+    >   Trying "bullfinch.linode.metagrid.co.uk"
+    >   ;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 9373
+    >   ;; flags: qr rd ra; QUERY: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 0
+    >
+    >   ;; QUESTION SECTION:
+    >   ;bullfinch.linode.metagrid.co.uk. IN	AAAA
+    >
+    >   ;; ANSWER SECTION:
+    >   bullfinch.linode.metagrid.co.uk. 7164 IN AAAA	2a01:7e00::f03c:91ff:fedf:f8b
+    >
+    >   Received 77 bytes from 127.0.0.53#53 in 0 ms
+    >   Trying "bullfinch.linode.metagrid.co.uk"
+    >   ;; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 61549
+    >   ;; flags: qr rd ra; QUERY: 1, ANSWER: 0, AUTHORITY: 0, ADDITIONAL: 0
+    >
+    >   ;; QUESTION SECTION:
+    >   ;bullfinch.linode.metagrid.co.uk. IN	MX
+    >
+    >   Received 49 bytes from 127.0.0.53#53 in 0 ms
+
+
+# -----------------------------------------------------
+# Test the DNS resolver on work01-04.
+#[root@work01]
+#[root@work02]
+#[root@work03]
+#[root@work04]
+
+    host trop01.roe.ac.uk
+
+    >   trop01.roe.ac.uk has address 129.215.175.96
+
+

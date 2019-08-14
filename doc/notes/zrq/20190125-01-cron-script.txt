@@ -1,0 +1,481 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+    #
+    # cron script runs on 'control' node
+    #
+
+    controller=Crilird
+
+
+# -----------------------------------------------------
+# Create our controller node.
+# TODO scriptable createvm
+#[user@trop04]
+
+    createvm
+
+    >   INFO : Node name [Crilird]
+    >   INFO : Base name [fedora-28-docker-base-20180708.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-28-docker-base-20180708.qcow]
+    >   INFO : Disc name [Crilird.qcow]
+    >   INFO : Disc size [16GiB]
+    >   
+    >   INFO : node [21]
+    >   INFO : MAC  [52:54:0:0:D2:D6]
+    >   INFO : IPv4 [192.168.210.214]
+    >   INFO : MAC  [52:54:0:0:D2:F6]
+    >   INFO : IPv4 [192.168.210.246]
+
+# -----------------------------------------------------
+# Deploy the netfix script on the node.
+#[user@trop04]
+
+    source "${HOME}/ssh-options"
+
+    vmname=${controller:?}
+
+    scp \
+        ${scpopts[*]} \
+        /tmp/netfix.sh \
+        ${sshuser:?}@${vmname:?}:/tmp/netfix.sh
+
+    >   netfix.sh   100% 1021     1.0KB/s   00:00
+
+
+    ssh \
+        ${sshopts[*]} \
+        ${sshuser:?}@${vmname:?} \
+            "
+            date
+            hostname
+            chmod a+x '/tmp/netfix.sh'
+            sudo -s   '/tmp/netfix.sh'
+            "
+
+    >   Fri 25 Jan 12:43:18 GMT 2019
+    >   Crilird
+    >   /etc/sysconfig /home/Stevedore
+    >   /etc/sysconfig/network-scripts /etc/sysconfig /home/Stevedore
+    >   /etc/sysconfig /home/Stevedore
+
+
+# -----------------------------------------------------
+# reboot the controller node.
+#[user@trop04]
+
+    ssh \
+        ${sshopts[*]} \
+        ${sshuser:?}@${vmname:?} \
+            '
+            sudo reboot
+            '
+
+# -----------------------------------------------------
+# Login to the controller and add the cron scripts.
+#[user@trop04]
+
+    ssh \
+        ${sshopts[*]} \
+        ${sshuser:?}@${vmname:?}
+
+
+# -----------------------------------------------------
+# Define the ssh options.
+#[Stevedore@controller]
+
+    cat > ssh-options << 'EOF'
+
+    sshuser=Stevedore
+
+    sshopts=(
+        '-A'
+        '-o LogLevel=ERROR'
+        '-o CheckHostIP=no'
+        '-o UserKnownHostsFile=/dev/null'
+        '-o StrictHostKeyChecking=no'
+        )
+
+    scpopts=(
+        '-o LogLevel=ERROR'
+        '-o CheckHostIP=no'
+        '-o UserKnownHostsFile=/dev/null'
+        '-o StrictHostKeyChecking=no'
+        )
+
+EOF
+
+
+# -----------------------------------------------------
+# Create our node lists.
+#[Stevedore@controller]
+
+    cat > "${HOME}/node-lists" << 'EOF'
+
+    # Cassandra nodes
+    canames=(
+        Astendawen
+        Nendalith
+        Saelia
+        Adwaeric
+        )
+
+    # Kafka nodes.
+    kfnames=(
+        Stedigo
+        Angece
+        Edwalafia
+        Onoza
+        )
+
+    # Zookeeper nodes.
+    zknames=(
+        Fosauri
+        Marpus
+        Byflame
+        )
+
+    # MirrorMaker nodes.
+    mmnames=(
+        Moemond
+        Iberidia
+        )
+
+EOF
+
+
+# -----------------------------------------------------
+# Create a new ssh key to login to the other nodes.
+#[Stevedore@controller]
+
+    ssh-keygen \
+        -t rsa \
+        -b 2048 \
+        -f "${HOME}/.ssh/controller-key"
+
+    >   Generating public/private rsa key pair.
+    >   Enter passphrase (empty for no passphrase):
+    >   Enter same passphrase again:
+    >   Your identification has been saved in /home/Stevedore/.ssh/controller-key.
+    >   Your public key has been saved in /home/Stevedore/.ssh/controller-key.pub.
+    >   The key fingerprint is:
+    >   SHA256:4wAjRcv1cpWGHbEd7KhBHS6f0b+uD8qyAYJgL1kH9SQ Stevedore@Crilird
+    >   The key's randomart image is:
+    >   +---[RSA 2048]----+
+    >   |   o+E.. +=*.    |
+    >   |   o.o+.oo=+..   |
+    >   |....=..o+.+oo    |
+    >   |..+o.o o.o.o..   |
+    >   | o... o Soo   .  |
+    >   |  .  . +..     . |
+    >   |        o   . .  |
+    >   |        .o . o   |
+    >   |        .oo .oo  |
+    >   +----[SHA256]-----+
+
+
+# -----------------------------------------------------
+# Transfer the public keys to each node.
+#[Stevedore@controller]
+
+    source "${HOME}/node-lists"
+    source "${HOME}/ssh-options"
+
+    for vmname in ${mmnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname}]"
+            scp ${scpopts[*]} \
+                ${HOME}/.ssh/controller-key.pub \
+                ${sshuser:?}@${vmname:?}:.ssh/controller-key.pub
+        done
+
+    >   ---- ----
+    >   Node [Moemond]
+    >   controller-key.pub      100%  399   377.8KB/s   00:00
+    >   ---- ----
+    >   Node [Iberidia]
+    >   controller-key.pub      100%  399   367.3KB/s   00:00
+
+
+# -----------------------------------------------------
+# Login to each node and add the new key.
+#[Stevedore@controller]
+
+    source "${HOME}/node-lists"
+    source "${HOME}/ssh-options"
+
+    for vmname in ${mmnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname}]"
+            ssh \
+                -i "${HOME}/.ssh/controller-key" \
+                ${sshuser:?}@${vmname:?} \
+                    '
+                    date
+                    hostname
+                    cat ${HOME}/.ssh/controller-key.pub \
+                     >> ${HOME}/.ssh/authorized_keys
+                    '
+        done
+
+
+
+# -----------------------------------------------------
+# Test login to each node to accept the host key.
+#[Stevedore@controller]
+
+    source "${HOME}/node-lists"
+    source "${HOME}/ssh-options"
+
+    for vmname in ${mmnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname}]"
+            ssh \
+                -i "${HOME}/.ssh/controller-key" \
+                ${sshuser:?}@${vmname:?} \
+                    '
+                    date
+                    hostname
+                    '
+        done
+
+
+    >   ---- ----
+    >   Node [Moemond]
+    >   The authenticity of host 'moemond (192.168.210.219)' can't be established.
+    >   ECDSA key fingerprint is SHA256:qhof8b5/5uAyqNk94YTg4p8uknzQi71hKv6BpEc58bc.
+    >   ECDSA key fingerprint is MD5:3b:3a:37:14:e4:01:30:18:b5:91:e3:c0:16:26:e3:80.
+    >   Are you sure you want to continue connecting (yes/no)? yes
+    >   Warning: Permanently added 'moemond,192.168.210.219' (ECDSA) to the list of known hosts.
+    >   Fri 25 Jan 11:51:58 GMT 2019
+    >   Moemond
+    >   ---- ----
+    >   Node [Iberidia]
+    >   The authenticity of host 'iberidia (192.168.210.220)' can't be established.
+    >   ECDSA key fingerprint is SHA256:9Ss3KHOlYFQn0C90zZP54NkuiCRvy6awFx/nzn/Azl0.
+    >   ECDSA key fingerprint is MD5:b2:ff:ec:c5:d6:d5:20:55:fe:75:72:9a:79:15:4b:1e.
+    >   Are you sure you want to continue connecting (yes/no)? yes
+    >   Warning: Permanently added 'iberidia,192.168.210.220' (ECDSA) to the list of known hosts.
+    >   Fri 25 Jan 11:52:00 GMT 2019
+    >   Iberidia
+
+# -----------------------------------------------------
+# Test login to each node using the key.
+#[Stevedore@controller]
+
+    source "${HOME}/node-lists"
+    source "${HOME}/ssh-options"
+
+    for vmname in ${mmnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname}]"
+            ssh \
+                -i "${HOME}/.ssh/controller-key" \
+                ${sshuser:?}@${vmname:?} \
+                    '
+                    date
+                    hostname
+                    '
+        done
+
+    >   ---- ----
+    >   Node [Moemond]
+    >   Fri 25 Jan 11:54:17 GMT 2019
+    >   Moemond
+    >   ---- ----
+    >   Node [Iberidia]
+    >   Fri 25 Jan 11:54:17 GMT 2019
+    >   Iberidia
+
+
+# -----------------------------------------------------
+# Create a test script.
+#[Stevedore@controller]
+
+    mkdir -p "${HOME}/bin"
+    cat > "${HOME}/bin/crontest.sh" << 'EOF'
+
+    source "${HOME}/node-lists"
+    source "${HOME}/ssh-options"
+
+    for vmname in ${mmnames[@]}
+        do
+            ssh \
+                -i "${HOME}/.ssh/controller-key" \
+                ${sshuser:?}@${vmname:?} \
+                '
+                curl --head --silent "http://data.metagrid.co.uk/crontest/$(date +%Y%m%d%H%M%S)/$(hostname -s)"
+                '
+        done
+EOF
+
+    chmod a+x "${HOME}/bin/crontest.sh"
+
+
+# -----------------------------------------------------
+# Install .
+#[Stevedore@controller]
+
+    sudo dnf info cronie
+
+    >   Last metadata expiration check: 0:05:57 ago on Fri 25 Jan 2019 11:55:56 GMT.
+    >   Installed Packages
+    >   Name         : cronie
+    >   Version      : 1.5.1
+    >   Release      : 9.fc28
+    >   Arch         : x86_64
+    >   Size         : 246 k
+    >   Source       : cronie-1.5.1-9.fc28.src.rpm
+    >   Repo         : @System
+    >   From repo    : fedora
+    >   Summary      : Cron daemon for executing programs at set times
+    >   URL          : https://github.com/cronie-crond/cronie
+    >   License      : MIT and BSD and ISC and GPLv2+
+    >   Description  : Cronie contains the standard UNIX daemon crond that runs specified programs at
+    >                : scheduled times and related tools. It is a fork of the original vixie-cron and
+    >                : has security and configuration enhancements like the ability to use pam and
+    >                : SELinux.
+
+    sudo dnf install -y cronie
+
+    >   ....
+    >   Installed:
+    >     cronie.x86_64 1.5.1-9.fc28
+    >     cronie-anacron.x86_64 1.5.1-9.fc28
+    >     crontabs.noarch 1.11-16.20150630git.fc28
+    >   
+    >   Complete!
+
+
+    sudo systemctl enable crond
+
+    sudo systemctl start crond
+
+
+# -----------------------------------------------------
+# Add the test script to our cron tab.
+#[Stevedore@controller]
+
+    crontab -e
+
+        */2 * * * *	bin/crontest.sh
+
+
+# -----------------------------------------------------
+# Watch the system logs.
+#[Stevedore@controller]
+
+    journalctl -f
+
+    >   Jan 25 12:25:24 Crilird crontab[12521]: (Stevedore) BEGIN EDIT (Stevedore)
+    >   Jan 25 12:25:49 Crilird crontab[12521]: (Stevedore) REPLACE (Stevedore)
+    >   Jan 25 12:25:49 Crilird crontab[12521]: (Stevedore) END EDIT (Stevedore)
+
+    >   Jan 25 12:26:01 Crilird crond[12503]: (Stevedore) RELOAD (/var/spool/cron/Stevedore)
+    >   Jan 25 12:26:01 Crilird audit[12527]: USER_ACCT pid=12527 uid=0 auid=4294967295 ses=4294967295 subj=system_u:system_r:crond_t:s0-s0:c0.c1023 msg='op=PAM:accounting grantors=pam_access,pam_unix acct="Stevedore" exe="/usr/sbin/crond" hostname=? addr=? terminal=cron res=success'
+    >   Jan 25 12:26:01 Crilird audit[12527]: CRED_ACQ pid=12527 uid=0 auid=4294967295 ses=4294967295 subj=system_u:system_r:crond_t:s0-s0:c0.c1023 msg='op=PAM:setcred grantors=pam_env,pam_unix acct="Stevedore" exe="/usr/sbin/crond" hostname=? addr=? terminal=cron res=success'
+    >   Jan 25 12:26:01 Crilird systemd[1]: Started Session 5 of user Stevedore.
+    >   Jan 25 12:26:01 Crilird audit[12527]: USER_START pid=12527 uid=0 auid=1001 ses=5 subj=system_u:system_r:crond_t:s0-s0:c0.c1023 msg='op=PAM:session_open grantors=pam_loginuid,pam_keyinit,pam_limits,pam_systemd acct="Stevedore" exe="/usr/sbin/crond" hostname=? addr=? terminal=cron res=success'
+    >   Jan 25 12:26:01 Crilird audit[12527]: CRED_REFR pid=12527 uid=0 auid=1001 ses=5 subj=system_u:system_r:crond_t:s0-s0:c0.c1023 msg='op=PAM:setcred grantors=pam_env,pam_unix acct="Stevedore" exe="/usr/sbin/crond" hostname=? addr=? terminal=cron res=success'
+    >   Jan 25 12:26:01 Crilird CROND[12529]: (Stevedore) CMD (bin/crontest.sh  > /dev/null )
+    >   Jan 25 12:26:02 Crilird audit[12527]: CRED_DISP pid=12527 uid=0 auid=1001 ses=5 subj=system_u:system_r:crond_t:s0-s0:c0.c1023 msg='op=PAM:setcred grantors=pam_env,pam_unix acct="Stevedore" exe="/usr/sbin/crond" hostname=? addr=? terminal=cron res=success'
+    >   Jan 25 12:26:02 Crilird audit[12527]: USER_END pid=12527 uid=0 auid=1001 ses=5 subj=system_u:system_r:crond_t:s0-s0:c0.c1023 msg='op=PAM:session_close grantors=pam_loginuid,pam_keyinit,pam_limits,pam_systemd acct="Stevedore" exe="/usr/sbin/crond" hostname=? addr=? terminal=cron res=success'
+
+
+# -----------------------------------------------------
+# Watch the webserver logs.
+#[admin@webserver]
+
+    sudo tail -f /var/log/httpd/data.metagrid.co.uk.access.log
+
+    >   129.215.175.99 - - [25/Jan/2019:12:26:02 +0000] "HEAD /crontest/20190125122602/Moemond HTTP/1.1" 404 - "-" "curl/7.59.0"
+    >   129.215.175.99 - - [25/Jan/2019:12:26:02 +0000] "HEAD /crontest/20190125122602/Iberidia HTTP/1.1" 404 - "-" "curl/7.59.0"
+    >   
+    >   129.215.175.99 - - [25/Jan/2019:12:27:02 +0000] "HEAD /crontest/20190125122702/Moemond HTTP/1.1" 404 - "-" "curl/7.59.0"
+    >   129.215.175.99 - - [25/Jan/2019:12:27:03 +0000] "HEAD /crontest/20190125122703/Iberidia HTTP/1.1" 404 - "-" "curl/7.59.0"
+    >   
+    >   129.215.175.99 - - [25/Jan/2019:12:28:01 +0000] "HEAD /crontest/20190125122801/Moemond HTTP/1.1" 404 - "-" "curl/7.59.0"
+    >   129.215.175.99 - - [25/Jan/2019:12:28:02 +0000] "HEAD /crontest/20190125122802/Iberidia HTTP/1.1" 404 - "-" "curl/7.59.0"
+
+
+
+# -----------------------------------------------------
+# Login to our controller.
+#[user@trop04]
+
+    ssh Stevedore@Crilird
+
+# -----------------------------------------------------
+# Create our set-topic script.
+#[Stevedore@controller]
+
+    mkdir -p "${HOME}/bin"
+    cat > "${HOME}/bin/set-topic.sh" << 'EOF'
+
+    source "${HOME}/node-lists"
+    source "${HOME}/ssh-options"
+
+    topicname="ztf_$(date '+%Y%m%d')_programid1"
+
+    for vmname in ${mmnames[@]}
+        do
+            ssh \
+                -i "${HOME}/.ssh/controller-key" \
+                ${sshuser:?}@${vmname:?} \
+                '
+                topicname='${topicname}'
+
+                curl --head --silent "http://data.metagrid.co.uk/settopic/$(date +%Y%m%d%H%M%S)/${topicname}/$(hostname -s)'"
+
+                docker-compose \
+                    --file "${HOME}/mirror.yml" \
+                    down
+
+                sed -i "
+                    s/^topiclist=.*/topiclist=${topicname:?}/
+                    " "${HOME}/mirror.env"
+
+                docker-compose \
+                    --file "${HOME}/mirror.yml" \
+                    up -d
+                '
+        done
+EOF
+
+    chmod a+x "${HOME}/bin/set-topic.sh"
+
+
+# -----------------------------------------------------
+# Add the topic script to our cron tab.
+#[Stevedore@controller]
+
+    crontab -e
+
+        8 * * * *	bin/crontest.sh  > /dev/null
+        9 0 * * *	bin/set-topic.sh > /dev/null
+
+
+

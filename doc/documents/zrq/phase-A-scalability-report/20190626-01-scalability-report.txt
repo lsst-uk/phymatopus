@@ -1,0 +1,495 @@
+
+
+This report describes a series of experiments and investigations to identify and evaluate technologies
+suitable for developing the event processing platform for LSST:UK capable of handling the
+data rates expected during the lifetime of the LSST project.
+
+The evaluation criteria for the experiemnts cover two main requirements
+1) meeting the initial expected data rate from the LSST project
+2) ability to increase the scale of data the system can handle to meet the changing data processing requirements over the lifetime of the project
+
+The design is based on a micro-service architecture, deploying multiple individual services and components interlinked by Kafka data streams.
+
+The key benefits we hope to gain from using a distributed micro-service architecture are:
+
+    * Abstract API interfaces will help to insulate our end users from the implementation details
+
+    * Splitting the design into components avoids some of the disadvantages of a deploying a single centralized system :
+        * Single point of failure
+        * High value single instance in terms of capital investment and in service uptime
+        * High cost of deploying a 'hot spare' for failover.
+        * Difficult to scale (up or down) in response to changes in load or requirements
+
+Each micro-service implements a step in the processing workflow.
+Each micro-service can be deployed using multiple instances running multiple threads running in parallel, all connected together using local Kafka streams.
+The degree of parallelization required for each micro-service depends on the complexity of the task and the expected data rate at that point in the workflow.
+
+The following experiments are designed to address specific questions about the relative performance of different configurations and implementations.
+
+----------------
+Cross match algorithms
+
+    Evaluating different cross match algorithms, comparing performance and hardware requirements.
+
+Experiment 1
+Cross matching static data grid using HTMID
+
+The first set of experiments looked at using the Hierarchical Triangular Mesh (HTM) algorithm
+used for cross matching target sources with large catalogs by some of the WFAU archive services
+and by the Sherlock transient classifier developed by QUB
+
+https://qub-sherlock.readthedocs.io/en/latest/index.html
+https://github.com/thespacedoctor/sherlock/tree/develop
+
+The Hierarchical Triangular Mesh (HTM) algorithm divides the celestial sphere into 8 spherical
+triangles, and then builds a quad-tree recursively decomposing each triangle into 4 sub-triangles.
+
+The Hierarchical Triangular Mesh.
+P. Z. Kunszt, A. S. Szalay, A. R. Thakar
+http://www.skyserver.org/HTM/doc/kunszt.ps.gz
+https://link.springer.com/chapter/10.1007/10849171_83
+
+The Indexing of the SDSS Science Archive.
+P. Z. Kunszt, A. S. Szalay, I. Csabai, A. R. Thakar
+http://www.skyserver.org/HTM/doc/adass99.ps
+
+SkyServer HTM Documentation
+http://www.skyserver.org/HTM/doc/
+http://www.skyserver.org/HTM/doc/intro.aspx
+
+Our tests use the software library available from the JHU website.
+
+    http://www.skyserver.org/htm/
+    http://www.skyserver.org/htm/implementation.aspx#download
+
+The second set of experiments compares the HTM indexing with a simpler zone based indexing method described
+in a paper from Jim Gray et al [https://arxiv.org/pdf/cs/0408031.pdf]
+which compares the HTM algorithm with a simpler zone based method of indexing the database.
+
+The zone based method divides the celestial sphere into zones, each zone is a simple stripe of the sphere with
+some zoneHeight (see  Figure). This results in a very simple calculation to locate which zone an object at a declination of dec degrees is :
+
+    zoneNumber = floor((dec+90) /zoneHeight)
+
+To locate an object in the database involves three steps, first identify which zone(s) the object is in based on the value of dec. This is a fast calculation that quickly reduces the set of data that needs to be scanned from the whole catalog to a small fraction. The second step is to search the zone(s) based on ra. This uses a simple float index on ra to find the target objects within the zone. Again, a relatively simple index search that quickly reduces the set of data from the set of zones returned by the first step to a small subset within those zones. The final step is to use a standard distance calculation to filter results.
+
+----
+
+The tests started with a conventional deployment of a HSQLDB database and used the HTMID algorithm to index a test dataset of ~16 million sources.
+
+HSQLDB Java database engine
+http://hsqldb.org/
+
+The software for this set of tests implemented a crossmatch services as a simple webservice.
+
+The first experiment measured how long it took to generate the HTMID index for a target.
+The initial results for this were promising, taking on average around 5ms per request to calculate the
+HTMID index for a point and generate a list of HTMID triangles in a circle.
+
+    https://github.com/Zarquan/phymatopus/blob/master/doc/notes/zrq/20180215-01-indexer-service.txt
+
+The second step was to search a HSQLDB database of ~16 million sources for points within a circle, searching a pre-calculated HTMID index for each point in the dataset.
+
+Initial results for this step were disapointing, taking around 250ms per request to search the ~16 million
+points in the test dataset.
+
+    https://github.com/Zarquan/phymatopus/blob/master/doc/notes/zrq/20180216-01-indexer-service.txt
+
+At this point it became clear that the limiting factor for the database search was the IO speed of loading the
+data from disc into memory.
+
+In order to remove the IO bottleneck from the equation the next set of tests were designed to load all the data and indexes into memory before the test is run. To facilitate this, the tests were run on a machine with 120G of memory, of which 100G was assigned to the Java virtual machine.
+
+The tests concentrated on the zone based indexing to see how fast it could be run.
+We compared two implementations,
+1) An in-memory HSQLDB database instance
+2) An implementation of the Zones algorithm using the CQEngine library to index the zones as collections of points.
+
+https://github.com/npgall/cqengine
+https://dzone.com/articles/getting-started-cqengine-linq
+
+Initial tests comparing the HSQLDB database and the CQEngine implementation
+suggest that the CQEngine implementation is ~10 time faster.
+
+    # Total found [10] in [213]ms
+    # HsqlMatcherImpl with indexes on ra, dec, radec, zone, zoneradec ...
+
+    # Total found [11] in [17]ms
+    # CQZoneImpl with indexes on CQZoneImpl.POS_RA and CQZoneImpl.POS_DEC
+    # CQZoneImpl.ZoneSet with index on CQZoneImpl.ZONE_ID
+
+https://github.com/Zarquan/enteucha/blob/master/doc/notes/zrq/20180719-01-benchmarks.txt
+
+It may be possible to improve the performance of the
+database implementation by optimising the indexes,
+but exploring that avenue was left for another time.
+
+The next set of tests concentrated on developing the CQEngine
+implementation further to see how it performs on larger datasets.
+
+The final set of tests for this part of the work demonstrated that the
+CQEngine implementation was capable of handling datasets as large as
+67,125,249 data points and return search results in less than a millisecond.
+
+The time taken for the search depended on the size of the search radius.
+
+    A search radius of 0.00390625  (2^-8)  found 391 results in 5.193 ms.
+    A search radius of 0.001953125 (2^-9)  found  94 results in 0.712 ms.
+    A search radius of 0.000976562 (2^-10) found  22 results in 0.511 ms.
+
+The fact that the search time depended on the search radius, and hence the
+number of zones involved, indicates that further speed improvements may be
+possible by futher optimising the search for matches within a zone.
+
+However, work on this part of the project stopped at this point,
+having answered the key questions that it set out to investigate.
+
+For our specific use case - cross matching target sources against a large catalog:
+1) An in-memory database is a realistic option for datasets of the order of 65,000,000 data points.
+2) The zone based indexing is significantly faster than HTMID indexing.
+3) The CQEngine implementation is significantly faster than HSQLDB in-memory database.
+
+Further testing:
+
+1) Larger data sets.
+The initial testing was done on a machine with 128G of memory.
+Since then the project has  purchased four new machines with 512G of memory each.
+The next set of tests could push the limits on these machines to see how large a dataset they could handle.
+
+2) Explore different zone sizes
+The current tests do not explore the relationshuip between the size if the data set,
+the size of the zones and the max/min/avg number of points in a zone.
+
+3) Better indexing within the zones.
+The current implementation divides the celestial sphere into horizontal(*) zones
+based on dec. The search algorithm uses a simple integer index on zoneID
+to select which zones to use, but it then used a float index on ra to select the
+points within the zone.
+
+4) Nested zones.
+It may also be worth exploring a nested zone based index on ra within each top level
+zone, effectvley dividing the celestial sphere into a set of tiles.
+
+5) On demand loading
+The current tests have loaded the whole data set into memory before performing the search.
+This will not be an option for larger target data sets.
+The prototype matcher will need to be extended to include the ability to load data into memory
+on demand. Firstly by checking if the target zones are in memory and loading them when they are
+needed during the search process. Secondly, pre-loading target zones into memory in response
+to a predicitive algorithm based on the telescope pointing data, or on the physical visibility
+from the telescope location.
+
+6) Top level Zones indexed on ra
+To make best use of the on-demand loading it will be better to index the top level zones
+on slices in ra rather than dec.
+The area of sky visible on each night will gradually rotate around the celestial pole over
+the course of a year.
+If we slice the top level zones as (vertical) ra slices rather than (horizontal) dec slices
+means we can identify which zones will (or will not) be visible from the telescope
+on a particular night.
+Taking this futher it may be worth investigating a progressive loading mechanism, which loads
+(and unloads) ra slices into memory based on the visibility of those zones over the course of
+a night.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+4004001
+
+
+
+            14:27:55.359 INFO  Class [ZoneMatcherImpl] Indexing [SEPARATE_SIMPLE] Height [0.00390625] Zone count [1025] Zone size [65488][65544][8193]
+            14:27:55.359 INFO  Searched [67,125,249] radius [0.00390625] found [391] in [10] loops, total [0s][51ms][51934?s][51934071ns], average [5ms][5193?s][5193407ns] FAIL
+            14:27:55.360 INFO  ---- Search radius[0.001953125]
+            14:27:55.369 INFO  Class [ZoneMatcherImpl] Indexing [SEPARATE_SIMPLE] Height [0.00390625] Zone count [1025] Zone size [65488][65544][8193]
+            14:27:55.369 INFO  Searched [67,125,249] radius [0.001953125] found [94] in [10] loops, total [0s][7ms][7115?s][7115236ns], average [0ms][711?s][711523ns] PASS
+            14:27:55.369 INFO  ---- Search radius[9.765625E-4]
+            14:27:55.375 INFO  Class [ZoneMatcherImpl] Indexing [SEPARATE_SIMPLE] Height [0.00390625] Zone count [1025] Zone size [65488][65544][8193]
+            14:27:55.375 INFO  Searched [67,125,249] radius [9.765625E-4] found [22] in [10] loops, total [0s][5ms][5108?s][5108970ns], average [0ms][510?s][510897ns] PASS
+
+
+
+
+
+
+
+
+
+
+
+    Data on disc in hsqldb instance
+    Data in memory hsqldb instance
+
+    Data in memory Java array instance
+    Data in memory Java xxx instance
+
+Concusion : the fastest option is data in memory in a Java xxx instance
+
+Two main applications for LSST:UK
+    1) Cross matching events with a large catalog
+    2) Cross matching events with a watch list
+
+Third application is a cross-match web service for each of the WFAU catalogs.
+    Simple web-application in Tomcat
+    User enters ra, dec in a web form, service replies with crossmatches in CSV, JSON, or VOTable
+    User uploads ra, dec as CSV, JSON, or VOTable via a web form, service replies with crossmatches in CSV, JSON, or VOTable
+    Same as above but a JSON/REST webservice driven from a Python client.
+
+Experiment 2
+Cassandra candidates store
+
+    Conclusion - yes it is possible to ingest direct into Cassandra database at 1k (10k? 100k?) datarate.
+
+Experiment 3
+Cassandra objects store
+
+    Conclusion - yes it is possible to update object statistics at 1k (10k? 100k?) datarate.
+
+Experiment 3
+Cassandra non-candidates store
+
+    Conclusion - yes it is possible to process the previous candidates and update the non-candidates store at 1k (10k? 100k?) datarate.
+
+Experiment 4
+Kafka deployment
+
+    Compare performance of loopback into same instance Kafka vs forward to separate instance of Kafka on different host.
+
+    trop03 -> worker[1-4] -> trop03
+    trop03 -> worker[1-4] -> trop04
+
+Experiment 5
+Cassandra deployment
+
+    Deployment on lsst worker nodes
+        Standard Fedora image - see VM image
+        Ischenura to create VMs
+            host files mounted as libvirt volumes
+            (todo) host partitions as block devices
+            (todo) network devices (nfs, ceph)
+        Simple docker-compose configuration
+            mount data discs as volumes
+
+    Compare performance of different disc configurations for Cassandra.
+    Same host same discs (single disc for both data and log).
+
+        work01 - /data1
+        work01 - /data1
+        work01 - /data1
+
+    Same host same discs (separate disc for data and log).
+
+        work01 - /data1, /data2
+        work01 - /data1, /data2
+        work01 - /data1, /data2
+
+    Same host different discs (single disc for both data and log).
+
+        work01 - /data1
+        work01 - /data2
+        work01 - /data3
+
+    Different hosts different discs.
+
+        work01 - /data1, /data2
+        work02 - /data1, /data2
+        work03 - /data1, /data2
+
+Experiment 6
+Kafka schema
+
+    ZTF message format :
+        schema (JSON)
+        data (Avro bytes)
+
+    LSST message format :
+        schema (int) --> schema registry
+        data (Avro bytes)
+
+    Tests using ZTF format.
+        tcpdump examples
+
+    Tests using Mock registry.
+        tcpdump examples
+
+    Tests using schema registry.
+        tcpdump examples
+
+
+Apendix
+
+    KVM virtual machine images
+        RedHat kickstart to create the initial image.
+        VMs deployed by mounting / as a qcow volume
+        +ve rapid deployment of virtual machines
+        -ve copy-on-write overhead for changes to the image
+        Mitigation - science data in mounted volumes
+
+        Same VM image is portable across platforms
+        virsh managed KVM on standard linux (ischinura)
+        Standard OpenStack deployment using cloud-init API.
+
+    LSST:UK development VLAN
+
+        All the physical hosts on the VLAN are on the same (virtual) network and can connect direct to each other.
+
+        All virtual machines hosted by the physical machines are on the same (virtual) network and can connect
+        to each other with the physical machines acting as routers for the set of virtual machines that they host.
+
+
+    OpenStack network issues
+
+        All virtual machines allocated to an OpenStack project are on the same virtual network and can connect
+        to each other with the OpenStack network layer acting as a router for that group of virtual machines.
+
+        External IP addresses are not added to the virtual machines.
+        External IP addresses are defined at the network switch level, and traffic is routed to the VM by the switch.
+        Result is the VM does not know what addresses have been assigned to it.
+
+        Issues with routing traffic from containers on a VM back to the same VM using the external address.
+
+        Traffic from an external host sent to the public IP address of an OpenStack node
+        is intercepted at the network switch level within the OpenStack system.
+        The packets are re-routed to the internal IP address of the virtual machine
+        by the OpenStack network layer.
+        The packets arrive at the virtual machine as if they had been sent to the
+        virtual machine's internal IP address.
+        The virtual machine has no way of knowing where the packets actually came from.
+
+        Traffic from a virtual machine within the OpenStack system sent to the
+        public IP address of *another* OpenStack virtual machine is intercepted at the network switch
+        level within the OpenStack system.
+        The packets are re-routed to the internal IP address of the virtual machine
+        by the OpenStack network layer.
+        The packets arrive at the virtual machine as if they had been sent to the
+        virtual machine's internal IP address.
+        The virtual machine has no way of knowing where the packets actually came from.
+
+        Traffic from a virtual machine within the OpenStack system sent to the
+        public IP address of *the same* OpenStack virtual machine is intercepted at the network switch
+        level within the OpenStack system.
+        The packets are re-routed to the internal IP address of the virtual machine
+        by the OpenStack network layer.
+
+        Traffic from a Docker container running on a virtual machine within the OpenStack system sent to the
+        public IP address of *the same* OpenStack virtual machine is intercepted at the network switch
+        level within the OpenStack system.
+
+        At this point the multiple layers of routing start to work against eachother and
+        packets that should be sent from one container to another within a simgle virtual machine
+        are sent out to the external gateway, intercepted by the OPenStack network layer
+        and routed back into the same virtual machine no longer have the correct return path
+        information to enable responses to be routed correctloy by the network layers.
+
+    Kafka connection issues
+
+        Kafka servers use heartbeat connections to health check the other hosts in a cluster.
+        If one of the servers becomes un responsive, the other nodes in the cluster will
+        mark that node as offline and begin to rebalance and replicate the data between
+        the remaining nodes.
+
+        When a client connects to a set of Kafka services, it uses its consumer configuration
+        to connect to one instance in the list of bootstrap services.
+
+        The client requests a list of the active services from the initial server.
+        The server responds with a list of the current active servers for that cluster.
+
+        The client uses this information to make separate direct connections to each of the
+        servers in the list.
+
+        The servers regularly check on each others status and update the shared state of
+        active healthy servers between them.
+
+        The client regularly checks for updates to the list of current active services
+        and updates its active client-server connections to match.
+
+        The way the list of current active services is formatted is define in the configuration
+        files for the Kafka services.
+
+            public advertise name
+
+        This can either be the IP address of the Kafka node, or a DNS host name.
+
+        If we use private IP addresses for the public adversised name, then the Kafka service
+        is only visible within the OpenStack or VLAN network that they are deployed on.
+
+        The IP addresses assigned to the virtual machines are either 192.168.x.y/16 or 172.16.x.y/16
+        private addresses.
+
+        This means a client on the same OpenStack or VLAN network can access the Kafka service,
+        but a client on an external network cannot connect to the private address.
+
+        If we use public IP addresses for the public adversised name, then the Kafka service
+        is visible to external hosts.
+
+        The simplest way of doing this is to assign a separate public resolvalbe IP address
+        to each of the Kafka services.
+
+        Traffic from external clients will be able to reach the Kafka service with out any problems.
+
+        Traffic from internal clients (including the other Kafka serviuces within a cluster) may have
+        problems reaching the Kafka service.
+
+        If the Kafka services are deployed on an OpenStack system using Docker containers
+        in virtual machines, then there may be issues with routing packets from internal
+        hosts to the Kafka services (see xxx).
+
+        Our tests have shown that the Kafka services use the advertised names
+        to perform the health check conversations between the individual Kafka
+        nodes. The network issues mean that the heartbeat health checks between
+        the Kafka servers does not work and the Kafka services are unable to
+        coordinate or function as a group.
+
+        The way to solve this problem is to use DNS names for the public advertised names
+        and to use different DNS resolvers for internal and external clients.
+
+            public advertise name
+
+        Clients outside the local network will use the publicly accessible DNS resolver
+        to lookup the hostname and get the public IP address.
+
+            ....
+
+        Traffic from clients outside the local network will be sent to the public IP address
+        assigned to each of the kafka servers, and be routed accordingly by the intervening
+        network layers.
+
+        Clients inside the local network should be configured to use an internal DNS resolver
+        which has been configured to return different IP addresses depending on who is asking.
+
+        Requests from other virtual machines within the local network get the local network
+        private IP addres of the target service.
+
+        Requests from within the same virtual machines get the local loopback address for the
+        local Kafka service.
+
+        The results is that requests internal clients are routed via the minimum number of
+        network layers to reach the target Kafka services.
+
+        Requests from within the same virtual machine are routed direct to the loopback address,
+        requests from other virtual machines on the same VLAN network are routed via the
+        VLAN network layer, but not routed through the external interface, and requests from
+        external clients are routed through the external interface and the necessary
+
+
+
+
+
+
+
+
+

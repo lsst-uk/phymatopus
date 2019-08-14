@@ -1,0 +1,173 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+    If we want one DHCP service for all the nodes, then everything has to be on the same network.
+    DHCP relies on broadcast, so everything has to have the same broadcast address.
+    That means same netmask and broadcast addresses for everything.
+
+    If we want one DHCP service per host, then we need to a separate subnet per host
+    and use libvirt routed network to assign the addresses.
+
+    If we assing the blocks systematically, then we can swap between them without too much disruption.
+
+work 0,1,2,3
+
+    inet 172.16.1.1  netmask 255.255.255.0  broadcast 172.16.1.255
+    inet 172.16.1.2  netmask 255.255.255.0  broadcast 172.16.1.255
+    inet 172.16.1.3  netmask 255.255.255.0  broadcast 172.16.1.255
+    inet 172.16.1.4  netmask 255.255.255.0  broadcast 172.16.1.255
+
+trop 3,4
+
+    inet 172.16.1.5  netmask 255.255.0.0  broadcast 172.16.1.255
+    inet 172.16.1.6  Bcast:172.16.1.255  Mask:255.255.0.0
+
+data 1,2
+
+    inet 172.16.1.7  netmask 255.255.0.0  broadcast 172.16.255.255
+    inet 172.16.1.8  netmask 255.255.0.0  broadcast 172.16.255.255
+
+
+    First - all of the physical hosts need to be on the same network.
+    Then we assign the virtual machine addresses in blocks, one block to each host.
+
+    We already have hosts with 48 cores, so 64 cores is not unimaginable.
+    So each physical host needs a block of at least 64 addresses,
+    giving us 62 (64-2) virtual machines per host.
+
+    Why did Mark skip the first block of 172.16.0.0/16 addresses ?
+
+    According to Wikipedia
+    https://en.wikipedia.org/wiki/Subnetwork#Special_addresses_and_subnets
+
+        The IETF originally discouraged the production use of these two subnets.
+        When the prefix length is not available, the larger network and the
+        first subnet have the same address, which may lead to confusion. Similar
+        confusion is possible broadcast address at the end of the last subnet.
+
+        Therefore, reserving the subnet values consisting of all zeros and all
+        ones on the public Internet was recommended,[9] reducing the number of
+        available subnets by two for each subnetting. This inefficiency was
+        removed, and the practice was declared obsolete in 1995 and is only
+        relevant when dealing with legacy equipment.
+
+    Ok, so
+
+        172.16.0,x - reserved
+        172.16.1,x - physical
+
+    but we still have a large range to work with.
+
+    The 172.16 block of private addresses doesn't have to be 172.16.0.0/16,
+    the whole range is 172.16.0.0/12.
+
+
+    What if we did allocate based on the byte boundary ?
+
+    Everything on one network
+
+        172.16.x.y/16
+
+        172.16.0.y - reserved
+        172.16.1.y - physical
+
+        172.16.2.y - work0 nodes
+        172.16.3.y - work1 nodes
+        172.16.4.y - work2 nodes
+        172.16.5.y - work3 nodes
+
+        172.16.6.y - trop3 nodes
+        172.16.7.y - trop4 nodes
+
+        172.16.8.y - data1 nodes
+        172.16.9.y - data2 nodes
+
+    That gives us space for 252 (256-2) physical machines,
+    each with 254 (256-2) vitrual machines.
+
+    That also works if we assign separate subnets to each block of virtual machines.
+
+        172.16.x.y/24
+
+        172.16.0.y - reserved
+        172.16.1.y - physical
+
+        172.16.2.y - work0 nodes
+        172.16.3.y - work1 nodes
+        172.16.4.y - work2 nodes
+        172.16.5.y - work3 nodes
+
+        172.16.6.y - trop3 nodes
+        172.16.7.y - trop4 nodes
+
+        172.16.8.y - data1 nodes
+        172.16.9.y - data2 nodes
+
+    That gives us space for 254 (256-2) physical machines,
+    each with 254 (256-2) virtual machines.
+
+
+
+
+
+
+#
+# All of the trop machines need an update.
+
+    for node in trop01 trop02 trop03 trop04 work0
+    do
+        echo "---- [${node}]"
+        ssh ${sshopts} "root@${node}" \
+            '
+            cat /etc/debian_version
+            '
+    done
+
+    >   ---- [trop01]
+    >   8.11
+    >   ---- [trop02]
+    >   8.11
+    >   ---- [trop03]
+    >   9.8
+    >   ---- [trop04]
+    >   8.11
+    >   ---- [work0]
+    >   buster/sid
+
+    #
+    # Decoding the Ubuntu version name into a Debian version number.
+    # https://askubuntu.com/a/445496
+
+    >   ---- [trop01]
+    >   8.11
+    >   ---- [trop02]
+    >   8.11
+    >   ---- [trop03]
+    >   9.8
+    >   ---- [trop04]
+    >   8.11
+    >   ---- [work0]
+    >   10.0
+
+
+
+

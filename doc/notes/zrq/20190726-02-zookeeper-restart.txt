@@ -1,0 +1,372 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+    #
+    # Existing set of VMs.
+    # Update the docker-compose .yml file to include a restart.
+    # Restart the VMs.
+    # Check that Zookeeper is running.
+    #
+
+# -----------------------------------------------------
+# Load our virtual machine node names.
+#[user@trop03]
+
+    source "${HOME}/nodenames.txt"
+    echo "
+Zookeepers    [${zknames[@]}]
+Kafka nodes   [${kfnames[@]}]
+Mirror makers [${mmnames[@]}]
+"
+
+    >   Zookeepers    [Fosauri Marpus Byflame]
+    >   Kafka nodes   [Stedigo Angece Edwalafia Onoza]
+    >   Mirror makers [Grerat Jeralenia]
+
+
+# -----------------------------------------------------
+# List our virtual machines.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+    virsh \
+        --connect ${libvirtcon:?} \
+        list \
+            --all
+
+    >    Id    Name                           State
+    >   ----------------------------------------------------
+    >    4     Umiawyth                       running
+    >    -     Angece                         shut off
+    >    -     Byflame                        shut off
+    >    -     Edwalafia                      shut off
+    >    -     Fosauri                        shut off
+    >    -     Grerat                         shut off
+    >    -     Jeralenia                      shut off
+    >    -     Marpus                         shut off
+    >    -     Onoza                          shut off
+    >    -     Stedigo                        shut off
+
+
+# -----------------------------------------------------
+# Start our Zookeeper machines.
+#[user@trop03]
+
+    source "${HOME}/nodenames.txt"
+    source "${HOME}/libvirt.settings"
+
+    for vmname in ${zknames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            virsh \
+                --connect ${libvirtcon:?} \
+                    start \
+                    ${vmname:?}
+        done
+
+    >   Node [Fosauri]
+    >   Domain Fosauri started
+    >   
+    >   ---- ----
+    >   Node [Marpus]
+    >   Domain Marpus started
+    >   
+    >   ---- ----
+    >   Node [Byflame]
+    >   Domain Byflame started
+
+
+# -----------------------------------------------------
+# Update our compose YAML file to include restart.
+#[user@trop03]
+
+cat > /tmp/zookeeper.yml << 'EOYML'
+
+version: '3'
+
+networks:
+    zookeeper:
+
+volumes:
+    zklog:
+    zkdata:
+
+services:
+
+    courtney:
+        image:
+            confluentinc/cp-zookeeper:4.1.1
+        restart:
+            unless-stopped
+        ports:
+            - "2181:2181"
+            - "2888:2888"
+            - "3888:3888"
+        environment:
+            - ZOOKEEPER_SERVER_ID=${ZOOKEEPER_SERVER_ID}
+            - ZOOKEEPER_SERVERS=${ZOOKEEPER_SERVERS}
+            - ZOOKEEPER_TICK_TIME=2000
+            - ZOOKEEPER_INIT_LIMIT=5
+            - ZOOKEEPER_SYNC_LIMIT=2
+            - ZOOKEEPER_CLIENT_PORT=2181
+            - ZOOKEEPER_CLIENT_PORT_ADDRESS=0.0.0.0
+        volumes:
+            - "zklog:/var/lib/zookeeper/log"
+            - "zkdata:/var/lib/zookeeper/data"
+        networks:
+            - zookeeper
+
+EOYML
+
+# -----------------------------------------------------
+# Deploy our compose YAML file to each node.
+#[user@trop03]
+
+    source "${HOME}/ssh-options"
+    source "${HOME}/nodenames.txt"
+
+    for vmname in ${zknames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            scp \
+                ${scpopts[*]} \
+                /tmp/zookeeper.yml \
+                ${sshuser:?}@${vmname:?}:zookeeper.yml
+            echo ""
+        done
+
+    >   Node [Fosauri]
+    >   zookeeper.yml                                                                                                               100%  784   721.8KB/s   00:00
+    >   
+    >   ---- ----
+    >   Node [Marpus]
+    >   zookeeper.yml                                                                                                               100%  784   957.9KB/s   00:00
+    >   
+    >   ---- ----
+    >   Node [Byflame]
+    >   zookeeper.yml                                                                                                               100%  784     1.1MB/s   00:00
+
+
+# -----------------------------------------------------
+# Restart Zookeper on each node.
+#[user@trop03]
+
+    source "${HOME}/nodenames.txt"
+    source "${HOME}/libvirt.settings"
+
+    for vmname in ${zknames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            ssh \
+                ${scpopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                hostname
+                date
+                docker-compose \
+                    --file zookeeper.yml \
+                    up -d
+                "
+        done
+
+    >   Node [Fosauri]
+    >   Fosauri
+    >   Fri 26 Jul 14:33:52 BST 2019
+    >   Recreating stevedore_courtney_1 ... done
+    >   ---- ----
+    >   Node [Marpus]
+    >   Marpus
+    >   Fri 26 Jul 14:33:57 BST 2019
+    >   Recreating stevedore_courtney_1 ... done
+    >   ---- ----
+    >   Node [Byflame]
+    >   Byflame
+    >   Fri 26 Jul 14:34:01 BST 2019
+    >   Recreating stevedore_courtney_1 ... done
+
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+# Tail the Zookeeper logs.
+# https://www.systutorials.com/docs/linux/man/1-gnome-terminal/
+# https://www.systutorials.com/docs/linux/man/7-X/#lbAH
+#[user@desktop]
+
+    mate-terminal \
+        --geometry '160x10+25+325' \
+        --command '
+            ssh -t Fosauri "
+                docker logs -f stevedore_courtney_1
+                ${SHELL}
+                "
+            '
+
+    sleep 1
+
+    mate-terminal \
+        --geometry '160x10+125+425' \
+        --command '
+            ssh -t Marpus "
+                docker logs -f stevedore_courtney_1
+                ${SHELL}
+                "
+            '
+
+    sleep 1
+
+    mate-terminal \
+        --geometry '160x10+225+525' \
+        --command '
+            ssh -t Byflame "
+                docker logs -f stevedore_courtney_1
+                ${SHELL}
+                "
+            '
+
+    >   [2019-07-26 13:34:06,322] INFO Server environment:user.dir=/ (org.apache.zookeeper.server.ZooKeeperServer)
+    >   [2019-07-26 13:34:06,325] INFO Created server with tickTime 2000 minSessionTimeout 4000 maxSessionTimeout 40000 datadir /var/lib/zookeeper/log/version-2 snapdir /var/lib/zookeeper/data/version-2 (org.apache.zookeeper.server.ZooKeeperServer)
+    >   [2019-07-26 13:34:06,336] INFO FOLLOWING - LEADER ELECTION TOOK - 3476 (org.apache.zookeeper.server.quorum.Learner)
+    >   [2019-07-26 13:34:06,346] INFO Resolved hostname: Marpus to address: Marpus/172.16.5.15 (org.apache.zookeeper.server.quorum.QuorumPeer)
+    >   [2019-07-26 13:34:06,390] INFO Getting a diff from the leader 0x200000004 (org.apache.zookeeper.server.quorum.Learner)
+    >   [2019-07-26 13:34:11,090] INFO Received connection request /172.16.5.16:32820 (org.apache.zookeeper.server.quorum.QuorumCnxManager)
+    >   [2019-07-26 13:34:11,094] INFO Notification: 1 (message format version), 3 (n.leader), 0x200000004 (n.zxid), 0x1 (n.round), LOOKING (n.state), 3 (n.sid), 0x2 (n.peerEpoch) FOLLOWING (my state) (org.apache.zookeeper.server.quorum.FastLeaderElection)
+
+
+    >   [2019-07-26 13:34:11,095] INFO Received connection request /172.16.5.16:42088 (org.apache.zookeeper.server.quorum.QuorumCnxManager)
+    >   [2019-07-26 13:34:11,101] INFO Notification: 1 (message format version), 3 (n.leader), 0x200000004 (n.zxid), 0x1 (n.round), LOOKING (n.state), 3 (n.sid), 0x2 (n.peerEpoch) LEADING (my state) (org.apache.zookeeper.server.quorum.FastLeaderElection)
+    >   [2019-07-26 13:34:11,125] INFO Follower sid: 3 : info : org.apache.zookeeper.server.quorum.QuorumPeer$QuorumServer@3fb473f (org.apache.zookeeper.server.quorum.LearnerHandler)
+    >   [2019-07-26 13:34:11,130] INFO Synchronizing with Follower sid: 3 maxCommittedLog=0x200000004 minCommittedLog=0x1000010a2 peerLastZxid=0x200000004 (org.apache.zookeeper.server.quorum.LearnerHandler)
+    >   [2019-07-26 13:34:11,131] INFO Sending DIFF (org.apache.zookeeper.server.quorum.LearnerHandler)
+    >   [2019-07-26 13:34:11,136] INFO Received NEWLEADER-ACK message from 3 (org.apache.zookeeper.server.quorum.LearnerHandler)
+
+
+    >   [2019-07-26 13:34:11,112] INFO Server environment:os.version=4.18.13-200.fc28.x86_64 (org.apache.zookeeper.server.ZooKeeperServer)
+    >   [2019-07-26 13:34:11,112] INFO Server environment:user.name=root (org.apache.zookeeper.server.ZooKeeperServer)
+    >   [2019-07-26 13:34:11,112] INFO Server environment:user.home=/root (org.apache.zookeeper.server.ZooKeeperServer)
+    >   [2019-07-26 13:34:11,112] INFO Server environment:user.dir=/ (org.apache.zookeeper.server.ZooKeeperServer)
+    >   [2019-07-26 13:34:11,114] INFO Created server with tickTime 2000 minSessionTimeout 4000 maxSessionTimeout 40000 datadir /var/lib/zookeeper/log/version-2 snapdir /var/lib/zookeeper/data/version-2 (org.apache.zookeeper.server.ZooKeeperServer)
+    >   [2019-07-26 13:34:11,116] INFO FOLLOWING - LEADER ELECTION TOOK - 30 (org.apache.zookeeper.server.quorum.Learner)
+    >   [2019-07-26 13:34:11,117] INFO Resolved hostname: Marpus to address: Marpus/172.16.5.15 (org.apache.zookeeper.server.quorum.QuorumPeer)
+    >   [2019-07-26 13:34:11,132] INFO Getting a diff from the leader 0x200000004 (org.apache.zookeeper.server.quorum.Learner)
+
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+# Restart each node.
+#[user@trop03]
+
+    source "${HOME}/nodenames.txt"
+    source "${HOME}/libvirt.settings"
+
+    for vmname in ${zknames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            virsh \
+                --connect ${libvirtcon:?} \
+                    reboot \
+                    ${vmname:?}
+        done
+
+    >   Node [Fosauri]
+    >   Domain Fosauri is being rebooted
+    >   
+    >   ---- ----
+    >   Node [Marpus]
+    >   Domain Marpus is being rebooted
+    >   
+    >   ---- ----
+    >   Node [Byflame]
+    >   Domain Byflame is being rebooted
+
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+# Tail the Zookeeper logs.
+# https://www.systutorials.com/docs/linux/man/1-gnome-terminal/
+# https://www.systutorials.com/docs/linux/man/7-X/#lbAH
+#[user@desktop]
+
+    mate-terminal \
+        --geometry '160x10+25+325' \
+        --command '
+            ssh -t Fosauri "
+                docker logs -f stevedore_courtney_1
+                ${SHELL}
+                "
+            '
+
+    sleep 1
+
+    mate-terminal \
+        --geometry '160x10+125+425' \
+        --command '
+            ssh -t Marpus "
+                docker logs -f stevedore_courtney_1
+                ${SHELL}
+                "
+            '
+
+    sleep 1
+
+    mate-terminal \
+        --geometry '160x10+225+525' \
+        --command '
+            ssh -t Byflame "
+                docker logs -f stevedore_courtney_1
+                ${SHELL}
+                "
+            '
+
+    >   [2019-07-26 13:38:58,112] INFO Server environment:user.home=/root (org.apache.zookeeper.server.ZooKeeperServer)
+    >   [2019-07-26 13:38:58,113] INFO Server environment:user.dir=/ (org.apache.zookeeper.server.ZooKeeperServer)
+    >   [2019-07-26 13:38:58,116] INFO Created server with tickTime 2000 minSessionTimeout 4000 maxSessionTimeout 40000 datadir /var/lib/zookeeper/log/version-2 snapdir /var/lib/zookeeper/data/version-2 (org.apache.zookeeper.server.ZooKeeperServer)
+    >   [2019-07-26 13:38:58,116] INFO Notification: 1 (message format version), 3 (n.leader), 0x200000004 (n.zxid), 0x1 (n.round), LOOKING (n.state), 3 (n.sid), 0x3 (n.peerEpoch) FOLLOWING (my state) (org.apache.zookeeper.server.quorum.FastLeaderElection)
+    >   [2019-07-26 13:38:58,118] INFO FOLLOWING - LEADER ELECTION TOOK - 285 (org.apache.zookeeper.server.quorum.Learner)
+    >   [2019-07-26 13:38:58,121] INFO Resolved hostname: Marpus to address: Marpus/172.16.5.15 (org.apache.zookeeper.server.quorum.QuorumPeer)
+    >   [2019-07-26 13:38:58,148] INFO Getting a diff from the leader 0x200000004 (org.apache.zookeeper.server.quorum.Learner)
+
+
+    >   [2019-07-26 13:38:57,812] INFO Follower sid: 3 : info : org.apache.zookeeper.server.quorum.QuorumPeer$QuorumServer@b32bf91 (org.apache.zookeeper.server.quorum.LearnerHandler)
+    >   [2019-07-26 13:38:57,820] INFO Synchronizing with Follower sid: 3 maxCommittedLog=0x200000004 minCommittedLog=0x1000010a2 peerLastZxid=0x200000004 (org.apache.zookeeper.server.quorum.LearnerHandler)
+    >   [2019-07-26 13:38:57,820] INFO leader and follower are in sync, zxid=0x200000004 (org.apache.zookeeper.server.quorum.LearnerHandler)
+    >   [2019-07-26 13:38:57,821] INFO Sending DIFF (org.apache.zookeeper.server.quorum.LearnerHandler)
+    >   [2019-07-26 13:38:57,830] INFO Received NEWLEADER-ACK message from 1 (org.apache.zookeeper.server.quorum.LearnerHandler)
+    >   [2019-07-26 13:38:57,830] INFO Have quorum of supporters, sids: [ 1,2 ]; starting up and setting last processed zxid: 0x400000000 (org.apache.zookeeper.server.quorum.Leader)
+    >   [2019-07-26 13:38:57,840] INFO Received NEWLEADER-ACK message from 3 (org.apache.zookeeper.server.quorum.LearnerHandler)
+
+
+    >   [2019-07-26 13:38:58,135] INFO Server environment:os.version=4.18.13-200.fc28.x86_64 (org.apache.zookeeper.server.ZooKeeperServer)
+    >   [2019-07-26 13:38:58,135] INFO Server environment:user.name=root (org.apache.zookeeper.server.ZooKeeperServer)
+    >   [2019-07-26 13:38:58,136] INFO Server environment:user.home=/root (org.apache.zookeeper.server.ZooKeeperServer)
+    >   [2019-07-26 13:38:58,136] INFO Server environment:user.dir=/ (org.apache.zookeeper.server.ZooKeeperServer)
+    >   [2019-07-26 13:38:58,138] INFO Created server with tickTime 2000 minSessionTimeout 4000 maxSessionTimeout 40000 datadir /var/lib/zookeeper/log/version-2 snapdir /var/lib/zookeeper/data/version-2 (org.apache.zookeeper.server.ZooKeeperServer)
+    >   [2019-07-26 13:38:58,140] INFO FOLLOWING - LEADER ELECTION TOOK - 38 (org.apache.zookeeper.server.quorum.Learner)
+    >   [2019-07-26 13:38:58,142] INFO Resolved hostname: Marpus to address: Marpus/172.16.5.15 (org.apache.zookeeper.server.quorum.QuorumPeer)
+    >   [2019-07-26 13:38:58,157] INFO Getting a diff from the leader 0x200000004 (org.apache.zookeeper.server.quorum.Learner)
+
+
+
+

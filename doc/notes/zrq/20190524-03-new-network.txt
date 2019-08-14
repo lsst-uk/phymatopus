@@ -1,0 +1,145 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+    #
+    # Inner node machines need external access to update themselves ..
+    # Need a default route to the outside world ..
+    # Need a DNS service to resolve names ..
+    #
+
+    #
+    # Check all the physical hosts are on the same subnet.
+    # Check dnsmask is running.
+    # Check VMs get the right addresses.
+    #
+
+    #
+    # Allocate multiple VMs
+    # Install Kubernetes
+    # Install Kafka using Kb8
+    # Install Cassandra using Kb8
+    #
+
+# -----------------------------------------------------
+# Head node has external network access.
+#[user@work01]
+
+    ip route
+
+    >   default via 192.41.108.126 dev eno2 proto static
+    >   172.16.1.0/24 dev br1 proto kernel scope link src 172.16.1.1
+    >   172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown
+    >   192.41.108.0/24 dev eno2 proto kernel scope link src 192.41.108.44
+
+# -----------------------------------------------------
+# Inner node has almost no network.
+#[user@work02]
+
+    ip route
+
+    >   172.16.0.0/16 dev br1 proto kernel scope link src 172.16.1.2
+
+    #
+    # Needs DNS and needs default route.
+    #
+
+# -----------------------------------------------------
+# Add a default route.
+#[user@work02]
+
+    ip route add default via 172.16.1.1
+
+# -----------------------------------------------------
+# See if that works.
+#[user@work02]
+
+    curl --head 'http://178.79.157.93/temp/'
+
+    -- HANGS
+
+    # For that to work, we would need a NAT gateway on work01 that
+    # handles requests from 172.16.0.0 and routes them via
+    # 192.41.108.44
+
+    # Soo much work to get all this working ..
+
+    # Isolated LAN is not much use to us when we are downloading
+    # and installing from public services.
+    # I just want ... Digital Ocean
+
+
+
+    #
+    # How to build a simple router with Ubuntu 18
+    https://www.ascinc.com/blog/linux/how-to-build-a-simple-router-with-ubuntu-server-18-04-1-lts-bionic-beaver/
+        Netplan for the interfaces
+        Iptables for NAT
+        Isc-dhcp-server for DHCP
+        ** but, for this to work we need to enable IPv4 routing in iptables.
+            net/ipv4/ip_forward=1
+        Which has caused problems for libvirt and container traffic in the past
+
+    #
+    # NAT and FORWARD with Ubuntu’s ufw firewall
+    https://gist.github.com/kimus/9315140
+        Uses UFW to set iptables rules
+
+    #
+    # How to configure firewall in Ubuntu 18.04
+    https://linuxconfig.org/how-to-configure-firewall-in-ubuntu-18-04
+
+        "UFW is Developed to ease iptables firewall configuration and provides
+        a user-friendly way to create an IPv4 or IPv6 host-based firewall. There
+        are many other firewall utilities and some that may be easier, but UFW is
+        a good learning tool, if only because it exposes some of the underlying
+        netfilter structure and because it is present in so many systems."
+
+        So UFW isn't a replacement, it is just another layer to make it simpler
+        to do simple things.
+
+    #
+    # NAT - Network Address Translation
+    # https://www.karlrupp.net/en/computer/nat_tutorial
+
+        One line example: Connect a private subnet to the internet using NAT.
+        Lots of explanation of what this actually does.
+
+        # Connect a LAN to the internet
+        $> iptables -t nat -A POSTROUTING -o eth1 -j MASQUERADE
+
+    #
+    # Linux NAT in Four Steps using iptables
+    # https://www.revsys.com/writings/quicktips/nat.html
+
+        echo 1 > /proc/sys/net/ipv4/ip_forward
+
+        /sbin/iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+        /sbin/iptables -A FORWARD -i eth0 -o eth1 -m state  --state RELATED,ESTABLISHED -j ACCEPT
+        /sbin/iptables -A FORWARD -i eth1 -o eth0 -j ACCEPT
+
+    #
+    # Configuration of NAT with iptables
+    # https://www.howtoforge.com/nat_iptables
+
+
+
+

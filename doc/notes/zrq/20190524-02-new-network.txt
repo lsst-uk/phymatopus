@@ -1,0 +1,671 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+ -----------------------------------------------------
+# Check the worker node hostnames
+#[root@work01]
+
+    for i in {1..8}
+    do
+        echo "----"
+        echo "Checking [root@172.16.1.${i}]"
+        ssh "root@172.16.1.${i}" '
+            hostname -f
+            '
+    done
+
+    >   ----
+    >   Checking [root@172.16.1.1]
+    >   lsstukwork1.roe.ac.uk
+    >   ----
+    >   Checking [root@172.16.1.2]
+    >   lsstukwork2
+    >   ----
+    >   Checking [root@172.16.1.3]
+    >   lsstukwork3
+    >   ----
+    >   Checking [root@172.16.1.4]
+    >   lsstukwork4
+    >   ----
+    >   Checking [root@172.16.1.5]
+    >   trop03.roe.ac.uk
+    >   ----
+    >   Checking [root@172.16.1.6]
+    >   trop04.roe.ac.uk
+    >   ----
+    >   Checking [root@172.16.1.7]
+    >   lsstdata1
+    >   ----
+    >   Checking [root@172.16.1.8]
+    >   lsstdata2
+
+
+# -----------------------------------------------------
+# Check the user accounts
+#[root@work01]
+
+    for i in {1..8}
+    do
+        echo "----"
+        echo "Checking [root@172.16.1.${i}]"
+        ssh "root@172.16.1.${i}" '
+            hostname
+            ls /home
+            '
+    done
+
+    >   ----
+    >   Checking [root@172.16.1.1]
+    >   lsstukwork1
+    >   dmr
+    >   msh
+    >   ----
+    >   Checking [root@172.16.1.2]
+    >   lsstukwork2
+    >   dmr
+    >   msh
+    >   ----
+    >   Checking [root@172.16.1.3]
+    >   lsstukwork3
+    >   msh
+    >   ----
+    >   Checking [root@172.16.1.4]
+    >   lsstukwork4
+    >   msh
+    >   ----
+    >   Checking [root@172.16.1.5]
+    >   trop03
+    >   dmr
+    >   libvirt
+    >   msh
+    >   ----
+    >   Checking [root@172.16.1.6]
+    >   trop04
+    >   dmr
+    >   libvirt
+    >   msh
+    >   ----
+    >   Checking [root@172.16.1.7]
+    >   lsstdata1
+    >   msh
+    >   roy
+    >   ----
+    >   Checking [root@172.16.1.8]
+    >   lsstdata2
+    >   msh
+
+
+# -----------------------------------------------------
+# Add our user account to workers {2..4}
+#[root@lsstukwork2]
+#[root@lsstukwork3]
+#[root@lsstukwork4]
+
+    username=dmr
+
+    adduser \
+        --gecos '' \
+        --uid 1001 \
+        "${username:?}"
+
+    usermod \
+        --append \
+        --groups 'sudo' \
+        "${username:?}"
+
+    # Can't download the key because DNS doesn't resolve.
+
+
+# -----------------------------------------------------
+# Check the DNS settings on nodes {1..6}
+#[root@lsstukwork1]
+
+    for i in {1..6}
+    do
+        echo "----"
+        echo "Checking [root@172.16.1.${i}]"
+        ssh "root@172.16.1.${i}" '
+            systemd-resolve --status
+            '
+    done
+
+    >   ----
+    >   Checking [root@172.16.1.1]
+    >   Global
+    >             DNSSEC NTA: 10.in-addr.arpa
+    >                         16.172.in-addr.arpa
+    >                         ....
+    >                         ....
+    >   
+    >   Link 4 (br1)
+    >         Current Scopes: none
+    >          LLMNR setting: yes
+    >   MulticastDNS setting: no
+    >         DNSSEC setting: no
+    >       DNSSEC supported: no
+    >   
+    >   Link 3 (eno2)
+    >         Current Scopes: DNS
+    >          LLMNR setting: yes
+    >   MulticastDNS setting: no
+    >         DNSSEC setting: no
+    >       DNSSEC supported: no
+    >            DNS Servers: 195.194.120.1
+    >                         195.194.120.2
+    >                         8.8.8.8
+    >             DNS Domain: roe.ac.uk
+    >   
+    >   Link 2 (eno1)
+    >         Current Scopes: none
+    >          LLMNR setting: yes
+    >   MulticastDNS setting: no
+    >         DNSSEC setting: no
+    >       DNSSEC supported: no
+    >   ----
+    >   Checking [root@172.16.1.2]
+    >   Global
+    >             DNSSEC NTA: 10.in-addr.arpa
+    >                         16.172.in-addr.arpa
+    >                         ....
+    >                         ....
+    >   
+    >   Link 4 (br1)
+    >         Current Scopes: none
+    >          LLMNR setting: yes
+    >   MulticastDNS setting: no
+    >         DNSSEC setting: no
+    >       DNSSEC supported: no
+    >   
+    >   Link 3 (eno2)
+    >         Current Scopes: none
+    >          LLMNR setting: yes
+    >   MulticastDNS setting: no
+    >         DNSSEC setting: no
+    >       DNSSEC supported: no
+    >   
+    >   Link 2 (eno1)
+    >         Current Scopes: none
+    >          LLMNR setting: yes
+    >   MulticastDNS setting: no
+    >         DNSSEC setting: no
+    >       DNSSEC supported: no
+    >   ----
+    >   Checking [root@172.16.1.3]
+    >   Global
+    >             DNSSEC NTA: 10.in-addr.arpa
+    >                         16.172.in-addr.arpa
+    >                         ....
+    >                         ....
+    >   
+    >   Link 4 (br1)
+    >         Current Scopes: none
+    >          LLMNR setting: yes
+    >   MulticastDNS setting: no
+    >         DNSSEC setting: no
+    >       DNSSEC supported: no
+    >   
+    >   Link 3 (eno2)
+    >         Current Scopes: none
+    >          LLMNR setting: yes
+    >   MulticastDNS setting: no
+    >         DNSSEC setting: no
+    >       DNSSEC supported: no
+    >   
+    >   Link 2 (eno1)
+    >         Current Scopes: none
+    >          LLMNR setting: yes
+    >   MulticastDNS setting: no
+    >         DNSSEC setting: no
+    >       DNSSEC supported: no
+    >   ----
+    >   Checking [root@172.16.1.4]
+    >   Global
+    >             DNSSEC NTA: 10.in-addr.arpa
+    >                         16.172.in-addr.arpa
+    >                         ....
+    >                         ....
+    >   
+    >   Link 4 (br1)
+    >         Current Scopes: none
+    >          LLMNR setting: yes
+    >   MulticastDNS setting: no
+    >         DNSSEC setting: no
+    >       DNSSEC supported: no
+    >   
+    >   Link 3 (eno2)
+    >         Current Scopes: none
+    >          LLMNR setting: yes
+    >   MulticastDNS setting: no
+    >         DNSSEC setting: no
+    >       DNSSEC supported: no
+    >   
+    >   Link 2 (eno1)
+    >         Current Scopes: none
+    >          LLMNR setting: yes
+    >   MulticastDNS setting: no
+    >         DNSSEC setting: no
+    >       DNSSEC supported: no
+    >   ----
+    >   Checking [root@172.16.1.5]
+    >   Global
+    >            DNS Servers: 8.8.8.8
+    >                         195.194.120.1
+    >                         195.194.120.2
+    >             DNS Domain: roe.ac.uk
+    >             DNSSEC NTA: 10.in-addr.arpa
+    >                         16.172.in-addr.arpa
+    >                         ....
+    >                         ....
+    >   
+    >   Link 35 (vnet7)
+    >         Current Scopes: LLMNR/IPv6
+    >          LLMNR setting: yes
+    >   MulticastDNS setting: no
+    >         DNSSEC setting: no
+    >       DNSSEC supported: no
+    >   
+    >   Link 34 (vnet6)
+    >         Current Scopes: LLMNR/IPv6
+    >          LLMNR setting: yes
+    >   MulticastDNS setting: no
+    >         DNSSEC setting: no
+    >       DNSSEC supported: no
+    >   
+    >   Link 33 (vnet5)
+    >         Current Scopes: LLMNR/IPv6
+    >          LLMNR setting: yes
+    >   MulticastDNS setting: no
+    >         DNSSEC setting: no
+    >       DNSSEC supported: no
+    >   
+    >   Link 32 (vnet4)
+    >         Current Scopes: LLMNR/IPv6
+    >          LLMNR setting: yes
+    >   MulticastDNS setting: no
+    >         DNSSEC setting: no
+    >       DNSSEC supported: no
+    >   
+    >   Link 31 (vnet3)
+    >         Current Scopes: LLMNR/IPv6
+    >          LLMNR setting: yes
+    >   MulticastDNS setting: no
+    >         DNSSEC setting: no
+    >       DNSSEC supported: no
+    >   
+    >   Link 30 (vnet2)
+    >         Current Scopes: LLMNR/IPv6
+    >          LLMNR setting: yes
+    >   MulticastDNS setting: no
+    >         DNSSEC setting: no
+    >       DNSSEC supported: no
+    >   
+    >   Link 17 (vnet1)
+    >         Current Scopes: LLMNR/IPv6
+    >          LLMNR setting: yes
+    >   MulticastDNS setting: no
+    >         DNSSEC setting: no
+    >       DNSSEC supported: no
+    >   
+    >   Link 16 (vnet0)
+    >         Current Scopes: LLMNR/IPv6
+    >          LLMNR setting: yes
+    >   MulticastDNS setting: no
+    >         DNSSEC setting: no
+    >       DNSSEC supported: no
+    >   
+    >   Link 15 (virbr0-nic)
+    >         Current Scopes: none
+    >          LLMNR setting: yes
+    >   MulticastDNS setting: no
+    >         DNSSEC setting: no
+    >       DNSSEC supported: no
+    >   
+    >   Link 14 (virbr0)
+    >         Current Scopes: LLMNR/IPv4
+    >          LLMNR setting: yes
+    >   MulticastDNS setting: no
+    >         DNSSEC setting: no
+    >       DNSSEC supported: no
+    >   
+    >   Link 13 (virbr1-nic)
+    >         Current Scopes: none
+    >          LLMNR setting: yes
+    >   MulticastDNS setting: no
+    >         DNSSEC setting: no
+    >       DNSSEC supported: no
+    >   
+    >   Link 12 (virbr1)
+    >         Current Scopes: LLMNR/IPv4
+    >          LLMNR setting: yes
+    >   MulticastDNS setting: no
+    >         DNSSEC setting: no
+    >       DNSSEC supported: no
+    >   
+    >   Link 5 (br1)
+    >         Current Scopes: LLMNR/IPv4 LLMNR/IPv6
+    >          LLMNR setting: yes
+    >   MulticastDNS setting: no
+    >         DNSSEC setting: no
+    >       DNSSEC supported: no
+    >   
+    >   Link 4 (br0)
+    >         Current Scopes: LLMNR/IPv4 LLMNR/IPv6
+    >          LLMNR setting: yes
+    >   MulticastDNS setting: no
+    >         DNSSEC setting: no
+    >       DNSSEC supported: no
+    >   
+    >   Link 3 (eth1)
+    >         Current Scopes: none
+    >          LLMNR setting: yes
+    >   MulticastDNS setting: no
+    >         DNSSEC setting: no
+    >       DNSSEC supported: no
+    >   
+    >   Link 2 (eth0)
+    >         Current Scopes: none
+    >          LLMNR setting: yes
+    >   MulticastDNS setting: no
+    >         DNSSEC setting: no
+    >       DNSSEC supported: no
+    >   ----
+    >   Checking [root@172.16.1.6]
+    >   bash: line 1: systemd-resolve: command not found
+
+# -----------------------------------------------------
+# Check the OS version on nodes {1..6}
+#[root@lsstukwork1]
+
+    for i in {1..6}
+    do
+        echo "----"
+        echo "Checking [root@172.16.1.${i}]"
+        ssh "root@172.16.1.${i}" '
+            uname -a
+            cat /etc/debian_version
+            '
+    done
+
+    >   ----
+    >   Checking [root@172.16.1.1]
+    >   Linux lsstukwork1 4.15.0-47-generic #50-Ubuntu SMP Wed Mar 13 10:44:52 UTC 2019 x86_64 x86_64 x86_64 GNU/Linux
+    >   buster/sid
+    >   ----
+    >   Checking [root@172.16.1.2]
+    >   Linux lsstukwork2 4.15.0-48-generic #51-Ubuntu SMP Wed Apr 3 08:28:49 UTC 2019 x86_64 x86_64 x86_64 GNU/Linux
+    >   buster/sid
+    >   ----
+    >   Checking [root@172.16.1.3]
+    >   Linux lsstukwork3 4.15.0-48-generic #51-Ubuntu SMP Wed Apr 3 08:28:49 UTC 2019 x86_64 x86_64 x86_64 GNU/Linux
+    >   buster/sid
+    >   ----
+    >   Checking [root@172.16.1.4]
+    >   Linux lsstukwork4 4.15.0-48-generic #51-Ubuntu SMP Wed Apr 3 08:28:49 UTC 2019 x86_64 x86_64 x86_64 GNU/Linux
+    >   buster/sid
+    >   ----
+    >   Checking [root@172.16.1.5]
+    >   Linux trop03 4.9.0-4-amd64 #1 SMP Debian 4.9.65-3 (2017-12-03) x86_64 GNU/Linux
+    >   9.9
+    >   ----
+    >   Checking [root@172.16.1.6]
+    >   Linux trop04 3.16.0-4-amd64 #1 SMP Debian 3.16.51-3 (2017-12-13) x86_64 GNU/Linux
+    >   8.11
+
+    #
+    # TODO Update trop 03 and 04 to match the worker nodes.
+    #
+
+# -----------------------------------------------------
+# Update trop 03
+#[root@trop03]
+
+    apt-get update
+    apt-get dist-upgrade
+
+    >   Reading package lists... Done
+    >   Building dependency tree
+    >   Reading state information... Done
+    >   Calculating upgrade... Done
+    >   ....
+    >   Setting up linux-image-amd64 (4.9+80+deb9u7) ...
+
+
+    reboot
+
+    >   Connection to trop03.roe.ac.uk closed by remote host.
+    >   Connection to trop03.roe.ac.uk closed.
+
+    #
+    # Logout and login aghain.
+    #
+
+    uname -a
+
+    >   Linux trop03 4.9.0-9-amd64 #1 SMP Debian 4.9.168-1 (2019-04-12) x86_64 GNU/Linux
+
+
+    cat /etc/debian_version
+
+    >   9.9
+
+
+    apt autoremove
+
+    >   Reading package lists... Done
+    >   Building dependency tree
+    >   Reading state information... Done
+    >   ....
+    >   ....
+
+
+    cat /etc/apt/sources.list
+
+    >   # Line commented out by installer because it failed to verify:
+    >   deb http://ftp.uk.debian.org/debian/ stretch main contrib non-free
+    >   deb-src http://ftp.uk.debian.org/debian/ stretch main contrib non-free
+    >   
+    >   #deb http://security.debian.org/ stretch/updates main contrib non-free
+    >   #deb-src http://security.debian.org/ stretch/updates main contrib non-free
+    >   
+    >   # stretch-updates, previously known as 'volatile'
+    >   deb http://ftp.uk.debian.org/debian/ stretch-updates main contrib non-free
+    >   deb-src http://ftp.uk.debian.org/debian/ stretch-updates main contrib non-free
+    >   
+    >   # stretch-backports, previously on backports.debian.org
+    >   deb http://ftp.uk.debian.org/debian/ stretch-backports main contrib non-free
+    >   deb-src http://ftp.uk.debian.org/debian/ stretch-backports main contrib non-free
+
+
+# -----------------------------------------------------
+# Update trop 04
+# https://www.rootusers.com/how-to-upgrade-debian-8-jessie-to-debian-9-stretch/
+#[root@trop03]
+
+    apt-get update
+    apt-get upgrade
+    apt-get dist-upgrade
+
+
+
+    reboot
+
+    >   Connection to trop04.roe.ac.uk closed by remote host.
+    >   Connection to trop04.roe.ac.uk closed.
+
+    #
+    # Logout and login aghain.
+    #
+
+    uname -a
+
+    >   Linux trop04 3.16.0-6-amd64 #1 SMP Debian 3.16.56-1+deb8u1 (2018-05-08) x86_64 GNU/Linux
+
+
+    cat /etc/debian_version
+
+    >   8.11
+
+
+    cat /etc/apt/sources.list
+
+    >   #
+    >   deb http://ftp.uk.debian.org/debian/ jessie main contrib non-free
+    >   deb-src  http://ftp.uk.debian.org/debian/ jessie main contrib non-free
+    >   deb  http://ftp.uk.debian.org/debian/ jessie-updates main
+    >   deb-src  http://ftp.uk.debian.org/debian/ jessie-updates main
+
+
+    sed -i 's/jessie/stretch/g' /etc/apt/sources.list
+
+    cat /etc/apt/sources.list
+
+    >   #
+    >   deb http://ftp.uk.debian.org/debian/ stretch main contrib non-free
+    >   deb-src  http://ftp.uk.debian.org/debian/ stretch main contrib non-free
+    >   deb  http://ftp.uk.debian.org/debian/ stretch-updates main
+    >   deb-src  http://ftp.uk.debian.org/debian/ stretch-updates main
+
+    apt-get update
+
+
+    >   Ign http://ftp.uk.debian.org stretch InRelease
+    >   Get:1 http://ftp.uk.debian.org stretch-updates InRelease [91.0 kB]
+    >   ....
+    >   Get:15 http://ftp.uk.debian.org stretch-updates/main amd64 Packages [27.2 kB]
+    >   Fetched 19.9 MB in 2s (6,843 kB/s)
+    >   Reading package lists... Done
+
+
+    apt-get upgrade
+
+    >   Reading package lists... Done
+    >   Building dependency tree
+    >   Reading state information... Done
+    >   ....
+    >   Processing triggers for initramfs-tools (0.120+deb8u3) ...
+    >   update-initramfs: Generating /boot/initrd.img-3.16.0-6-amd64
+
+
+    apt-get dist-upgrade
+
+    >   Reading package lists... Done
+    >   Building dependency tree
+    >   Reading state information... Done
+    >   ....
+    >   ....
+    >   Processing triggers for initramfs-tools (0.130) ...
+    >   update-initramfs: Generating /boot/initrd.img-4.9.0-9-amd64
+
+
+    reboot
+
+    >   Connection to trop04.roe.ac.uk closed by remote host.
+    >   Connection to trop04.roe.ac.uk closed.
+
+    #
+    # Logout and login aghain.
+    #
+
+    uname -a
+
+    >   Linux trop04 4.9.0-9-amd64 #1 SMP Debian 4.9.168-1 (2019-04-12) x86_64 GNU/Linux
+
+
+    cat /etc/debian_version
+
+    >   9.9
+
+
+    apt autoremove
+
+    >   Reading package lists... Done
+    >   Building dependency tree
+    >   Reading state information... Done
+    >   ....
+    >   ....
+    >   Processing triggers for man-db (2.7.6.1-2) ...
+    >   Processing triggers for shared-mime-info (1.8-1+deb9u1) ...
+
+
+# -----------------------------------------------------
+# List the virtual machines on trop03
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        -c $connection \
+        list --all
+
+    >    Id    Name                           State
+    >   ----------------------------------------------------
+    >    -     Angece                         shut off
+    >    -     Byflame                        shut off
+    >    -     Edwalafia                      shut off
+    >    -     Fosauri                        shut off
+    >    -     Marpus                         shut off
+    >    -     Onoza                          shut off
+    >    -     Stedigo                        shut off
+    >    -     Umiawyth                       shut off
+
+    #
+    # Looks like previous work with Kafka nodes.
+    #
+
+
+# -----------------------------------------------------
+# List the virtual machines on trop04
+#[user@trop04]
+
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        -c $connection \
+        list --all
+
+    >    Id    Name                           State
+    >   ----------------------------------------------------
+    >    -     Adwaeric                       shut off
+    >    -     Astendawen                     shut off
+    >    -     Crilird                        shut off
+    >    -     Iberidia                       shut off
+    >    -     Moemond                        shut off
+    >    -     Nendalith                      shut off
+    >    -     Saelia                         shut off
+    >    -     Wumar                          shut off
+
+    #
+    # Looks like previous work with Kafka nodes.
+    #
+
+
+    #
+    # Check the mounted data volumes.
+    # Identify the Kafka logs ...
+    # Re-use or start again ?
+    # Possibly start again for time ...
+    #
+
+
+
+
+

@@ -1,0 +1,1097 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+    #
+    # New set of VMs.
+    # Add the docker-compose .env and .yml files.
+    # Start our Kafka services.
+    #
+
+
+# -----------------------------------------------------
+# Create our compose YAML file.
+#[user@trop03]
+
+cat > /tmp/kafka.yml << 'EOYML'
+
+version: "3.2"
+
+services:
+
+    emily:
+        image:
+            confluentinc/cp-kafka:4.1.1
+        restart:
+            unless-stopped
+        ports:
+            - "9092:9092"
+            - "9093:9093"
+        extra_hosts:
+            - "${KAFKA_HOSTNAME}:127.0.0.2"
+        environment:
+            - KAFKA_LISTENERS=jasminum://0.0.0.0:9092
+            - KAFKA_ADVERTISED_LISTENERS=jasminum://${KAFKA_HOSTNAME}:9092
+            - KAFKA_INTER_BROKER_LISTENER_NAME=jasminum
+            - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=jasminum:PLAINTEXT
+            - KAFKA_LOG_DIRS=${KAFKA_LOG_DIRS}
+            - KAFKA_BROKER_ID=${KAFKA_BROKER_ID}
+            - KAFKA_BROKER_RACK=${KAFKA_BROKER_RACK}
+            - KAFKA_ZOOKEEPER_CONNECT=${KAFKA_ZOOKEEPER_CONNECT}
+            - KAFKA_NUM_PARTITIONS=16
+            - KAFKA_DEFAULT_REPLICATION_FACTOR=3
+            - KAFKA_LOG_RETENTION_MS=-1
+            - KAFKA_LOG_RETENTION_BYTES=-1
+            - KAFKA_AUTO_CREATE_TOPICS_ENABLE=true
+            - KAFKA_MESSAGE_MAX_BYTES=10485760
+        volumes:
+EOYML
+
+# -----------------------------------------------------
+# Add the volume list to our compose YAML file.
+#[user@trop03]
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+
+            cp  /tmp/kafka.yml /tmp/${vmname:?}-kafka.yml
+
+            grep "^${vmname:?}" "${HOME}/nodevols.txt" > /tmp/fred
+            while read -r -u 9 vmname devname volpath mntpath
+                do
+                    echo "----"
+                    devpath=/dev/${devname}
+                    echo "mntpath [${mntpath}]"
+                    echo "devpath [${devpath}]"
+
+                    if [ "${mntpath}" != '-' ]
+                    then
+cat >> /tmp/${vmname:?}-kafka.yml << EOF
+            - type:   "bind"
+              source: "${mntpath}"
+              target: "${mntpath}"
+EOF
+                    fi
+                done 9< /tmp/fred
+        done
+
+    >   ---- ----
+    >   Node [Stedigo]
+    >   ----
+    >   mntpath [-]
+    >   devpath [/dev/vdc]
+    >   ----
+    >   mntpath [/data1-01]
+    >   devpath [/dev/vdd]
+    >   ----
+    >   mntpath [/data2-01]
+    >   devpath [/dev/vde]
+    >   ----
+    >   mntpath [/data1-02]
+    >   devpath [/dev/vdf]
+    >   ----
+    >   mntpath [/data2-02]
+    >   devpath [/dev/vdg]
+    >   ----
+    >   mntpath [/data1-03]
+    >   devpath [/dev/vdh]
+    >   ----
+    >   mntpath [/data2-03]
+    >   devpath [/dev/vdi]
+    >   ----
+    >   mntpath [/data1-04]
+    >   devpath [/dev/vdj]
+    >   ----
+    >   mntpath [/data2-04]
+    >   devpath [/dev/vdk]
+    >   ---- ----
+    >   Node [Angece]
+    >   ----
+    >   mntpath [-]
+    >   devpath [/dev/vdc]
+    >   ----
+    >   mntpath [/data1-01]
+    >   devpath [/dev/vdd]
+    >   ----
+    >   mntpath [/data2-01]
+    >   devpath [/dev/vde]
+    >   ----
+    >   mntpath [/data1-02]
+    >   devpath [/dev/vdf]
+    >   ----
+    >   mntpath [/data2-02]
+    >   devpath [/dev/vdg]
+    >   ----
+    >   mntpath [/data1-03]
+    >   devpath [/dev/vdh]
+    >   ----
+    >   mntpath [/data2-03]
+    >   devpath [/dev/vdi]
+    >   ----
+    >   mntpath [/data1-04]
+    >   devpath [/dev/vdj]
+    >   ----
+    >   mntpath [/data2-04]
+    >   devpath [/dev/vdk]
+    >   ---- ----
+    >   Node [Edwalafia]
+    >   ----
+    >   mntpath [-]
+    >   devpath [/dev/vdc]
+    >   ----
+    >   mntpath [/data1-01]
+    >   devpath [/dev/vdd]
+    >   ----
+    >   mntpath [/data2-01]
+    >   devpath [/dev/vde]
+    >   ----
+    >   mntpath [/data1-02]
+    >   devpath [/dev/vdf]
+    >   ----
+    >   mntpath [/data2-02]
+    >   devpath [/dev/vdg]
+    >   ----
+    >   mntpath [/data1-03]
+    >   devpath [/dev/vdh]
+    >   ----
+    >   mntpath [/data2-03]
+    >   devpath [/dev/vdi]
+    >   ----
+    >   mntpath [/data1-04]
+    >   devpath [/dev/vdj]
+    >   ----
+    >   mntpath [/data2-04]
+    >   devpath [/dev/vdk]
+    >   ---- ----
+    >   Node [Onoza]
+    >   ----
+    >   mntpath [-]
+    >   devpath [/dev/vdc]
+    >   ----
+    >   mntpath [/data1-01]
+    >   devpath [/dev/vdd]
+    >   ----
+    >   mntpath [/data2-01]
+    >   devpath [/dev/vde]
+    >   ----
+    >   mntpath [/data1-02]
+    >   devpath [/dev/vdf]
+    >   ----
+    >   mntpath [/data2-02]
+    >   devpath [/dev/vdg]
+    >   ----
+    >   mntpath [/data1-03]
+    >   devpath [/dev/vdh]
+    >   ----
+    >   mntpath [/data2-03]
+    >   devpath [/dev/vdi]
+    >   ----
+    >   mntpath [/data1-04]
+    >   devpath [/dev/vdj]
+    >   ----
+    >   mntpath [/data2-04]
+    >   devpath [/dev/vdk]
+
+
+# -----------------------------------------------------
+# Deploy our compose YAML file.
+#[user@trop03]
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname}]"
+            scp \
+                ${scpopts[*]} \
+                /tmp/${vmname:?}-kafka.yml \
+                ${sshuser:?}@${vmname:?}:kafka.yml
+        done
+
+    >   ---- ----
+    >   Node [Stedigo]
+    >   Stedigo-kafka.yml       100% 1821     2.0MB/s   00:00
+    >   ---- ----
+    >   Node [Angece]
+    >   Angece-kafka.yml        100% 1821     1.9MB/s   00:00
+    >   ---- ----
+    >   Node [Edwalafia]
+    >   Edwalafia-kafka.yml     100% 1821     1.6MB/s   00:00
+    >   ---- ----
+    >   Node [Onoza]
+    >   Onoza-kafka.yml         100% 1821     1.7MB/s   00:00
+
+
+# -----------------------------------------------------
+# Make a list of our Zookeeper nodes.
+#[user@trop03]
+
+    zklist=${zknames[*]}
+    zklist=${zklist// /,}
+
+    echo "zklist [${zklist}]"
+
+    >   zklist [Fosauri,Marpus,Byflame]
+
+
+# -----------------------------------------------------
+# Deploy our compose ENV file to each node.
+#[user@trop03]
+
+
+    for (( i=0 ; i < ${#kfnames[@]} ; i++ ))
+        do
+            vmname=${kfnames[$i]:?}
+
+            echo "---- ----"
+            echo "Node [${i:?}][${vmname:?}]"
+
+            ssh \
+                ${scpopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                hostname
+                date
+
+                loglist=\$(echo /data*)
+                loglist=\${loglist// /,}
+
+cat > kafka.env << EOF
+KAFKA_LOG_DIRS=\${loglist:?}
+KAFKA_BROKER_ID=$(($i+1))
+KAFKA_BROKER_RACK=$(($i+1))
+KAFKA_ZOOKEEPER_CONNECT=${zklist:?}
+KAFKA_HOSTNAME=${vmname:?}
+EOF
+
+                ln -sf kafka.env .env
+                "
+        done
+
+    >   ---- ----
+    >   Node [0][Stedigo]
+    >   Stedigo
+    >   Sat 27 Jul 05:26:22 BST 2019
+    >   ---- ----
+    >   Node [1][Angece]
+    >   Angece
+    >   Sat 27 Jul 05:26:23 BST 2019
+    >   ---- ----
+    >   Node [2][Edwalafia]
+    >   Edwalafia
+    >   Sat 27 Jul 05:26:24 BST 2019
+    >   ---- ----
+    >   Node [3][Onoza]
+    >   Onoza
+    >   Sat 27 Jul 05:26:24 BST 2019
+
+
+# -----------------------------------------------------
+# Check the compose ENV file on each node.
+#[user@trop03]
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname}]"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    hostname
+                    date
+                    cat .env
+                    "
+        done
+
+    >   ---- ----
+    >   Node [Stedigo]
+    >   Stedigo
+    >   Sat 27 Jul 05:26:41 BST 2019
+    >   KAFKA_LOG_DIRS=/data1-01,/data1-02,/data1-03,/data1-04,/data2-01,/data2-02,/data2-03,/data2-04
+    >   KAFKA_BROKER_ID=1
+    >   KAFKA_BROKER_RACK=1
+    >   KAFKA_ZOOKEEPER_CONNECT=Fosauri,Marpus,Byflame
+    >   KAFKA_HOSTNAME=Stedigo
+    >   ---- ----
+    >   Node [Angece]
+    >   Angece
+    >   Sat 27 Jul 05:26:42 BST 2019
+    >   KAFKA_LOG_DIRS=/data1-01,/data1-02,/data1-03,/data1-04,/data2-01,/data2-02,/data2-03,/data2-04
+    >   KAFKA_BROKER_ID=2
+    >   KAFKA_BROKER_RACK=2
+    >   KAFKA_ZOOKEEPER_CONNECT=Fosauri,Marpus,Byflame
+    >   KAFKA_HOSTNAME=Angece
+    >   ---- ----
+    >   Node [Edwalafia]
+    >   Edwalafia
+    >   Sat 27 Jul 05:26:42 BST 2019
+    >   KAFKA_LOG_DIRS=/data1-01,/data1-02,/data1-03,/data1-04,/data2-01,/data2-02,/data2-03,/data2-04
+    >   KAFKA_BROKER_ID=3
+    >   KAFKA_BROKER_RACK=3
+    >   KAFKA_ZOOKEEPER_CONNECT=Fosauri,Marpus,Byflame
+    >   KAFKA_HOSTNAME=Edwalafia
+    >   ---- ----
+    >   Node [Onoza]
+    >   Onoza
+    >   Sat 27 Jul 05:26:43 BST 2019
+    >   KAFKA_LOG_DIRS=/data1-01,/data1-02,/data1-03,/data1-04,/data2-01,/data2-02,/data2-03,/data2-04
+    >   KAFKA_BROKER_ID=4
+    >   KAFKA_BROKER_RACK=4
+    >   KAFKA_ZOOKEEPER_CONNECT=Fosauri,Marpus,Byflame
+    >   KAFKA_HOSTNAME=Onoza
+
+
+# -----------------------------------------------------
+# Start Kafka on each node.
+#[user@trop03]
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname}]"
+            ssh \
+                ${scpopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                hostname
+                date
+                docker-compose \
+                    --file kafka.yml \
+                    up -d
+                "
+        done
+
+    >   ---- ----
+    >   Node [Stedigo]
+    >   Stedigo
+    >   Sat 27 Jul 05:27:38 BST 2019
+    >   Creating network "stevedore_default" with the default driver
+    >   Pulling emily (confluentinc/cp-kafka:4.1.1)...
+    >   4.1.1: Pulling from confluentinc/cp-kafka
+    >   Digest: sha256:4f5d6f4ba368fc05c0d0f1390bf107ae45fab24ed4bd7aac75aed3086ae5ddab
+    >   Status: Downloaded newer image for confluentinc/cp-kafka:4.1.1
+    >   Creating stevedore_emily_1 ... done
+    >   ---- ----
+    >   Node [Angece]
+    >   Angece
+    >   Sat 27 Jul 05:28:01 BST 2019
+    >   Creating network "stevedore_default" with the default driver
+    >   Pulling emily (confluentinc/cp-kafka:4.1.1)...
+    >   4.1.1: Pulling from confluentinc/cp-kafka
+    >   Digest: sha256:4f5d6f4ba368fc05c0d0f1390bf107ae45fab24ed4bd7aac75aed3086ae5ddab
+    >   Status: Downloaded newer image for confluentinc/cp-kafka:4.1.1
+    >   Creating stevedore_emily_1 ... done
+    >   ---- ----
+    >   Node [Edwalafia]
+    >   Edwalafia
+    >   Sat 27 Jul 05:28:22 BST 2019
+    >   Creating network "stevedore_default" with the default driver
+    >   Pulling emily (confluentinc/cp-kafka:4.1.1)...
+    >   4.1.1: Pulling from confluentinc/cp-kafka
+    >   Digest: sha256:4f5d6f4ba368fc05c0d0f1390bf107ae45fab24ed4bd7aac75aed3086ae5ddab
+    >   Status: Downloaded newer image for confluentinc/cp-kafka:4.1.1
+    >   Creating stevedore_emily_1 ... done
+    >   ---- ----
+    >   Node [Onoza]
+    >   Onoza
+    >   Sat 27 Jul 05:28:44 BST 2019
+    >   Creating network "stevedore_default" with the default driver
+    >   Pulling emily (confluentinc/cp-kafka:4.1.1)...
+    >   4.1.1: Pulling from confluentinc/cp-kafka
+    >   Digest: sha256:4f5d6f4ba368fc05c0d0f1390bf107ae45fab24ed4bd7aac75aed3086ae5ddab
+    >   Status: Downloaded newer image for confluentinc/cp-kafka:4.1.1
+    >   Creating stevedore_emily_1 ... done
+
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+# Tail the logs on each node.
+# https://www.systutorials.com/docs/linux/man/1-gnome-terminal/
+# https://www.systutorials.com/docs/linux/man/7-X/#lbAH
+#[user@desktop]
+
+    mate-terminal \
+        --geometry '160x10+25+25' \
+        --command '
+            ssh -t Stedigo "
+                date
+                hostname
+                docker logs -f stevedore_emily_1
+                \${SHELL}
+                "
+            '
+    sleep 1
+
+    mate-terminal \
+        --geometry '160x10+125+125' \
+        --command '
+            ssh -t Angece "
+                date
+                hostname
+                docker logs -f stevedore_emily_1
+                \${SHELL}
+                "
+            '
+    sleep 1
+
+    mate-terminal \
+        --geometry '160x10+225+225' \
+        --command '
+            ssh -t Edwalafia "
+                date
+                hostname
+                docker logs -f stevedore_emily_1
+                \${SHELL}
+                "
+            '
+    sleep 1
+
+    mate-terminal \
+        --geometry '160x10+325+325' \
+        --command '
+            ssh -t Onoza "
+                date
+                hostname
+                docker logs -f stevedore_emily_1
+                \${SHELL}
+                "
+            '
+
+# -----------------------------------------------------
+
+    >   Sat 27 Jul 05:33:53 BST 2019
+    >   Stedigo
+    >   ....
+    >   [2019-07-27 04:34:35,138] INFO [ProducerStateManager partition=ztf_20181205_programid1-10] Loading producer state from snapshot file '/data2-01/ztf_20181205_programid1-10/00000000000000010622.snapshot' (kafka.log.ProducerStateManager)
+    >   [2019-07-27 04:34:35,139] INFO [Log partition=ztf_20181205_programid1-10, dir=/data2-01] Completed load of log with 1 segments, log start offset 0 and log end offset 10622 in 301842 ms (kafka.log.Log)
+    >   [2019-07-27 04:34:35,145] WARN [Log partition=ztf_20181205_programid1-11, dir=/data2-01] Found a corrupted index file corresponding to log file /data2-01/ztf_20181205_programid1-11/00000000000000000000.log due to Corrupt index found, index file (/data2-01/ztf_20181205_programid1-11/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
+    >   ....
+    >   [2019-07-27 06:02:10,883] WARN [Log partition=ztf_20181212_programid1-11, dir=/data2-01] Found a corrupted index file corresponding to log file /data2-01/ztf_20181212_programid1-11/00000000000000000000.log due to Corrupt index found, index file (/data2-01/ztf_20181212_programid1-11/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
+    >   [2019-07-27 06:02:11,175] INFO [ProducerStateManager partition=ztf_20181222_programid1-10] Writing producer snapshot at offset 4445 (kafka.log.ProducerStateManager)
+    >   [2019-07-27 06:02:11,176] INFO [Log partition=ztf_20181222_programid1-10, dir=/data1-02] Recovering unflushed segment 0 (kafka.log.Log)
+    >   ....
+    >   [2019-07-27 11:18:30,024] INFO [Log partition=ztf_20181209_programid1-7, dir=/data2-02] Completed load of log with 1 segments, log start offset 0 and log end offset 0 in 6 ms (kafka.log.Log)
+    >   [2019-07-27 11:18:30,030] ERROR There was an error in one of the threads during logs loading: java.lang.IllegalStateException: Duplicate log directories for ztf_20181205_programid1-2 are found in both /data2-02/ztf_20181205_programid1-2 and /data2-01/ztf_20181205_programid1-2. It is likely because log directory failure happened while broker was replacing current replica with future replica. Recover broker from this failure by manually deleting one of the two directories for this partition. It is recommended to delete the partition in the log directory that is known to have failed recently. (kafka.log.LogManager)
+    >   [2019-07-27 11:18:30,042] ERROR [KafkaServer id=1] Fatal error during KafkaServer startup. Prepare to shutdown (kafka.server.KafkaServer)
+    >   java.lang.IllegalStateException: Duplicate log directories for ztf_20181205_programid1-2 are found in both /data2-02/ztf_20181205_programid1-2 and /data2-01/ztf_20181205_programid1-2. It is likely because log directory failure happened while broker was replacing current replica with future replica. Recover broker from this failure by manually deleting one of the two directories for this partition. It is recommended to delete the partition in the log directory that is known to have failed recently.
+    >   	at kafka.log.LogManager.kafka$log$LogManager$$loadLog(LogManager.scala:285)
+    >   	at kafka.log.LogManager$$anonfun$loadLogs$2$$anonfun$11$$anonfun$apply$15$$anonfun$apply$2.apply$mcV$sp(LogManager.scala:340)
+    >   	at kafka.utils.CoreUtils$$anon$1.run(CoreUtils.scala:62)
+    >   	at java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:511)
+    >   	at java.util.concurrent.FutureTask.run(FutureTask.java:266)
+    >   	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1149)
+    >   	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
+    >   	at java.lang.Thread.run(Thread.java:748)
+    >   [2019-07-27 11:18:30,083] INFO [KafkaServer id=1] shutting down (kafka.server.KafkaServer)
+    >   ....
+    >   [2019-07-27 11:18:30,275] INFO [ZooKeeperClient] Closing. (kafka.zookeeper.ZooKeeperClient)
+    >   [2019-07-27 11:18:30,288] INFO Session: 0x16c2e818de80010 closed (org.apache.zookeeper.ZooKeeper)
+    >   ....
+    >   [2019-07-27 11:18:30,288] INFO EventThread shut down for session: 0x16c2e818de80010 (org.apache.zookeeper.ClientCnxn)
+    >   [2019-07-27 11:18:30,298] INFO [ZooKeeperClient] Closed. (kafka.zookeeper.ZooKeeperClient)
+    >   ....
+    >   [2019-07-27 11:18:33,011] INFO [KafkaServer id=1] shut down completed (kafka.server.KafkaServer)
+    >   [2019-07-27 11:18:33,014] INFO [KafkaServer id=1] shutting down (kafka.server.KafkaServer)
+
+
+# -----------------------------------------------------
+
+    >   Sat 27 Jul 05:33:54 BST 2019
+    >   Angece
+    >   ....
+    >   [2019-07-27 04:34:49,443] INFO [ProducerStateManager partition=ztf_20190112_programid1-6] Loading producer state from snapshot file '/data2-03/ztf_20190112_programid1-6/00000000000000012368.snapshot' (kafka.log.ProducerStateManager)
+    >   [2019-07-27 04:34:49,444] INFO [Log partition=ztf_20190112_programid1-6, dir=/data2-03] Completed load of log with 1 segments, log start offset 0 and log end offset 12368 in 335557 ms (kafka.log.Log)
+    >   [2019-07-27 04:34:49,782] WARN [Log partition=ztf_20190112_programid1-4, dir=/data2-03] Found a corrupted index file corresponding to log file /data2-03/ztf_20190112_programid1-4/00000000000000000000.log due to Corrupt index found, index file (/data2-03/ztf_20190112_programid1-4/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
+    >   ....
+    >   [2019-07-27 06:03:24,131] INFO [ProducerStateManager partition=ztf_20181220_programid1-13] Loading producer state from snapshot file '/data1-02/ztf_20181220_programid1-13/00000000000000010092.snapshot' (kafka.log.ProducerStateManager)
+    >   [2019-07-27 06:03:24,132] INFO [Log partition=ztf_20181220_programid1-13, dir=/data1-02] Completed load of log with 1 segments, log start offset 0 and log end offset 10092 in 785285 ms (kafka.log.Log)
+    >   [2019-07-27 06:03:24,138] WARN [Log partition=ztf_20181220_programid1-7, dir=/data1-02] Found a corrupted index file corresponding to log file /data1-02/ztf_20181220_programid1-7/00000000000000000000.log due to Corrupt index found, index file (/data1-02/ztf_20181220_programid1-7/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
+    >   ....
+    >   [2019-07-27 11:40:08,789] WARN [Log partition=test-topic-3, dir=/data2-03] Found a corrupted index file corresponding to log file /data2-03/test-topic-3/00000000000000840897.log due to Corrupt index found, index file (/data2-03/test-topic-3/00000000000000840897.index) has non-zero size but the last offset is 840897 which is no greater than the base offset 840897.}, recovering segment and rebuilding index files... (kafka.log.Log)
+    >   [2019-07-27 11:40:08,792] INFO [ProducerStateManager partition=test-topic-3] Loading producer state from snapshot file '/data2-03/test-topic-3/00000000000000840897.snapshot' (kafka.log.ProducerStateManager)
+    >   [2019-07-27 11:41:05,205] INFO [ProducerStateManager partition=ztf_20190614_programid1-5] Writing producer snapshot at offset 7542 (kafka.log.ProducerStateManager)
+    >   [2019-07-27 11:41:05,206] INFO [Log partition=ztf_20190614_programid1-5, dir=/data2-02] Recovering unflushed segment 0 (kafka.log.Log)
+    >   ....
+    >   [2019-07-27 12:14:22,542] ERROR There was an error in one of the threads during logs loading: java.lang.IllegalStateException: Duplicate log directories for ztf_20181205_programid1-8 are found in both /data2-02/ztf_20181205_programid1-8 and /data2-01/ztf_20181205_programid1-8. It is likely because log directory failure happened while broker was replacing current replica with future replica. Recover broker from this failure by manually deleting one of the two directories for this partition. It is recommended to delete the partition in the log directory that is known to have failed recently. (kafka.log.LogManager)
+    >   ....
+    >   [2019-07-27 12:14:22,561] ERROR [KafkaServer id=2] Fatal error during KafkaServer startup. Prepare to shutdown (kafka.server.KafkaServer)
+    >   java.lang.IllegalStateException: Duplicate log directories for ztf_20181205_programid1-8 are found in both /data2-02/ztf_20181205_programid1-8 and /data2-01/ztf_20181205_programid1-8. It is likely because log directory failure happened while broker was replacing current replica with future replica. Recover broker from this failure by manually deleting one of the two directories for this partition. It is recommended to delete the partition in the log directory that is known to have failed recently.
+    >   	at kafka.log.LogManager.kafka$log$LogManager$$loadLog(LogManager.scala:285)
+    >   	at kafka.log.LogManager$$anonfun$loadLogs$2$$anonfun$11$$anonfun$apply$15$$anonfun$apply$2.apply$mcV$sp(LogManager.scala:340)
+    >   	at kafka.utils.CoreUtils$$anon$1.run(CoreUtils.scala:62)
+    >   	at java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:511)
+    >   	at java.util.concurrent.FutureTask.run(FutureTask.java:266)
+    >   	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1149)
+    >   	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
+    >   	at java.lang.Thread.run(Thread.java:748)
+    >   [2019-07-27 12:14:22,566] INFO [KafkaServer id=2] shutting down (kafka.server.KafkaServer)
+    >   [2019-07-27 12:14:22,612] INFO [ZooKeeperClient] Closing. (kafka.zookeeper.ZooKeeperClient)
+    >   [2019-07-27 12:14:22,624] INFO EventThread shut down for session: 0x16c2e818de80011 (org.apache.zookeeper.ClientCnxn)
+    >   [2019-07-27 12:14:22,625] INFO Session: 0x16c2e818de80011 closed (org.apache.zookeeper.ZooKeeper)
+    >   [2019-07-27 12:14:22,634] INFO [ZooKeeperClient] Closed. (kafka.zookeeper.ZooKeeperClient)
+    >   ....
+    >   [2019-07-27 12:14:25,025] WARN [Log partition=ztf_20181210_programid1-11, dir=/data2-02] Found a corrupted index file corresponding to log file /data2-02/ztf_20181210_programid1-11/00000000000000000000.log due to Corrupt index found, index file (/data2-02/ztf_20181210_programid1-11/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
+    >   [2019-07-27 12:14:25,028] INFO [Log partition=ztf_20181210_programid1-11, dir=/data2-02] Recovering unflushed segment 0 (kafka.log.Log)
+    >   [2019-07-27 12:14:25,030] INFO [Log partition=ztf_20181210_programid1-11, dir=/data2-02] Loading producer state from offset 0 with message format version 2 (kafka.log.Log)
+    >   [2019-07-27 12:14:25,030] INFO [Log partition=ztf_20181210_programid1-11, dir=/data2-02] Completed load of log with 1 segments, log start offset 0 and log end offset 0 in 2473 ms (kafka.log.Log)
+    >   [2019-07-27 12:14:25,035] WARN [Log partition=ztf_20190210_programid1-13, dir=/data2-02] Found a corrupted index file corresponding to log file /data2-02/ztf_20190210_programid1-13/00000000000000000000.log due to Corrupt index found, index file (/data2-02/ztf_20190210_programid1-13/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
+    >   ....
+    >   [2019-07-27 12:14:25,057] INFO [KafkaServer id=2] shut down completed (kafka.server.KafkaServer)
+    >   [2019-07-27 12:14:25,067] INFO [KafkaServer id=2] shutting down (kafka.server.KafkaServer)
+    >   [2019-07-27 12:14:25,068] WARN [Log partition=ztf_20190129_programid1-1, dir=/data2-03] Found a corrupted index file corresponding to log file /data2-03/ztf_20190129_programid1-1/00000000000000016279.log due to Corrupt index found, index file (/data2-03/ztf_20190129_programid1-1/00000000000000016279.index) has non-zero size but the last offset is 16279 which is no greater than the base offset 16279.}, recovering segment and rebuilding index files... (kafka.log.Log)
+    >   [2019-07-27 12:14:25,068] INFO [ProducerStateManager partition=ztf_20190129_programid1-1] Loading producer state from snapshot file '/data2-03/ztf_20190129_programid1-1/00000000000000016279.snapshot' (kafka.log.ProducerStateManager)
+
+# -----------------------------------------------------
+
+
+    >   Sat 27 Jul 05:33:55 BST 2019
+    >   Edwalafia
+    >   ....
+    >   [2019-07-27 04:36:01,558] WARN [Log partition=ztf_20181219_programid1-14, dir=/data2-02] Found a corrupted index file corresponding to log file /data2-02/ztf_20181219_programid1-14/00000000000000015993.log due to Corrupt index found, index file (/data2-02/ztf_20181219_programid1-14/00000000000000015993.index) has non-zero size but the last offset is 15993 which is no greater than the base offset 15993.}, recovering segment and rebuilding index files... (kafka.log.Log)
+    >   [2019-07-27 04:36:01,560] INFO [ProducerStateManager partition=ztf_20181219_programid1-14] Loading producer state from snapshot file '/data2-02/ztf_20181219_programid1-14/00000000000000015993.snapshot' (kafka.log.ProducerStateManager)
+    >   [2019-07-27 04:36:03,616] INFO [ProducerStateManager partition=ztf_20190112_programid1-7] Writing producer snapshot at offset 12368 (kafka.log.ProducerStateManager)
+    >   [2019-07-27 04:36:03,617] INFO [Log partition=ztf_20190112_programid1-7, dir=/data2-03] Recovering unflushed segment 0 (kafka.log.Log)
+    >   ....
+    >   [2019-07-27 06:03:38,483] WARN [Log partition=ztf_20181223_programid1-14, dir=/data2-02] Found a corrupted index file corresponding to log file /data2-02/ztf_20181223_programid1-14/00000000000000000000.log due to Corrupt index found, index file (/data2-02/ztf_20181223_programid1-14/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
+    >   [2019-07-27 06:03:46,089] INFO [ProducerStateManager partition=ztf_20190606_programid1-3] Writing producer snapshot at offset 13568 (kafka.log.ProducerStateManager)
+    >   [2019-07-27 06:03:46,241] INFO [Log partition=ztf_20190606_programid1-3, dir=/data1-04] Recovering unflushed segment 0 (kafka.log.Log)
+    >   ....
+    >   [2019-07-27 11:10:53,391] ERROR [KafkaServer id=3] Fatal error during KafkaServer startup. Prepare to shutdown (kafka.server.KafkaServer)
+    >   java.lang.IllegalStateException: Duplicate log directories for ztf_20181205_programid1-2 are found in both /data2-02/ztf_20181205_programid1-2 and /data2-01/ztf_20181205_programid1-2. It is likely because log directory failure happened while broker was replacing current replica with future replica. Recover broker from this failure by manually deleting one of the two directories for this partition. It is recommended to delete the partition in the log directory that is known to have failed recently.
+    >   	at kafka.log.LogManager.kafka$log$LogManager$$loadLog(LogManager.scala:285)
+    >   	at kafka.log.LogManager$$anonfun$loadLogs$2$$anonfun$11$$anonfun$apply$15$$anonfun$apply$2.apply$mcV$sp(LogManager.scala:340)
+    >   	at kafka.utils.CoreUtils$$anon$1.run(CoreUtils.scala:62)
+    >   	at java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:511)
+    >   	at java.util.concurrent.FutureTask.run(FutureTask.java:266)
+    >   	at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1149)
+    >   	at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:624)
+    >   	at java.lang.Thread.run(Thread.java:748)
+    >   ....
+    >   [2019-07-27 11:10:53,400] INFO [KafkaServer id=3] shutting down (kafka.server.KafkaServer)
+    >   ....
+    >   [2019-07-27 11:10:53,417] INFO [ZooKeeperClient] Closing. (kafka.zookeeper.ZooKeeperClient)
+    >   [2019-07-27 11:10:53,429] INFO Session: 0x16c2e818de8000c closed (org.apache.zookeeper.ZooKeeper)
+    >   [2019-07-27 11:10:53,429] INFO EventThread shut down for session: 0x16c2e818de8000c (org.apache.zookeeper.ClientCnxn)
+    >   [2019-07-27 11:10:53,438] INFO [ZooKeeperClient] Closed. (kafka.zookeeper.ZooKeeperClient)
+    >   ....
+    >   [2019-07-27 11:10:56,018] INFO [KafkaServer id=3] shut down completed (kafka.server.KafkaServer)
+    >   [2019-07-27 11:10:56,021] INFO [KafkaServer id=3] shutting down (kafka.server.KafkaServer)
+
+# -----------------------------------------------------
+
+
+    >   Sat 27 Jul 05:33:56 BST 2019
+    >   Onoza
+    >   ....
+    >   [2019-07-27 04:35:39,005] WARN [Log partition=lsst-test-20190624093332-8, dir=/data1-02] Found a corrupted index file corresponding to log file /data1-02/lsst-test-20190624093332-8/00000000000000000000.log due to Corrupt index found, index file (/data1-02/lsst-test-20190624093332-8/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
+    >   [2019-07-27 04:35:39,008] INFO [Log partition=lsst-test-20190624093332-8, dir=/data1-02] Recovering unflushed segment 0 (kafka.log.Log)
+    >   [2019-07-27 04:35:39,010] INFO [Log partition=lsst-test-20190624093332-8, dir=/data1-02] Loading producer state from offset 0 with message format version 2 (kafka.log.Log)
+    >   [2019-07-27 04:35:39,011] INFO [Log partition=lsst-test-20190624093332-8, dir=/data1-02] Completed load of log with 1 segments, log start offset 0 and log end offset 0 in 9 ms (kafka.log.Log)
+    >   ....
+    >   [2019-07-27 04:37:31,591] WARN [Log partition=ztf_20190130_programid1-4, dir=/data1-04] Found a corrupted index file corresponding to log file /data1-04/ztf_20190130_programid1-4/00000000000000000000.log due to Corrupt index found, index file (/data1-04/ztf_20190130_programid1-4/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
+    >   [2019-07-27 04:38:31,717] ERROR There was an error in one of the threads during logs loading: java.lang.InternalError: a fault occurred in a recent unsafe memory access operation in compiled Java code (kafka.log.LogManager)
+    >   [2019-07-27 04:38:31,731] ERROR [KafkaServer id=4] Fatal error during KafkaServer startup. Prepare to shutdown (kafka.server.KafkaServer)
+    >   java.lang.InternalError: a fault occurred in a recent unsafe memory access operation in compiled Java code
+    >   	at java.nio.HeapByteBuffer.<init>(HeapByteBuffer.java:57)
+    >   	at java.nio.ByteBuffer.allocate(ByteBuffer.java:335)
+    >   	at org.apache.kafka.common.record.FileLogInputStream$FileChannelRecordBatch.loadBatchWithSize(FileLogInputStream.java:209)
+    >   	at org.apache.kafka.common.record.FileLogInputStream$FileChannelRecordBatch.loadFullBatch(FileLogInputStream.java:192)
+    >   ....
+    >   [2019-07-27 04:38:31,749] INFO [KafkaServer id=4] shutting down (kafka.server.KafkaServer)
+    >   [2019-07-27 04:38:31,763] INFO [ZooKeeperClient] Closing. (kafka.zookeeper.ZooKeeperClient)
+    >   [2019-07-27 04:38:31,781] INFO Session: 0x16c2e818de80004 closed (org.apache.zookeeper.ZooKeeper)
+    >   [2019-07-27 04:38:31,783] INFO EventThread shut down for session: 0x16c2e818de80004 (org.apache.zookeeper.ClientCnxn)
+    >   [2019-07-27 04:38:31,784] INFO [ZooKeeperClient] Closed. (kafka.zookeeper.ZooKeeperClient)
+    >   [2019-07-27 04:38:31,786] INFO [ThrottledRequestReaper-Fetch]: Shutting down (kafka.server.ClientQuotaManager$ThrottledRequestReaper)
+    >   [2019-07-27 04:38:32,553] INFO [ThrottledRequestReaper-Fetch]: Stopped (kafka.server.ClientQuotaManager$ThrottledRequestReaper)
+    >   [2019-07-27 04:38:32,553] INFO [ThrottledRequestReaper-Fetch]: Shutdown completed (kafka.server.ClientQuotaManager$ThrottledRequestReaper)
+    >   [2019-07-27 04:38:32,554] INFO [ThrottledRequestReaper-Produce]: Shutting down (kafka.server.ClientQuotaManager$ThrottledRequestReaper)
+    >   [2019-07-27 04:38:33,056] WARN [Log partition=ztf_20181219_programid1-5, dir=/data2-02] Found a corrupted index file corresponding to log file /data2-02/ztf_20181219_programid1-5/00000000000000015995.log due to Corrupt index found, index file (/data2-02/ztf_20181219_programid1-5/00000000000000015995.index) has non-zero size but the last offset is 15995 which is no greater than the base offset 15995.}, recovering segment and rebuilding index files... (kafka.log.Log)
+    >   [2019-07-27 04:38:33,058] INFO [ProducerStateManager partition=ztf_20181219_programid1-5] Loading producer state from snapshot file '/data2-02/ztf_20181219_programid1-5/00000000000000015995.snapshot' (kafka.log.ProducerStateManager)
+    >   [2019-07-27 04:38:33,553] INFO [ThrottledRequestReaper-Produce]: Shutdown completed (kafka.server.ClientQuotaManager$ThrottledRequestReaper)
+    >   [2019-07-27 04:38:33,553] INFO [ThrottledRequestReaper-Request]: Shutting down (kafka.server.ClientQuotaManager$ThrottledRequestReaper)
+    >   [2019-07-27 04:38:33,553] INFO [ThrottledRequestReaper-Request]: Stopped (kafka.server.ClientQuotaManager$ThrottledRequestReaper)
+    >   [2019-07-27 04:38:33,553] INFO [ThrottledRequestReaper-Produce]: Stopped (kafka.server.ClientQuotaManager$ThrottledRequestReaper)
+    >   [2019-07-27 04:38:33,554] INFO [ThrottledRequestReaper-Request]: Shutdown completed (kafka.server.ClientQuotaManager$ThrottledRequestReaper)
+    >   [2019-07-27 04:38:33,569] INFO [KafkaServer id=4] shut down completed (kafka.server.KafkaServer)
+    >   Exception in thread "main" java.lang.InternalError: a fault occurred in a recent unsafe memory access operation in compiled Java code
+    >   	at java.nio.HeapByteBuffer.<init>(HeapByteBuffer.java:57)
+    >   	at java.nio.ByteBuffer.allocate(ByteBuffer.java:335)
+    >   	at org.apache.kafka.common.record.FileLogInputStream$FileChannelRecordBatch.loadBatchWithSize(FileLogInputStream.java:209)
+    >   	at org.apache.kafka.common.record.FileLogInputStream$FileChannelRecordBatch.loadFullBatch(FileLogInputStream.java:192)
+    >   	at org.apache.kafka.common.record.FileLogInputStream$FileChannelRecordBatch.ensureValid(FileLogInputStream.java:164)
+    >   ....
+    >   [2019-07-27 04:38:45,880] WARN [Log partition=ztf_20181219_programid1-12, dir=/data2-02] Found a corrupted index file corresponding to log file /data2-02/ztf_20181219_programid1-12/00000000000000015986.log due to Corrupt index found, index file (/data2-02/ztf_20181219_programid1-12/00000000000000015986.index) has non-zero size but the last offset is 15986 which is no greater than the base offset 15986.}, recovering segment and rebuilding index files... (kafka.log.Log)
+    >   [2019-07-27 04:38:45,881] INFO [ProducerStateManager partition=ztf_20181219_programid1-12] Loading producer state from snapshot file '/data2-02/ztf_20181219_programid1-12/00000000000000015986.snapshot' (kafka.log.ProducerStateManager)
+    >   [2019-07-27 04:38:56,771] INFO [ProducerStateManager partition=ztf_20190611_programid1-1] Writing producer snapshot at offset 9535 (kafka.log.ProducerStateManager)
+    >   [2019-07-27 04:38:57,091] INFO [Log partition=ztf_20190611_programid1-1, dir=/data2-04] Recovering unflushed segment 0 (kafka.log.Log)
+    >   ....
+    >   [2019-07-27 06:03:26,389] INFO [ProducerStateManager partition=ztf_20190607_programid1-0] Loading producer state from snapshot file '/data2-04/ztf_20190607_programid1-0/00000000000000011762.snapshot' (kafka.log.ProducerStateManager)
+    >   [2019-07-27 06:03:26,390] INFO [Log partition=ztf_20190607_programid1-0, dir=/data2-04] Completed load of log with 1 segments, log start offset 0 and log end offset 11762 in 539924 ms (kafka.log.Log)
+    >   [2019-07-27 06:03:28,073] WARN [Log partition=ztf_20190607_programid1-8, dir=/data2-04] Found a corrupted index file corresponding to log file /data2-04/ztf_20190607_programid1-8/00000000000000000000.log due to Corrupt index found, index file (/data2-04/ztf_20190607_programid1-8/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
+    >   ....
+    >   [2019-07-27 10:10:48,765] WARN [Log partition=lsst-test-20190624093332-14, dir=/data2-04] Found a corrupted index file corresponding to log file /data2-04/lsst-test-20190624093332-14/00000000000000000000.log due to Corrupt index found, index file (/data2-04/lsst-test-20190624093332-14/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
+    >   [2019-07-27 10:10:48,767] INFO [Log partition=lsst-test-20190624093332-14, dir=/data2-04] Recovering unflushed segment 0 (kafka.log.Log)
+    >   [2019-07-27 10:10:48,767] INFO [Log partition=lsst-test-20190624093332-14, dir=/data2-04] Loading producer state from offset 0 with message format version 2 (kafka.log.Log)
+    >   [2019-07-27 10:10:48,767] INFO [Log partition=lsst-test-20190624093332-14, dir=/data2-04] Completed load of log with 1 segments, log start offset 0 and log end offset 0 in 4 ms (kafka.log.Log)
+    >   [2019-07-27 10:10:48,802] INFO [KafkaServer id=4] shutting down (kafka.server.KafkaServer)
+
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+# Debug the errors ..
+#[user@Stedigo]
+
+    Stedigo
+        Duplicate log directories for
+            ztf_20181205_programid1-2
+        are found in both
+            /data2-02/ztf_20181205_programid1-2
+        and /data2-01/ztf_20181205_programid1-2
+
+    #
+    # Check the duplicate isn't caused by cross mounted directories.
+    #
+
+    # Create a debug place marker
+    sudo touch /data2-01/debug-$(date +%Y%m%dT%H%M)
+
+
+    # Check we can see it on /data2-01
+    ls -al /data2-01/debug*
+
+    >   -rw-r--r--. 1 root root 0 Jul 27 13:13 /data2-01/debug-20190727T1313
+
+
+    # Check if we can see it on /data2-02
+    ls -al /data2-02/debug*
+
+    >   ls: cannot access '/data2-02/debug*': No such file or directory
+
+
+    # Create a debug place marker
+    sudo touch /data2-01/ztf_20181205_programid1-2/debug-$(date +%Y%m%dT%H%M)
+
+
+    # Check we can see it on /data2-01
+    ls -al /data2-01/ztf_20181205_programid1-2/debug*
+
+    >   -rw-r--r--. 1 root root 0 Jul 27 13:21 /data2-01/ztf_20181205_programid1-2/debug-20190727T1321
+
+
+    # Check if we can see it on /data2-02
+    ls -al /data2-02/ztf_20181205_programid1-2/debug*
+
+    >   ls: cannot access '/data2-02/ztf_20181205_programid1-2/debug*': No such file or directory
+
+    #
+    # Check how much is in each directory.
+    #
+
+    du -h /data2-01/ztf_20181205_programid1-2
+
+    >   716M	/data2-01/ztf_20181205_programid1-2
+
+
+    du -h /data2-02/ztf_20181205_programid1-2
+
+    >   0	/data2-02/ztf_20181205_programid1-2
+
+    ls -al /data2-02/ztf_20181205_programid1-2
+
+    >   -rw-r--r--. 1 root root 10485760 Jul 27 12:18 00000000000000000000.index
+    >   -rw-r--r--. 1 root root        0 Jun 17 15:06 00000000000000000000.log
+    >   -rw-r--r--. 1 root root 10485756 Jul 27 12:18 00000000000000000000.timeindex
+    >   -rw-r--r--. 1 root root        0 Jun 17 15:06 leader-epoch-checkpoint
+
+    #
+    # Delete the empty directory and try again ...
+    #
+
+    sudo rm -rf /data2-02/ztf_20181205_programid1-2
+
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+# Docker compose is restarting the failed dservices ...
+#[user@Stedigo]
+
+    docker logs -f stevedore_emily_1
+
+
+    >   ....
+    >   [2019-07-27 11:18:33,011] INFO [KafkaServer id=1] shut down completed (kafka.server.KafkaServer)
+    >   [2019-07-27 11:18:33,014] INFO [KafkaServer id=1] shutting down (kafka.server.KafkaServer)
+
+    >   [2019-07-27 11:18:43,273] INFO Initiating client connection, connectString=Fosauri,Marpus,Byflame sessionTimeout=6000 watcher=kafka.zookeeper.ZooKeeperClient$ZooKeeperClientWatcher$@3c46e67a (org.apache.zookeeper.ZooKeeper)
+    >   [2019-07-27 11:18:43,292] INFO [ZooKeeperClient] Waiting until connected. (kafka.zookeeper.ZooKeeperClient)
+    >   [2019-07-27 11:18:43,295] INFO Opening socket connection to server Byflame/172.16.5.16:2181. Will not attempt to authenticate using SASL (unknown error) (org.apache.zookeeper.ClientCnxn)
+    >   [2019-07-27 11:18:43,305] INFO Socket connection established to Byflame/172.16.5.16:2181, initiating session (org.apache.zookeeper.ClientCnxn)
+    >   [2019-07-27 11:18:43,325] INFO Session establishment complete on server Byflame/172.16.5.16:2181, sessionid = 0x36c2e818df2000b, negotiated timeout = 6000 (org.apache.zookeeper.ClientCnxn)
+    >   [2019-07-27 11:18:43,330] INFO [ZooKeeperClient] Connected. (kafka.zookeeper.ZooKeeperClient)
+    >   [2019-07-27 11:18:43,910] INFO Cluster ID = J7LIj46VS929-ZOh4BKeXQ (kafka.server.KafkaServer)
+    >   ....
+    >   [2019-07-27 13:09:41,193] WARN [Log partition=ztf_20190131_programid1-15, dir=/data1-03] Found a corrupted index file corresponding to log file /data1-03/ztf_20190131_programid1-15/00000000000000000000.log due to Corrupt index found, index file (/data1-03/ztf_20190131_programid1-15/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
+    >   [2019-07-27 13:09:55,132] INFO [ProducerStateManager partition=ztf_20190125_programid1-14] Writing producer snapshot at offset 8201 (kafka.log.ProducerStateManager)
+    >   [2019-07-27 13:09:55,533] INFO [Log partition=ztf_20190125_programid1-14, dir=/data2-03] Recovering unflushed segment 0 (kafka.log.Log)
+    >   [2019-07-27 13:10:11,798] INFO [ProducerStateManager partition=ztf_20181229_programid1-13] Writing producer snapshot at offset 9331 (kafka.log.ProducerStateManager)
+    >   [2019-07-27 13:10:11,800] INFO [Log partition=ztf_20181229_programid1-13, dir=/data1-02] Recovering unflushed segment 0 (kafka.log.Log)
+
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+# Apply the same 'fix' to Angece.
+#[user@Angece]
+
+    >   [2019-07-27 12:14:22,561] ERROR [KafkaServer id=2] Fatal error during KafkaServer startup. Prepare to shutdown (kafka.server.KafkaServer)
+    >   java.lang.IllegalStateException: Duplicate log directories for ztf_20181205_programid1-8 are found in both /data2-02/ztf_20181205_programid1-8 and /data2-01/ztf_20181205_programid1-8. It is likely because log directory failure happened while broker was replacing current replica with future replica. Recover broker from this failure by manually deleting one of the two directories for this partition. It is recommended to delete the partition in the log directory that is known to have failed recently.
+
+
+    sudo du -h /data2-01/ztf_20181205_programid1-8
+
+    >   716M	/data2-01/ztf_20181205_programid1-8
+
+
+    sudo du -h /data2-02/ztf_20181205_programid1-8
+
+    >   0	/data2-02/ztf_20181205_programid1-8
+
+
+    # Remove the 'empty' duplicate.
+    sudo rm -rf /data2-02/ztf_20181205_programid1-8
+
+    # Continue tailing the logs.
+    docker logs -f stevedore_emily_1
+
+    >   [2019-07-27 04:28:29,504] INFO starting (kafka.server.KafkaServer)
+    >   [2019-07-27 04:28:29,504] INFO Connecting to zookeeper on Fosauri,Marpus,Byflame (kafka.server.KafkaServer)
+    >   [2019-07-27 04:28:29,522] INFO [ZooKeeperClient] Initializing a new session to Fosauri,Marpus,Byflame. (kafka.zookeeper.ZooKeeperClient)
+    >   [2019-07-27 04:28:29,528] INFO Client environment:zookeeper.version=3.4.10-39d3a4f269333c922ed3db283be479f9deacaa0f, built on 03/23/2017 10:13 GMT (org.apache.zookeeper.ZooKeeper)
+    >   ....
+    >   [2019-07-27 12:14:22,566] INFO [KafkaServer id=2] shutting down (kafka.server.KafkaServer)
+    >   [2019-07-27 12:14:22,612] INFO [ZooKeeperClient] Closing. (kafka.zookeeper.ZooKeeperClient)
+    >   [2019-07-27 12:14:22,624] INFO EventThread shut down for session: 0x16c2e818de80011 (org.apache.zookeeper.ClientCnxn)
+    >   [2019-07-27 12:14:22,625] INFO Session: 0x16c2e818de80011 closed (org.apache.zookeeper.ZooKeeper)
+    >   [2019-07-27 12:14:22,634] INFO [ZooKeeperClient] Closed. (kafka.zookeeper.ZooKeeperClient)
+
+    >   [2019-07-27 12:14:35,607] INFO Connecting to zookeeper on Fosauri,Marpus,Byflame (kafka.server.KafkaServer)
+    >   [2019-07-27 12:14:35,628] INFO [ZooKeeperClient] Initializing a new session to Fosauri,Marpus,Byflame. (kafka.zookeeper.ZooKeeperClient)
+    >   [2019-07-27 12:14:35,635] INFO Client environment:zookeeper.version=3.4.10-39d3a4f269333c922ed3db283be479f9deacaa0f, built on 03/23/2017 10:13 GMT (org.apache.zookeeper.ZooKeeper)
+    >   [2019-07-27 12:14:35,635] INFO Client environment:host.name=416e35f74d48 (org.apache.zookeeper.ZooKeeper)
+    >   ....
+    >   [2019-07-27 13:09:37,607] INFO [ProducerStateManager partition=ztf_20190129_programid1-0] Loading producer state from snapshot file '/data1-03/ztf_20190129_programid1-0/00000000000000019518.snapshot' (kafka.log.ProducerStateManager)
+    >   [2019-07-27 13:09:37,608] INFO [Log partition=ztf_20190129_programid1-0, dir=/data1-03] Completed load of log with 2 segments, log start offset 0 and log end offset 19518 in 17152 ms (kafka.log.Log)
+    >   [2019-07-27 13:09:38,521] WARN [Log partition=ztf_20190129_programid1-7, dir=/data1-03] Found a corrupted index file corresponding to log file /data1-03/ztf_20190129_programid1-7/00000000000000016282.log due to Corrupt index found, index file (/data1-03/ztf_20190129_programid1-7/00000000000000016282.index) has non-zero size but the last offset is 16282 which is no greater than the base offset 16282.}, recovering segment and rebuilding index files... (kafka.log.Log)
+    >   [2019-07-27 13:09:38,523] INFO [ProducerStateManager partition=ztf_20190129_programid1-7] Loading producer state from snapshot file '/data1-03/ztf_20190129_programid1-7/00000000000000016282.snapshot' (kafka.log.ProducerStateManager)
+    >   ....
+
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+# Apply the same 'fix' to Edwalafia.
+#[user@Edwalafia]
+
+    >   [2019-07-27 11:10:53,391] ERROR [KafkaServer id=3] Fatal error during KafkaServer startup. Prepare to shutdown (kafka.server.KafkaServer)
+    >   java.lang.IllegalStateException: Duplicate log directories for ztf_20181205_programid1-2 are found in both /data2-02/ztf_20181205_programid1-2 and /data2-01/ztf_20181205_programid1-2. It is likely because log directory failure happened while broker was replacing current replica with future replica. Recover broker from this failure by manually deleting one of the two directories for this partition. It is recommended to delete the partition in the log directory that is known to have failed recently.
+
+
+    sudo du -h /data2-01/ztf_20181205_programid1-2
+
+    >   716M	/data2-01/ztf_20181205_programid1-2
+
+
+    sudo du -h /data2-02/ztf_20181205_programid1-2
+
+    >   0	/data2-02/ztf_20181205_programid1-2
+
+    # Remove the 'empty' duplicate.
+    sudo rm -rf /data2-02/ztf_20181205_programid1-2
+
+    # Continue tailing the logs.
+    docker logs -f stevedore_emily_1
+
+
+    >   ....
+    >   [2019-07-27 11:10:55,981] INFO [ThrottledRequestReaper-Request]: Stopped (kafka.server.ClientQuotaManager$ThrottledRequestReaper)
+    >   [2019-07-27 11:10:55,982] INFO [ThrottledRequestReaper-Request]: Shutdown completed (kafka.server.ClientQuotaManager$ThrottledRequestReaper)
+    >   [2019-07-27 11:10:56,018] INFO [KafkaServer id=3] shut down completed (kafka.server.KafkaServer)
+    >   [2019-07-27 11:10:56,021] INFO [KafkaServer id=3] shutting down (kafka.server.KafkaServer)
+
+    >   [2019-07-27 11:11:07,621] INFO starting (kafka.server.KafkaServer)
+    >   [2019-07-27 11:11:07,622] INFO Connecting to zookeeper on Fosauri,Marpus,Byflame (kafka.server.KafkaServer)
+    >   [2019-07-27 11:11:07,642] INFO [ZooKeeperClient] Initializing a new session to Fosauri,Marpus,Byflame. (kafka.zookeeper.ZooKeeperClient)
+    >   [2019-07-27 11:11:07,648] INFO Client environment:zookeeper.version=3.4.10-39d3a4f269333c922ed3db283be479f9deacaa0f, built on 03/23/2017 10:13 GMT (org.apache.zookeeper.ZooKeeper)
+    >   ....
+    >   [2019-07-27 13:18:44,979] INFO [ProducerStateManager partition=ztf_20190607_programid1-2] Loading producer state from snapshot file '/data2-04/ztf_20190607_programid1-2/00000000000000011760.snapshot' (kafka.log.ProducerStateManager)
+    >   [2019-07-27 13:18:44,979] INFO [Log partition=ztf_20190607_programid1-2, dir=/data2-04] Completed load of log with 1 segments, log start offset 0 and log end offset 11760 in 684284 ms (kafka.log.Log)
+    >   [2019-07-27 13:18:44,986] WARN [Log partition=ztf_20190607_programid1-9, dir=/data2-04] Found a corrupted index file corresponding to log file /data2-04/ztf_20190607_programid1-9/00000000000000000000.log due to Corrupt index found, index file (/data2-04/ztf_20190607_programid1-9/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
+    >   [2019-07-27 13:20:30,162] INFO [ProducerStateManager partition=ztf_20181228_programid1-6] Writing producer snapshot at offset 11234 (kafka.log.ProducerStateManager)
+    >   ....
+
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+# Onoza has different issues ....
+#[user@Onoza]
+
+    >   ....
+    >   [2019-07-27 04:37:31,591] WARN [Log partition=ztf_20190130_programid1-4, dir=/data1-04] Found a corrupted index file corresponding to log file /data1-04/ztf_20190130_programid1-4/00000000000000000000.log due to Corrupt index found, index file (/data1-04/ztf_20190130_programid1-4/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
+    >   [2019-07-27 04:38:31,717] ERROR There was an error in one of the threads during logs loading: java.lang.InternalError: a fault occurred in a recent unsafe memory access operation in compiled Java code (kafka.log.LogManager)
+    >   [2019-07-27 04:38:31,731] ERROR [KafkaServer id=4] Fatal error during KafkaServer startup. Prepare to shutdown (kafka.server.KafkaServer)
+    >   java.lang.InternalError: a fault occurred in a recent unsafe memory access operation in compiled Java code
+    >   	at java.nio.HeapByteBuffer.<init>(HeapByteBuffer.java:57)
+    >   	at java.nio.ByteBuffer.allocate(ByteBuffer.java:335)
+    >   ....
+
+
+    # Continue tailing the logs ?
+    docker logs -f stevedore_emily_1
+
+
+    >   ....
+    >   [2019-07-27 10:11:06,336] INFO [ProducerStateManager partition=ztf_20181219_programid1-2] Loading producer state from snapshot file '/data1-02/ztf_20181219_programid1-2/00000000000000015985.snapshot' (kafka.log.ProducerStateManager)
+    >   [2019-07-27 10:11:08,077] ERROR There was an error in one of the threads during logs loading: java.lang.InternalError: a fault occurred in a recent unsafe memory access operation in compiled Java code (kafka.log.LogManager)
+    >   [2019-07-27 10:11:08,088] ERROR [KafkaServer id=4] Fatal error during KafkaServer startup. Prepare to shutdown (kafka.server.KafkaServer)
+    >   java.lang.InternalError: a fault occurred in a recent unsafe memory access operation in compiled Java code
+    >   	at kafka.log.AbstractIndex.logger$lzycompute(AbstractIndex.scala:40)
+    >   	at kafka.log.AbstractIndex.logger(AbstractIndex.scala:40)
+    >   ....
+
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+# Try a graceful shutdown of Stedigo.
+# https://www.ctl.io/developers/blog/post/gracefully-stopping-docker-containers/
+#[user@Stedigo]
+
+    >   ....
+    >   [2019-07-27 14:14:36,271] INFO [Log partition=ztf_20181229_programid1-1, dir=/data2-02] Loading producer state from offset 9332 with message format version 2 (kafka.log.Log)
+    >   [2019-07-27 14:14:36,272] INFO [ProducerStateManager partition=ztf_20181229_programid1-1] Loading producer state from snapshot file '/data2-02/ztf_20181229_programid1-1/00000000000000009332.snapshot' (kafka.log.ProducerStateManager)
+    >   [2019-07-27 14:14:36,272] INFO [Log partition=ztf_20181229_programid1-1, dir=/data2-02] Completed load of log with 1 segments, log start offset 0 and log end offset 9332 in 173380 ms (kafka.log.Log)
+    >   [2019-07-27 14:14:36,278] WARN [Log partition=ztf_20181229_programid1-2, dir=/data2-02] Found a corrupted index file corresponding to log file /data2-02/ztf_20181229_programid1-2/00000000000000000000.log due to Corrupt index found, index file (/data2-02/ztf_20181229_programid1-2/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
+    >   ....
+
+
+    docker kill --signal=SIGINT stevedore_emily_1
+
+
+    >   [2019-07-27 14:23:22,481] INFO [ProducerStateManager partition=ztf_20190128_programid1-9] Writing producer snapshot at offset 9660 (kafka.log.ProducerStateManager)
+    >   [2019-07-27 14:23:22,483] INFO [Log partition=ztf_20190128_programid1-9, dir=/data2-03] Loading producer state from offset 9660 with message format version 2 (kafka.log.Log)
+    >   [2019-07-27 14:23:22,484] INFO [ProducerStateManager partition=ztf_20190128_programid1-9] Loading producer state from snapshot file '/data2-03/ztf_20190128_programid1-9/00000000000000009660.snapshot' (kafka.log.ProducerStateManager)
+    >   [2019-07-27 14:23:22,484] INFO [Log partition=ztf_20190128_programid1-9, dir=/data2-03] Completed load of log with 1 segments, log start offset 0 and log end offset 9660 in 191311 ms (kafka.log.Log)
+    >   [2019-07-27 14:23:23,027] WARN [Log partition=ztf_20190128_programid1-14, dir=/data2-03] Found a corrupted index file corresponding to log file /data2-03/ztf_20190128_programid1-14/00000000000000000000.log due to Corrupt index found, index file (/data2-03/ztf_20190128_programid1-14/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
+    >   [2019-07-27 14:23:39,252] INFO Terminating process due to signal SIGINT (io.confluent.support.metrics.SupportedKafka)
+    >   [2019-07-27 14:23:39,268] INFO [KafkaServer id=1] shutting down (kafka.server.KafkaServer)
+    >   [2019-07-27 14:23:39,277] ERROR [KafkaServer id=1] Fatal error during KafkaServer shutdown. (kafka.server.KafkaServer)
+    >   java.lang.IllegalStateException: Kafka server is still starting up, cannot shut down!
+    >   	at kafka.server.KafkaServer.shutdown(KafkaServer.scala:553)
+    >   	at io.confluent.support.metrics.SupportedServerStartable.shutdown(SupportedServerStartable.java:146)
+    >   	at io.confluent.support.metrics.SupportedKafka$1.run(SupportedKafka.java:58)
+
+
+    docker-compose \
+        --file kafka.yml \
+        up -d
+
+    >   Starting stevedore_emily_1 ... done
+
+
+    docker logs -f stevedore_emily_1
+
+    >   [2019-07-27 14:38:10,789] INFO starting (kafka.server.KafkaServer)
+    >   [2019-07-27 14:38:10,789] INFO Connecting to zookeeper on Fosauri,Marpus,Byflame (kafka.server.KafkaServer)
+    >   [2019-07-27 14:38:10,822] INFO [ZooKeeperClient] Initializing a new session to Fosauri,Marpus,Byflame. (kafka.zookeeper.ZooKeeperClient)
+    >   [2019-07-27 14:38:10,833] INFO Client environment:zookeeper.version=3.4.10-39d3a4f269333c922ed3db283be479f9deacaa0f, built on 03/23/2017 10:13 GMT (org.apache.zookeeper.ZooKeeper)
+    >   [2019-07-27 14:38:10,833] INFO Client environment:host.name=bd6b52b84c0c (org.apache.zookeeper.ZooKeeper)
+    >   [2019-07-27 14:38:10,833] INFO Client environment:java.version=1.8.0_172 (org.apache.zookeeper.ZooKeeper)
+
+    #
+    # 20:00 Still going ..
+    # Stuck in an endless loop, indexing, crashing, restarting, indexing, crashing ...
+    #
+
+
+    docker kill --signal=SIGINT stevedore_emily_1
+    docker logs -f stevedore_emily_1
+
+
+# -----------------------------------------------------
+# Remove the restart setting from the compose file.
+#[user@Stedigo]
+
+    vi kafka.yml
+
+        emily:
+            image:
+                confluentinc/cp-kafka:4.1.1
+            restart:
+    -           "unless-stopped"
+    +           "no"
+            ports:
+                - "9092:9092"
+                - "9093:9093"
+
+
+# -----------------------------------------------------
+# Start the services again.
+#[user@Stedigo]
+#[user@Angece]
+#[user@Edwalafia]
+#[user@Onoza]
+
+    docker-compose \
+        --file kafka.yml \
+        up -d
+
+    docker \
+        logs --follow \
+            stevedore_emily_1
+
+
+# -----------------------------------------------------
+# System tweaks.
+# https://forum.proxmox.com/threads/high-swap-usage-eventhough-plenty-of-ram-is-available.38528/
+# https://www.howtoforge.com/tutorial/linux-swappiness/
+# https://unix.stackexchange.com/questions/23072/how-can-i-check-if-swap-is-active-from-the-command-line
+#[user@trop03]
+
+
+    cat /proc/sys/vm/swappiness
+
+    >   60
+
+
+    sudo sysctl vm.swappiness=1
+
+    >   vm.swappiness = 1
+
+
+    cat /proc/sys/vm/swappiness
+
+    >   1
+
+
+
+    cat /proc/meminfo
+
+    >   MemTotal:       131928016 kB
+    >   MemFree:          589080 kB
+    >   MemAvailable:   108658144 kB
+    >   Buffers:            5956 kB
+    >   Cached:         108601120 kB
+    >   SwapCached:        35148 kB
+    >   Active:         119522540 kB
+    >   Inactive:       10513028 kB
+    >   Active(anon):   15579216 kB
+    >   Inactive(anon):  5867408 kB
+    >   Active(file):   103943324 kB
+    >   Inactive(file):  4645620 kB
+    >   Unevictable:       13988 kB
+    >   Mlocked:           13988 kB
+    >   SwapTotal:       1952764 kB
+    >   SwapFree:              0 kB
+    >   Dirty:               788 kB
+    >   Writeback:          5100 kB
+    >   AnonPages:      21408404 kB
+    >   Mapped:            27960 kB
+    >   Shmem:             13744 kB
+    >   Slab:             606480 kB
+    >   SReclaimable:     543652 kB
+    >   SUnreclaim:        62828 kB
+    >   KernelStack:       12224 kB
+    >   PageTables:        64012 kB
+    >   NFS_Unstable:          0 kB
+    >   Bounce:                0 kB
+    >   WritebackTmp:          0 kB
+    >   CommitLimit:    67916772 kB
+    >   Committed_AS:   38885664 kB
+    >   VmallocTotal:   34359738367 kB
+    >   VmallocUsed:           0 kB
+    >   VmallocChunk:          0 kB
+    >   HardwareCorrupted:     0 kB
+    >   AnonHugePages:  20815872 kB
+    >   ShmemHugePages:        0 kB
+    >   ShmemPmdMapped:        0 kB
+    >   HugePages_Total:       0
+    >   HugePages_Free:        0
+    >   HugePages_Rsvd:        0
+    >   HugePages_Surp:        0
+    >   Hugepagesize:       2048 kB
+    >   DirectMap4k:      234804 kB
+    >   DirectMap2M:    15384576 kB
+    >   DirectMap1G:    120586240 kB
+
+
+    cat /proc/swaps
+
+    >   Filename				Type		Size	Used	Priority
+    >   /dev/sda3                               partition	1952764	1952764	-1
+
+
+    sudo swapoff /dev/sda3
+
+
+    sudo swapon /dev/sda3
+
+
+    cat /proc/buddyinfo
+
+
+    >   Node 0, zone      DMA      1      1      2      1      3      0      1      0      1      1      3
+    >   Node 0, zone    DMA32   3227   5250   3002    643    116     26     21      2      3      2     26
+    >   Node 0, zone   Normal  26726   6794    209     34     11      8      2      1      1      0      0
+    >   Node 1, zone   Normal  20579   8254   1405    120      9      1      0      1      0      0      0
+
+
+
+    # atop showing red flashing warnings for PAG and both DSK
+
+    >   MEM | tot   125.8G  | free  609.4M |  cache 102.6G | buff    5.6M |  slab  626.0M | shmem  16.1M  | vmbal   0.0M |  hptot   0.0M |
+    >   SWP | tot     1.9G  | free  986.1M |               |              |               |               | vmcom  37.2G |  vmlim  64.8G |
+    >   PAG | scan  253315  | steal 249673 |  stall      0 |              |               |               | swin      76 |  swout   3052 |
+    >   DSK |          sdb  | busy    100% |  read    3539 | write     68 |  KiB/w    129 | MBr/s   44.8  | MBw/s    0.9 |  avio 2.77 ms |
+    >   DSK |          sdc  | busy    100% |  read    3907 | write     87 |  KiB/w    149 | MBr/s   41.0  | MBw/s    1.3 |  avio 2.50 ms |
+    >   DSK |          sda  | busy      1% |  read      37 | write    102 |  KiB/w    135 | MBr/s    0.0  | MBw/s    1.4 |  avio 0.46 ms |
+    >   NET | transport     | tcpi      43 |  tcpo      46 | udpi       0 |  udpo       0 | tcpao      0  | tcppo      0 |  tcprs      0 |
+    >   NET | network       | ipi       75 |  ipo       40 | ipfrw      0 |  deliv     44 |               | icmpi      1 |  icmpo      0 |
+
+
+    # Swap was at 100%.
+    # Pushed down to 0% by swapoff/swapon
+    # Gradually creeping back up again.
+
+
+    # Totally overloaded and IO limited.
+    # Four VMs, each with multiple slices of the discs, all active at the same time.
+    # Multiple small discs would be better.
+
+    # 5hrs later .. they all crashed out :-(
+
+    # Possibly faster to launch one VM at a time ?
+    # Still has multiple connections to each disc, but not totally overcomitted.
+
+    # Consolidate the multiple small virtual discs into two large discs for each Kafka VM.
+    # /data1 anbd /data2
+
+
+

@@ -1,0 +1,161 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+    #
+    # Useful information.
+    # https://stackoverflow.com/questions/45635726/kafkaavroserializer-for-serializing-avro-without-schema-registry-url
+    # https://stackoverflow.com/a/45637006
+
+    #
+    # KafkaProducer
+    # https://kafka.apache.org/10/javadoc/org/apache/kafka/clients/producer/KafkaProducer.html
+    # "The producer is thread safe and sharing a single producer instance across threads will generally be faster than having multiple instances."
+    #
+
+    #
+    # A practical introduction to Kafka storage internals
+    # https://medium.com/@durgaswaroop/a-practical-introduction-to-kafka-storage-internals-d5b544f6925f
+    #
+
+    /**
+     * A Serializer for our index type.
+     *
+     */
+    public Serializer<IndexType> indexSerializer()
+        {
+        return new LongSerializer();
+        }
+
+    /**
+     * A Serializer for our data type.
+     *
+     */
+    public Serializer<DataType> dataSerializer()
+        {
+        SchemaRegistryClient reg = new MockSchemaRegistryClient();
+        KafkaAvroSerializer  ser = new KafkaAvroSerializer(
+            reg
+            );
+        return ser;
+        }
+
+    /**
+     * Access our Schema.
+     *
+     */
+    protected Schema schema()
+        {
+        // ... lookup or hard coded ?
+        }
+
+   /**
+     * Create our properties.
+     *
+     */
+    protected Properties properties()
+        {
+        Properties properties = new Properties();
+        properties.put(
+            ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
+            this.config.getServers()
+            );
+        properties.put(
+            ProducerConfig.CLIENT_ID_CONFIG,
+            "AvroExampleProducer"
+            );
+        ....
+        return properties ;
+        }
+
+
+   /**
+     * Create our {@link Producer}.
+     *
+     */
+    protected Producer<IndexType, DataType> producer()
+        {
+
+        return new KafkaProducer<IndexType, DataType>(
+            properties(),
+            indexSerializer(),
+            dataSerializer()
+            );
+        }
+
+    /**
+     * Create a new Avro {@link GenericRecord} for our DataType.
+     *
+     */
+    protected GenericRecord record(final DataType data)
+        {
+        return new GenericRecord()
+            {
+            Object get(int i)
+                {
+                return data.xyz;
+                }
+            void put(int i, Object v)
+                {
+                data.xyz = v;
+                }
+
+            Object get(String key)
+                {
+                return data.xyz;
+                }
+            void put(String key, Object v)
+                {
+                data.xyz = v;
+                }
+
+            Schema getSchema()
+                {
+                return ParentClass.this.schema();
+                }
+            }
+        }
+
+    /**
+     * Send a record.
+     *
+     */
+    public void send(IndexType index, DataType data)
+        {
+        ....
+        ....
+        ProducerRecord<IndexType, DataType> record = new ProducerRecord<IndexType, DataType>(
+            this.config.getTopic(),
+            index,
+            record(
+                data
+                )
+            );
+        log.debug("Record   [{}][{}]", record.key(), record.value());
+
+        final RecordMetadata metadata = producer.send(
+            record
+            ).get();
+        log.debug("Response [{}][{}]", metadata.partition(), metadata.offset());
+        ....
+        ....
+        }
+

@@ -1,0 +1,1140 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+    trop04
+    Compose deployment of Cassandra.
+    Similar structure to Kafka deployment.
+    Virtual machines + additional volumes.
+
+    4x4=16 cores
+
+    trop03
+    Live deployment of Kafka - done
+
+
+    trop0x
+    Standalone instance of KafkaConnect.
+
+    Use KafkaConnect without Confluent Schema Registry
+    https://stackoverflow.com/questions/52333230/use-kafkaconnect-without-confluent-schema-registry
+    https://stackoverflow.com/a/52342547
+    https://github.com/farmdawgnation/registryless-avro-converter
+
+        key.converter=me.frmr.kafka.connect.RegistrylessAvroConverter
+        key.converter.schema.path=/path/to/schema/file.avsc
+        value.converter=me.frmr.kafka.connect.RegistrylessAvroConverter
+        value.converter.schema.path=/path/to/schema/file.avsc
+
+# -----------------------------------------------------
+# Our Cassandra nodes.
+#[user@trop04]
+
+    canames=(
+        Astendawen
+        Nendalith
+        Saelia
+        Adwaeric
+        )
+
+# -----------------------------------------------------
+# Our Kafka nodes.
+#[user@trop04]
+
+    kfnames=(
+        Stedigo
+        Angece
+        Edwalafia
+        Onoza
+        )
+
+# -----------------------------------------------------
+# Our Zookeeper nodes.
+#[user@trop04]
+
+    zknames=(
+        Fosauri
+        Marpus
+        Byflame
+        )
+
+# -----------------------------------------------------
+# Our MirrorMaker nodes.
+#[user@trop04]
+
+    mmnames=(
+        Moemond
+        Iberidia
+        )
+
+# -----------------------------------------------------
+# Create our Cassandra nodes.
+# TODO scriptable createvm
+#[user@trop04]
+
+    createvm
+
+    >   INFO : Node name [Astendawen]
+    >   INFO : Base name [fedora-28-docker-base-20180708.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-28-docker-base-20180708.qcow]
+    >   INFO : Disc name [Astendawen.qcow]
+    >   INFO : Disc size [16GiB]
+    >   
+    >   INFO : node [22]
+    >   INFO : MAC  [52:54:0:0:D2:D7]
+    >   INFO : IPv4 [192.168.210.215]
+    >   INFO : MAC  [52:54:0:0:D2:F7]
+    >   INFO : IPv4 [192.168.210.247]
+
+
+    createvm
+
+    >   INFO : Node name [Nendalith]
+    >   INFO : Base name [fedora-28-docker-base-20180708.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-28-docker-base-20180708.qcow]
+    >   INFO : Disc name [Nendalith.qcow]
+    >   INFO : Disc size [16GiB]
+    >   
+    >   INFO : node [23]
+    >   INFO : MAC  [52:54:0:0:D2:D8]
+    >   INFO : IPv4 [192.168.210.216]
+    >   INFO : MAC  [52:54:0:0:D2:F8]
+    >   INFO : IPv4 [192.168.210.248]
+
+
+    createvm
+
+    >   INFO : Node name [Saelia]
+    >   INFO : Base name [fedora-28-docker-base-20180708.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-28-docker-base-20180708.qcow]
+    >   INFO : Disc name [Saelia.qcow]
+    >   INFO : Disc size [16GiB]
+    >   
+    >   INFO : node [24]
+    >   INFO : MAC  [52:54:0:0:D2:D9]
+    >   INFO : IPv4 [192.168.210.217]
+    >   INFO : MAC  [52:54:0:0:D2:F9]
+    >   INFO : IPv4 [192.168.210.249]
+
+
+    createvm
+
+    >   INFO : Node name [Adwaeric]
+    >   INFO : Base name [fedora-28-docker-base-20180708.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-28-docker-base-20180708.qcow]
+    >   INFO : Disc name [Adwaeric.qcow]
+    >   INFO : Disc size [16GiB]
+    >   
+    >   INFO : node [25]
+    >   INFO : MAC  [52:54:0:0:D2:DA]
+    >   INFO : IPv4 [192.168.210.218]
+    >   INFO : MAC  [52:54:0:0:D2:FA]
+    >   INFO : IPv4 [192.168.210.250]
+
+
+# -----------------------------------------------------
+# Add an extra data volume to each node.
+#[user@trop04]
+
+    source "${HOME}/libvirt.settings"
+
+    volnum=01
+    volsize=256G
+
+    unset volpools
+    declare -a volpools=(
+        data1
+        data2
+        )
+
+    unset targets
+    declare -A targets=(
+        [data1]=vdc
+        [data2]=vdd
+        )
+
+    for vmname in ${canames[@]}
+        do
+            echo "---- ----"
+            echo "vmname [${vmname}]"
+            for volpool in ${volpools[@]}
+                do
+                    volname=${vmname}-${volpool}-${volnum}.qcow
+                    target=${targets[${volpool}]}
+                    echo "create [${vmname}][${target}][${volname}]"
+
+                    virsh \
+                        --connect "${connection:?}" \
+                        vol-create-as \
+                            "${volpool}" \
+                            "${volname}" \
+                            "${volsize}" \
+                            --allocation 0 \
+                            --format qcow2
+
+                    virsh \
+                        --connect "${connection:?}" \
+                        vol-info \
+                            --pool "${volpool:?}" \
+                            "${volname:?}"
+
+                    volpath=$(
+                        virsh \
+                            --connect "${connection:?}" \
+                            vol-path \
+                                --pool "${volpool:?}" \
+                                "${volname:?}"
+                        )
+
+                    echo "attach [${vmname}][${target}][${volpath}]"
+
+                    # Once to update the config.
+                    virsh \
+                        --connect "${connection:?}" \
+                        attach-disk \
+                            "${vmname:?}"  \
+                            "${volpath:?}" \
+                            "${target:?}"  \
+                            --subdriver qcow2 \
+                            --driver qemu  \
+                            --config
+
+                    # Again to update the live VM.
+                    virsh \
+                        --connect "${connection:?}" \
+                        attach-disk \
+                            "${vmname:?}"  \
+                            "${volpath:?}" \
+                            "${target:?}"  \
+                            --subdriver qcow2 \
+                            --driver qemu
+
+                done
+        done
+
+    >   ---- ----
+    >   vmname [Astendawen]
+    >   create [Astendawen][vdc][Astendawen-data1-01.qcow]
+    >   Vol Astendawen-data1-01.qcow created
+    >   
+    >   Name:           Astendawen-data1-01.qcow
+    >   Type:           file
+    >   Capacity:       256.00 GiB
+    >   Allocation:     196.00 KiB
+    >   
+    >   attach [Astendawen][vdc][/data1/libvirt/images/data1/Astendawen-data1-01.qcow]
+    >   Disk attached successfully
+    >   Disk attached successfully
+    >   
+    >   create [Astendawen][vdd][Astendawen-data2-01.qcow]
+    >   Vol Astendawen-data2-01.qcow created
+    >   
+    >   Name:           Astendawen-data2-01.qcow
+    >   Type:           file
+    >   Capacity:       256.00 GiB
+    >   Allocation:     196.00 KiB
+    >   
+    >   attach [Astendawen][vdd][/data2/libvirt/images/data2/Astendawen-data2-01.qcow]
+    >   Disk attached successfully
+    >   Disk attached successfully
+    >   
+    >   ---- ----
+    >   vmname [Nendalith]
+    >   create [Nendalith][vdc][Nendalith-data1-01.qcow]
+    >   Vol Nendalith-data1-01.qcow created
+    >   
+    >   Name:           Nendalith-data1-01.qcow
+    >   Type:           file
+    >   Capacity:       256.00 GiB
+    >   Allocation:     196.00 KiB
+    >   
+    >   attach [Nendalith][vdc][/data1/libvirt/images/data1/Nendalith-data1-01.qcow]
+    >   Disk attached successfully
+    >   Disk attached successfully
+    >   
+    >   create [Nendalith][vdd][Nendalith-data2-01.qcow]
+    >   Vol Nendalith-data2-01.qcow created
+    >   
+    >   Name:           Nendalith-data2-01.qcow
+    >   Type:           file
+    >   Capacity:       256.00 GiB
+    >   Allocation:     196.00 KiB
+    >   
+    >   attach [Nendalith][vdd][/data2/libvirt/images/data2/Nendalith-data2-01.qcow]
+    >   Disk attached successfully
+    >   Disk attached successfully
+    >   
+    >   ---- ----
+    >   vmname [Saelia]
+    >   create [Saelia][vdc][Saelia-data1-01.qcow]
+    >   Vol Saelia-data1-01.qcow created
+    >   
+    >   Name:           Saelia-data1-01.qcow
+    >   Type:           file
+    >   Capacity:       256.00 GiB
+    >   Allocation:     196.00 KiB
+    >   
+    >   attach [Saelia][vdc][/data1/libvirt/images/data1/Saelia-data1-01.qcow]
+    >   Disk attached successfully
+    >   Disk attached successfully
+    >   
+    >   create [Saelia][vdd][Saelia-data2-01.qcow]
+    >   Vol Saelia-data2-01.qcow created
+    >   
+    >   Name:           Saelia-data2-01.qcow
+    >   Type:           file
+    >   Capacity:       256.00 GiB
+    >   Allocation:     196.00 KiB
+    >   
+    >   attach [Saelia][vdd][/data2/libvirt/images/data2/Saelia-data2-01.qcow]
+    >   Disk attached successfully
+    >   Disk attached successfully
+    >   
+    >   ---- ----
+    >   vmname [Adwaeric]
+    >   create [Adwaeric][vdc][Adwaeric-data1-01.qcow]
+    >   Vol Adwaeric-data1-01.qcow created
+    >   
+    >   Name:           Adwaeric-data1-01.qcow
+    >   Type:           file
+    >   Capacity:       256.00 GiB
+    >   Allocation:     196.00 KiB
+    >   
+    >   attach [Adwaeric][vdc][/data1/libvirt/images/data1/Adwaeric-data1-01.qcow]
+    >   Disk attached successfully
+    >   Disk attached successfully
+    >   
+    >   create [Adwaeric][vdd][Adwaeric-data2-01.qcow]
+    >   Vol Adwaeric-data2-01.qcow created
+    >   
+    >   Name:           Adwaeric-data2-01.qcow
+    >   Type:           file
+    >   Capacity:       256.00 GiB
+    >   Allocation:     196.00 KiB
+    >   
+    >   attach [Adwaeric][vdd][/data2/libvirt/images/data2/Adwaeric-data2-01.qcow]
+    >   Disk attached successfully
+    >   Disk attached successfully
+
+# -----------------------------------------------------
+# List the volumes on each node.
+# http://xmlstar.sourceforge.net/doc/UG/ch04.html
+# https://sourceforge.net/p/xmlstar/discussion/226076/thread/d5eca10f/#56b4
+#[user@trop04]
+
+    for vmname in ${canames[@]}
+        do
+            echo "$(printf '+ %56s +' '')" | sed 's/ /-/g'
+            echo "$(printf '| %-56s |' 'Node ['${vmname:?}']')"
+            virsh \
+                --connect "${connection:?}" \
+                dumpxml \
+                    "${vmname}" \
+            | xmlstarlet \
+                select \
+                    --text \
+                    --template \
+                        --match '//disk' \
+                        --sort  'A:T:-' 'target/@dev' \
+                        --value-of "concat('| ', target/@dev, ' | ', str:align(source/@file, str:padding(50, ' '), 'left'), ' |')" \
+                        --nl
+        done \
+    ; echo "$(printf '+ %56s +' '')" | sed 's/ /-/g'
+
+    >   +----------------------------------------------------------+
+    >   | Node [Astendawen]                                        |
+    >   | vda | /var/lib/libvirt/images/live/Astendawen.qcow       |
+    >   | vdb | /var/lib/libvirt/images/init/Astendawen.iso        |
+    >   | vdc | /data1/libvirt/images/data1/Astendawen-data1-01.qc |
+    >   | vdd | /data2/libvirt/images/data2/Astendawen-data2-01.qc |
+    >   +----------------------------------------------------------+
+    >   | Node [Nendalith]                                         |
+    >   | vda | /var/lib/libvirt/images/live/Nendalith.qcow        |
+    >   | vdb | /var/lib/libvirt/images/init/Nendalith.iso         |
+    >   | vdc | /data1/libvirt/images/data1/Nendalith-data1-01.qco |
+    >   | vdd | /data2/libvirt/images/data2/Nendalith-data2-01.qco |
+    >   +----------------------------------------------------------+
+    >   | Node [Saelia]                                            |
+    >   | vda | /var/lib/libvirt/images/live/Saelia.qcow           |
+    >   | vdb | /var/lib/libvirt/images/init/Saelia.iso            |
+    >   | vdc | /data1/libvirt/images/data1/Saelia-data1-01.qcow   |
+    >   | vdd | /data2/libvirt/images/data2/Saelia-data2-01.qcow   |
+    >   +----------------------------------------------------------+
+    >   | Node [Adwaeric]                                          |
+    >   | vda | /var/lib/libvirt/images/live/Adwaeric.qcow         |
+    >   | vdb | /var/lib/libvirt/images/init/Adwaeric.iso          |
+    >   | vdc | /data1/libvirt/images/data1/Adwaeric-data1-01.qcow |
+    >   | vdd | /data2/libvirt/images/data2/Adwaeric-data2-01.qcow |
+    >   +----------------------------------------------------------+
+
+
+#---------------------------------------------------------------------
+# Create a script to mount a volume.
+#[user@trop04]
+
+cat > '/tmp/volume-mount.sh' << 'EOSH'
+
+echo "---- ----"
+echo "hostname [$(hostname)]"
+echo "devpath  [${devpath:?}]"
+echo "mntpath  [${mntpath:?}]"
+echo "---- ----"
+
+#---------------------------------------------------------------------
+# Check if the new device has a filesystem.
+
+    sudo btrfs filesystem show "${devpath:?}" > /dev/null 2>&1
+    fscheck=$?
+
+#---------------------------------------------------------------------
+# Create a filesystem on the new device.
+
+    if [ ${fscheck} == 1 ]
+    then
+        echo "Creating btrfs filesystem [${devpath:?}]"
+        sudo \
+            mkfs.btrfs \
+                ${devpath:?}
+    else
+        echo "Found existing filesystem [${devpath:?}]"
+    fi
+
+#---------------------------------------------------------------------
+# Create our mount point.
+
+    echo "Creating mount point [${mntpath:?}]"
+    sudo mkdir -p "${mntpath:?}"
+    sudo touch "${mntpath:?}/mount-failed"
+
+#---------------------------------------------------------------------
+# Add the volume to our FileSystemTABle.
+# https://www.howtoforge.com/reducing-disk-io-by-mounting-partitions-with-noatime
+
+    devuuid=$(
+        lsblk --noheadings --output UUID "${devpath:?}"
+        )
+
+    echo "Registering filesystem [${mntpath:?}]"
+    sudo tee -a /etc/fstab << EOTAB
+UUID=${devuuid:?} ${mntpath:?}    btrfs    defaults,noatime    0  0
+EOTAB
+
+#---------------------------------------------------------------------
+# Mount the new volume.
+
+    sudo \
+        mount "${mntpath:?}"
+
+#---------------------------------------------------------------------
+# Check the new volume.
+
+    echo "Checking data space [${mntpath:?}]"
+    df -h "${mntpath:?}"
+
+EOSH
+
+# -----------------------------------------------------
+# Login and mount each of the data volumes.
+# https://www.linuxquestions.org/questions/linux-newbie-8/awk-special-character-as-delimiter-4175613862/
+#[user@trop04]
+
+    for vmname in ${canames[@]}
+        do
+            echo "-------- -------- -------- --------"
+            echo "Node [${vmname:?}]"
+            tmpfile=$(mktemp)
+            virsh \
+                --connect "${connection:?}" \
+                dumpxml \
+                    "${vmname}" \
+            | xmlstarlet \
+                select \
+                    --text \
+                    --template \
+                        --match '//disk[starts-with(source/@file, "/data")]' \
+                        --sort  'A:T:-' 'target/@dev' \
+                        --output "${vmname}," \
+                        --value-of "concat(target/@dev, ',', source/@file)" \
+                        --nl \
+            > "${tmpfile}"
+
+            for line in $(cat "${tmpfile}")
+                do
+                    volpath=$(echo "${line}" | awk -F ',' '{print $3}')
+                    devname=$(echo "${line}" | awk -F ',' '{print $2}')
+                    devpath=/dev/${devname}
+                    mntpath=$(
+                        basename --suffix '.qcow' "${volpath}" \
+                        | sed '
+                            s/\([[:alnum:]]*\)-\([[:alnum:]]*\)-\([[:alnum:]]*\)/\/\2-\3/
+                            '
+                        )
+
+                    echo ""
+                    echo "[${devpath}][${mntpath}]"
+
+                    ssh ${sshopts[*]} \
+                        ${sshuser:?}@${vmname:?} \
+                            "
+                            export devpath=${devpath:?}
+                            export mntpath=${mntpath:?}
+                            date
+                            hostname
+                            echo "[\${devpath}][\${mntpath}]"
+
+                            $(cat /tmp/volume-mount.sh)
+                            "
+                done
+        done
+
+    >   -------- -------- -------- --------
+    >   Node [Astendawen]
+    >   
+    >   [/dev/vdc][/data1-01]
+    >   Wed 23 Jan 16:37:34 GMT 2019
+    >   Astendawen
+    >   [/dev/vdc][/data1-01]
+    >   ---- ----
+    >   hostname [Astendawen]
+    >   devpath  [/dev/vdc]
+    >   mntpath  [/data1-01]
+    >   ---- ----
+    >   Creating btrfs filesystem [/dev/vdc]
+    >   btrfs-progs v4.15.1
+    >   See http://btrfs.wiki.kernel.org for more information.
+    >   
+    >   Label:              (null)
+    >   UUID:               de47b959-ed99-4c67-a36c-43e469a95ac2
+    >   Node size:          16384
+    >   Sector size:        4096
+    >   Filesystem size:    256.00GiB
+    >   Block group profiles:
+    >     Data:             single            8.00MiB
+    >     Metadata:         DUP               1.00GiB
+    >     System:           DUP               8.00MiB
+    >   SSD detected:       no
+    >   Incompat features:  extref, skinny-metadata
+    >   Number of devices:  1
+    >   Devices:
+    >      ID        SIZE  PATH
+    >       1   256.00GiB  /dev/vdc
+    >   
+    >   Creating mount point [/data1-01]
+    >   Registering filesystem [/data1-01]
+    >   UUID=de47b959-ed99-4c67-a36c-43e469a95ac2 /data1-01    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data1-01]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdc        256G   17M  254G   1% /data1-01
+    >   
+    >   [/dev/vdd][/data2-01]
+    >   Wed 23 Jan 16:37:36 GMT 2019
+    >   Astendawen
+    >   [/dev/vdd][/data2-01]
+    >   ---- ----
+    >   hostname [Astendawen]
+    >   devpath  [/dev/vdd]
+    >   mntpath  [/data2-01]
+    >   ---- ----
+    >   Creating btrfs filesystem [/dev/vdd]
+    >   btrfs-progs v4.15.1
+    >   See http://btrfs.wiki.kernel.org for more information.
+    >   
+    >   Label:              (null)
+    >   UUID:               70fd5f33-e086-4bce-9aec-ccd5bf42fb1f
+    >   Node size:          16384
+    >   Sector size:        4096
+    >   Filesystem size:    256.00GiB
+    >   Block group profiles:
+    >     Data:             single            8.00MiB
+    >     Metadata:         DUP               1.00GiB
+    >     System:           DUP               8.00MiB
+    >   SSD detected:       no
+    >   Incompat features:  extref, skinny-metadata
+    >   Number of devices:  1
+    >   Devices:
+    >      ID        SIZE  PATH
+    >       1   256.00GiB  /dev/vdd
+    >   
+    >   Creating mount point [/data2-01]
+    >   Registering filesystem [/data2-01]
+    >   UUID=70fd5f33-e086-4bce-9aec-ccd5bf42fb1f /data2-01    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data2-01]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdd        256G   17M  254G   1% /data2-01
+    >   -------- -------- -------- --------
+    >   Node [Nendalith]
+    >   
+    >   [/dev/vdc][/data1-01]
+    >   Wed 23 Jan 16:37:37 GMT 2019
+    >   Nendalith
+    >   [/dev/vdc][/data1-01]
+    >   ---- ----
+    >   hostname [Nendalith]
+    >   devpath  [/dev/vdc]
+    >   mntpath  [/data1-01]
+    >   ---- ----
+    >   Creating btrfs filesystem [/dev/vdc]
+    >   btrfs-progs v4.15.1
+    >   See http://btrfs.wiki.kernel.org for more information.
+    >   
+    >   Label:              (null)
+    >   UUID:               0c6b566f-efde-444b-9e72-243e645ffff3
+    >   Node size:          16384
+    >   Sector size:        4096
+    >   Filesystem size:    256.00GiB
+    >   Block group profiles:
+    >     Data:             single            8.00MiB
+    >     Metadata:         DUP               1.00GiB
+    >     System:           DUP               8.00MiB
+    >   SSD detected:       no
+    >   Incompat features:  extref, skinny-metadata
+    >   Number of devices:  1
+    >   Devices:
+    >      ID        SIZE  PATH
+    >       1   256.00GiB  /dev/vdc
+    >   
+    >   Creating mount point [/data1-01]
+    >   Registering filesystem [/data1-01]
+    >   UUID=0c6b566f-efde-444b-9e72-243e645ffff3 /data1-01    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data1-01]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdc        256G   17M  254G   1% /data1-01
+    >   
+    >   [/dev/vdd][/data2-01]
+    >   Wed 23 Jan 16:37:39 GMT 2019
+    >   Nendalith
+    >   [/dev/vdd][/data2-01]
+    >   ---- ----
+    >   hostname [Nendalith]
+    >   devpath  [/dev/vdd]
+    >   mntpath  [/data2-01]
+    >   ---- ----
+    >   Creating btrfs filesystem [/dev/vdd]
+    >   btrfs-progs v4.15.1
+    >   See http://btrfs.wiki.kernel.org for more information.
+    >   
+    >   Label:              (null)
+    >   UUID:               c810771a-c058-447f-8e2a-137ab5c89ff7
+    >   Node size:          16384
+    >   Sector size:        4096
+    >   Filesystem size:    256.00GiB
+    >   Block group profiles:
+    >     Data:             single            8.00MiB
+    >     Metadata:         DUP               1.00GiB
+    >     System:           DUP               8.00MiB
+    >   SSD detected:       no
+    >   Incompat features:  extref, skinny-metadata
+    >   Number of devices:  1
+    >   Devices:
+    >      ID        SIZE  PATH
+    >       1   256.00GiB  /dev/vdd
+    >   
+    >   Creating mount point [/data2-01]
+    >   Registering filesystem [/data2-01]
+    >   UUID=c810771a-c058-447f-8e2a-137ab5c89ff7 /data2-01    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data2-01]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdd        256G   17M  254G   1% /data2-01
+    >   -------- -------- -------- --------
+    >   Node [Saelia]
+    >   
+    >   [/dev/vdc][/data1-01]
+    >   Wed 23 Jan 16:37:39 GMT 2019
+    >   Saelia
+    >   [/dev/vdc][/data1-01]
+    >   ---- ----
+    >   hostname [Saelia]
+    >   devpath  [/dev/vdc]
+    >   mntpath  [/data1-01]
+    >   ---- ----
+    >   Creating btrfs filesystem [/dev/vdc]
+    >   btrfs-progs v4.15.1
+    >   See http://btrfs.wiki.kernel.org for more information.
+    >   
+    >   Label:              (null)
+    >   UUID:               2bf89ba8-6d39-47fe-83bd-9f76aff2ba5c
+    >   Node size:          16384
+    >   Sector size:        4096
+    >   Filesystem size:    256.00GiB
+    >   Block group profiles:
+    >     Data:             single            8.00MiB
+    >     Metadata:         DUP               1.00GiB
+    >     System:           DUP               8.00MiB
+    >   SSD detected:       no
+    >   Incompat features:  extref, skinny-metadata
+    >   Number of devices:  1
+    >   Devices:
+    >      ID        SIZE  PATH
+    >       1   256.00GiB  /dev/vdc
+    >   
+    >   Creating mount point [/data1-01]
+    >   Registering filesystem [/data1-01]
+    >   UUID=2bf89ba8-6d39-47fe-83bd-9f76aff2ba5c /data1-01    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data1-01]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdc        256G   17M  254G   1% /data1-01
+    >   
+    >   [/dev/vdd][/data2-01]
+    >   Wed 23 Jan 16:37:41 GMT 2019
+    >   Saelia
+    >   [/dev/vdd][/data2-01]
+    >   ---- ----
+    >   hostname [Saelia]
+    >   devpath  [/dev/vdd]
+    >   mntpath  [/data2-01]
+    >   ---- ----
+    >   Creating btrfs filesystem [/dev/vdd]
+    >   btrfs-progs v4.15.1
+    >   See http://btrfs.wiki.kernel.org for more information.
+    >   
+    >   Label:              (null)
+    >   UUID:               0d59723b-9eb5-4923-8b3f-2e870519c354
+    >   Node size:          16384
+    >   Sector size:        4096
+    >   Filesystem size:    256.00GiB
+    >   Block group profiles:
+    >     Data:             single            8.00MiB
+    >     Metadata:         DUP               1.00GiB
+    >     System:           DUP               8.00MiB
+    >   SSD detected:       no
+    >   Incompat features:  extref, skinny-metadata
+    >   Number of devices:  1
+    >   Devices:
+    >      ID        SIZE  PATH
+    >       1   256.00GiB  /dev/vdd
+    >   
+    >   Creating mount point [/data2-01]
+    >   Registering filesystem [/data2-01]
+    >   UUID=0d59723b-9eb5-4923-8b3f-2e870519c354 /data2-01    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data2-01]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdd        256G   17M  254G   1% /data2-01
+    >   -------- -------- -------- --------
+    >   Node [Adwaeric]
+    >   
+    >   [/dev/vdc][/data1-01]
+    >   Wed 23 Jan 16:37:42 GMT 2019
+    >   Adwaeric
+    >   [/dev/vdc][/data1-01]
+    >   ---- ----
+    >   hostname [Adwaeric]
+    >   devpath  [/dev/vdc]
+    >   mntpath  [/data1-01]
+    >   ---- ----
+    >   Creating btrfs filesystem [/dev/vdc]
+    >   btrfs-progs v4.15.1
+    >   See http://btrfs.wiki.kernel.org for more information.
+    >   
+    >   Label:              (null)
+    >   UUID:               3032dc29-b956-4787-aff5-66f0e1fbbc3b
+    >   Node size:          16384
+    >   Sector size:        4096
+    >   Filesystem size:    256.00GiB
+    >   Block group profiles:
+    >     Data:             single            8.00MiB
+    >     Metadata:         DUP               1.00GiB
+    >     System:           DUP               8.00MiB
+    >   SSD detected:       no
+    >   Incompat features:  extref, skinny-metadata
+    >   Number of devices:  1
+    >   Devices:
+    >      ID        SIZE  PATH
+    >       1   256.00GiB  /dev/vdc
+    >   
+    >   Creating mount point [/data1-01]
+    >   Registering filesystem [/data1-01]
+    >   UUID=3032dc29-b956-4787-aff5-66f0e1fbbc3b /data1-01    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data1-01]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdc        256G   17M  254G   1% /data1-01
+    >   
+    >   [/dev/vdd][/data2-01]
+    >   Wed 23 Jan 16:37:44 GMT 2019
+    >   Adwaeric
+    >   [/dev/vdd][/data2-01]
+    >   ---- ----
+    >   hostname [Adwaeric]
+    >   devpath  [/dev/vdd]
+    >   mntpath  [/data2-01]
+    >   ---- ----
+    >   Creating btrfs filesystem [/dev/vdd]
+    >   btrfs-progs v4.15.1
+    >   See http://btrfs.wiki.kernel.org for more information.
+    >   
+    >   Label:              (null)
+    >   UUID:               636ebf72-2f70-44f4-a502-cc506f2e24d4
+    >   Node size:          16384
+    >   Sector size:        4096
+    >   Filesystem size:    256.00GiB
+    >   Block group profiles:
+    >     Data:             single            8.00MiB
+    >     Metadata:         DUP               1.00GiB
+    >     System:           DUP               8.00MiB
+    >   SSD detected:       no
+    >   Incompat features:  extref, skinny-metadata
+    >   Number of devices:  1
+    >   Devices:
+    >      ID        SIZE  PATH
+    >       1   256.00GiB  /dev/vdd
+    >   
+    >   Creating mount point [/data2-01]
+    >   Registering filesystem [/data2-01]
+    >   UUID=636ebf72-2f70-44f4-a502-cc506f2e24d4 /data2-01    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data2-01]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdd        256G   17M  254G   1% /data2-01
+
+
+# -----------------------------------------------------
+# Create a shell script to fix the network on a node.
+#[user@trop04]
+
+    cat > /tmp/netfix.sh << 'EOF'
+
+ens3mac=$(
+    ifconfig ens3 \
+    | sed -n '
+        s/^[[:space:]]*ether[[:space:]]\([^[:space:]]*\)[[:space:]].*$/\1/p
+        '
+    )
+
+ens7mac=$(
+    ifconfig ens7 \
+    | sed -n '
+        s/^[[:space:]]*ether[[:space:]]\([^[:space:]]*\)[[:space:]].*$/\1/p
+        '
+    )
+
+pushd /etc/sysconfig
+
+    cat >> network << EONET
+
+# Gateway for trop03
+# GATEWAY=192.168.210.190
+# Gateway for trop04
+GATEWAY=192.168.210.254
+
+GATEWAYDEV=ens7
+
+EONET
+
+pushd /etc/sysconfig/network-scripts
+
+    cat > ifcfg-ens3 << EONS3
+BOOTPROTO=dhcp
+DEVICE=ens3
+HWADDR=${ens3mac:?}
+ONBOOT=yes
+TYPE=Ethernet
+USERCTL=no
+DEFROUTE=no
+EONS3
+
+    cat > ifcfg-ens7 << EONS7
+BOOTPROTO=dhcp
+DEVICE=ens7
+HWADDR=${ens7mac:?}
+ONBOOT=yes
+TYPE=Ethernet
+USERCTL=no
+DEFROUTE=yes
+EONS7
+
+    # Static routes for trop04 nodes
+    cat > route-ens3 << EORT3
+192.168.210.0/27   via 192.168.210.222 dev ens3
+192.168.210.64/27  via 192.168.210.222 dev ens3
+192.168.210.128/27 via 192.168.210.222 dev ens3
+192.168.210.192/27 via 192.168.210.222 dev ens3
+EORT3
+
+popd
+EOF
+
+
+# -----------------------------------------------------
+# Deploy and run the netfix script on each node.
+#[user@trop04]
+
+    source "${HOME}/ssh-options"
+
+    for vmname in ${canames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            scp \
+                ${scpopts[*]} \
+                /tmp/netfix.sh \
+                ${sshuser:?}@${vmname:?}:/tmp/netfix.sh
+
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    date
+                    hostname
+                    chmod a+x '/tmp/netfix.sh'
+                    sudo -s   '/tmp/netfix.sh'
+                    "
+        done
+
+    >   ---- ----
+    >   Node [Astendawen]
+    >   netfix.sh       100% 1021     1.0KB/s   00:00
+    >   Wed 23 Jan 16:38:32 GMT 2019
+    >   Astendawen
+    >   /etc/sysconfig /home/Stevedore
+    >   /etc/sysconfig/network-scripts /etc/sysconfig /home/Stevedore
+    >   /etc/sysconfig /home/Stevedore
+    >   ---- ----
+    >   Node [Nendalith]
+    >   netfix.sh       100% 1021     1.0KB/s   00:00
+    >   Wed 23 Jan 16:38:34 GMT 2019
+    >   Nendalith
+    >   /etc/sysconfig /home/Stevedore
+    >   /etc/sysconfig/network-scripts /etc/sysconfig /home/Stevedore
+    >   /etc/sysconfig /home/Stevedore
+    >   ---- ----
+    >   Node [Saelia]
+    >   netfix.sh       100% 1021     1.0KB/s   00:00
+    >   Wed 23 Jan 16:38:34 GMT 2019
+    >   Saelia
+    >   /etc/sysconfig /home/Stevedore
+    >   /etc/sysconfig/network-scripts /etc/sysconfig /home/Stevedore
+    >   /etc/sysconfig /home/Stevedore
+    >   ---- ----
+    >   Node [Adwaeric]
+    >   netfix.sh   100% 1021     1.0KB/s   00:00
+    >   Wed 23 Jan 16:38:36 GMT 2019
+    >   Adwaeric
+    >   /etc/sysconfig /home/Stevedore
+    >   /etc/sysconfig/network-scripts /etc/sysconfig /home/Stevedore
+    >   /etc/sysconfig /home/Stevedore
+
+
+# -----------------------------------------------------
+# Shutdown and restart each of our nodes.
+#[user@trop04]
+
+    source "${HOME}/libvirt.settings"
+
+    for vmname in ${canames[@]}
+        do
+            virsh \
+                --connect ${connection:?} \
+                    shutdown \
+                    ${vmname:?}
+        done
+
+    sleep 30
+
+    for vmname in ${canames[@]}
+        do
+            virsh \
+                --connect ${connection:?} \
+                    start \
+                    ${vmname:?}
+        done
+
+    >   Domain Astendawen is being shutdown
+    >   Domain Nendalith is being shutdown
+    >   Domain Saelia is being shutdown
+    >   Domain Adwaeric is being shutdown
+    >   
+    >   Domain Astendawen started
+    >   Domain Nendalith started
+    >   Domain Saelia started
+    >   Domain Adwaeric started
+
+
+# -----------------------------------------------------
+# Check the number of cores on each node.
+#[user@trop04]
+
+    for vmname in ${canames[@]}
+        do
+            virsh \
+                --quiet \
+                --connect ${connection:?} \
+                    dumpxml \
+                        "${vmname}" \
+            | xmlstarlet \
+                select \
+                    --text \
+                    --template \
+                        --output "$(printf '%-12s' ${vmname})" \
+                        --value-of "domain/vcpu" \
+                        --nl
+        done
+
+    >   Astendawen  4
+    >   Nendalith   4
+    >   Saelia      4
+    >   Adwaeric    4
+
+
+# -----------------------------------------------------
+# Check the ip routes on each node.
+#[user@trop04]
+
+    for vmname in ${canames[@]}
+        do
+            echo ""
+            echo "Node [${vmname:?}]"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                hostname
+                date
+                sudo ip route list
+                "
+        done
+
+    >   Node [Astendawen]
+    >   Astendawen
+    >   Wed 23 Jan 15:51:14 GMT 2019
+    >   default via 192.168.210.254 dev ens7 proto dhcp metric 100
+    >   172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown
+    >   192.168.210.0/27 via 192.168.210.222 dev ens3 proto static metric 101
+    >   192.168.210.64/27 via 192.168.210.222 dev ens3 proto static metric 101
+    >   192.168.210.128/27 via 192.168.210.222 dev ens3 proto static metric 101
+    >   192.168.210.192/27 dev ens3 proto kernel scope link src 192.168.210.215 metric 101
+    >   192.168.210.192/27 via 192.168.210.222 dev ens3 proto static metric 101
+    >   192.168.210.224/27 dev ens7 proto kernel scope link src 192.168.210.247 metric 100
+    >   
+    >   Node [Nendalith]
+    >   Nendalith
+    >   Wed 23 Jan 15:51:15 GMT 2019
+    >   default via 192.168.210.254 dev ens7 proto dhcp metric 100
+    >   172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown
+    >   192.168.210.0/27 via 192.168.210.222 dev ens3 proto static metric 101
+    >   192.168.210.64/27 via 192.168.210.222 dev ens3 proto static metric 101
+    >   192.168.210.128/27 via 192.168.210.222 dev ens3 proto static metric 101
+    >   192.168.210.192/27 dev ens3 proto kernel scope link src 192.168.210.216 metric 101
+    >   192.168.210.192/27 via 192.168.210.222 dev ens3 proto static metric 101
+    >   192.168.210.224/27 dev ens7 proto kernel scope link src 192.168.210.248 metric 100
+    >   
+    >   Node [Saelia]
+    >   Saelia
+    >   Wed 23 Jan 15:51:15 GMT 2019
+    >   default via 192.168.210.254 dev ens7 proto dhcp metric 100
+    >   172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown
+    >   192.168.210.0/27 via 192.168.210.222 dev ens3 proto static metric 101
+    >   192.168.210.64/27 via 192.168.210.222 dev ens3 proto static metric 101
+    >   192.168.210.128/27 via 192.168.210.222 dev ens3 proto static metric 101
+    >   192.168.210.192/27 dev ens3 proto kernel scope link src 192.168.210.217 metric 101
+    >   192.168.210.192/27 via 192.168.210.222 dev ens3 proto static metric 101
+    >   192.168.210.224/27 dev ens7 proto kernel scope link src 192.168.210.249 metric 100
+    >   
+    >   Node [Adwaeric]
+    >   Adwaeric
+    >   Wed 23 Jan 15:51:16 GMT 2019
+    >   default via 192.168.210.254 dev ens7 proto dhcp metric 100
+    >   172.17.0.0/16 dev docker0 proto kernel scope link src 172.17.0.1 linkdown
+    >   192.168.210.0/27 via 192.168.210.222 dev ens3 proto static metric 101
+    >   192.168.210.64/27 via 192.168.210.222 dev ens3 proto static metric 101
+    >   192.168.210.128/27 via 192.168.210.222 dev ens3 proto static metric 101
+    >   192.168.210.192/27 dev ens3 proto kernel scope link src 192.168.210.218 metric 101
+    >   192.168.210.192/27 via 192.168.210.222 dev ens3 proto static metric 101
+    >   192.168.210.224/27 dev ens7 proto kernel scope link src 192.168.210.250 metric 100
+
+
+# -----------------------------------------------------
+# Check the disc space on each node.
+#[user@trop04]
+
+    for vmname in ${canames[@]}
+        do
+            echo ""
+            echo "Node [${vmname:?}]"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    echo \"---- ---- ---- ----\"
+                    echo \"[\$(hostname)][\$(date)]\"
+                    echo \"---- ----\"
+
+                    df -h /
+
+                    for path in \$(echo /data*)
+                    do
+                        echo \"---- ----\"
+                        df -h \"\${path}\"
+                    done
+                    "
+        done
+
+    >   Node [Astendawen]
+    >   ---- ---- ---- ----
+    >   [Astendawen][Wed 23 Jan 18:21:18 GMT 2019]
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vda3        15G  1.6G   12G  12% /
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdc        256G   17M  254G   1% /data1-01
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdd        256G   17M  254G   1% /data2-01
+    >   
+    >   Node [Nendalith]
+    >   ---- ---- ---- ----
+    >   [Nendalith][Wed 23 Jan 18:21:18 GMT 2019]
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vda3        15G  1.6G   12G  12% /
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdc        256G   17M  254G   1% /data1-01
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdd        256G   17M  254G   1% /data2-01
+    >   
+    >   Node [Saelia]
+    >   ---- ---- ---- ----
+    >   [Saelia][Wed 23 Jan 18:21:19 GMT 2019]
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vda3        15G  1.6G   12G  12% /
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdc        256G   17M  254G   1% /data1-01
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdd        256G   17M  254G   1% /data2-01
+    >   
+    >   Node [Adwaeric]
+    >   ---- ---- ---- ----
+    >   [Adwaeric][Wed 23 Jan 18:21:19 GMT 2019]
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vda3        15G  1.6G   12G  13% /
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdc        256G   17M  254G   1% /data1-01
+    >   ---- ----
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdd        256G   17M  254G   1% /data2-01
+
+
+

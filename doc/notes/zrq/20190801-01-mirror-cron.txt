@@ -1,0 +1,389 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+# -----------------------------------------------------
+# Load our node names.
+#[user@trop03]
+
+    source "${HOME}/nodenames"
+
+    >   Zookeepers    [Fosauri Marpus Byflame]
+    >   Kafka nodes   [Stedigo Angece Edwalafia Onoza]
+    >   Mirror makers [Grerat Jeralenia]
+
+
+# -----------------------------------------------------
+# Transfer a copy of our node names and ssh options.
+#[user@Grerat]
+
+    source "${HOME}/ssh-options"
+    controller=${mmnames[0]:?}
+
+    scp \
+        ${scpopts[@]} \
+        "${HOME}/nodenames" \
+        "${sshuser:?}@${controller:?}:nodenames"
+
+    >   nodenames       100%  465   610.2KB/s   00:00
+
+    scp \
+        ${scpopts[@]} \
+        "${HOME}/ssh-options" \
+        "${sshuser:?}@${controller:?}:ssh-options"
+
+    >   ssh-options     100%  186   317.8KB/s   00:00
+
+# -----------------------------------------------------
+# Login to our controller.
+#[user@trop03]
+
+    ssh \
+        ${sshopts[*]} \
+        "${sshuser:?}@${controller:?}"
+
+
+# -----------------------------------------------------
+# Create our ssh key.
+#[user@Grerat]
+
+    ssh-keygen \
+        -N "" \
+        -t rsa \
+        -C 'MirrorMaker cron script ' \
+        -f ${HOME}/.ssh/mirror-maker-cron.rsa
+
+    >   Generating public/private rsa key pair.
+    >   Your identification has been saved in /home/Stevedore/.ssh/mirror-maker-cron.rsa.
+    >   Your public key has been saved in /home/Stevedore/.ssh/mirror-maker-cron.rsa.pub.
+    >   The key fingerprint is:
+    >   SHA256:xAGX8kDyndjbUVxbKjBaSehrDz5FRTMkVHCe9dlptH4 MirrorMaker cron script
+    >   ....
+
+
+# -----------------------------------------------------
+# Deploy our ssh key.
+#[user@Grerat]
+
+    source "${HOME}/nodenames"
+
+    publickey=$(cat "${HOME}/.ssh/mirror-maker-cron.rsa.pub")
+
+    for vmname in "${mmnames[@]}"
+        do
+            echo "---- ----"
+            echo "Node [${vmname}]"
+            ssh ${sshopts[*]} "${vmname:?}" "
+                date
+                hostname
+                echo "${publickey:?}" >> "\${HOME}/.ssh/authorized_keys"
+                "
+        done
+
+    >   ---- ----
+    >   Node [Grerat]
+    >   Thu  1 Aug 10:55:18 BST 2019
+    >   Grerat
+    >   ---- ----
+    >   Node [Jeralenia]
+    >   Thu  1 Aug 10:55:19 BST 2019
+    >   Jeralenia
+
+
+# -----------------------------------------------------
+# Test login using our key.
+# Using IdentitiesOnly to bypass the active agent.
+# https://stackoverflow.com/a/38135840
+#[user@Grerat]
+
+    for vmname in "${mmnames[@]}"
+        do
+            echo "---- ----"
+            echo "Node [${vmname}]"
+            ssh -v \
+                -o 'IdentitiesOnly=yes' \
+                -i "${HOME}/.ssh/mirror-maker-cron.rsa" \
+                "${vmname:?}" \
+                "
+                date
+                hostname
+                "
+        done
+
+    >   ---- ----
+    >   Node [Grerat]
+    >   OpenSSH_7.9p1, OpenSSL 1.1.1c FIPS  28 May 2019
+    >   ....
+    >   debug1: Connecting to grerat [172.16.5.17] port 22.
+    >   debug1: Connection established.
+    >   debug1: identity file /home/Stevedore/.ssh/mirror-maker-cron.rsa type 0
+    >   debug1: identity file /home/Stevedore/.ssh/mirror-maker-cron.rsa-cert type -1
+    >   ....
+    >   debug1: Next authentication method: publickey
+    >   debug1: Offering public key: /home/Stevedore/.ssh/mirror-maker-cron.rsa RSA SHA256:xAGX8kDyndjbUVxbKjBaSehrDz5FRTMkVHCe9dlptH4 explicit
+    >   debug1: Server accepts key: /home/Stevedore/.ssh/mirror-maker-cron.rsa RSA SHA256:xAGX8kDyndjbUVxbKjBaSehrDz5FRTMkVHCe9dlptH4 explicit
+    >   debug1: Authentication succeeded (publickey).
+    >   Authenticated to grerat ([172.16.5.17]:22).
+    >   ....
+    >   debug1: Sending command:
+    >                   date
+    >                   hostname
+    >
+    >   Thu  1 Aug 10:56:06 BST 2019
+    >   Grerat
+    >   ....
+    >   ---- ----
+    >   Node [Jeralenia]
+    >   OpenSSH_7.9p1, OpenSSL 1.1.1c FIPS  28 May 2019
+    >   ....
+    >   debug1: Connecting to jeralenia [172.16.5.18] port 22.
+    >   debug1: Connection established.
+    >   debug1: identity file /home/Stevedore/.ssh/mirror-maker-cron.rsa type 0
+    >   debug1: identity file /home/Stevedore/.ssh/mirror-maker-cron.rsa-cert type -1
+    >   ....
+    >   debug1: Next authentication method: publickey
+    >   debug1: Offering public key: /home/Stevedore/.ssh/mirror-maker-cron.rsa RSA SHA256:xAGX8kDyndjbUVxbKjBaSehrDz5FRTMkVHCe9dlptH4 explicit
+    >   debug1: Server accepts key: /home/Stevedore/.ssh/mirror-maker-cron.rsa RSA SHA256:xAGX8kDyndjbUVxbKjBaSehrDz5FRTMkVHCe9dlptH4 explicit
+    >   debug1: Authentication succeeded (publickey).
+    >   Authenticated to jeralenia ([172.16.5.18]:22).
+    >   ....
+    >   debug1: Sending command:
+    >                   date
+    >                   hostname
+    >
+    >   Thu  1 Aug 10:56:06 BST 2019
+    >   Jeralenia
+    >   ....
+
+
+# -----------------------------------------------------
+# Create a test script.
+#[user@Grerat]
+
+    mkdir "${HOME}/bin"
+
+    cat > "${HOME}/bin/cron-test.sh" << EOF
+
+date >> /tmp/cron-test
+
+EOF
+
+    chmod a+x "${HOME}/bin/cron-test.sh"
+
+
+# -----------------------------------------------------
+# Install the crontab tools.
+#[user@Grerat]
+
+    sudo dnf install -y cronie
+
+    >   ....
+    >   ....
+
+# -----------------------------------------------------
+# Start the crond service.
+#[user@Grerat]
+
+    sudo systemctl status crond
+
+    >   ● crond.service - Command Scheduler
+    >      Loaded: loaded (/usr/lib/systemd/system/crond.service; enabled; vendor preset: enabled)
+    >      Active: inactive (dead)
+
+    sudo systemctl enable crond
+
+
+    sudo systemctl start crond
+
+
+    sudo systemctl status crond
+
+    >   ● crond.service - Command Scheduler
+    >      Loaded: loaded (/usr/lib/systemd/system/crond.service; enabled; vendor preset: enabled)
+    >      Active: active (running) since Thu 2019-08-01 11:43:45 BST; 1min 56s ago
+    >    Main PID: 2981 (crond)
+    >       Tasks: 1 (limit: 4702)
+    >      Memory: 1.6M
+    >      CGroup: /system.slice/crond.service
+    >              └─2981 /usr/sbin/crond -n
+    >
+    >   Aug 01 11:43:45 Grerat systemd[1]: Started Command Scheduler.
+    >   Aug 01 11:43:45 Grerat crond[2981]: (CRON) STARTUP (1.5.4)
+    >   Aug 01 11:43:45 Grerat crond[2981]: (CRON) INFO (Syslog will be used instead of sendmail.)
+    >   Aug 01 11:43:45 Grerat crond[2981]: (CRON) INFO (RANDOM_DELAY will be scaled with factor 14% if used.)
+    >   Aug 01 11:43:45 Grerat crond[2981]: (CRON) INFO (running with inotify support)
+
+
+# -----------------------------------------------------
+# Install our cron-test script.
+# https://stackoverflow.com/a/4880909
+# https://crontab.guru/
+#[user@Grerat]
+
+    crontab -l
+
+    >   no crontab for Stevedore
+
+
+    crontab - << EOF
+* * * * * ${HOME}/bin/cron-test.sh
+EOF
+
+
+    crontab -l
+
+    >   * * * * * /home/Stevedore/bin/cron-test.sh
+
+
+# -----------------------------------------------------
+# Watch our test script output.
+#[user@Grerat]
+
+    sleep 60
+    tail -f /tmp/cron-test
+
+    >   Thu Aug  1 12:16:01 BST 2019
+    >   Thu Aug  1 12:17:01 BST 2019
+    >   Thu Aug  1 12:18:01 BST 2019
+    >   ....
+
+
+# -----------------------------------------------------
+# Extend our test script.
+#[user@Grerat]
+
+    cat > "${HOME}/bin/cron-test.sh" << 'EOF'
+
+source "/home/Stevedore/nodenames"
+source "/home/Stevedore/ssh-options"
+
+tmplog() {
+    echo "${1}" >> /tmp/cron-test
+    }
+
+topicid=ztf_$(date -d today +%Y%m%d)_programid1
+
+tmplog "---- ---- ---- ----"
+tmplog "test  [$(date)]"
+tmplog "topic [${topicid:?}]"
+
+for vmname in ${mmnames[@]}
+    do
+        tmplog "---- ----"
+        tmplog "Node [${vmname}]"
+        ssh \
+            -o 'IdentitiesOnly=yes' \
+            -i '/home/Stevedore/.ssh/mirror-maker-cron.rsa' \
+            Stevedore@${vmname:?} \
+            "
+            echo \"---- ----\" >> /tmp/cron-test
+            echo \"host  [\$(hostname)]\" >> /tmp/cron-test
+            echo \"date  [\$(date)]\" >> /tmp/cron-test
+            echo \"topic [${topicid:?}]\" >> /tmp/cron-test
+            #docker-compose \
+            #    --file mirror.yml \
+            #    down
+            sed -i \"
+                s/^ztftopicid=.*/ztftopicid\=${topicid:?}/
+                \" mirror.env
+            #docker-compose \
+            #    --file mirror.yml \
+            #    up -d
+
+            "
+    done
+EOF
+
+    chmod a+x "${HOME}/bin/cron-test.sh"
+
+    tail -f /tmp/cron-test
+
+
+# -----------------------------------------------------
+# Create our update-topic script.
+#[user@Grerat]
+
+    cat > "${HOME}/bin/update-topic.sh" << 'EOF'
+
+source "/home/Stevedore/nodenames"
+source "/home/Stevedore/ssh-options"
+
+tmplog() {
+    echo "${1}" >> /tmp/cron-test
+    }
+
+topicid=ztf_$(date -d today +%Y%m%d)_programid1
+
+tmplog "---- ---- ---- ----"
+tmplog "test  [$(date)]"
+tmplog "topic [${topicid:?}]"
+
+for vmname in ${mmnames[@]}
+    do
+        tmplog "---- ----"
+        tmplog "Node [${vmname}]"
+        ssh \
+            -o 'IdentitiesOnly=yes' \
+            -i '/home/Stevedore/.ssh/mirror-maker-cron.rsa' \
+            Stevedore@${vmname:?} \
+            "
+            echo \"---- ----\" >> /tmp/cron-test
+            echo \"host  [\$(hostname)]\" >> /tmp/cron-test
+            echo \"date  [\$(date)]\" >> /tmp/cron-test
+            echo \"topic [${topicid:?}]\" >> /tmp/cron-test
+            docker-compose \
+                --file mirror.yml \
+                down
+            sed -i \"
+                s/^ztftopicid=.*/ztftopicid\=${topicid:?}/
+                \" mirror.env
+            docker-compose \
+                --file mirror.yml \
+                up -d
+
+            "
+    done
+EOF
+
+    chmod a+x "${HOME}/bin/update-topic.sh"
+
+
+# -----------------------------------------------------
+# Install our update-topic script.
+# https://stackoverflow.com/a/4880909
+# https://crontab.guru/
+#[user@Grerat]
+
+    crontab - << EOF
+2 1 * * * ${HOME}/bin/update-topic.sh
+EOF
+
+    crontab -l
+
+
+    >   2 1 * * * /home/Stevedore/bin/update-topic.sh
+
+
+
+
+
+
+

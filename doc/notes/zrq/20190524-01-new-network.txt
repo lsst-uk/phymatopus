@@ -1,0 +1,144 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+
+# -----------------------------------------------------
+# Edit the hosts file.
+#[user@trop03]
+
+    sudo vi /etc/hosts
+
+# LSST UK worker nodes
+172.16.1.1      work01
+172.16.1.2      work01
+172.16.1.3      work01
+172.16.1.4      work01
+172.16.1.5      trop03
+172.16.1.6      trop04
+172.16.1.7      data01
+172.16.1.8      data02
+
+# -----------------------------------------------------
+# Login to the head worker.
+#[user@trop03]
+
+    ssh root@work01
+
+# -----------------------------------------------------
+# Check the existing user accounts.
+#[root@lsstukwork1]
+
+    hostname
+
+    >   lsstukwork1
+
+    ls /home/
+
+    >   msh
+
+    id msh
+
+    >   uid=1000(msh) gid=1000(msh) groups=1000(msh),4(adm),24(cdrom),27(sudo),30(dip),46(plugdev),108(lxd),113(lpadmin),114(sambashare)
+
+
+# -----------------------------------------------------
+# Add our user account.
+#[root@lsstukwork1]
+
+    username=dmr
+    adduser \
+        --gecos '' \
+        --uid 1001 \
+        "${username:?}"
+
+    usermod \
+        --append \
+        --groups 'sudo' \
+        "${username:?}"
+
+    sudo \
+        --shell \
+        --set-home \
+        --user "${username:?}" << 'EOF'
+
+    cd "${HOME:?}"
+
+    if [ ! -e '.ssh' ]
+    then
+        mkdir '.ssh'
+    fi
+
+    chown "$(id -u)"  '.ssh'
+    chgrp "$(id -g)"  '.ssh'
+    chmod g=,o=,u=rwx '.ssh'
+
+    pushd '.ssh'
+
+        wget 'http://data.metagrid.co.uk/sshkeys/dmr.roe.ac.uk.rsa.pub'
+        cat  'dmr.roe.ac.uk.rsa.pub' >> 'authorized_keys'
+
+        chown "$(id -u)"   'authorized_keys'
+        chgrp "$(id -g)"   'authorized_keys'
+        chmod g=r,o=r,u=rw 'authorized_keys'
+
+    popd
+
+EOF
+
+# -----------------------------------------------------
+# Test login from trop03.
+#[user@trop03]
+
+    ssh dmr@work01 \
+        '
+        hostname
+        date
+        '
+
+    >   lsstukwork1
+    >   Fri 24 May 14:58:57 BST 2019
+
+# -----------------------------------------------------
+# Test login from desktop.
+#[user@desktop]
+
+    ssh dmr@work01 \
+        '
+        hostname
+        date
+        '
+
+    >   lsstukwork1
+    >   Fri 24 May 16:14:23 BST 2019
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,570 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2018, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+#
+# Trop 3 and 4 moved to a new network.
+# Machines shutdown and moved to a new rack.
+# Everything shutdown.
+#
+
+#
+# TODO
+# Change routed network to bridged network.
+# Update the DHCP range to use VLAN addresses.
+# Update the names in the hosts files.
+#
+# Start the VMs and test we can connect from one to another.
+# Start the containers in sequence.
+#   Zookeeper
+#   Kafka
+#   MirrorMakers
+#
+
+# -----------------------------------------------------
+# Check the network configuration.
+#[user@trop03]
+
+    sudo ifconfig
+
+    >   br0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+    >           inet 129.215.175.98  netmask 255.255.255.0  broadcast 129.215.175.255
+    >           inet6 fe80::ec4:7aff:fe35:1176  prefixlen 64  scopeid 0x20<link>
+    >           ether 0c:c4:7a:35:11:76  txqueuelen 1000  (Ethernet)
+    >           RX packets 2212071  bytes 560186551 (534.2 MiB)
+    >           RX errors 0  dropped 903  overruns 0  frame 0
+    >           TX packets 12967  bytes 1371410 (1.3 MiB)
+    >           TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+    >   
+    >   br1: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+    >           inet 172.16.1.5  netmask 255.255.0.0  broadcast 172.16.1.255
+    >           inet6 fe80::ec4:7aff:fe35:1177  prefixlen 64  scopeid 0x20<link>
+    >           ether 0c:c4:7a:35:11:77  txqueuelen 1000  (Ethernet)
+    >           RX packets 1961590  bytes 515097700 (491.2 MiB)
+    >           RX errors 0  dropped 1  overruns 0  frame 0
+    >           TX packets 207  bytes 26027 (25.4 KiB)
+    >           TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+    >   
+    >   eth0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+    >           ether 0c:c4:7a:35:11:76  txqueuelen 1000  (Ethernet)
+    >           RX packets 2366917  bytes 603642920 (575.6 MiB)
+    >           RX errors 0  dropped 17957  overruns 0  frame 0
+    >           TX packets 12998  bytes 1373372 (1.3 MiB)
+    >           TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+    >   
+    >   eth1: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+    >           ether 0c:c4:7a:35:11:77  txqueuelen 1000  (Ethernet)
+    >           RX packets 1978605  bytes 546658756 (521.3 MiB)
+    >           RX errors 0  dropped 0  overruns 0  frame 0
+    >           TX packets 233  bytes 29358 (28.6 KiB)
+    >           TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+    >   
+    >           ....
+    >           ....
+    >           ....
+
+
+# -----------------------------------------------------
+# Check the network configuration.
+#[user@trop04]
+
+    sudo ifconfig
+
+    >   br0       Link encap:Ethernet  HWaddr 0c:c4:7a:35:11:28
+    >             inet addr:129.215.175.99  Bcast:129.215.175.255  Mask:255.255.255.0
+    >             inet6 addr: fe80::ec4:7aff:fe35:1128/64 Scope:Link
+    >             UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+    >             RX packets:2433051 errors:0 dropped:993 overruns:0 frame:0
+    >             TX packets:3851 errors:0 dropped:0 overruns:0 carrier:0
+    >             collisions:0 txqueuelen:0
+    >             RX bytes:548472070 (523.0 MiB)  TX bytes:662345 (646.8 KiB)
+    >   
+    >   br1       Link encap:Ethernet  HWaddr 0c:c4:7a:35:11:29
+    >             inet addr:172.16.1.6  Bcast:172.16.1.255  Mask:255.255.0.0
+    >             inet6 addr: fe80::ec4:7aff:fe35:1129/64 Scope:Link
+    >             UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+    >             RX packets:2200108 errors:0 dropped:0 overruns:0 frame:0
+    >             TX packets:55 errors:0 dropped:0 overruns:0 carrier:0
+    >             collisions:0 txqueuelen:0
+    >             RX bytes:577778173 (551.0 MiB)  TX bytes:9504 (9.2 KiB)
+    >   
+    >   eth0      Link encap:Ethernet  HWaddr 0c:c4:7a:35:11:28
+    >             UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+    >             RX packets:2560322 errors:0 dropped:19797 overruns:0 frame:0
+    >             TX packets:3879 errors:0 dropped:0 overruns:0 carrier:0
+    >             collisions:0 txqueuelen:1000
+    >             RX bytes:593404398 (565.9 MiB)  TX bytes:664145 (648.5 KiB)
+    >   
+    >   eth1      Link encap:Ethernet  HWaddr 0c:c4:7a:35:11:29
+    >             UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+    >             RX packets:2219244 errors:0 dropped:2 overruns:0 frame:0
+    >             TX packets:139 errors:0 dropped:0 overruns:0 carrier:0
+    >             collisions:0 txqueuelen:1000
+    >             RX bytes:612911552 (584.5 MiB)  TX bytes:24852 (24.2 KiB)
+    >   
+    >           ....
+    >           ....
+    >           ....
+
+
+# -----------------------------------------------------
+# New VLAN network
+#
+
+    trop03
+
+        device      br1
+        address     172.16.1.5
+        netmask     255.255.0.0
+        broadcast   172.16.1.255
+
+
+# -----------------------------------------------------
+# List the virtual networks on trop04.
+#[user@trop04]
+
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        --connect ${connection:?} \
+        net-list \
+            --all
+
+    >    Name                 State      Autostart     Persistent
+    >   ----------------------------------------------------------
+    >    bridged              active     yes           yes
+    >    natted               active     yes           yes
+    >    routed               active     yes           yes
+
+
+# -----------------------------------------------------
+# List the details for the bridged network on trop04.
+#[user@trop04]
+
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        --connect ${connection:?} \
+        net-dumpxml \
+            bridged
+
+    >   <network ipv6='yes'>
+    >     <name>bridged</name>
+    >     <uuid>679fc58b-5799-4231-aa9a-0d0faa9feb70</uuid>
+    >     <forward mode='bridge'/>
+    >     <bridge name='br0'/>
+    >   </network>
+
+
+# -----------------------------------------------------
+# List the details for the routed network on trop04.
+#[user@trop04]
+
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        --connect ${connection:?} \
+        net-dumpxml \
+            routed
+
+    >   <network ipv6='yes'>
+    >     <name>routed</name>
+    >     <uuid>eec07d4a-51dc-42de-8a85-cdbe3e0f8442</uuid>
+    >     <forward mode='route'/>
+    >     <bridge name='virbr0' stp='off' delay='0'/>
+    >     <mac address='52:54:00:00:d2:de'/>
+    >     <ip family='ipv4' address='192.168.210.222' netmask='255.255.255.224'>
+    >       <dhcp>
+    >         <range start='192.168.210.193' end='192.168.210.220'/>
+    >         <host mac='52:54:0:0:D2:C1' name='Wumar' ip='192.168.210.193'/>
+    >         <host mac='52:54:0:0:D2:C2' name='Larilaweth' ip='192.168.210.194'/>
+    >         <host mac='52:54:0:0:D2:C3' name='Ror' ip='192.168.210.195'/>
+    >         <host mac='52:54:0:0:D2:C4' name='Asterade' ip='192.168.210.196'/>
+    >         <host mac='52:54:0:0:D2:C5' name='Ibedrinnon' ip='192.168.210.197'/>
+    >         <host mac='52:54:0:0:D2:C6' name='Arigorith' ip='192.168.210.198'/>
+    >         <host mac='52:54:0:0:D2:C7' name='Glydan' ip='192.168.210.199'/>
+    >         <host mac='52:54:0:0:D2:C8' name='Clarith' ip='192.168.210.200'/>
+    >         <host mac='52:54:0:0:D2:C9' name='Cadoired' ip='192.168.210.201'/>
+    >         <host mac='52:54:0:0:D2:CA' name='Adweasien' ip='192.168.210.202'/>
+    >         <host mac='52:54:0:0:D2:CB' name='Etemar' ip='192.168.210.203'/>
+    >         <host mac='52:54:0:0:D2:CC' name='Sevaymwen' ip='192.168.210.204'/>
+    >         <host mac='52:54:0:0:D2:CD' name='Rydan' ip='192.168.210.205'/>
+    >         <host mac='52:54:0:0:D2:CE' name='Kaaclya' ip='192.168.210.206'/>
+    >         <host mac='52:54:0:0:D2:CF' name='Crohab' ip='192.168.210.207'/>
+    >         <host mac='52:54:0:0:D2:D0' name='Iberani' ip='192.168.210.208'/>
+    >         <host mac='52:54:0:0:D2:D1' name='Nerrawan' ip='192.168.210.209'/>
+    >         <host mac='52:54:0:0:D2:D2' name='Gwauswen' ip='192.168.210.210'/>
+    >         <host mac='52:54:0:0:D2:D3' name='Cirel' ip='192.168.210.211'/>
+    >         <host mac='52:54:0:0:D2:D4' name='Gendaswen' ip='192.168.210.212'/>
+    >         <host mac='52:54:0:0:D2:D5' name='Ocede' ip='192.168.210.213'/>
+    >         <host mac='52:54:0:0:D2:D6' name='Crilird' ip='192.168.210.214'/>
+    >         <host mac='52:54:0:0:D2:D7' name='Astendawen' ip='192.168.210.215'/>
+    >         <host mac='52:54:0:0:D2:D8' name='Nendalith' ip='192.168.210.216'/>
+    >         <host mac='52:54:0:0:D2:D9' name='Saelia' ip='192.168.210.217'/>
+    >         <host mac='52:54:0:0:D2:DA' name='Adwaeric' ip='192.168.210.218'/>
+    >         <host mac='52:54:0:0:D2:DB' name='Moemond' ip='192.168.210.219'/>
+    >         <host mac='52:54:0:0:D2:DC' name='Iberidia' ip='192.168.210.220'/>
+    >       </dhcp>
+    >     </ip>
+    >   </network>
+
+
+# -----------------------------------------------------
+# List the details for the natted network on trop04.
+#[user@trop04]
+
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        --connect ${connection:?} \
+        net-dumpxml \
+            natted
+
+    >   <network ipv6='yes'>
+    >     <name>natted</name>
+    >     <uuid>706b4c71-e705-4130-a118-23e607bfc304</uuid>
+    >     <forward mode='nat'>
+    >       <nat>
+    >         <port start='1024' end='65535'/>
+    >       </nat>
+    >     </forward>
+    >     <bridge name='virbr1' stp='off' delay='0'/>
+    >     <mac address='52:54:00:00:d2:fe'/>
+    >     <ip family='ipv4' address='192.168.210.254' netmask='255.255.255.224'>
+    >       <dhcp>
+    >         <range start='192.168.210.225' end='192.168.210.252'/>
+    >         <host mac='52:54:0:0:D2:E1' name='Wumar-nat' ip='192.168.210.225'/>
+    >         <host mac='52:54:0:0:D2:E2' name='Larilaweth-nat' ip='192.168.210.226'/>
+    >         <host mac='52:54:0:0:D2:E3' name='Ror-nat' ip='192.168.210.227'/>
+    >         <host mac='52:54:0:0:D2:E4' name='Asterade-nat' ip='192.168.210.228'/>
+    >         <host mac='52:54:0:0:D2:E5' name='Ibedrinnon-nat' ip='192.168.210.229'/>
+    >         <host mac='52:54:0:0:D2:E6' name='Arigorith-nat' ip='192.168.210.230'/>
+    >         <host mac='52:54:0:0:D2:E7' name='Glydan-nat' ip='192.168.210.231'/>
+    >         <host mac='52:54:0:0:D2:E8' name='Clarith-nat' ip='192.168.210.232'/>
+    >         <host mac='52:54:0:0:D2:E9' name='Cadoired-nat' ip='192.168.210.233'/>
+    >         <host mac='52:54:0:0:D2:EA' name='Adweasien-nat' ip='192.168.210.234'/>
+    >         <host mac='52:54:0:0:D2:EB' name='Etemar-nat' ip='192.168.210.235'/>
+    >         <host mac='52:54:0:0:D2:EC' name='Sevaymwen-nat' ip='192.168.210.236'/>
+    >         <host mac='52:54:0:0:D2:ED' name='Rydan-nat' ip='192.168.210.237'/>
+    >         <host mac='52:54:0:0:D2:EE' name='Kaaclya-nat' ip='192.168.210.238'/>
+    >         <host mac='52:54:0:0:D2:EF' name='Crohab-nat' ip='192.168.210.239'/>
+    >         <host mac='52:54:0:0:D2:F0' name='Iberani-nat' ip='192.168.210.240'/>
+    >         <host mac='52:54:0:0:D2:F1' name='Nerrawan-nat' ip='192.168.210.241'/>
+    >         <host mac='52:54:0:0:D2:F2' name='Gwauswen-nat' ip='192.168.210.242'/>
+    >         <host mac='52:54:0:0:D2:F3' name='Cirel-nat' ip='192.168.210.243'/>
+    >         <host mac='52:54:0:0:D2:F4' name='Gendaswen-nat' ip='192.168.210.244'/>
+    >         <host mac='52:54:0:0:D2:F5' name='Ocede-nat' ip='192.168.210.245'/>
+    >         <host mac='52:54:0:0:D2:F6' name='Crilird-nat' ip='192.168.210.246'/>
+    >         <host mac='52:54:0:0:D2:F7' name='Astendawen-nat' ip='192.168.210.247'/>
+    >         <host mac='52:54:0:0:D2:F8' name='Nendalith-nat' ip='192.168.210.248'/>
+    >         <host mac='52:54:0:0:D2:F9' name='Saelia-nat' ip='192.168.210.249'/>
+    >         <host mac='52:54:0:0:D2:FA' name='Adwaeric-nat' ip='192.168.210.250'/>
+    >         <host mac='52:54:0:0:D2:FB' name='Moemond-nat' ip='192.168.210.251'/>
+    >         <host mac='52:54:0:0:D2:FC' name='Iberidia-nat' ip='192.168.210.252'/>
+    >       </dhcp>
+    >     </ip>
+    >   </network>
+
+
+# -----------------------------------------------------
+# List the virtual machines on trop04.
+#[user@trop04]
+
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        --connect ${connection:?} \
+        list \
+            --all
+
+    >    Id    Name                           State
+    >   ----------------------------------------------------
+    >    -     Adwaeric                       shut off
+    >    -     Astendawen                     shut off
+    >    -     Crilird                        shut off
+    >    -     Iberidia                       shut off
+    >    -     Moemond                        shut off
+    >    -     Nendalith                      shut off
+    >    -     Saelia                         shut off
+    >    -     Wumar                          shut off
+
+
+# -----------------------------------------------------
+# List the network interfaces on Wumar (VM on trop04).
+#[user@trop04]
+
+    vmname=Wumar
+
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        --connect ${connection:?} \
+        dumpxml \
+            "${vmname:?}" \
+    | xmlstarlet \
+        select \
+            --root \
+            --indent \
+            --template \
+                --copy-of '//interface'
+
+    >   <xsl-select>
+    >     <interface type="network">
+    >         <mac address="52:54:00:00:d2:c1"/>
+    >         <source network="routed"/>
+    >         <model type="virtio"/>
+    >         <address type="pci" domain="0x0000" bus="0x00" slot="0x03" function="0x0"/>
+    >       </interface>
+    >     <interface type="network">
+    >         <mac address="52:54:00:00:d2:e1"/>
+    >         <source network="natted"/>
+    >         <model type="virtio"/>
+    >         <address type="pci" domain="0x0000" bus="0x00" slot="0x07" function="0x0"/>
+    >       </interface>
+    >   </xsl-select>
+
+
+# -----------------------------------------------------
+# Remove the virtual networks on trop04.
+#[user@trop04]
+
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        --connect ${connection:?} \
+        net-destroy \
+            bridged
+
+    virsh \
+        --connect ${connection:?} \
+        net-destroy \
+            natted
+
+    virsh \
+        --connect ${connection:?} \
+        net-destroy \
+            routed
+
+    >   Network bridged destroyed
+    >   Network natted destroyed
+    >   Network routed destroyed
+
+    virsh \
+        --connect ${connection:?} \
+        net-undefine \
+            bridged
+
+    virsh \
+        --connect ${connection:?} \
+        net-undefine \
+            natted
+
+    virsh \
+        --connect ${connection:?} \
+        net-undefine \
+            routed
+
+
+    >   Network bridged has been undefined
+    >   Network natted has been undefined
+    >   Network routed has been undefined
+
+# -----------------------------------------------------
+# Update our tools.
+#[user@trop04]
+
+    # device      br1
+    # physical    172.16.1.5
+    # netmask     255.255.0.0
+    # broadcast   172.16.1.255
+
+    source "${HOME}/libvirt.settings"
+
+    srcpath=/var/local/projects/ischnura/github/src/
+    vi "${srcpath:?}/bin/tools"
+
+        ....
+        ....
+
+    node=4
+
+    source "${srcpath:?}/bin/tools"
+
+    cat $(
+        printnetwork \
+            172 \
+             16 \
+            ${node} \
+            'bridge' \
+            'bridged' \
+            $(((${node} * 2) - 2))
+        )
+
+    >   <network ipv6='yes'>
+    >       <name>bridged</name>
+    >       <uuid/>
+    >       <bridge name='br0'/>
+    >       <forward mode='bridge'>
+    >       <mac address='52:54:0:0:D2:DE'/>
+    >       <ip family='ipv4' address='172.16.210.222' netmask='255.255.0.0'>
+    >           <dhcp>
+    >               <range start='172.16.210.193' end='172.16.210.220'/>
+    >               <host mac='52:54:0:0:D2:C1' ip='172.16.210.193' name='Wumar'/>
+    >               <host mac='52:54:0:0:D2:C2' ip='172.16.210.194' name='Larilaweth'/>
+    >               <host mac='52:54:0:0:D2:C3' ip='172.16.210.195' name='Ror'/>
+    >               <host mac='52:54:0:0:D2:C4' ip='172.16.210.196' name='Asterade'/>
+    >               <host mac='52:54:0:0:D2:C5' ip='172.16.210.197' name='Ibedrinnon'/>
+    >               <host mac='52:54:0:0:D2:C6' ip='172.16.210.198' name='Arigorith'/>
+    >               <host mac='52:54:0:0:D2:C7' ip='172.16.210.199' name='Glydan'/>
+    >               <host mac='52:54:0:0:D2:C8' ip='172.16.210.200' name='Clarith'/>
+    >               <host mac='52:54:0:0:D2:C9' ip='172.16.210.201' name='Cadoired'/>
+    >               <host mac='52:54:0:0:D2:CA' ip='172.16.210.202' name='Adweasien'/>
+    >               <host mac='52:54:0:0:D2:CB' ip='172.16.210.203' name='Etemar'/>
+    >               <host mac='52:54:0:0:D2:CC' ip='172.16.210.204' name='Sevaymwen'/>
+    >               <host mac='52:54:0:0:D2:CD' ip='172.16.210.205' name='Rydan'/>
+    >               <host mac='52:54:0:0:D2:CE' ip='172.16.210.206' name='Kaaclya'/>
+    >               <host mac='52:54:0:0:D2:CF' ip='172.16.210.207' name='Crohab'/>
+    >               <host mac='52:54:0:0:D2:D0' ip='172.16.210.208' name='Iberani'/>
+    >               <host mac='52:54:0:0:D2:D1' ip='172.16.210.209' name='Nerrawan'/>
+    >               <host mac='52:54:0:0:D2:D2' ip='172.16.210.210' name='Gwauswen'/>
+    >               <host mac='52:54:0:0:D2:D3' ip='172.16.210.211' name='Cirel'/>
+    >               <host mac='52:54:0:0:D2:D4' ip='172.16.210.212' name='Gendaswen'/>
+    >               <host mac='52:54:0:0:D2:D5' ip='172.16.210.213' name='Ocede'/>
+    >               <host mac='52:54:0:0:D2:D6' ip='172.16.210.214' name='Crilird'/>
+    >               <host mac='52:54:0:0:D2:D7' ip='172.16.210.215' name='Astendawen'/>
+    >               <host mac='52:54:0:0:D2:D8' ip='172.16.210.216' name='Nendalith'/>
+    >               <host mac='52:54:0:0:D2:D9' ip='172.16.210.217' name='Saelia'/>
+    >               <host mac='52:54:0:0:D2:DA' ip='172.16.210.218' name='Adwaeric'/>
+    >               <host mac='52:54:0:0:D2:DB' ip='172.16.210.219' name='Moemond'/>
+    >               <host mac='52:54:0:0:D2:DC' ip='172.16.210.220' name='Iberidia'/>
+    >           </dhcp>
+    >       </ip>
+    >   </network>
+
+
+
+# -----------------------------------------------------
+# Define the new bridged network.
+#[user@trop04]
+
+    source "${HOME}/libvirt.settings"
+
+    srcpath=/var/local/projects/ischnura/github/src/
+    source "${srcpath:?}/bin/tools"
+
+    xmlfile=$(printbridged)
+
+    virsh \
+        --connect ${connection:?} \
+        net-define \
+            "${xmlfile:?}"
+
+
+
+# -----------------------------------------------------
+# Define the new natted network.
+#[user@trop04]
+
+    source "${HOME}/libvirt.settings"
+
+    srcpath=/var/local/projects/ischnura/github/src/
+    source "${srcpath:?}/bin/tools"
+
+    xmlfile=$(printnatted)
+
+    virsh \
+        --connect ${connection:?} \
+        net-define \
+            "${xmlfile:?}"
+
+
+
+# -----------------------------------------------------
+# Configure the new networks to start on boot.
+#[user@trop04]
+
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        --connect ${connection:?} \
+        net-autostart \
+            'routed'
+
+
+    virsh \
+        --connect ${connection:?} \
+        net-autostart \
+            'natted'
+
+
+
+# -----------------------------------------------------
+# Start the new networks.
+#[user@trop04]
+
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        --connect ${connection:?} \
+        net-start \
+            'routed'
+
+
+    virsh \
+        --connect ${connection:?} \
+        net-start \
+            'natted'
+
+
+
+# -----------------------------------------------------
+# List the networks.
+#[user@trop04]
+
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        --connect ${connection:?} \
+        net-list \
+            --all
+
+
+
+# -----------------------------------------------------
+# Add the additional names to /etc/hosts.
+#[user@trop04]
+
+    #
+    # TODO work out a better way to do tis.
+    #
+
+    sudo cp /etc/hosts /etc/hosts.bak
+
+    sudo vi /etc/hosts
+
+    printhosts
+
+
+    sudo -s
+        cat  /tmp/tmp.FbIFt6ZlRq >> /etc/hosts
+        exit
+
+

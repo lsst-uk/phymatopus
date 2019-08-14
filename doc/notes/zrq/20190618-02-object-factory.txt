@@ -1,0 +1,212 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+    object factory
+
+    ztf.alert contains candidate plus objectid
+
+        Check cache for objectId.
+        If not in cache, scan Zone for match.
+            If no Zone, load Zone from Cassandra.
+                If no Zone in Cassandra.
+                    Create new zone.
+                    Send new Zone to new-zone stream.
+                        Background write to Cassandra.
+
+            If no match, add objectId to zone.
+                Send new objectId to new-object stream.
+                    Background write to Cassandra.
+            Add found objectId to cache.
+        Return found objectId.
+
+
+    Object table fields
+
+        select all the candidates for the object id
+        SELECT candid, objectId, ra, decl, jd, fid, magpsf FROM candidates WHERE objectId="%s" ORDER BY jd'
+
+        min  // update if <
+        max  // update if >
+        mean // (total / ncand)
+        std  // hard to do incrementally
+        median // need the full set to calculate this
+
+        ncand      = ncand
+        stale      = 0
+        ramean     = mean of ra
+        rastd      = 3600*np.std(ra)
+        decmean    = decmean
+        decstd     = 3600*np.std(dec)
+        maggmin    = maggmin
+        maggmax    = maggmax
+        maggmedian = maggmedian
+        maggmean   = maggmean
+        magrmin    = magrmin
+        magrmax    = magrmax
+        magrmedian = magrmedian
+        magrmean   = magrmean
+        latestgmag = latestgmag
+        latestrmag = latestrmag
+        jdmin      = np.min(jd)
+        jdmax      = np.max(jd)
+        glatmean   = glatmean
+        glonmean   = glonmean
+        htm16      = htm16
+
+    Need the list of previous candidates to calculate the new values.
+
+    In order to query the candidates table based on objectid, we would need an index on the candidates table.
+    Or, we could have a separate table of objectid->candid and then load the candidates using IN
+    Or, we could include the minimal information in the mapping table objectid->(candid ....)
+
+    ... but don't we have the list of previous candidates in the alert ?
+    the previous candidates is only 30 days, and contains 'non-candidates'
+
+    non-candidates don't have a valid candid ?
+    ra/dec are null
+
+---- ---- ---- ----
+
+    // Delete our object table ;
+    DROP TABLE ztftest.simple_objects ;
+
+    // Create our object table.
+    CREATE TABLE ztftest.simple_objects (
+        objectid    text PRIMARY KEY,
+        ncand       int,
+        stale       int,
+        ramean      double,
+        rastd       double,
+        decmean     double,
+        decstd      double,
+        maggmin     double,
+        maggmax     double,
+        maggmedian  double,
+        maggmean    double,
+        magrmin     double,
+        magrmax     double,
+        magrmedian  double,
+        magrmean    double,
+        latestgmag  double,
+        latestrmag  double,
+        latestimag  double,
+        jdmin       double,
+        jdmax       double,
+        glatmean    double,
+        glonmean    double
+        );
+
+    SELECT objectid, ncand, ramean, decmean FROM ztftest.simple_objects ;
+
+---- ---- ---- ----
+
+    candidate
+        pkey : candid
+        select one  (candid)
+        select list (objectid)
+
+    non-candidate
+        candid = null
+        ra,dec = null
+        pkey   : (objectid, jd)
+        fields : diffmaglim
+
+        select one  (objectid, jd)
+        select list (objectid)
+
+    candidate
+
+        object = objects.select(objectid)
+        if (null == object)
+            {
+            object = new Object()
+            }
+
+        Map<Long,   Candidate>    matches    = candidates.select(objectid), key(candid))
+        Map<String, NonCandidate> nonmatches = noncandidates.select(objectid), key(objectid, jd))
+
+        for(prev : candidate.prev())
+            {
+            // Candidate
+            if (null != prev.candid)
+                {
+                // Check for an existing match
+                match = matches(
+                    key(
+                        prev.candid
+                        )
+                    )
+                // If not in list - add&insert
+                if (null == match)
+                    {
+                    matches.add(
+                        key(
+                            prev.candid
+                            ),
+                        prev
+                        )
+                    candidates.insert(
+                        key(
+                            prev.candid
+                            )
+                        )
+                    }
+                }
+            // Non-candidate
+            else {
+                // Check for an existing match
+                nonmatch = nonmatches(
+                    key(
+                        prev.objectid,
+                        prev.jd
+                        )
+                    )
+                // If not in list - add&insert
+                if (null == nonmatch)
+                    {
+                    nonmatches.add(
+                        key(
+                            prev.objectid,
+                            prev.jd
+                            ),
+                        prev
+                        )
+                    noncandidates.insert(
+                        key(
+                            prev.objectid,
+                            prev.jd
+                            ),
+                        )
+                    }
+                }
+            }
+
+        for (candidate : matches.values())
+            {
+            stats ....
+            }
+
+        object.stats()
+
+        objects.update(object, key(objectid))
+
+

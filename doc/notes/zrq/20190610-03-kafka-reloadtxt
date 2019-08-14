@@ -1,0 +1,3263 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+# -----------------------------------------------------
+# Load our virtual machine node names.
+#[user@trop03]
+
+    source "${HOME}/nodenames.txt"
+    echo "
+Zookeepers    [${zknames[@]}]
+Kafka nodes   [${kfnames[@]}]
+Mirror makers [${mmnames[@]}]
+"
+
+    >   Zookeepers    [Fosauri Marpus Byflame]
+    >   Kafka nodes   [Stedigo Angece Edwalafia Onoza]
+    >   Mirror makers [Grerat Jeralenia]
+
+# -----------------------------------------------------
+# Create our Kafka nodes.
+# TODO scriptable createvm
+#[user@trop03]
+
+    createvm
+
+    >   INFO : Node name [Stedigo]
+    >   INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Disc name [Stedigo.qcow]
+    >   INFO : Disc size [8GiB]
+    >   
+    >   INFO : MAC  [06:00:AC:10:05:0A]
+    >   INFO : IPv4 [172.16.5.10]
+
+
+    createvm
+
+    >   INFO : Node name [Angece]
+    >   INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Disc name [Angece.qcow]
+    >   INFO : Disc size [8GiB]
+    >   
+    >   INFO : MAC  [06:00:AC:10:05:0B]
+    >   INFO : IPv4 [172.16.5.11]
+
+
+    createvm
+
+    >   INFO : Node name [Edwalafia]
+    >   INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Disc name [Edwalafia.qcow]
+    >   INFO : Disc size [8GiB]
+    >   
+    >   INFO : MAC  [06:00:AC:10:05:0C]
+    >   INFO : IPv4 [172.16.5.12]
+
+
+    createvm
+
+    >   INFO : Node name [Onoza]
+    >   INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Disc name [Onoza.qcow]
+    >   INFO : Disc size [8GiB]
+    >   
+    >   INFO : MAC  [06:00:AC:10:05:0D]
+    >   INFO : IPv4 [172.16.5.13]
+
+
+# -----------------------------------------------------
+# Define a host lookup function.
+# https://askubuntu.com/questions/627906/why-is-my-etc-hosts-file-not-queried-when-nslookup-tries-to-resolve-an-address#comment1536517_627909
+# TODO Add this to a toolit script.
+#[user@trop03]
+
+    getipv4()
+        {
+        getent hosts "${1:?}" | cut -d ' ' -f 1
+        }
+
+
+#---------------------------------------------------------------------
+# Update the ssh keys for each node.
+# TODO Add this to a toolit script.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+    for vmname in ${kfnames[@]}
+        do
+            ssh-keygen \
+                -q -R \
+                    "${vmname:?}"
+
+            ssh-keyscan \
+                "${vmname:?}" \
+                >> "${HOME}/.ssh/known_hosts"
+
+            ssh-keyscan \
+                -t ecdsa $(getipv4 "${vmname:?}") \
+                >> "${HOME}/.ssh/known_hosts"
+
+        done
+
+
+# -----------------------------------------------------
+# Check we can login to each node.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+    source "${HOME}/ssh-options"
+
+    for vmname in ${kfnames[@]}
+        do
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    date
+                    hostname
+                    "
+        done
+
+
+
+# -----------------------------------------------------
+# Attach the existing data volumes to each Kafka node.
+#[user@trop03]
+
+    nodevols=nodevols.txt
+
+    while read line
+    do
+        vmname=$(echo "${line}" | awk '{print $1}')
+        target=$(echo "${line}" | awk '{print $2}')
+        source=$(echo "${line}" | awk '{print $3}')
+        echo "[${vmname}][${target}][${source}]"
+
+        virsh \
+            --connect "${connection:?}" \
+            attach-disk \
+                ${vmname:?}   \
+                ${source:?}  \
+                ${target:?}   \
+                --subdriver qcow2 \
+                --driver qemu  \
+                --config
+
+    done < "${nodevols}"
+
+    >   [Stedigo][vdc][/data1/libvirt/images/data1/Stedigo-data1-01.qcow]
+    >   Disk attached successfully
+    >   
+    >   [Stedigo][vdd][/data2/libvirt/images/data2/Stedigo-data2-01.qcow]
+    >   Disk attached successfully
+    >   
+    >   [Stedigo][vde][/data1/libvirt/images/data1/Stedigo-data1-02.qcow]
+    >   Disk attached successfully
+    >   
+    >   [Stedigo][vdf][/data2/libvirt/images/data2/Stedigo-data2-02.qcow]
+    >   Disk attached successfully
+    >   
+    >   [Stedigo][vdg][/data1/libvirt/images/data1/Stedigo-data1-03.qcow]
+    >   Disk attached successfully
+    >   
+    >   [Stedigo][vdh][/data2/libvirt/images/data2/Stedigo-data2-03.qcow]
+    >   Disk attached successfully
+    >   
+    >   [Angece][vdc][/data1/libvirt/images/data1/Angece-data1-01.qcow]
+    >   Disk attached successfully
+    >   
+    >   [Angece][vdd][/data2/libvirt/images/data2/Angece-data2-01.qcow]
+    >   Disk attached successfully
+    >   
+    >   [Angece][vde][/data1/libvirt/images/data1/Angece-data1-02.qcow]
+    >   Disk attached successfully
+    >   
+    >   [Angece][vdf][/data2/libvirt/images/data2/Angece-data2-02.qcow]
+    >   Disk attached successfully
+    >   
+    >   [Angece][vdg][/data1/libvirt/images/data1/Angece-data1-03.qcow]
+    >   Disk attached successfully
+    >   
+    >   [Angece][vdh][/data2/libvirt/images/data2/Angece-data2-03.qcow]
+    >   Disk attached successfully
+    >   
+    >   [Edwalafia][vdc][/data1/libvirt/images/data1/Edwalafia-data1-01.qcow]
+    >   Disk attached successfully
+    >   
+    >   [Edwalafia][vdd][/data2/libvirt/images/data2/Edwalafia-data2-01.qcow]
+    >   Disk attached successfully
+    >   
+    >   [Edwalafia][vde][/data1/libvirt/images/data1/Edwalafia-data1-02.qcow]
+    >   Disk attached successfully
+    >   
+    >   [Edwalafia][vdf][/data2/libvirt/images/data2/Edwalafia-data2-02.qcow]
+    >   Disk attached successfully
+    >   
+    >   [Edwalafia][vdg][/data1/libvirt/images/data1/Edwalafia-data1-03.qcow]
+    >   Disk attached successfully
+    >   
+    >   [Edwalafia][vdh][/data2/libvirt/images/data2/Edwalafia-data2-03.qcow]
+    >   Disk attached successfully
+    >   
+    >   [Onoza][vdc][/data1/libvirt/images/data1/Onoza-data1-01.qcow]
+    >   Disk attached successfully
+    >   
+    >   [Onoza][vdd][/data2/libvirt/images/data2/Onoza-data2-01.qcow]
+    >   Disk attached successfully
+    >   
+    >   [Onoza][vde][/data1/libvirt/images/data1/Onoza-data1-02.qcow]
+    >   Disk attached successfully
+    >   
+    >   [Onoza][vdf][/data2/libvirt/images/data2/Onoza-data2-02.qcow]
+    >   Disk attached successfully
+    >   
+    >   [Onoza][vdg][/data1/libvirt/images/data1/Onoza-data1-03.qcow]
+    >   Disk attached successfully
+    >   
+    >   [Onoza][vdh][/data2/libvirt/images/data2/Onoza-data2-03.qcow]
+    >   Disk attached successfully
+
+
+# -----------------------------------------------------
+# Create extra data volumes for each Kafka node.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+    volnum=04
+    volsize=256G
+
+    unset volpools
+    declare -a volpools=(
+        data1
+        data2
+        )
+
+    unset targets
+    declare -A targets=(
+        [data1]=vdi
+        [data2]=vdj
+        )
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            echo "vmname [${vmname}]"
+            for volpool in ${volpools[@]}
+                do
+                    volname=${vmname}-${volpool}-${volnum}.qcow
+                    target=${targets[${volpool}]}
+                    echo "create [${vmname}][${target}][${volname}]"
+
+                    virsh \
+                        --connect "${connection:?}" \
+                        vol-create-as \
+                            "${volpool}" \
+                            "${volname}" \
+                            "${volsize}" \
+                            --allocation 0 \
+                            --format qcow2
+
+                    virsh \
+                        --connect "${connection:?}" \
+                        vol-info \
+                            --pool "${volpool:?}" \
+                            "${volname:?}"
+
+                    volpath=$(
+                        virsh \
+                            --connect "${connection:?}" \
+                            vol-path \
+                                --pool "${volpool:?}" \
+                                "${volname:?}"
+                        )
+
+                    echo "attach [${vmname}][${target}][${volpath}]"
+
+                    virsh \
+                        --connect "${connection:?}" \
+                        attach-disk \
+                            "${vmname:?}"  \
+                            "${volpath:?}" \
+                            "${target:?}"  \
+                            --subdriver qcow2 \
+                            --driver qemu  \
+                            --config
+                done
+        done
+
+    >   ---- ----
+    >   vmname [Stedigo]
+    >   create [Stedigo][vdi][Stedigo-data1-04.qcow]
+    >   Vol Stedigo-data1-04.qcow created
+    >   
+    >   Name:           Stedigo-data1-04.qcow
+    >   Type:           file
+    >   Capacity:       256.00 GiB
+    >   Allocation:     196.00 KiB
+    >   
+    >   attach [Stedigo][vdi][/data1/libvirt/images/data1/Stedigo-data1-04.qcow]
+    >   Disk attached successfully
+    >   
+    >   create [Stedigo][vdj][Stedigo-data2-04.qcow]
+    >   Vol Stedigo-data2-04.qcow created
+    >   
+    >   Name:           Stedigo-data2-04.qcow
+    >   Type:           file
+    >   Capacity:       256.00 GiB
+    >   Allocation:     196.00 KiB
+    >   
+    >   attach [Stedigo][vdj][/data2/libvirt/images/data2/Stedigo-data2-04.qcow]
+    >   Disk attached successfully
+    >   
+    >   ---- ----
+    >   vmname [Angece]
+    >   create [Angece][vdi][Angece-data1-04.qcow]
+    >   Vol Angece-data1-04.qcow created
+    >   
+    >   Name:           Angece-data1-04.qcow
+    >   Type:           file
+    >   Capacity:       256.00 GiB
+    >   Allocation:     196.00 KiB
+    >   
+    >   attach [Angece][vdi][/data1/libvirt/images/data1/Angece-data1-04.qcow]
+    >   Disk attached successfully
+    >   
+    >   create [Angece][vdj][Angece-data2-04.qcow]
+    >   Vol Angece-data2-04.qcow created
+    >   
+    >   Name:           Angece-data2-04.qcow
+    >   Type:           file
+    >   Capacity:       256.00 GiB
+    >   Allocation:     196.00 KiB
+    >   
+    >   attach [Angece][vdj][/data2/libvirt/images/data2/Angece-data2-04.qcow]
+    >   Disk attached successfully
+    >   
+    >   ---- ----
+    >   vmname [Edwalafia]
+    >   create [Edwalafia][vdi][Edwalafia-data1-04.qcow]
+    >   Vol Edwalafia-data1-04.qcow created
+    >   
+    >   Name:           Edwalafia-data1-04.qcow
+    >   Type:           file
+    >   Capacity:       256.00 GiB
+    >   Allocation:     196.00 KiB
+    >   
+    >   attach [Edwalafia][vdi][/data1/libvirt/images/data1/Edwalafia-data1-04.qcow]
+    >   Disk attached successfully
+    >   
+    >   create [Edwalafia][vdj][Edwalafia-data2-04.qcow]
+    >   Vol Edwalafia-data2-04.qcow created
+    >   
+    >   Name:           Edwalafia-data2-04.qcow
+    >   Type:           file
+    >   Capacity:       256.00 GiB
+    >   Allocation:     196.00 KiB
+    >   
+    >   attach [Edwalafia][vdj][/data2/libvirt/images/data2/Edwalafia-data2-04.qcow]
+    >   Disk attached successfully
+    >   
+    >   ---- ----
+    >   vmname [Onoza]
+    >   create [Onoza][vdi][Onoza-data1-04.qcow]
+    >   Vol Onoza-data1-04.qcow created
+    >   
+    >   Name:           Onoza-data1-04.qcow
+    >   Type:           file
+    >   Capacity:       256.00 GiB
+    >   Allocation:     196.00 KiB
+    >   
+    >   attach [Onoza][vdi][/data1/libvirt/images/data1/Onoza-data1-04.qcow]
+    >   Disk attached successfully
+    >   
+    >   create [Onoza][vdj][Onoza-data2-04.qcow]
+    >   Vol Onoza-data2-04.qcow created
+    >   
+    >   Name:           Onoza-data2-04.qcow
+    >   Type:           file
+    >   Capacity:       256.00 GiB
+    >   Allocation:     196.00 KiB
+    >   
+    >   attach [Onoza][vdj][/data2/libvirt/images/data2/Onoza-data2-04.qcow]
+    >   Disk attached successfully
+
+
+# -----------------------------------------------------
+# List the volumes on each Kafka node.
+# http://xmlstar.sourceforge.net/doc/UG/ch04.html
+# https://sourceforge.net/p/xmlstar/discussion/226076/thread/d5eca10f/#56b4
+#[user@trop03]
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "$(printf '+ %56s +' '')" | sed 's/ /-/g'
+            echo "$(printf '| %-56s |' 'Node ['${vmname:?}']')"
+            virsh \
+                --connect "${connection:?}" \
+                dumpxml \
+                    "${vmname}" \
+            | xmlstarlet \
+                select \
+                    --text \
+                    --template \
+                        --match '//disk' \
+                        --sort  'A:T:-' 'target/@dev' \
+                        --value-of "concat('| ', target/@dev, ' | ', str:align(source/@file, str:padding(50, ' '), 'left'), ' |')" \
+                        --nl
+        done \
+    ; echo "$(printf '+ %56s +' '')" | sed 's/ /-/g'
+
+    >   +----------------------------------------------------------+
+    >   | Node [Stedigo]                                           |
+    >   | vda | /var/lib/libvirt/images/live/Stedigo.qcow          |
+    >   | vdb | /var/lib/libvirt/images/init/Stedigo.iso           |
+    >   | vdc | /data1/libvirt/images/data1/Stedigo-data1-01.qcow  |
+    >   | vdd | /data2/libvirt/images/data2/Stedigo-data2-01.qcow  |
+    >   | vde | /data1/libvirt/images/data1/Stedigo-data1-02.qcow  |
+    >   | vdf | /data2/libvirt/images/data2/Stedigo-data2-02.qcow  |
+    >   | vdg | /data1/libvirt/images/data1/Stedigo-data1-03.qcow  |
+    >   | vdh | /data2/libvirt/images/data2/Stedigo-data2-03.qcow  |
+    >   | vdi | /data1/libvirt/images/data1/Stedigo-data1-04.qcow  |
+    >   | vdj | /data2/libvirt/images/data2/Stedigo-data2-04.qcow  |
+    >   +----------------------------------------------------------+
+    >   | Node [Angece]                                            |
+    >   | vda | /var/lib/libvirt/images/live/Angece.qcow           |
+    >   | vdb | /var/lib/libvirt/images/init/Angece.iso            |
+    >   | vdc | /data1/libvirt/images/data1/Angece-data1-01.qcow   |
+    >   | vdd | /data2/libvirt/images/data2/Angece-data2-01.qcow   |
+    >   | vde | /data1/libvirt/images/data1/Angece-data1-02.qcow   |
+    >   | vdf | /data2/libvirt/images/data2/Angece-data2-02.qcow   |
+    >   | vdg | /data1/libvirt/images/data1/Angece-data1-03.qcow   |
+    >   | vdh | /data2/libvirt/images/data2/Angece-data2-03.qcow   |
+    >   | vdi | /data1/libvirt/images/data1/Angece-data1-04.qcow   |
+    >   | vdj | /data2/libvirt/images/data2/Angece-data2-04.qcow   |
+    >   +----------------------------------------------------------+
+    >   | Node [Edwalafia]                                         |
+    >   | vda | /var/lib/libvirt/images/live/Edwalafia.qcow        |
+    >   | vdb | /var/lib/libvirt/images/init/Edwalafia.iso         |
+    >   | vdc | /data1/libvirt/images/data1/Edwalafia-data1-01.qco |
+    >   | vdd | /data2/libvirt/images/data2/Edwalafia-data2-01.qco |
+    >   | vde | /data1/libvirt/images/data1/Edwalafia-data1-02.qco |
+    >   | vdf | /data2/libvirt/images/data2/Edwalafia-data2-02.qco |
+    >   | vdg | /data1/libvirt/images/data1/Edwalafia-data1-03.qco |
+    >   | vdh | /data2/libvirt/images/data2/Edwalafia-data2-03.qco |
+    >   | vdi | /data1/libvirt/images/data1/Edwalafia-data1-04.qco |
+    >   | vdj | /data2/libvirt/images/data2/Edwalafia-data2-04.qco |
+    >   +----------------------------------------------------------+
+    >   | Node [Onoza]                                             |
+    >   | vda | /var/lib/libvirt/images/live/Onoza.qcow            |
+    >   | vdb | /var/lib/libvirt/images/init/Onoza.iso             |
+    >   | vdc | /data1/libvirt/images/data1/Onoza-data1-01.qcow    |
+    >   | vdd | /data2/libvirt/images/data2/Onoza-data2-01.qcow    |
+    >   | vde | /data1/libvirt/images/data1/Onoza-data1-02.qcow    |
+    >   | vdf | /data2/libvirt/images/data2/Onoza-data2-02.qcow    |
+    >   | vdg | /data1/libvirt/images/data1/Onoza-data1-03.qcow    |
+    >   | vdh | /data2/libvirt/images/data2/Onoza-data2-03.qcow    |
+    >   | vdi | /data1/libvirt/images/data1/Onoza-data1-04.qcow    |
+    >   | vdj | /data2/libvirt/images/data2/Onoza-data2-04.qcow    |
+    >   +----------------------------------------------------------+
+
+
+# -----------------------------------------------------
+# Shutdown and restart each of our Kafka nodes.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+    for vmname in ${kfnames[@]}
+        do
+            virsh \
+                --connect ${connection:?} \
+                    shutdown \
+                    ${vmname:?}
+        done
+
+    >   Domain Stedigo is being shutdown
+    >   Domain Angece is being shutdown
+    >   Domain Edwalafia is being shutdown
+    >   Domain Onoza is being shutdown
+
+
+    sleep 60
+
+    for vmname in ${kfnames[@]}
+        do
+            virsh \
+                --connect ${connection:?} \
+                    start \
+                    ${vmname:?}
+        done
+
+    >   Domain Stedigo started
+    >   Domain Angece started
+    >   Domain Edwalafia started
+    >   Domain Onoza started
+
+
+# -----------------------------------------------------
+# Check the number of cores on our Kafka nodes.
+#[user@trop03]
+
+    for vmname in ${kfnames[@]}
+        do
+            virsh \
+                --quiet \
+                --connect ${connection:?} \
+                    dumpxml \
+                        "${vmname}" \
+            | xmlstarlet \
+                select \
+                    --text \
+                    --template \
+                        --output "$(printf '%-10s' ${vmname})" \
+                        --value-of "domain/vcpu" \
+                        --nl
+        done
+
+    >   Stedigo   4
+    >   Angece    4
+    >   Edwalafia 4
+    >   Onoza     4
+
+
+#---------------------------------------------------------------------
+# Create a script to mount a volume.
+#[user@trop03]
+
+cat > '/tmp/volume-mount.sh' << 'EOSH'
+
+echo "---- ----"
+echo "hostname [$(hostname)]"
+echo "devpath  [${devpath:?}]"
+echo "mntpath  [${mntpath:?}]"
+echo "---- ----"
+
+#---------------------------------------------------------------------
+# Check if the new device has a filesystem.
+
+    sudo btrfs filesystem show "${devpath:?}" > /dev/null 2>&1
+    fscheck=$?
+
+#---------------------------------------------------------------------
+# Create a filesystem on the new device.
+
+    if [ ${fscheck} == 1 ]
+    then
+        echo "Creating btrfs filesystem [${devpath:?}]"
+        sudo \
+            mkfs.btrfs \
+                ${devpath:?}
+    else
+        echo "Found existing filesystem [${devpath:?}]"
+    fi
+
+#---------------------------------------------------------------------
+# Create our mount point.
+
+    echo "Creating mount point [${mntpath:?}]"
+    sudo mkdir -p "${mntpath:?}"
+    sudo touch "${mntpath:?}/mount-failed"
+
+#---------------------------------------------------------------------
+# Add the volume to our FileSystemTABle.
+# https://www.howtoforge.com/reducing-disk-io-by-mounting-partitions-with-noatime
+
+    devuuid=$(
+        lsblk --noheadings --output UUID "${devpath:?}"
+        )
+
+    echo "Registering filesystem [${mntpath:?}]"
+    sudo tee -a /etc/fstab << EOTAB
+UUID=${devuuid:?} ${mntpath:?}    btrfs    defaults,noatime    0  0
+EOTAB
+
+#---------------------------------------------------------------------
+# Mount the new volume.
+
+    sudo \
+        mount "${mntpath:?}"
+
+#---------------------------------------------------------------------
+# Check the new volume.
+
+    echo "Checking data space [${mntpath:?}]"
+    df -h "${mntpath:?}"
+
+EOSH
+
+# -----------------------------------------------------
+# Login and mount each of the data volumes.
+# https://www.linuxquestions.org/questions/linux-newbie-8/awk-special-character-as-delimiter-4175613862/
+#[user@trop03]
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "-------- -------- -------- --------"
+            echo "Node [${vmname:?}]"
+            tmpfile=$(mktemp)
+            virsh \
+                --connect "${connection:?}" \
+                dumpxml \
+                    "${vmname}" \
+            | xmlstarlet \
+                select \
+                    --text \
+                    --template \
+                        --match '//disk[starts-with(source/@file, "/data")]' \
+                        --sort  'A:T:-' 'target/@dev' \
+                        --output "${vmname}," \
+                        --value-of "concat(target/@dev, ',', source/@file)" \
+                        --nl \
+            > "${tmpfile}"
+
+            for line in $(cat "${tmpfile}")
+                do
+                    volpath=$(echo "${line}" | awk -F ',' '{print $3}')
+                    devname=$(echo "${line}" | awk -F ',' '{print $2}')
+                    devpath=/dev/${devname}
+                    mntpath=$(
+                        basename --suffix '.qcow' "${volpath}" \
+                        | sed '
+                            s/\([[:alnum:]]*\)-\([[:alnum:]]*\)-\([[:alnum:]]*\)/\/\2-\3/
+                            '
+                        )
+
+                    echo ""
+                    echo "[${devpath}][${mntpath}]"
+
+                    ssh ${sshopts[*]} \
+                        ${sshuser:?}@${vmname:?} \
+                            "
+                            export devpath=${devpath:?}
+                            export mntpath=${mntpath:?}
+                            date
+                            hostname
+                            echo "[\${devpath}][\${mntpath}]"
+
+                            $(cat /tmp/volume-mount.sh)
+                            "
+                done
+        done
+
+    >   -------- -------- -------- --------
+    >   Node [Stedigo]
+    >   
+    >   [/dev/vdc][/data1-01]
+    >   Tue 11 Jun 05:04:56 BST 2019
+    >   Stedigo
+    >   [/dev/vdc][/data1-01]
+    >   ---- ----
+    >   hostname [Stedigo]
+    >   devpath  [/dev/vdc]
+    >   mntpath  [/data1-01]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vdc]
+    >   Creating mount point [/data1-01]
+    >   Registering filesystem [/data1-01]
+    >   UUID=6ddcb70c-2004-4c5b-ad8f-ec89313ca292 /data1-01    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data1-01]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdc         32G   31G   56K 100% /data1-01
+    >   
+    >   [/dev/vdd][/data2-01]
+    >   Tue 11 Jun 05:04:57 BST 2019
+    >   Stedigo
+    >   [/dev/vdd][/data2-01]
+    >   ---- ----
+    >   hostname [Stedigo]
+    >   devpath  [/dev/vdd]
+    >   mntpath  [/data2-01]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vdd]
+    >   Creating mount point [/data2-01]
+    >   Registering filesystem [/data2-01]
+    >   UUID=b2598b9e-e396-4f77-9230-dc5c9d4091c8 /data2-01    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data2-01]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdd         32G   31G   24K 100% /data2-01
+    >   
+    >   [/dev/vde][/data1-02]
+    >   Tue 11 Jun 05:04:58 BST 2019
+    >   Stedigo
+    >   [/dev/vde][/data1-02]
+    >   ---- ----
+    >   hostname [Stedigo]
+    >   devpath  [/dev/vde]
+    >   mntpath  [/data1-02]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vde]
+    >   Creating mount point [/data1-02]
+    >   Registering filesystem [/data1-02]
+    >   UUID=55e5fcb2-c24a-4a21-8914-7843ac5596a9 /data1-02    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data1-02]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vde         64G   50G   13G  80% /data1-02
+    >   
+    >   [/dev/vdf][/data2-02]
+    >   Tue 11 Jun 05:04:59 BST 2019
+    >   Stedigo
+    >   [/dev/vdf][/data2-02]
+    >   ---- ----
+    >   hostname [Stedigo]
+    >   devpath  [/dev/vdf]
+    >   mntpath  [/data2-02]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vdf]
+    >   Creating mount point [/data2-02]
+    >   Registering filesystem [/data2-02]
+    >   UUID=b4d70a33-7af9-4762-b2a3-9c0c8c587bf4 /data2-02    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data2-02]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdf         64G   47G   16G  75% /data2-02
+    >   
+    >   [/dev/vdg][/data1-03]
+    >   Tue 11 Jun 05:05:00 BST 2019
+    >   Stedigo
+    >   [/dev/vdg][/data1-03]
+    >   ---- ----
+    >   hostname [Stedigo]
+    >   devpath  [/dev/vdg]
+    >   mntpath  [/data1-03]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vdg]
+    >   Creating mount point [/data1-03]
+    >   Registering filesystem [/data1-03]
+    >   UUID=632eb538-ccda-4588-adaa-9d103863d0a4 /data1-03    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data1-03]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdg        256G   40G  215G  16% /data1-03
+    >   
+    >   [/dev/vdh][/data2-03]
+    >   Tue 11 Jun 05:05:01 BST 2019
+    >   Stedigo
+    >   [/dev/vdh][/data2-03]
+    >   ---- ----
+    >   hostname [Stedigo]
+    >   devpath  [/dev/vdh]
+    >   mntpath  [/data2-03]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vdh]
+    >   Creating mount point [/data2-03]
+    >   Registering filesystem [/data2-03]
+    >   UUID=8fddf0be-bd58-4007-9541-8126b0c3d63d /data2-03    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data2-03]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdh        256G   39G  216G  16% /data2-03
+    >   
+    >   [/dev/vdi][/data1-04]
+    >   Tue 11 Jun 05:05:02 BST 2019
+    >   Stedigo
+    >   [/dev/vdi][/data1-04]
+    >   ---- ----
+    >   hostname [Stedigo]
+    >   devpath  [/dev/vdi]
+    >   mntpath  [/data1-04]
+    >   ---- ----
+    >   Creating btrfs filesystem [/dev/vdi]
+    >   btrfs-progs v4.17.1
+    >   See http://btrfs.wiki.kernel.org for more information.
+    >   
+    >   Label:              (null)
+    >   UUID:               37eeecac-7a57-4a4f-b803-9cf52bcc8d53
+    >   Node size:          16384
+    >   Sector size:        4096
+    >   Filesystem size:    256.00GiB
+    >   Block group profiles:
+    >     Data:             single            8.00MiB
+    >     Metadata:         DUP               1.00GiB
+    >     System:           DUP               8.00MiB
+    >   SSD detected:       no
+    >   Incompat features:  extref, skinny-metadata
+    >   Number of devices:  1
+    >   Devices:
+    >      ID        SIZE  PATH
+    >       1   256.00GiB  /dev/vdi
+    >   
+    >   Creating mount point [/data1-04]
+    >   Registering filesystem [/data1-04]
+    >   UUID=37eeecac-7a57-4a4f-b803-9cf52bcc8d53 /data1-04    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data1-04]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdi        256G   17M  254G   1% /data1-04
+    >   
+    >   [/dev/vdj][/data2-04]
+    >   Tue 11 Jun 05:05:03 BST 2019
+    >   Stedigo
+    >   [/dev/vdj][/data2-04]
+    >   ---- ----
+    >   hostname [Stedigo]
+    >   devpath  [/dev/vdj]
+    >   mntpath  [/data2-04]
+    >   ---- ----
+    >   Creating btrfs filesystem [/dev/vdj]
+    >   btrfs-progs v4.17.1
+    >   See http://btrfs.wiki.kernel.org for more information.
+    >   
+    >   Label:              (null)
+    >   UUID:               a7b311bb-d553-44bf-941d-a6a207f76e0e
+    >   Node size:          16384
+    >   Sector size:        4096
+    >   Filesystem size:    256.00GiB
+    >   Block group profiles:
+    >     Data:             single            8.00MiB
+    >     Metadata:         DUP               1.00GiB
+    >     System:           DUP               8.00MiB
+    >   SSD detected:       no
+    >   Incompat features:  extref, skinny-metadata
+    >   Number of devices:  1
+    >   Devices:
+    >      ID        SIZE  PATH
+    >       1   256.00GiB  /dev/vdj
+    >   
+    >   Creating mount point [/data2-04]
+    >   Registering filesystem [/data2-04]
+    >   UUID=a7b311bb-d553-44bf-941d-a6a207f76e0e /data2-04    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data2-04]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdj        256G   17M  254G   1% /data2-04
+    >   -------- -------- -------- --------
+    >   Node [Angece]
+    >   
+    >   [/dev/vdc][/data1-01]
+    >   Tue 11 Jun 05:05:07 BST 2019
+    >   Angece
+    >   [/dev/vdc][/data1-01]
+    >   ---- ----
+    >   hostname [Angece]
+    >   devpath  [/dev/vdc]
+    >   mntpath  [/data1-01]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vdc]
+    >   Creating mount point [/data1-01]
+    >   Registering filesystem [/data1-01]
+    >   UUID=e96fe7d3-5c72-4c5b-87cb-8ca2626c8bec /data1-01    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data1-01]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdc         32G   31G   12K 100% /data1-01
+    >   
+    >   [/dev/vdd][/data2-01]
+    >   Tue 11 Jun 05:05:08 BST 2019
+    >   Angece
+    >   [/dev/vdd][/data2-01]
+    >   ---- ----
+    >   hostname [Angece]
+    >   devpath  [/dev/vdd]
+    >   mntpath  [/data2-01]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vdd]
+    >   Creating mount point [/data2-01]
+    >   Registering filesystem [/data2-01]
+    >   UUID=36c83514-e392-4b6f-a13e-6ab4520a8874 /data2-01    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data2-01]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdd         32G   31G   16K 100% /data2-01
+    >   
+    >   [/dev/vde][/data1-02]
+    >   Tue 11 Jun 05:05:09 BST 2019
+    >   Angece
+    >   [/dev/vde][/data1-02]
+    >   ---- ----
+    >   hostname [Angece]
+    >   devpath  [/dev/vde]
+    >   mntpath  [/data1-02]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vde]
+    >   Creating mount point [/data1-02]
+    >   Registering filesystem [/data1-02]
+    >   UUID=c553c0e4-b693-467a-ae4a-c594cc4d7afa /data1-02    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data1-02]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vde         64G   51G   12G  82% /data1-02
+    >   
+    >   [/dev/vdf][/data2-02]
+    >   Tue 11 Jun 05:05:10 BST 2019
+    >   Angece
+    >   [/dev/vdf][/data2-02]
+    >   ---- ----
+    >   hostname [Angece]
+    >   devpath  [/dev/vdf]
+    >   mntpath  [/data2-02]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vdf]
+    >   Creating mount point [/data2-02]
+    >   Registering filesystem [/data2-02]
+    >   UUID=e3a32ee7-c334-4346-820c-707e46c1d3d8 /data2-02    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data2-02]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdf         64G   47G   16G  75% /data2-02
+    >   
+    >   [/dev/vdg][/data1-03]
+    >   Tue 11 Jun 05:05:11 BST 2019
+    >   Angece
+    >   [/dev/vdg][/data1-03]
+    >   ---- ----
+    >   hostname [Angece]
+    >   devpath  [/dev/vdg]
+    >   mntpath  [/data1-03]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vdg]
+    >   Creating mount point [/data1-03]
+    >   Registering filesystem [/data1-03]
+    >   UUID=848db119-1513-452a-bb72-ae6bfaa06cd7 /data1-03    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data1-03]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdg        256G   40G  215G  16% /data1-03
+    >   
+    >   [/dev/vdh][/data2-03]
+    >   Tue 11 Jun 05:05:12 BST 2019
+    >   Angece
+    >   [/dev/vdh][/data2-03]
+    >   ---- ----
+    >   hostname [Angece]
+    >   devpath  [/dev/vdh]
+    >   mntpath  [/data2-03]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vdh]
+    >   Creating mount point [/data2-03]
+    >   Registering filesystem [/data2-03]
+    >   UUID=06598ab6-fa72-45e1-afe1-04eea5ad08ba /data2-03    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data2-03]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdh        256G   39G  216G  16% /data2-03
+    >   
+    >   [/dev/vdi][/data1-04]
+    >   Tue 11 Jun 05:05:13 BST 2019
+    >   Angece
+    >   [/dev/vdi][/data1-04]
+    >   ---- ----
+    >   hostname [Angece]
+    >   devpath  [/dev/vdi]
+    >   mntpath  [/data1-04]
+    >   ---- ----
+    >   Creating btrfs filesystem [/dev/vdi]
+    >   btrfs-progs v4.17.1
+    >   See http://btrfs.wiki.kernel.org for more information.
+    >   
+    >   Label:              (null)
+    >   UUID:               c2a251ea-4be2-418d-b851-40da602673b8
+    >   Node size:          16384
+    >   Sector size:        4096
+    >   Filesystem size:    256.00GiB
+    >   Block group profiles:
+    >     Data:             single            8.00MiB
+    >     Metadata:         DUP               1.00GiB
+    >     System:           DUP               8.00MiB
+    >   SSD detected:       no
+    >   Incompat features:  extref, skinny-metadata
+    >   Number of devices:  1
+    >   Devices:
+    >      ID        SIZE  PATH
+    >       1   256.00GiB  /dev/vdi
+    >   
+    >   Creating mount point [/data1-04]
+    >   Registering filesystem [/data1-04]
+    >   UUID=c2a251ea-4be2-418d-b851-40da602673b8 /data1-04    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data1-04]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdi        256G   17M  254G   1% /data1-04
+    >   
+    >   [/dev/vdj][/data2-04]
+    >   Tue 11 Jun 05:05:14 BST 2019
+    >   Angece
+    >   [/dev/vdj][/data2-04]
+    >   ---- ----
+    >   hostname [Angece]
+    >   devpath  [/dev/vdj]
+    >   mntpath  [/data2-04]
+    >   ---- ----
+    >   Creating btrfs filesystem [/dev/vdj]
+    >   btrfs-progs v4.17.1
+    >   See http://btrfs.wiki.kernel.org for more information.
+    >   
+    >   Label:              (null)
+    >   UUID:               81881976-0a34-4f42-9587-3abd249eb619
+    >   Node size:          16384
+    >   Sector size:        4096
+    >   Filesystem size:    256.00GiB
+    >   Block group profiles:
+    >     Data:             single            8.00MiB
+    >     Metadata:         DUP               1.00GiB
+    >     System:           DUP               8.00MiB
+    >   SSD detected:       no
+    >   Incompat features:  extref, skinny-metadata
+    >   Number of devices:  1
+    >   Devices:
+    >      ID        SIZE  PATH
+    >       1   256.00GiB  /dev/vdj
+    >   
+    >   Creating mount point [/data2-04]
+    >   Registering filesystem [/data2-04]
+    >   UUID=81881976-0a34-4f42-9587-3abd249eb619 /data2-04    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data2-04]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdj        256G   17M  254G   1% /data2-04
+    >   -------- -------- -------- --------
+    >   Node [Edwalafia]
+    >   
+    >   [/dev/vdc][/data1-01]
+    >   Tue 11 Jun 05:05:17 BST 2019
+    >   Edwalafia
+    >   [/dev/vdc][/data1-01]
+    >   ---- ----
+    >   hostname [Edwalafia]
+    >   devpath  [/dev/vdc]
+    >   mntpath  [/data1-01]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vdc]
+    >   Creating mount point [/data1-01]
+    >   Registering filesystem [/data1-01]
+    >   UUID=e6c5141e-f215-4bc8-ac0b-0c93f478fde4 /data1-01    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data1-01]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdc         32G   31G   12K 100% /data1-01
+    >   
+    >   [/dev/vdd][/data2-01]
+    >   Tue 11 Jun 05:05:18 BST 2019
+    >   Edwalafia
+    >   [/dev/vdd][/data2-01]
+    >   ---- ----
+    >   hostname [Edwalafia]
+    >   devpath  [/dev/vdd]
+    >   mntpath  [/data2-01]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vdd]
+    >   Creating mount point [/data2-01]
+    >   Registering filesystem [/data2-01]
+    >   UUID=4bdd314d-4f4f-4870-8d40-086b0ac13e77 /data2-01    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data2-01]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdd         32G   31G   28K 100% /data2-01
+    >   
+    >   [/dev/vde][/data1-02]
+    >   Tue 11 Jun 05:05:19 BST 2019
+    >   Edwalafia
+    >   [/dev/vde][/data1-02]
+    >   ---- ----
+    >   hostname [Edwalafia]
+    >   devpath  [/dev/vde]
+    >   mntpath  [/data1-02]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vde]
+    >   Creating mount point [/data1-02]
+    >   Registering filesystem [/data1-02]
+    >   UUID=a921ae6f-02b0-4da3-88dd-bf5252cfcfdb /data1-02    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data1-02]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vde         64G   48G   15G  77% /data1-02
+    >   
+    >   [/dev/vdf][/data2-02]
+    >   Tue 11 Jun 05:05:20 BST 2019
+    >   Edwalafia
+    >   [/dev/vdf][/data2-02]
+    >   ---- ----
+    >   hostname [Edwalafia]
+    >   devpath  [/dev/vdf]
+    >   mntpath  [/data2-02]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vdf]
+    >   Creating mount point [/data2-02]
+    >   Registering filesystem [/data2-02]
+    >   UUID=ce19d30f-2583-4106-b093-e67127beb96d /data2-02    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data2-02]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdf         64G   47G   16G  76% /data2-02
+    >   
+    >   [/dev/vdg][/data1-03]
+    >   Tue 11 Jun 05:05:21 BST 2019
+    >   Edwalafia
+    >   [/dev/vdg][/data1-03]
+    >   ---- ----
+    >   hostname [Edwalafia]
+    >   devpath  [/dev/vdg]
+    >   mntpath  [/data1-03]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vdg]
+    >   Creating mount point [/data1-03]
+    >   Registering filesystem [/data1-03]
+    >   UUID=8624f474-900f-4727-8490-537ddc1ae647 /data1-03    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data1-03]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdg        256G   40G  215G  16% /data1-03
+    >   
+    >   [/dev/vdh][/data2-03]
+    >   Tue 11 Jun 05:05:22 BST 2019
+    >   Edwalafia
+    >   [/dev/vdh][/data2-03]
+    >   ---- ----
+    >   hostname [Edwalafia]
+    >   devpath  [/dev/vdh]
+    >   mntpath  [/data2-03]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vdh]
+    >   Creating mount point [/data2-03]
+    >   Registering filesystem [/data2-03]
+    >   UUID=78faf4a4-b4d4-4a78-a7cf-00eb4bd0a455 /data2-03    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data2-03]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdh        256G   39G  216G  16% /data2-03
+    >   
+    >   [/dev/vdi][/data1-04]
+    >   Tue 11 Jun 05:05:23 BST 2019
+    >   Edwalafia
+    >   [/dev/vdi][/data1-04]
+    >   ---- ----
+    >   hostname [Edwalafia]
+    >   devpath  [/dev/vdi]
+    >   mntpath  [/data1-04]
+    >   ---- ----
+    >   Creating btrfs filesystem [/dev/vdi]
+    >   btrfs-progs v4.17.1
+    >   See http://btrfs.wiki.kernel.org for more information.
+    >   
+    >   Label:              (null)
+    >   UUID:               3ef545e1-fc94-4450-a0d6-508c568644c3
+    >   Node size:          16384
+    >   Sector size:        4096
+    >   Filesystem size:    256.00GiB
+    >   Block group profiles:
+    >     Data:             single            8.00MiB
+    >     Metadata:         DUP               1.00GiB
+    >     System:           DUP               8.00MiB
+    >   SSD detected:       no
+    >   Incompat features:  extref, skinny-metadata
+    >   Number of devices:  1
+    >   Devices:
+    >      ID        SIZE  PATH
+    >       1   256.00GiB  /dev/vdi
+    >   
+    >   Creating mount point [/data1-04]
+    >   Registering filesystem [/data1-04]
+    >   UUID=3ef545e1-fc94-4450-a0d6-508c568644c3 /data1-04    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data1-04]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdi        256G   17M  254G   1% /data1-04
+    >   
+    >   [/dev/vdj][/data2-04]
+    >   Tue 11 Jun 05:05:25 BST 2019
+    >   Edwalafia
+    >   [/dev/vdj][/data2-04]
+    >   ---- ----
+    >   hostname [Edwalafia]
+    >   devpath  [/dev/vdj]
+    >   mntpath  [/data2-04]
+    >   ---- ----
+    >   Creating btrfs filesystem [/dev/vdj]
+    >   btrfs-progs v4.17.1
+    >   See http://btrfs.wiki.kernel.org for more information.
+    >   
+    >   Label:              (null)
+    >   UUID:               b1f0b263-7630-4f06-bfd8-e074f51160d2
+    >   Node size:          16384
+    >   Sector size:        4096
+    >   Filesystem size:    256.00GiB
+    >   Block group profiles:
+    >     Data:             single            8.00MiB
+    >     Metadata:         DUP               1.00GiB
+    >     System:           DUP               8.00MiB
+    >   SSD detected:       no
+    >   Incompat features:  extref, skinny-metadata
+    >   Number of devices:  1
+    >   Devices:
+    >      ID        SIZE  PATH
+    >       1   256.00GiB  /dev/vdj
+    >   
+    >   Creating mount point [/data2-04]
+    >   Registering filesystem [/data2-04]
+    >   UUID=b1f0b263-7630-4f06-bfd8-e074f51160d2 /data2-04    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data2-04]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdj        256G   17M  254G   1% /data2-04
+    >   -------- -------- -------- --------
+    >   Node [Onoza]
+    >   
+    >   [/dev/vdc][/data1-01]
+    >   Tue 11 Jun 05:05:29 BST 2019
+    >   Onoza
+    >   [/dev/vdc][/data1-01]
+    >   ---- ----
+    >   hostname [Onoza]
+    >   devpath  [/dev/vdc]
+    >   mntpath  [/data1-01]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vdc]
+    >   Creating mount point [/data1-01]
+    >   Registering filesystem [/data1-01]
+    >   UUID=f26ec954-ee3c-40c2-9d9c-2f31c9eca4c6 /data1-01    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data1-01]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdc         32G   31G   40K 100% /data1-01
+    >   
+    >   [/dev/vdd][/data2-01]
+    >   Tue 11 Jun 05:05:30 BST 2019
+    >   Onoza
+    >   [/dev/vdd][/data2-01]
+    >   ---- ----
+    >   hostname [Onoza]
+    >   devpath  [/dev/vdd]
+    >   mntpath  [/data2-01]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vdd]
+    >   Creating mount point [/data2-01]
+    >   Registering filesystem [/data2-01]
+    >   UUID=26fda47f-cf3b-47af-a23e-80c4f911ee9b /data2-01    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data2-01]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdd         32G   31G   36K 100% /data2-01
+    >   
+    >   [/dev/vde][/data1-02]
+    >   Tue 11 Jun 05:05:31 BST 2019
+    >   Onoza
+    >   [/dev/vde][/data1-02]
+    >   ---- ----
+    >   hostname [Onoza]
+    >   devpath  [/dev/vde]
+    >   mntpath  [/data1-02]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vde]
+    >   Creating mount point [/data1-02]
+    >   Registering filesystem [/data1-02]
+    >   UUID=dde98c24-9112-45b4-8ca6-6d6ac85ca9b0 /data1-02    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data1-02]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vde         64G   46G   17G  74% /data1-02
+    >   
+    >   [/dev/vdf][/data2-02]
+    >   Tue 11 Jun 05:05:32 BST 2019
+    >   Onoza
+    >   [/dev/vdf][/data2-02]
+    >   ---- ----
+    >   hostname [Onoza]
+    >   devpath  [/dev/vdf]
+    >   mntpath  [/data2-02]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vdf]
+    >   Creating mount point [/data2-02]
+    >   Registering filesystem [/data2-02]
+    >   UUID=ceba1807-350d-44be-9640-b01c57bdc749 /data2-02    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data2-02]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdf         64G   49G   14G  79% /data2-02
+    >   
+    >   [/dev/vdg][/data1-03]
+    >   Tue 11 Jun 05:05:33 BST 2019
+    >   Onoza
+    >   [/dev/vdg][/data1-03]
+    >   ---- ----
+    >   hostname [Onoza]
+    >   devpath  [/dev/vdg]
+    >   mntpath  [/data1-03]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vdg]
+    >   Creating mount point [/data1-03]
+    >   Registering filesystem [/data1-03]
+    >   UUID=f7fc3c42-4187-46f7-93f0-4ca023c20a5b /data1-03    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data1-03]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdg        256G   40G  215G  16% /data1-03
+    >   
+    >   [/dev/vdh][/data2-03]
+    >   Tue 11 Jun 05:05:34 BST 2019
+    >   Onoza
+    >   [/dev/vdh][/data2-03]
+    >   ---- ----
+    >   hostname [Onoza]
+    >   devpath  [/dev/vdh]
+    >   mntpath  [/data2-03]
+    >   ---- ----
+    >   Found existing filesystem [/dev/vdh]
+    >   Creating mount point [/data2-03]
+    >   Registering filesystem [/data2-03]
+    >   UUID=384f0ffe-8dc1-4374-83c2-ba287d5f286e /data2-03    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data2-03]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdh        256G   39G  216G  16% /data2-03
+    >   
+    >   [/dev/vdi][/data1-04]
+    >   Tue 11 Jun 05:05:35 BST 2019
+    >   Onoza
+    >   [/dev/vdi][/data1-04]
+    >   ---- ----
+    >   hostname [Onoza]
+    >   devpath  [/dev/vdi]
+    >   mntpath  [/data1-04]
+    >   ---- ----
+    >   Creating btrfs filesystem [/dev/vdi]
+    >   btrfs-progs v4.17.1
+    >   See http://btrfs.wiki.kernel.org for more information.
+    >   
+    >   Label:              (null)
+    >   UUID:               6d9a39bb-16ac-4fa1-b6ae-5590065abc6e
+    >   Node size:          16384
+    >   Sector size:        4096
+    >   Filesystem size:    256.00GiB
+    >   Block group profiles:
+    >     Data:             single            8.00MiB
+    >     Metadata:         DUP               1.00GiB
+    >     System:           DUP               8.00MiB
+    >   SSD detected:       no
+    >   Incompat features:  extref, skinny-metadata
+    >   Number of devices:  1
+    >   Devices:
+    >      ID        SIZE  PATH
+    >       1   256.00GiB  /dev/vdi
+    >   
+    >   Creating mount point [/data1-04]
+    >   Registering filesystem [/data1-04]
+    >   UUID=6d9a39bb-16ac-4fa1-b6ae-5590065abc6e /data1-04    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data1-04]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdi        256G   17M  254G   1% /data1-04
+    >   
+    >   [/dev/vdj][/data2-04]
+    >   Tue 11 Jun 05:05:36 BST 2019
+    >   Onoza
+    >   [/dev/vdj][/data2-04]
+    >   ---- ----
+    >   hostname [Onoza]
+    >   devpath  [/dev/vdj]
+    >   mntpath  [/data2-04]
+    >   ---- ----
+    >   Creating btrfs filesystem [/dev/vdj]
+    >   btrfs-progs v4.17.1
+    >   See http://btrfs.wiki.kernel.org for more information.
+    >   
+    >   Label:              (null)
+    >   UUID:               13b3cbdf-ff54-4e20-9997-e877631d211c
+    >   Node size:          16384
+    >   Sector size:        4096
+    >   Filesystem size:    256.00GiB
+    >   Block group profiles:
+    >     Data:             single            8.00MiB
+    >     Metadata:         DUP               1.00GiB
+    >     System:           DUP               8.00MiB
+    >   SSD detected:       no
+    >   Incompat features:  extref, skinny-metadata
+    >   Number of devices:  1
+    >   Devices:
+    >      ID        SIZE  PATH
+    >       1   256.00GiB  /dev/vdj
+    >   
+    >   Creating mount point [/data2-04]
+    >   Registering filesystem [/data2-04]
+    >   UUID=13b3cbdf-ff54-4e20-9997-e877631d211c /data2-04    btrfs    defaults,noatime    0  0
+    >   Checking data space [/data2-04]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdj        256G   17M  254G   1% /data2-04
+
+
+# -----------------------------------------------------
+# Create our compose YAML file.
+# TODO Auto generate the list of volumes.
+#[user@trop03]
+
+cat > /tmp/kafka.yml << 'EOYML'
+
+version: "3.2"
+
+services:
+
+    emily:
+        image:
+            confluentinc/cp-kafka:4.1.1
+        ports:
+            - "9092:9092"
+            - "9093:9093"
+        extra_hosts:
+            - "${KAFKA_HOSTNAME}:127.0.0.2"
+        environment:
+            - KAFKA_LISTENERS=jasminum://0.0.0.0:9092
+            - KAFKA_ADVERTISED_LISTENERS=jasminum://${KAFKA_HOSTNAME}:9092
+            - KAFKA_INTER_BROKER_LISTENER_NAME=jasminum
+            - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=jasminum:PLAINTEXT
+            - KAFKA_LOG_DIRS=${KAFKA_LOG_DIRS}
+            - KAFKA_BROKER_ID=${KAFKA_BROKER_ID}
+            - KAFKA_BROKER_RACK=${KAFKA_BROKER_RACK}
+            - KAFKA_ZOOKEEPER_CONNECT=${KAFKA_ZOOKEEPER_CONNECT}
+            - KAFKA_NUM_PARTITIONS=16
+            - KAFKA_DEFAULT_REPLICATION_FACTOR=3
+            - KAFKA_LOG_RETENTION_MS=-1
+            - KAFKA_LOG_RETENTION_BYTES=-1
+            - KAFKA_AUTO_CREATE_TOPICS_ENABLE=true
+            - KAFKA_MESSAGE_MAX_BYTES=10485760
+        volumes:
+            - type:   "bind"
+              source: "/data1-01"
+              target: "/data1-01"
+            - type:   "bind"
+              source: "/data2-01"
+              target: "/data2-01"
+            - type:   "bind"
+              source: "/data1-02"
+              target: "/data1-02"
+            - type:   "bind"
+              source: "/data2-02"
+              target: "/data2-02"
+            - type:   "bind"
+              source: "/data1-03"
+              target: "/data1-03"
+            - type:   "bind"
+              source: "/data2-03"
+              target: "/data2-03"
+            - type:   "bind"
+              source: "/data1-04"
+              target: "/data1-04"
+            - type:   "bind"
+              source: "/data2-04"
+              target: "/data2-04"
+
+EOYML
+
+
+# -----------------------------------------------------
+# Deploy our compose YAML file.
+#[user@trop03]
+
+    for vmname in ${kfnames[@]}
+        do
+            scp \
+                ${scpopts[*]} \
+                /tmp/kafka.yml \
+                ${sshuser:?}@${vmname:?}:kafka.yml
+        done
+
+    >   kafka.yml                                                                                                                                                                                                  100% 1778     1.8MB/s   00:00
+    >   kafka.yml                                                                                                                                                                                                  100% 1778     1.9MB/s   00:00
+    >   kafka.yml                                                                                                                                                                                                  100% 1778     2.1MB/s   00:00
+    >   kafka.yml                                                                                                                                                                                                  100% 1778     1.4MB/s   00:00    --END--
+
+# -----------------------------------------------------
+# Make a list of our Zookeeper nodes.
+#[user@trop03]
+
+    zklist=${zknames[*]}
+    zklist=${zklist// /,}
+
+    echo "zklist [${zklist}]"
+
+    >   zklist [Fosauri,Marpus,Byflame]
+
+
+# -----------------------------------------------------
+# Deploy our compose ENV file to each node.
+#[user@trop03]
+
+
+    for (( i=0 ; i < ${#kfnames[@]} ; i++ ))
+        do
+            vmname=${kfnames[$i]:?}
+
+            echo "Node [${i:?}][${vmname:?}]"
+
+            ssh \
+                ${scpopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+loglist=\$(echo /data*)
+loglist=\${loglist// /,}
+
+cat > kafka.env << EOF
+KAFKA_LOG_DIRS=\${loglist:?}
+KAFKA_BROKER_ID=$(($i+1))
+KAFKA_BROKER_RACK=$(($i+1))
+KAFKA_ZOOKEEPER_CONNECT=${zklist:?}
+KAFKA_HOSTNAME=${vmname:?}
+EOF
+ln -sf kafka.env .env
+                "
+        done
+
+    >   Node [0][Stedigo]
+    >   Node [1][Angece]
+    >   Node [2][Edwalafia]
+    >   Node [3][Onoza]
+
+
+# -----------------------------------------------------
+# Check the compose ENV file on each node.
+#[user@trop03]
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    date
+                    hostname
+                    cat .env
+                    "
+        done
+
+    >   ---- ----
+    >   Tue 11 Jun 05:13:47 BST 2019
+    >   Stedigo
+    >   KAFKA_LOG_DIRS=/data1-01,/data1-02,/data1-03,/data1-04,/data2-01,/data2-02,/data2-03,/data2-04
+    >   KAFKA_BROKER_ID=1
+    >   KAFKA_BROKER_RACK=1
+    >   KAFKA_ZOOKEEPER_CONNECT=Fosauri,Marpus,Byflame
+    >   KAFKA_HOSTNAME=Stedigo
+    >   ---- ----
+    >   Tue 11 Jun 05:13:47 BST 2019
+    >   Angece
+    >   KAFKA_LOG_DIRS=/data1-01,/data1-02,/data1-03,/data1-04,/data2-01,/data2-02,/data2-03,/data2-04
+    >   KAFKA_BROKER_ID=2
+    >   KAFKA_BROKER_RACK=2
+    >   KAFKA_ZOOKEEPER_CONNECT=Fosauri,Marpus,Byflame
+    >   KAFKA_HOSTNAME=Angece
+    >   ---- ----
+    >   Tue 11 Jun 05:13:48 BST 2019
+    >   Edwalafia
+    >   KAFKA_LOG_DIRS=/data1-01,/data1-02,/data1-03,/data1-04,/data2-01,/data2-02,/data2-03,/data2-04
+    >   KAFKA_BROKER_ID=3
+    >   KAFKA_BROKER_RACK=3
+    >   KAFKA_ZOOKEEPER_CONNECT=Fosauri,Marpus,Byflame
+    >   KAFKA_HOSTNAME=Edwalafia
+    >   ---- ----
+    >   Tue 11 Jun 05:13:48 BST 2019
+    >   Onoza
+    >   KAFKA_LOG_DIRS=/data1-01,/data1-02,/data1-03,/data1-04,/data2-01,/data2-02,/data2-03,/data2-04
+    >   KAFKA_BROKER_ID=4
+    >   KAFKA_BROKER_RACK=4
+    >   KAFKA_ZOOKEEPER_CONNECT=Fosauri,Marpus,Byflame
+    >   KAFKA_HOSTNAME=Onoza
+
+
+# -----------------------------------------------------
+# Start Kafka on each node.
+#[user@trop03]
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            ssh \
+                ${scpopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                date
+                hostname
+
+                docker-compose \
+                    --file kafka.yml \
+                    up -d
+                "
+        done
+
+    >   ---- ----
+    >   Tue 11 Jun 05:14:14 BST 2019
+    >   Stedigo
+    >   Creating network "stevedore_default" with the default driver
+    >   Pulling emily (confluentinc/cp-kafka:4.1.1)...
+    >   4.1.1: Pulling from confluentinc/cp-kafka
+    >   Digest: sha256:4f5d6f4ba368fc05c0d0f1390bf107ae45fab24ed4bd7aac75aed3086ae5ddab
+    >   Status: Downloaded newer image for confluentinc/cp-kafka:4.1.1
+    >   Creating stevedore_emily_1 ... done
+    >   ---- ----
+    >   Tue 11 Jun 05:14:35 BST 2019
+    >   Angece
+    >   Creating network "stevedore_default" with the default driver
+    >   Pulling emily (confluentinc/cp-kafka:4.1.1)...
+    >   4.1.1: Pulling from confluentinc/cp-kafka
+    >   Digest: sha256:4f5d6f4ba368fc05c0d0f1390bf107ae45fab24ed4bd7aac75aed3086ae5ddab
+    >   Status: Downloaded newer image for confluentinc/cp-kafka:4.1.1
+    >   Creating stevedore_emily_1 ... done
+    >   ---- ----
+    >   Tue 11 Jun 05:14:56 BST 2019
+    >   Edwalafia
+    >   Creating network "stevedore_default" with the default driver
+    >   Pulling emily (confluentinc/cp-kafka:4.1.1)...
+    >   4.1.1: Pulling from confluentinc/cp-kafka
+    >   Digest: sha256:4f5d6f4ba368fc05c0d0f1390bf107ae45fab24ed4bd7aac75aed3086ae5ddab
+    >   Status: Downloaded newer image for confluentinc/cp-kafka:4.1.1
+    >   Creating stevedore_emily_1 ... done
+    >   ---- ----
+    >   Tue 11 Jun 05:15:17 BST 2019
+    >   Onoza
+    >   Creating network "stevedore_default" with the default driver
+    >   Pulling emily (confluentinc/cp-kafka:4.1.1)...
+    >   4.1.1: Pulling from confluentinc/cp-kafka
+    >   Digest: sha256:4f5d6f4ba368fc05c0d0f1390bf107ae45fab24ed4bd7aac75aed3086ae5ddab
+    >   Status: Downloaded newer image for confluentinc/cp-kafka:4.1.1
+    >   Creating stevedore_emily_1 ... done
+
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+# Our Kafka nodes.
+#[user@desktop]
+
+    kfnames=(
+        Stedigo
+        Angece
+        Edwalafia
+        Onoza
+        )
+
+#---------------------------------------------------------------------
+# Update the ssh keys for each node.
+#[user@desktop]
+
+    source "${HOME}/libvirt.settings"
+    source "${HOME}/ssh-options"
+
+    for vmname in ${kfnames[@]}
+        do
+            ssh-keygen \
+                -q -R \
+                    "${vmname:?}"
+        done
+
+    >   /home/Zarquan/.ssh/known_hosts updated.
+    >   Original contents retained as /home/Zarquan/.ssh/known_hosts.old
+    >   /home/Zarquan/.ssh/known_hosts updated.
+    >   Original contents retained as /home/Zarquan/.ssh/known_hosts.old
+    >   /home/Zarquan/.ssh/known_hosts updated.
+    >   Original contents retained as /home/Zarquan/.ssh/known_hosts.old
+    >   /home/Zarquan/.ssh/known_hosts updated.
+    >   Original contents retained as /home/Zarquan/.ssh/known_hosts.old
+
+
+# -----------------------------------------------------
+# Check we can login to each node.
+#[user@desktop]
+
+    source "${HOME}/ssh-options"
+
+    for vmname in ${kfnames[@]}
+        do
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    date
+                    hostname
+                    "
+        done
+
+    >   The authenticity of host 'stedigo (<no hostip for proxy command>)' can't be established.
+    >   ECDSA key fingerprint is SHA256:cDbuX8GEsa5PExwCvMMAEnewWgnzYQSCQ1FZVFHbYbM.
+    >   Are you sure you want to continue connecting (yes/no)? yes
+    >   Tue 11 Jun 05:18:39 BST 2019
+    >   Stedigo
+    >   The authenticity of host 'angece (<no hostip for proxy command>)' can't be established.
+    >   ECDSA key fingerprint is SHA256:SJYbEV+SZ0iQ7dWNy5zU5knhPgHYOVjG7yaVMVh8Gco.
+    >   Are you sure you want to continue connecting (yes/no)? yes
+    >   Tue 11 Jun 05:18:41 BST 2019
+    >   Angece
+    >   The authenticity of host 'edwalafia (<no hostip for proxy command>)' can't be established.
+    >   ECDSA key fingerprint is SHA256:0A+MyEMOp7Lx2WW4OIxcltrKdL5UjvdjwGO/cpaMqec.
+    >   Are you sure you want to continue connecting (yes/no)? yes
+    >   Tue 11 Jun 05:18:44 BST 2019
+    >   Edwalafia
+    >   The authenticity of host 'onoza (<no hostip for proxy command>)' can't be established.
+    >   ECDSA key fingerprint is SHA256:4xfnAuf45kaG/txKAfcVhtCotji/l7OW9j9Qmr+74Mg.
+    >   Are you sure you want to continue connecting (yes/no)? yes
+    >   Tue 11 Jun 05:18:47 BST 2019
+    >   Onoza
+
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+# Tail the logs on each node.
+# https://www.systutorials.com/docs/linux/man/1-gnome-terminal/
+# https://www.systutorials.com/docs/linux/man/7-X/#lbAH
+#[user@desktop]
+
+    mate-terminal \
+        --geometry '160x10+25+25' \
+        --command '
+            ssh -t Stedigo "
+                docker logs -f stevedore_emily_1
+                ${SHELL}
+                "
+            '
+    sleep 1
+
+    mate-terminal \
+        --geometry '160x10+125+125' \
+        --command '
+            ssh -t Angece "
+                docker logs -f stevedore_emily_1
+                ${SHELL}
+                "
+            '
+    sleep 1
+
+    mate-terminal \
+        --geometry '160x10+225+225' \
+        --command '
+            ssh -t Edwalafia "
+                docker logs -f stevedore_emily_1
+                ${SHELL}
+                "
+            '
+    sleep 1
+
+    mate-terminal \
+        --geometry '160x10+325+325' \
+        --command '
+            ssh -t Onoza "
+                docker logs -f stevedore_emily_1
+                ${SHELL}
+                "
+            '
+
+[Stedigo]
+    >   ....
+    >   [2019-06-11 04:21:13,288] WARN [Log partition=ztf_20190112_programid1-12, dir=/data1-01] Found a corrupted index file corresponding to log file /data1-01/ztf_20190112_programid1-12/00000000000000000000.log due to Corrupt index found, index file (/data1-01/ztf_20190112_programid1-12/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
+    >   ....
+    >   ....
+    >   [2019-06-11 08:17:17,827] INFO [ProducerStateManager partition=ztf_20181231_programid1-6] Loading producer state from snapshot file '/data1-02/ztf_20181231_programid1-6/00000000000000006977.snapshot' (kafka.log.ProducerStateManager)
+    >   [2019-06-11 08:17:17,827] INFO [Log partition=ztf_20181231_programid1-6, dir=/data1-02] Completed load of log with 1 segments, log start offset 0 and log end offset 6977 in 10896 ms (kafka.log.Log)
+    >   [2019-06-11 08:17:17,853] ERROR There was an error in one of the threads during logs loading: java.lang.InternalError: a fault occurred in a recent unsafe memory access operation in compiled Java code (kafka.log.LogManager)
+    >   [2019-06-11 08:17:17,873] ERROR [KafkaServer id=1] Fatal error during KafkaServer startup. Prepare to shutdown (kafka.server.KafkaServer)
+    >   java.lang.InternalError: a fault occurred in a recent unsafe memory access operation in compiled Java code
+    >       at org.apache.kafka.common.record.FileLogInputStream.nextBatch(FileLogInputStream.java:85)
+
+
+[Angece]
+    >   ....
+    >   [2019-06-11 04:21:32,911] WARN [Log partition=ztf_20181220_programid1-2, dir=/data2-02] Found a corrupted index file corresponding to log file /data2-02/ztf_20181220_programid1-2/00000000000000000000.log due to Corrupt index found, index file (/data2-02/ztf_20181220_programid1-2/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
+    >   ....
+    >   ....
+    >   [2019-06-11 08:16:23,039] INFO [ProducerStateManager partition=ztf_20190212_programid1-10] Loading producer state from snapshot file '/data1-02/ztf_20190212_programid1-10/00000000000000006885.snapshot' (kafka.log.ProducerStateManager)
+    >   [2019-06-11 08:16:23,039] INFO [Log partition=ztf_20190212_programid1-10, dir=/data1-02] Completed load of log with 1 segments, log start offset 0 and log end offset 6885 in 35913 ms (kafka.log.Log)
+    >   [2019-06-11 08:16:23,066] ERROR There was an error in one of the threads during logs loading: java.lang.InternalError: a fault occurred in a recent unsafe memory access operation in compiled Java code (kafka.log.LogManager)
+    >   [2019-06-11 08:16:23,080] ERROR [KafkaServer id=2] Fatal error during KafkaServer startup. Prepare to shutdown (kafka.server.KafkaServer)
+    >   java.lang.InternalError: a fault occurred in a recent unsafe memory access operation in compiled Java code
+    >       at java.nio.HeapByteBuffer.<init>(HeapByteBuffer.java:57)
+    >       at java.nio.ByteBuffer.allocate(ByteBuffer.java:335)
+    >       at org.apache.kafka.common.record.FileLogInputStream$FileChannelRecordBatch.loadBatchWithSize(FileLogInputStream.java:209)
+    >       at org.apache.kafka.common.record.FileLogInputStream$FileChannelRecordBatch.loadFullBatch(FileLogInputStream.java:192)
+    >       at org.apache.kafka.common.record.FileLogInputStream$FileChannelRecordBatch.ensureValid(FileLogInputStream.java:164)
+
+
+[Edwalafia]
+    >   ....
+    >   [2019-06-11 04:21:07,606] WARN [Log partition=ztf_20181219_programid1-5, dir=/data1-02] Found a corrupted index file corresponding to log file /data1-02/ztf_20181219_programid1-5/00000000000000015995.log due to Corrupt index found, index file (/data1-02/ztf_20181219_programid1-5/00000000000000015995.index) has non-zero size but the last offset is 15995 which is no greater than the base offset 15995.}, recovering segment and rebuilding index files... (kafka.log.Log)
+    >   ....
+    >   ....
+    >   [2019-06-11 08:17:07,687] INFO [Log partition=ztf_20181231_programid1-4, dir=/data1-02] Loading producer state from offset 6980 with message format version 2 (kafka.log.Log)
+    >   [2019-06-11 08:17:07,687] INFO [ProducerStateManager partition=ztf_20181231_programid1-4] Loading producer state from snapshot file '/data1-02/ztf_20181231_programid1-4/00000000000000006980.snapshot' (kafka.log.ProducerStateManager)
+    >   [2019-06-11 08:17:07,688] INFO [Log partition=ztf_20181231_programid1-4, dir=/data1-02] Completed load of log with 1 segments, log start offset 0 and log end offset 6980 in 19501 ms (kafka.log.Log)
+    >   [2019-06-11 08:17:07,713] ERROR There was an error in one of the threads during logs loading: java.lang.InternalError: a fault occurred in a recent unsafe memory access operation in compiled Java code (kafka.log.LogManager)
+    >   [2019-06-11 08:17:07,728] ERROR [KafkaServer id=3] Fatal error during KafkaServer startup. Prepare to shutdown (kafka.server.KafkaServer)
+    >   java.lang.InternalError: a fault occurred in a recent unsafe memory access operation in compiled Java code
+    >       at java.nio.HeapByteBuffer.<init>(HeapByteBuffer.java:57)
+    >       at java.nio.ByteBuffer.allocate(ByteBuffer.java:335)
+    >       at org.apache.kafka.common.record.FileLogInputStream$FileChannelRecordBatch.loadBatchWithSize(FileLogInputStream.java:209)
+
+
+[Onoza]
+    >   ....
+    >   [2019-06-11 04:22:02,054] WARN [Log partition=ztf_20181209_programid1-14, dir=/data2-01] Found a corrupted index file corresponding to log file /data2-01/ztf_20181209_programid1-14/00000000000000000000.log due to Corrupt index found, index file (/data2-01/ztf_20181209_programid1-14/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
+    >   ....
+    >   ....
+    >   [2019-06-11 08:17:16,225] INFO [ProducerStateManager partition=ztf_20181231_programid1-15] Loading producer state from snapshot file '/data1-02/ztf_20181231_programid1-15/00000000000000006978.snapshot' (kafka.log.ProducerStateManager)
+    >   [2019-06-11 08:17:16,226] INFO [Log partition=ztf_20181231_programid1-15, dir=/data1-02] Completed load of log with 1 segments, log start offset 0 and log end offset 6978 in 14526 ms (kafka.log.Log)
+    >   [2019-06-11 08:17:16,244] ERROR There was an error in one of the threads during logs loading: java.lang.InternalError: a fault occurred in a recent unsafe memory access operation in compiled Java code (kafka.log.LogManager)
+    >   [2019-06-11 08:17:16,260] ERROR [KafkaServer id=4] Fatal error during KafkaServer startup. Prepare to shutdown (kafka.server.KafkaServer)
+    >   java.lang.InternalError: a fault occurred in a recent unsafe memory access operation in compiled Java code
+    >       at java.nio.HeapByteBuffer.<init>(HeapByteBuffer.java:57)
+    >       at java.nio.ByteBuffer.allocate(ByteBuffer.java:335)
+    >       at org.apache.kafka.common.record.FileLogInputStream$FileChannelRecordBatch.loadBatchWithSize(FileLogInputStream.java:209)
+    >       at org.apache.kafka.common.record.FileLogInputStream$FileChannelRecordBatch.loadFullBatch(FileLogInputStream.java:192)
+    >       at org.apache.kafka.common.record.FileLogInputStream$FileChannelRecordBatch.ensureValid(FileLogInputStream.java:164)
+    >       at kafka.log.LogSegment$$anonfun$recover$1.apply(LogSegment.scala:277)
+    >       at kafka.log.LogSegment$$anonfun$recover$1.apply(LogSegment.scala:276)
+
+
+
+    #
+    # Out of disc space, or Filesystem disk failure.
+    # https://community.hortonworks.com/content/supportkb/199827/error-javalanginternalerror-a-fault-occurred-in-a.html
+    #
+    # Out of space
+    # https://stackoverflow.com/questions/36301809/kafka-a-fault-occurred-in-a-recent-unsafe-memory-access-operation-in-compiled
+    #
+    # Out of space
+    # https://stackoverflow.com/questions/52625588/kafka-error-kafka-process-is-going-down-frequently-showing-below-error-when-t
+    #
+    # Out of space
+    # https://stackoverflow.com/questions/36048002/kafka-0-9-0-1-fails-to-start-with-fatal-exception
+
+
+
+# -----------------------------------------------------
+# Check the disc space on each node.
+#[user@trop03]
+
+    source "${HOME}/ssh-options"
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    hostname
+                    date
+                    df -h
+                    "
+        done
+
+    >   ---- ----
+    >   Stedigo
+    >   Tue 11 Jun 11:13:18 BST 2019
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   devtmpfs        2.0G     0  2.0G   0% /dev
+    >   tmpfs           2.0G     0  2.0G   0% /dev/shm
+    >   tmpfs           2.0G  592K  2.0G   1% /run
+    >   tmpfs           2.0G     0  2.0G   0% /sys/fs/cgroup
+    >   /dev/vda3       6.8G  2.2G  4.1G  35% /
+    >   tmpfs           2.0G  4.0K  2.0G   1% /tmp
+    >   /dev/vda1       240M   89M  135M  40% /boot
+    >   /dev/vdc         32G   31G  3.7M 100% /data1-01
+    >   /dev/vdd         32G   31G     0 100% /data2-01
+    >   /dev/vde         64G   50G   13G  80% /data1-02
+    >   /dev/vdf         64G   47G   16G  75% /data2-02
+    >   /dev/vdg        256G   40G  215G  16% /data1-03
+    >   /dev/vdh        256G   39G  216G  16% /data2-03
+    >   /dev/vdi        256G   17M  254G   1% /data1-04
+    >   /dev/vdj        256G   17M  254G   1% /data2-04
+    >   tmpfs           395M     0  395M   0% /run/user/1001
+    >   ---- ----
+    >   Angece
+    >   Tue 11 Jun 11:13:19 BST 2019
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   devtmpfs        2.0G     0  2.0G   0% /dev
+    >   tmpfs           2.0G     0  2.0G   0% /dev/shm
+    >   tmpfs           2.0G  592K  2.0G   1% /run
+    >   tmpfs           2.0G     0  2.0G   0% /sys/fs/cgroup
+    >   /dev/vda3       6.8G  2.2G  4.1G  35% /
+    >   tmpfs           2.0G  4.0K  2.0G   1% /tmp
+    >   /dev/vda1       240M   89M  135M  40% /boot
+    >   /dev/vdc         32G   31G  3.5M 100% /data1-01
+    >   /dev/vdd         32G   31G     0 100% /data2-01
+    >   /dev/vde         64G   51G   12G  82% /data1-02
+    >   /dev/vdf         64G   47G   16G  75% /data2-02
+    >   /dev/vdg        256G   40G  215G  16% /data1-03
+    >   /dev/vdh        256G   39G  216G  16% /data2-03
+    >   /dev/vdi        256G   17M  254G   1% /data1-04
+    >   /dev/vdj        256G   17M  254G   1% /data2-04
+    >   tmpfs           395M     0  395M   0% /run/user/1001
+    >   ---- ----
+    >   Edwalafia
+    >   Tue 11 Jun 11:13:19 BST 2019
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   devtmpfs        2.0G     0  2.0G   0% /dev
+    >   tmpfs           2.0G     0  2.0G   0% /dev/shm
+    >   tmpfs           2.0G  592K  2.0G   1% /run
+    >   tmpfs           2.0G     0  2.0G   0% /sys/fs/cgroup
+    >   /dev/vda3       6.8G  2.2G  4.1G  35% /
+    >   tmpfs           2.0G  4.0K  2.0G   1% /tmp
+    >   /dev/vda1       240M   89M  135M  40% /boot
+    >   /dev/vdc         32G   31G  4.0M 100% /data1-01
+    >   /dev/vdd         32G   31G     0 100% /data2-01
+    >   /dev/vde         64G   48G   15G  77% /data1-02
+    >   /dev/vdf         64G   47G   16G  76% /data2-02
+    >   /dev/vdg        256G   40G  215G  16% /data1-03
+    >   /dev/vdh        256G   39G  216G  16% /data2-03
+    >   /dev/vdi        256G   17M  254G   1% /data1-04
+    >   /dev/vdj        256G   17M  254G   1% /data2-04
+    >   tmpfs           395M     0  395M   0% /run/user/1001
+    >   ---- ----
+    >   Onoza
+    >   Tue 11 Jun 11:13:19 BST 2019
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   devtmpfs        2.0G     0  2.0G   0% /dev
+    >   tmpfs           2.0G     0  2.0G   0% /dev/shm
+    >   tmpfs           2.0G  592K  2.0G   1% /run
+    >   tmpfs           2.0G     0  2.0G   0% /sys/fs/cgroup
+    >   /dev/vda3       6.8G  2.2G  4.1G  35% /
+    >   tmpfs           2.0G  4.0K  2.0G   1% /tmp
+    >   /dev/vda1       240M   89M  135M  40% /boot
+    >   /dev/vdc         32G   31G  3.7M 100% /data1-01
+    >   /dev/vdd         32G   31G     0 100% /data2-01
+    >   /dev/vde         64G   46G   17G  74% /data1-02
+    >   /dev/vdf         64G   49G   14G  79% /data2-02
+    >   /dev/vdg        256G   40G  215G  16% /data1-03
+    >   /dev/vdh        256G   39G  216G  16% /data2-03
+    >   /dev/vdi        256G   17M  254G   1% /data1-04
+    >   /dev/vdj        256G   17M  254G   1% /data2-04
+    >   tmpfs           395M     0  395M   0% /run/user/1001
+
+
+# -----------------------------------------------------
+# Check the Kafka settings on each node
+#[user@trop03]
+
+    source "${HOME}/ssh-options"
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    '
+                    hostname
+                    date
+                    cat ${HOME}/kafka.env
+                    '
+        done
+
+    >   ---- ----
+    >   Stedigo
+    >   Tue 11 Jun 11:15:50 BST 2019
+    >   KAFKA_LOG_DIRS=/data1-01,/data1-02,/data1-03,/data1-04,/data2-01,/data2-02,/data2-03,/data2-04
+    >   KAFKA_BROKER_ID=1
+    >   KAFKA_BROKER_RACK=1
+    >   KAFKA_ZOOKEEPER_CONNECT=Fosauri,Marpus,Byflame
+    >   KAFKA_HOSTNAME=Stedigo
+    >   ---- ----
+    >   Angece
+    >   Tue 11 Jun 11:15:50 BST 2019
+    >   KAFKA_LOG_DIRS=/data1-01,/data1-02,/data1-03,/data1-04,/data2-01,/data2-02,/data2-03,/data2-04
+    >   KAFKA_BROKER_ID=2
+    >   KAFKA_BROKER_RACK=2
+    >   KAFKA_ZOOKEEPER_CONNECT=Fosauri,Marpus,Byflame
+    >   KAFKA_HOSTNAME=Angece
+    >   ---- ----
+    >   Edwalafia
+    >   Tue 11 Jun 11:15:50 BST 2019
+    >   KAFKA_LOG_DIRS=/data1-01,/data1-02,/data1-03,/data1-04,/data2-01,/data2-02,/data2-03,/data2-04
+    >   KAFKA_BROKER_ID=3
+    >   KAFKA_BROKER_RACK=3
+    >   KAFKA_ZOOKEEPER_CONNECT=Fosauri,Marpus,Byflame
+    >   KAFKA_HOSTNAME=Edwalafia
+    >   ---- ----
+    >   Onoza
+    >   Tue 11 Jun 11:15:51 BST 2019
+    >   KAFKA_LOG_DIRS=/data1-01,/data1-02,/data1-03,/data1-04,/data2-01,/data2-02,/data2-03,/data2-04
+    >   KAFKA_BROKER_ID=4
+    >   KAFKA_BROKER_RACK=4
+    >   KAFKA_ZOOKEEPER_CONNECT=Fosauri,Marpus,Byflame
+    >   KAFKA_HOSTNAME=Onoza
+
+
+# -----------------------------------------------------
+# Identify the full discs on each node.
+#[user@trop03]
+
+    source "${HOME}/ssh-options"
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    hostname
+                    date
+                    df -h | grep '100%' | awk '{ print \$6}'
+                    "
+        done
+
+    >   ---- ----
+    >   Stedigo
+    >   Tue 11 Jun 11:41:37 BST 2019
+    >   /data1-01
+    >   /data2-01
+    >   ---- ----
+    >   Angece
+    >   Tue 11 Jun 11:41:38 BST 2019
+    >   /data1-01
+    >   /data2-01
+    >   ---- ----
+    >   Edwalafia
+    >   Tue 11 Jun 11:41:38 BST 2019
+    >   /data1-01
+    >   /data2-01
+    >   ---- ----
+    >   Onoza
+    >   Tue 11 Jun 11:41:38 BST 2019
+    >   /data1-01
+    >   /data2-01
+
+
+# -----------------------------------------------------
+# List the space used on the full discs.
+#[user@trop03]
+
+    source "${HOME}/ssh-options"
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    hostname
+                    date
+                    du -h /data1-01
+                    echo '----'
+                    du -h /data2-01
+                    "
+        done
+
+    >   ---- ----
+    >   Stedigo
+    >   Tue 11 Jun 11:44:37 BST 2019
+    >   814M    /data1-01/ztf_20190112_programid1-5
+    >   814M    /data1-01/ztf_20190112_programid1-7
+    >   814M    /data1-01/ztf_20190112_programid1-12
+    >   815M    /data1-01/ztf_20190112_programid1-3
+    >   125M    /data1-01/ztf_20190119_programid1-14
+    >   125M    /data1-01/ztf_20190119_programid1-0
+    >   124M    /data1-01/ztf_20190119_programid1-4
+    >   124M    /data1-01/ztf_20190119_programid1-12
+    >   453M    /data1-01/ztf_20190120_programid1-12
+    >   452M    /data1-01/ztf_20190120_programid1-5
+    >   452M    /data1-01/ztf_20190120_programid1-10
+    >   452M    /data1-01/ztf_20190120_programid1-14
+    >   90M     /data1-01/ztf_20190121_programid1-4
+    >   90M     /data1-01/ztf_20190121_programid1-6
+    >   90M     /data1-01/ztf_20190121_programid1-11
+    >   91M     /data1-01/ztf_20190121_programid1-15
+    >   358M    /data1-01/ztf_20190122_programid1-2
+    >   358M    /data1-01/ztf_20190122_programid1-4
+    >   358M    /data1-01/ztf_20190122_programid1-8
+    >   358M    /data1-01/ztf_20190122_programid1-3
+    >   246M    /data1-01/ztf_20190123_programid1-0
+    >   246M    /data1-01/ztf_20190123_programid1-9
+    >   246M    /data1-01/ztf_20190123_programid1-3
+    >   246M    /data1-01/ztf_20190123_programid1-7
+    >   530M    /data1-01/ztf_20190124_programid1-4
+    >   529M    /data1-01/ztf_20190124_programid1-10
+    >   529M    /data1-01/ztf_20190124_programid1-15
+    >   529M    /data1-01/ztf_20190124_programid1-13
+    >   537M    /data1-01/ztf_20190125_programid1-6
+    >   537M    /data1-01/ztf_20190125_programid1-8
+    >   537M    /data1-01/ztf_20190125_programid1-3
+    >   537M    /data1-01/ztf_20190125_programid1-1
+    >   693M    /data1-01/ztf_20190126_programid1-7
+    >   693M    /data1-01/ztf_20190126_programid1-13
+    >   692M    /data1-01/ztf_20190126_programid1-1
+    >   693M    /data1-01/ztf_20190126_programid1-2
+    >   686M    /data1-01/ztf_20190127_programid1-5
+    >   685M    /data1-01/ztf_20190127_programid1-4
+    >   685M    /data1-01/ztf_20190127_programid1-2
+    >   685M    /data1-01/ztf_20190127_programid1-10
+    >   639M    /data1-01/ztf_20190128_programid1-3
+    >   639M    /data1-01/ztf_20190128_programid1-2
+    >   639M    /data1-01/ztf_20190128_programid1-6
+    >   639M    /data1-01/ztf_20190128_programid1-8
+    >   846M    /data1-01/ztf_20190131_programid1-8
+    >   845M    /data1-01/ztf_20190131_programid1-13
+    >   846M    /data1-01/ztf_20190131_programid1-1
+    >   846M    /data1-01/ztf_20190131_programid1-9
+    >   1.2G    /data1-01/ztf_20190129_programid1-1
+    >   1.2G    /data1-01/ztf_20190129_programid1-0
+    >   1.2G    /data1-01/ztf_20190129_programid1-8
+    >   1.2G    /data1-01/ztf_20190129_programid1-6
+    >   534M    /data1-01/ztf_20190130_programid1-0
+    >   534M    /data1-01/ztf_20190130_programid1-15
+    >   534M    /data1-01/ztf_20190130_programid1-6
+    >   19M     /data1-01/ztf_20190208_programid1-8
+    >   19M     /data1-01/ztf_20190208_programid1-4
+    >   19M     /data1-01/ztf_20190208_programid1-13
+    >   19M     /data1-01/ztf_20190208_programid1-1
+    >   30G     /data1-01
+    >   ----
+    >   716M    /data2-01/ztf_20181205_programid1-2
+    >   716M    /data2-01/ztf_20181205_programid1-10
+    >   715M    /data2-01/ztf_20181205_programid1-11
+    >   716M    /data2-01/ztf_20181205_programid1-9
+    >   716M    /data2-01/ztf_20181205_programid1-7
+    >   715M    /data2-01/ztf_20181205_programid1-13
+    >   269M    /data2-01/ztf_20181209_programid1-3
+    >   269M    /data2-01/ztf_20181209_programid1-11
+    >   269M    /data2-01/ztf_20181209_programid1-0
+    >   269M    /data2-01/ztf_20181209_programid1-8
+    >   269M    /data2-01/ztf_20181209_programid1-2
+    >   269M    /data2-01/ztf_20181209_programid1-9
+    >   436M    /data2-01/ztf_20181210_programid1-12
+    >   436M    /data2-01/ztf_20181210_programid1-4
+    >   437M    /data2-01/ztf_20181210_programid1-15
+    >   437M    /data2-01/ztf_20181210_programid1-6
+    >   436M    /data2-01/ztf_20181210_programid1-14
+    >   437M    /data2-01/ztf_20181210_programid1-11
+    >   647M    /data2-01/ztf_20181212_programid1-14
+    >   647M    /data2-01/ztf_20181212_programid1-6
+    >   646M    /data2-01/ztf_20181212_programid1-11
+    >   646M    /data2-01/ztf_20181212_programid1-0
+    >   646M    /data2-01/ztf_20181212_programid1-13
+    >   646M    /data2-01/ztf_20181212_programid1-4
+    >   496M    /data2-01/ztf_20181213_programid1-6
+    >   496M    /data2-01/ztf_20181213_programid1-14
+    >   496M    /data2-01/ztf_20181213_programid1-12
+    >   497M    /data2-01/ztf_20181213_programid1-0
+    >   496M    /data2-01/ztf_20181213_programid1-13
+    >   496M    /data2-01/ztf_20181213_programid1-7
+    >   957M    /data2-01/ztf_20181214_programid1-4
+    >   957M    /data2-01/ztf_20181214_programid1-12
+    >   957M    /data2-01/ztf_20181214_programid1-11
+    >   957M    /data2-01/ztf_20181214_programid1-14
+    >   958M    /data2-01/ztf_20181214_programid1-15
+    >   958M    /data2-01/ztf_20181214_programid1-6
+    >   42M     /data2-01/ztf_20181215_programid1-5
+    >   42M     /data2-01/ztf_20181215_programid1-13
+    >   42M     /data2-01/ztf_20181215_programid1-8
+    >   42M     /data2-01/ztf_20181215_programid1-12
+    >   42M     /data2-01/ztf_20181215_programid1-3
+    >   42M     /data2-01/ztf_20181215_programid1-10
+    >   560M    /data2-01/ztf_20181216_programid1-13
+    >   560M    /data2-01/ztf_20181216_programid1-5
+    >   560M    /data2-01/ztf_20181216_programid1-6
+    >   560M    /data2-01/ztf_20181216_programid1-10
+    >   560M    /data2-01/ztf_20181216_programid1-8
+    >   560M    /data2-01/ztf_20181216_programid1-12
+    >   992M    /data2-01/ztf_20181217_programid1-14
+    >   992M    /data2-01/ztf_20181217_programid1-6
+    >   993M    /data2-01/ztf_20181217_programid1-11
+    >   992M    /data2-01/ztf_20181217_programid1-9
+    >   992M    /data2-01/ztf_20181217_programid1-4
+    >   992M    /data2-01/ztf_20181217_programid1-1
+    >   1.9M    /data2-01/ztf_20190130_programid1-2
+    >   1.9M    /data2-01/ztf_20190130_programid1-14
+    >   30G     /data2-01
+    >   ---- ----
+    >   Angece
+    >   Tue 11 Jun 11:44:37 BST 2019
+    >   815M    /data1-01/ztf_20190112_programid1-14
+    >   815M    /data1-01/ztf_20190112_programid1-10
+    >   815M    /data1-01/ztf_20190112_programid1-1
+    >   814M    /data1-01/ztf_20190112_programid1-9
+    >   125M    /data1-01/ztf_20190119_programid1-3
+    >   124M    /data1-01/ztf_20190119_programid1-15
+    >   124M    /data1-01/ztf_20190119_programid1-4
+    >   124M    /data1-01/ztf_20190119_programid1-8
+    >   452M    /data1-01/ztf_20190120_programid1-5
+    >   453M    /data1-01/ztf_20190120_programid1-1
+    >   453M    /data1-01/ztf_20190120_programid1-15
+    >   453M    /data1-01/ztf_20190120_programid1-4
+    >   90M     /data1-01/ztf_20190121_programid1-13
+    >   90M     /data1-01/ztf_20190121_programid1-9
+    >   91M     /data1-01/ztf_20190121_programid1-0
+    >   90M     /data1-01/ztf_20190121_programid1-8
+    >   358M    /data1-01/ztf_20190122_programid1-11
+    >   358M    /data1-01/ztf_20190122_programid1-7
+    >   358M    /data1-01/ztf_20190122_programid1-8
+    >   358M    /data1-01/ztf_20190122_programid1-9
+    >   246M    /data1-01/ztf_20190123_programid1-9
+    >   246M    /data1-01/ztf_20190123_programid1-5
+    >   246M    /data1-01/ztf_20190123_programid1-0
+    >   246M    /data1-01/ztf_20190123_programid1-4
+    >   530M    /data1-01/ztf_20190124_programid1-1
+    >   529M    /data1-01/ztf_20190124_programid1-13
+    >   529M    /data1-01/ztf_20190124_programid1-7
+    >   530M    /data1-01/ztf_20190124_programid1-11
+    >   537M    /data1-01/ztf_20190125_programid1-15
+    >   537M    /data1-01/ztf_20190125_programid1-11
+    >   537M    /data1-01/ztf_20190125_programid1-2
+    >   537M    /data1-01/ztf_20190125_programid1-6
+    >   693M    /data1-01/ztf_20190126_programid1-0
+    >   693M    /data1-01/ztf_20190126_programid1-12
+    >   693M    /data1-01/ztf_20190126_programid1-14
+    >   693M    /data1-01/ztf_20190126_programid1-11
+    >   686M    /data1-01/ztf_20190127_programid1-14
+    >   685M    /data1-01/ztf_20190127_programid1-10
+    >   686M    /data1-01/ztf_20190127_programid1-11
+    >   685M    /data1-01/ztf_20190127_programid1-15
+    >   639M    /data1-01/ztf_20190128_programid1-12
+    >   639M    /data1-01/ztf_20190128_programid1-8
+    >   639M    /data1-01/ztf_20190128_programid1-6
+    >   640M    /data1-01/ztf_20190128_programid1-10
+    >   845M    /data1-01/ztf_20190131_programid1-13
+    >   846M    /data1-01/ztf_20190131_programid1-9
+    >   846M    /data1-01/ztf_20190131_programid1-4
+    >   846M    /data1-01/ztf_20190131_programid1-2
+    >   1.1G    /data1-01/ztf_20190129_programid1-10
+    >   1.1G    /data1-01/ztf_20190129_programid1-6
+    >   1.1G    /data1-01/ztf_20190129_programid1-1
+    >   1.1G    /data1-01/ztf_20190129_programid1-11
+    >   533M    /data1-01/ztf_20190130_programid1-5
+    >   534M    /data1-01/ztf_20190130_programid1-1
+    >   534M    /data1-01/ztf_20190130_programid1-3
+    >   534M    /data1-01/ztf_20190130_programid1-8
+    >   30G     /data1-01
+    >   ----
+    >   715M    /data2-01/ztf_20181205_programid1-11
+    >   715M    /data2-01/ztf_20181205_programid1-3
+    >   716M    /data2-01/ztf_20181205_programid1-8
+    >   716M    /data2-01/ztf_20181205_programid1-2
+    >   715M    /data2-01/ztf_20181205_programid1-4
+    >   716M    /data2-01/ztf_20181205_programid1-1
+    >   269M    /data2-01/ztf_20181209_programid1-0
+    >   269M    /data2-01/ztf_20181209_programid1-8
+    >   269M    /data2-01/ztf_20181209_programid1-3
+    >   269M    /data2-01/ztf_20181209_programid1-10
+    >   269M    /data2-01/ztf_20181209_programid1-1
+    >   269M    /data2-01/ztf_20181209_programid1-9
+    >   437M    /data2-01/ztf_20181210_programid1-9
+    >   437M    /data2-01/ztf_20181210_programid1-1
+    >   437M    /data2-01/ztf_20181210_programid1-15
+    >   437M    /data2-01/ztf_20181210_programid1-6
+    >   437M    /data2-01/ztf_20181210_programid1-0
+    >   437M    /data2-01/ztf_20181210_programid1-7
+    >   646M    /data2-01/ztf_20181212_programid1-11
+    >   646M    /data2-01/ztf_20181212_programid1-3
+    >   647M    /data2-01/ztf_20181212_programid1-14
+    >   646M    /data2-01/ztf_20181212_programid1-5
+    >   646M    /data2-01/ztf_20181212_programid1-13
+    >   646M    /data2-01/ztf_20181212_programid1-4
+    >   496M    /data2-01/ztf_20181213_programid1-3
+    >   496M    /data2-01/ztf_20181213_programid1-11
+    >   496M    /data2-01/ztf_20181213_programid1-4
+    >   496M    /data2-01/ztf_20181213_programid1-1
+    >   496M    /data2-01/ztf_20181213_programid1-14
+    >   496M    /data2-01/ztf_20181213_programid1-5
+    >   958M    /data2-01/ztf_20181214_programid1-1
+    >   957M    /data2-01/ztf_20181214_programid1-9
+    >   958M    /data2-01/ztf_20181214_programid1-10
+    >   957M    /data2-01/ztf_20181214_programid1-8
+    >   957M    /data2-01/ztf_20181214_programid1-12
+    >   957M    /data2-01/ztf_20181214_programid1-3
+    >   42M     /data2-01/ztf_20181215_programid1-2
+    >   42M     /data2-01/ztf_20181215_programid1-10
+    >   42M     /data2-01/ztf_20181215_programid1-12
+    >   42M     /data2-01/ztf_20181215_programid1-0
+    >   42M     /data2-01/ztf_20181215_programid1-7
+    >   42M     /data2-01/ztf_20181215_programid1-1
+    >   560M    /data2-01/ztf_20181216_programid1-6
+    >   560M    /data2-01/ztf_20181216_programid1-14
+    >   560M    /data2-01/ztf_20181216_programid1-13
+    >   560M    /data2-01/ztf_20181216_programid1-4
+    >   560M    /data2-01/ztf_20181216_programid1-11
+    >   560M    /data2-01/ztf_20181216_programid1-0
+    >   993M    /data2-01/ztf_20181217_programid1-11
+    >   993M    /data2-01/ztf_20181217_programid1-3
+    >   992M    /data2-01/ztf_20181217_programid1-14
+    >   992M    /data2-01/ztf_20181217_programid1-5
+    >   992M    /data2-01/ztf_20181217_programid1-4
+    >   991M    /data2-01/ztf_20181217_programid1-10
+    >   2.0M    /data2-01/ztf_20190130_programid1-12
+    >   2.1M    /data2-01/ztf_20190130_programid1-10
+    >   30G     /data2-01
+    >   ---- ----
+    >   Edwalafia
+    >   Tue 11 Jun 11:44:37 BST 2019
+    >   814M    /data1-01/ztf_20190112_programid1-11
+    >   815M    /data1-01/ztf_20190112_programid1-4
+    >   814M    /data1-01/ztf_20190112_programid1-8
+    >   814M    /data1-01/ztf_20190112_programid1-13
+    >   124M    /data1-01/ztf_20190119_programid1-4
+    >   125M    /data1-01/ztf_20190119_programid1-3
+    >   124M    /data1-01/ztf_20190119_programid1-15
+    >   124M    /data1-01/ztf_20190119_programid1-9
+    >   452M    /data1-01/ztf_20190120_programid1-6
+    >   453M    /data1-01/ztf_20190120_programid1-8
+    >   453M    /data1-01/ztf_20190120_programid1-12
+    >   453M    /data1-01/ztf_20190120_programid1-0
+    >   90M     /data1-01/ztf_20190121_programid1-10
+    >   91M     /data1-01/ztf_20190121_programid1-0
+    >   90M     /data1-01/ztf_20190121_programid1-4
+    >   91M     /data1-01/ztf_20190121_programid1-12
+    >   358M    /data1-01/ztf_20190122_programid1-8
+    >   358M    /data1-01/ztf_20190122_programid1-1
+    >   358M    /data1-01/ztf_20190122_programid1-6
+    >   358M    /data1-01/ztf_20190122_programid1-10
+    >   246M    /data1-01/ztf_20190123_programid1-6
+    >   246M    /data1-01/ztf_20190123_programid1-15
+    >   246M    /data1-01/ztf_20190123_programid1-4
+    >   246M    /data1-01/ztf_20190123_programid1-8
+    >   529M    /data1-01/ztf_20190124_programid1-14
+    >   530M    /data1-01/ztf_20190124_programid1-4
+    >   530M    /data1-01/ztf_20190124_programid1-8
+    >   529M    /data1-01/ztf_20190124_programid1-13
+    >   538M    /data1-01/ztf_20190125_programid1-12
+    >   537M    /data1-01/ztf_20190125_programid1-15
+    >   537M    /data1-01/ztf_20190125_programid1-3
+    >   537M    /data1-01/ztf_20190125_programid1-7
+    >   692M    /data1-01/ztf_20190126_programid1-1
+    >   693M    /data1-01/ztf_20190126_programid1-6
+    >   693M    /data1-01/ztf_20190126_programid1-10
+    >   692M    /data1-01/ztf_20190126_programid1-15
+    >   685M    /data1-01/ztf_20190127_programid1-15
+    >   686M    /data1-01/ztf_20190127_programid1-14
+    >   685M    /data1-01/ztf_20190127_programid1-2
+    >   685M    /data1-01/ztf_20190127_programid1-12
+    >   639M    /data1-01/ztf_20190128_programid1-13
+    >   639M    /data1-01/ztf_20190128_programid1-2
+    >   640M    /data1-01/ztf_20190128_programid1-10
+    >   639M    /data1-01/ztf_20190128_programid1-14
+    >   846M    /data1-01/ztf_20190131_programid1-14
+    >   845M    /data1-01/ztf_20190131_programid1-13
+    >   846M    /data1-01/ztf_20190131_programid1-11
+    >   846M    /data1-01/ztf_20190131_programid1-15
+    >   1.2G    /data1-01/ztf_20190129_programid1-11
+    >   1.2G    /data1-01/ztf_20190129_programid1-13
+    >   1.2G    /data1-01/ztf_20190129_programid1-4
+    >   1.2G    /data1-01/ztf_20190129_programid1-5
+    >   534M    /data1-01/ztf_20190130_programid1-6
+    >   534M    /data1-01/ztf_20190130_programid1-12
+    >   534M    /data1-01/ztf_20190130_programid1-7
+    >   18M     /data1-01/ztf_20190208_programid1-2
+    >   18M     /data1-01/ztf_20190208_programid1-14
+    >   18M     /data1-01/ztf_20190208_programid1-15
+    >   18M     /data1-01/ztf_20190208_programid1-3
+    >   30G     /data1-01
+    >   ----
+    >   716M    /data2-01/ztf_20181205_programid1-8
+    >   716M    /data2-01/ztf_20181205_programid1-0
+    >   715M    /data2-01/ztf_20181205_programid1-11
+    >   716M    /data2-01/ztf_20181205_programid1-2
+    >   716M    /data2-01/ztf_20181205_programid1-9
+    >   715M    /data2-01/ztf_20181205_programid1-3
+    >   269M    /data2-01/ztf_20181209_programid1-13
+    >   269M    /data2-01/ztf_20181209_programid1-5
+    >   269M    /data2-01/ztf_20181209_programid1-0
+    >   269M    /data2-01/ztf_20181209_programid1-7
+    >   269M    /data2-01/ztf_20181209_programid1-14
+    >   269M    /data2-01/ztf_20181209_programid1-2
+    >   437M    /data2-01/ztf_20181210_programid1-6
+    >   436M    /data2-01/ztf_20181210_programid1-14
+    >   436M    /data2-01/ztf_20181210_programid1-12
+    >   437M    /data2-01/ztf_20181210_programid1-0
+    >   437M    /data2-01/ztf_20181210_programid1-7
+    >   437M    /data2-01/ztf_20181210_programid1-1
+    >   646M    /data2-01/ztf_20181212_programid1-8
+    >   646M    /data2-01/ztf_20181212_programid1-0
+    >   647M    /data2-01/ztf_20181212_programid1-14
+    >   646M    /data2-01/ztf_20181212_programid1-5
+    >   646M    /data2-01/ztf_20181212_programid1-15
+    >   647M    /data2-01/ztf_20181212_programid1-6
+    >   496M    /data2-01/ztf_20181213_programid1-12
+    >   496M    /data2-01/ztf_20181213_programid1-4
+    >   497M    /data2-01/ztf_20181213_programid1-9
+    >   496M    /data2-01/ztf_20181213_programid1-3
+    >   496M    /data2-01/ztf_20181213_programid1-11
+    >   497M    /data2-01/ztf_20181213_programid1-2
+    >   958M    /data2-01/ztf_20181214_programid1-10
+    >   958M    /data2-01/ztf_20181214_programid1-2
+    >   957M    /data2-01/ztf_20181214_programid1-7
+    >   958M    /data2-01/ztf_20181214_programid1-1
+    >   957M    /data2-01/ztf_20181214_programid1-12
+    >   957M    /data2-01/ztf_20181214_programid1-0
+    >   42M     /data2-01/ztf_20181215_programid1-15
+    >   42M     /data2-01/ztf_20181215_programid1-7
+    >   42M     /data2-01/ztf_20181215_programid1-8
+    >   42M     /data2-01/ztf_20181215_programid1-2
+    >   42M     /data2-01/ztf_20181215_programid1-10
+    >   42M     /data2-01/ztf_20181215_programid1-1
+    >   560M    /data2-01/ztf_20181216_programid1-3
+    >   560M    /data2-01/ztf_20181216_programid1-11
+    >   560M    /data2-01/ztf_20181216_programid1-13
+    >   560M    /data2-01/ztf_20181216_programid1-4
+    >   560M    /data2-01/ztf_20181216_programid1-14
+    >   560M    /data2-01/ztf_20181216_programid1-5
+    >   991M    /data2-01/ztf_20181217_programid1-8
+    >   991M    /data2-01/ztf_20181217_programid1-0
+    >   992M    /data2-01/ztf_20181217_programid1-14
+    >   992M    /data2-01/ztf_20181217_programid1-5
+    >   993M    /data2-01/ztf_20181217_programid1-15
+    >   992M    /data2-01/ztf_20181217_programid1-6
+    >   1.8M    /data2-01/ztf_20190130_programid1-0
+    >   1.8M    /data2-01/ztf_20190130_programid1-1
+    >   30G     /data2-01
+    >   ---- ----
+    >   Onoza
+    >   Tue 11 Jun 11:44:38 BST 2019
+    >   814M    /data1-01/ztf_20190112_programid1-8
+    >   815M    /data1-01/ztf_20190112_programid1-14
+    >   815M    /data1-01/ztf_20190112_programid1-2
+    >   814M    /data1-01/ztf_20190112_programid1-6
+    >   125M    /data1-01/ztf_20190119_programid1-1
+    >   125M    /data1-01/ztf_20190119_programid1-3
+    >   125M    /data1-01/ztf_20190119_programid1-7
+    >   124M    /data1-01/ztf_20190119_programid1-12
+    >   453M    /data1-01/ztf_20190120_programid1-3
+    >   453M    /data1-01/ztf_20190120_programid1-12
+    >   453M    /data1-01/ztf_20190120_programid1-13
+    >   453M    /data1-01/ztf_20190120_programid1-4
+    >   91M     /data1-01/ztf_20190121_programid1-7
+    >   90M     /data1-01/ztf_20190121_programid1-13
+    >   90M     /data1-01/ztf_20190121_programid1-4
+    >   91M     /data1-01/ztf_20190121_programid1-5
+    >   358M    /data1-01/ztf_20190122_programid1-5
+    >   358M    /data1-01/ztf_20190122_programid1-4
+    >   358M    /data1-01/ztf_20190122_programid1-2
+    >   358M    /data1-01/ztf_20190122_programid1-10
+    >   246M    /data1-01/ztf_20190123_programid1-3
+    >   246M    /data1-01/ztf_20190123_programid1-2
+    >   246M    /data1-01/ztf_20190123_programid1-12
+    >   246M    /data1-01/ztf_20190123_programid1-8
+    >   530M    /data1-01/ztf_20190124_programid1-11
+    >   529M    /data1-01/ztf_20190124_programid1-0
+    >   530M    /data1-01/ztf_20190124_programid1-5
+    >   530M    /data1-01/ztf_20190124_programid1-9
+    >   537M    /data1-01/ztf_20190125_programid1-9
+    >   537M    /data1-01/ztf_20190125_programid1-2
+    >   537M    /data1-01/ztf_20190125_programid1-10
+    >   537M    /data1-01/ztf_20190125_programid1-14
+    >   693M    /data1-01/ztf_20190126_programid1-10
+    >   693M    /data1-01/ztf_20190126_programid1-0
+    >   694M    /data1-01/ztf_20190126_programid1-4
+    >   693M    /data1-01/ztf_20190126_programid1-12
+    >   686M    /data1-01/ztf_20190127_programid1-8
+    >   685M    /data1-01/ztf_20190127_programid1-1
+    >   685M    /data1-01/ztf_20190127_programid1-6
+    >   685M    /data1-01/ztf_20190127_programid1-10
+    >   639M    /data1-01/ztf_20190128_programid1-6
+    >   639M    /data1-01/ztf_20190128_programid1-15
+    >   639M    /data1-01/ztf_20190128_programid1-4
+    >   639M    /data1-01/ztf_20190128_programid1-8
+    >   846M    /data1-01/ztf_20190131_programid1-11
+    >   846M    /data1-01/ztf_20190131_programid1-14
+    >   846M    /data1-01/ztf_20190131_programid1-2
+    >   846M    /data1-01/ztf_20190131_programid1-9
+    >   1.2G    /data1-01/ztf_20190129_programid1-4
+    >   1.2G    /data1-01/ztf_20190129_programid1-14
+    >   1.2G    /data1-01/ztf_20190129_programid1-2
+    >   1.2G    /data1-01/ztf_20190129_programid1-6
+    >   534M    /data1-01/ztf_20190130_programid1-3
+    >   533M    /data1-01/ztf_20190130_programid1-5
+    >   534M    /data1-01/ztf_20190130_programid1-4
+    >   18M     /data1-01/ztf_20190208_programid1-15
+    >   17M     /data1-01/ztf_20190208_programid1-11
+    >   18M     /data1-01/ztf_20190208_programid1-6
+    >   18M     /data1-01/ztf_20190208_programid1-10
+    >   30G     /data1-01
+    >   ----
+    >   716M    /data2-01/ztf_20181205_programid1-9
+    >   716M    /data2-01/ztf_20181205_programid1-1
+    >   715M    /data2-01/ztf_20181205_programid1-15
+    >   715M    /data2-01/ztf_20181205_programid1-6
+    >   716M    /data2-01/ztf_20181205_programid1-0
+    >   716M    /data2-01/ztf_20181205_programid1-7
+    >   269M    /data2-01/ztf_20181209_programid1-14
+    >   269M    /data2-01/ztf_20181209_programid1-6
+    >   269M    /data2-01/ztf_20181209_programid1-13
+    >   269M    /data2-01/ztf_20181209_programid1-1
+    >   269M    /data2-01/ztf_20181209_programid1-8
+    >   269M    /data2-01/ztf_20181209_programid1-15
+    >   437M    /data2-01/ztf_20181210_programid1-3
+    >   437M    /data2-01/ztf_20181210_programid1-11
+    >   437M    /data2-01/ztf_20181210_programid1-10
+    >   437M    /data2-01/ztf_20181210_programid1-1
+    >   436M    /data2-01/ztf_20181210_programid1-14
+    >   437M    /data2-01/ztf_20181210_programid1-2
+    >   646M    /data2-01/ztf_20181212_programid1-9
+    >   646M    /data2-01/ztf_20181212_programid1-1
+    >   646M    /data2-01/ztf_20181212_programid1-15
+    >   646M    /data2-01/ztf_20181212_programid1-0
+    >   646M    /data2-01/ztf_20181212_programid1-3
+    >   646M    /data2-01/ztf_20181212_programid1-7
+    >   496M    /data2-01/ztf_20181213_programid1-13
+    >   496M    /data2-01/ztf_20181213_programid1-5
+    >   496M    /data2-01/ztf_20181213_programid1-6
+    >   497M    /data2-01/ztf_20181213_programid1-0
+    >   496M    /data2-01/ztf_20181213_programid1-7
+    >   496M    /data2-01/ztf_20181213_programid1-15
+    >   957M    /data2-01/ztf_20181214_programid1-11
+    >   957M    /data2-01/ztf_20181214_programid1-3
+    >   957M    /data2-01/ztf_20181214_programid1-4
+    >   957M    /data2-01/ztf_20181214_programid1-8
+    >   957M    /data2-01/ztf_20181214_programid1-14
+    >   957M    /data2-01/ztf_20181214_programid1-13
+    >   42M     /data2-01/ztf_20181215_programid1-12
+    >   42M     /data2-01/ztf_20181215_programid1-4
+    >   42M     /data2-01/ztf_20181215_programid1-5
+    >   42M     /data2-01/ztf_20181215_programid1-9
+    >   42M     /data2-01/ztf_20181215_programid1-3
+    >   42M     /data2-01/ztf_20181215_programid1-11
+    >   560M    /data2-01/ztf_20181216_programid1-8
+    >   560M    /data2-01/ztf_20181216_programid1-0
+    >   560M    /data2-01/ztf_20181216_programid1-3
+    >   560M    /data2-01/ztf_20181216_programid1-11
+    >   560M    /data2-01/ztf_20181216_programid1-2
+    >   560M    /data2-01/ztf_20181216_programid1-9
+    >   992M    /data2-01/ztf_20181217_programid1-9
+    >   992M    /data2-01/ztf_20181217_programid1-1
+    >   993M    /data2-01/ztf_20181217_programid1-15
+    >   992M    /data2-01/ztf_20181217_programid1-6
+    >   991M    /data2-01/ztf_20181217_programid1-0
+    >   993M    /data2-01/ztf_20181217_programid1-7
+    >   2.4M    /data2-01/ztf_20190130_programid1-13
+    >   2.4M    /data2-01/ztf_20190130_programid1-14
+    >   30G     /data2-01
+
+
+# -----------------------------------------------------
+# List the data for 20190130 on the full discs.
+#[user@trop03]
+
+    source "${HOME}/ssh-options"
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    hostname
+                    date
+                    find /data1-01 -name 'ztf_20190130*'
+                    echo '----'
+                    find /data2-01 -name 'ztf_20190130*'
+                    "
+        done
+
+
+    >   ---- ----
+    >   Stedigo
+    >   Tue 11 Jun 11:53:01 BST 2019
+    >   /data1-01/ztf_20190130_programid1-0
+    >   /data1-01/ztf_20190130_programid1-15
+    >   /data1-01/ztf_20190130_programid1-6
+    >   ----
+    >   /data2-01/ztf_20190130_programid1-2
+    >   /data2-01/ztf_20190130_programid1-14
+    >   ---- ----
+    >   Angece
+    >   Tue 11 Jun 11:53:01 BST 2019
+    >   /data1-01/ztf_20190130_programid1-5
+    >   /data1-01/ztf_20190130_programid1-1
+    >   /data1-01/ztf_20190130_programid1-3
+    >   /data1-01/ztf_20190130_programid1-8
+    >   ----
+    >   /data2-01/ztf_20190130_programid1-12
+    >   /data2-01/ztf_20190130_programid1-10
+    >   ---- ----
+    >   Edwalafia
+    >   Tue 11 Jun 11:53:02 BST 2019
+    >   /data1-01/ztf_20190130_programid1-6
+    >   /data1-01/ztf_20190130_programid1-12
+    >   /data1-01/ztf_20190130_programid1-7
+    >   ----
+    >   /data2-01/ztf_20190130_programid1-0
+    >   /data2-01/ztf_20190130_programid1-1
+    >   ---- ----
+    >   Onoza
+    >   Tue 11 Jun 11:53:02 BST 2019
+    >   /data1-01/ztf_20190130_programid1-3
+    >   /data1-01/ztf_20190130_programid1-5
+    >   /data1-01/ztf_20190130_programid1-4
+    >   ----
+    >   /data2-01/ztf_20190130_programid1-13
+    >   /data2-01/ztf_20190130_programid1-14
+
+
+# -----------------------------------------------------
+# Move the data for 20190130 to the new discs.
+#[user@trop03]
+
+    source "${HOME}/ssh-options"
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    hostname
+                    date
+                    find /data1-01 -name 'ztf_20190130*' -exec sudo mv '{}' '/data1-04' \;
+                    echo '----'
+                    find /data2-01 -name 'ztf_20190130*' -exec sudo mv '{}' '/data2-04' \;
+                    "
+        done
+
+
+    >   ---- ----
+    >   Stedigo
+    >   Tue 11 Jun 12:11:01 BST 2019
+    >   find: ‘/data1-01/ztf_20190130_programid1-0’: No such file or directory
+    >   find: ‘/data1-01/ztf_20190130_programid1-15’: No such file or directory
+    >   find: ‘/data1-01/ztf_20190130_programid1-6’: No such file or directory
+    >   ----
+    >   find: ‘/data2-01/ztf_20190130_programid1-2’: No such file or directory
+    >   find: ‘/data2-01/ztf_20190130_programid1-14’: No such file or directory
+    >   ---- ----
+    >   Angece
+    >   Tue 11 Jun 12:11:47 BST 2019
+    >   find: ‘/data1-01/ztf_20190130_programid1-5’: No such file or directory
+    >   find: ‘/data1-01/ztf_20190130_programid1-1’: No such file or directory
+    >   find: ‘/data1-01/ztf_20190130_programid1-3’: No such file or directory
+    >   find: ‘/data1-01/ztf_20190130_programid1-8’: No such file or directory
+    >   ----
+    >   find: ‘/data2-01/ztf_20190130_programid1-12’: No such file or directory
+    >   find: ‘/data2-01/ztf_20190130_programid1-10’: No such file or directory
+    >   ---- ----
+    >   Edwalafia
+    >   Tue 11 Jun 12:12:51 BST 2019
+    >   find: ‘/data1-01/ztf_20190130_programid1-6’: No such file or directory
+    >   find: ‘/data1-01/ztf_20190130_programid1-12’: No such file or directory
+    >   find: ‘/data1-01/ztf_20190130_programid1-7’: No such file or directory
+    >   ----
+    >   find: ‘/data2-01/ztf_20190130_programid1-0’: No such file or directory
+    >   find: ‘/data2-01/ztf_20190130_programid1-1’: No such file or directory
+    >   ---- ----
+    >   Onoza
+    >   Tue 11 Jun 12:13:39 BST 2019
+    >   find: ‘/data1-01/ztf_20190130_programid1-3’: No such file or directory
+    >   find: ‘/data1-01/ztf_20190130_programid1-5’: No such file or directory
+    >   find: ‘/data1-01/ztf_20190130_programid1-4’: No such file or directory
+    >   ----
+    >   find: ‘/data2-01/ztf_20190130_programid1-13’: No such file or directory
+    >   find: ‘/data2-01/ztf_20190130_programid1-14’: No such file or directory
+
+    #
+    # Errors are because find tries to look inside each directory after they have been moved.
+    # https://unix.stackexchange.com/a/334841
+
+    #
+    # Fix would be to add -maxdepth 0 ?
+    #
+
+
+# -----------------------------------------------------
+# List the available space on each node.
+#[user@trop03]
+
+    source "${HOME}/ssh-options"
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    hostname
+                    date
+                    df -h | grep '/data'
+                    "
+        done
+
+    >   ---- ----
+    >   Stedigo
+    >   Tue 11 Jun 12:16:07 BST 2019
+    >   /dev/vdc         32G   29G  1.6G  95% /data1-01
+    >   /dev/vdd         32G   31G  3.7M 100% /data2-01
+    >   /dev/vde         64G   50G   13G  80% /data1-02
+    >   /dev/vdf         64G   47G   16G  75% /data2-02
+    >   /dev/vdg        256G   40G  215G  16% /data1-03
+    >   /dev/vdh        256G   39G  216G  16% /data2-03
+    >   /dev/vdi        256G  1.6G  253G   1% /data1-04
+    >   /dev/vdj        256G   21M  254G   1% /data2-04
+    >   ---- ----
+    >   Angece
+    >   Tue 11 Jun 12:16:08 BST 2019
+    >   /dev/vdc         32G   28G  2.1G  94% /data1-01
+    >   /dev/vdd         32G   31G  4.1M 100% /data2-01
+    >   /dev/vde         64G   51G   12G  82% /data1-02
+    >   /dev/vdf         64G   47G   16G  75% /data2-02
+    >   /dev/vdg        256G   40G  215G  16% /data1-03
+    >   /dev/vdh        256G   39G  216G  16% /data2-03
+    >   /dev/vdi        256G  2.2G  252G   1% /data1-04
+    >   /dev/vdj        256G   21M  254G   1% /data2-04
+    >   ---- ----
+    >   Edwalafia
+    >   Tue 11 Jun 12:16:08 BST 2019
+    >   /dev/vdc         32G   29G  1.6G  95% /data1-01
+    >   /dev/vdd         32G   31G  3.5M 100% /data2-01
+    >   /dev/vde         64G   48G   15G  77% /data1-02
+    >   /dev/vdf         64G   47G   16G  76% /data2-02
+    >   /dev/vdg        256G   40G  215G  16% /data1-03
+    >   /dev/vdh        256G   39G  216G  16% /data2-03
+    >   /dev/vdi        256G  1.6G  253G   1% /data1-04
+    >   /dev/vdj        256G   20M  254G   1% /data2-04
+    >   ---- ----
+    >   Onoza
+    >   Tue 11 Jun 12:16:08 BST 2019
+    >   /dev/vdc         32G   29G  1.6G  95% /data1-01
+    >   /dev/vdd         32G   31G  4.8M 100% /data2-01
+    >   /dev/vde         64G   46G   17G  74% /data1-02
+    >   /dev/vdf         64G   49G   14G  79% /data2-02
+    >   /dev/vdg        256G   40G  215G  16% /data1-03
+    >   /dev/vdh        256G   39G  216G  16% /data2-03
+    >   /dev/vdi        256G  1.6G  253G   1% /data1-04
+    >   /dev/vdj        256G   22M  254G   1% /data2-04
+
+    #
+    # /data2-01 is still full on each  node.
+    #
+
+# -----------------------------------------------------
+# List the used space on the new discs.
+#[user@trop03]
+
+    source "${HOME}/ssh-options"
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    hostname
+                    date
+                    du -h '/data1-04'
+                    echo '----'
+                    du -h '/data2-04'
+                    "
+        done
+
+    >   ---- ----
+    >   Stedigo
+    >   Tue 11 Jun 12:19:16 BST 2019
+    >   534M	/data1-04/ztf_20190130_programid1-0
+    >   534M	/data1-04/ztf_20190130_programid1-15
+    >   534M	/data1-04/ztf_20190130_programid1-6
+    >   1.6G	/data1-04
+    >   ----
+    >   1.9M	/data2-04/ztf_20190130_programid1-2
+    >   1.9M	/data2-04/ztf_20190130_programid1-14
+    >   3.7M	/data2-04
+    >   ---- ----
+    >   Angece
+    >   Tue 11 Jun 12:19:17 BST 2019
+    >   533M	/data1-04/ztf_20190130_programid1-5
+    >   534M	/data1-04/ztf_20190130_programid1-1
+    >   534M	/data1-04/ztf_20190130_programid1-3
+    >   534M	/data1-04/ztf_20190130_programid1-8
+    >   2.1G	/data1-04
+    >   ----
+    >   2.0M	/data2-04/ztf_20190130_programid1-12
+    >   2.1M	/data2-04/ztf_20190130_programid1-10
+    >   4.1M	/data2-04
+    >   ---- ----
+    >   Edwalafia
+    >   Tue 11 Jun 12:19:17 BST 2019
+    >   534M	/data1-04/ztf_20190130_programid1-6
+    >   534M	/data1-04/ztf_20190130_programid1-12
+    >   534M	/data1-04/ztf_20190130_programid1-7
+    >   1.6G	/data1-04
+    >   ----
+    >   1.8M	/data2-04/ztf_20190130_programid1-0
+    >   1.8M	/data2-04/ztf_20190130_programid1-1
+    >   3.5M	/data2-04
+    >   ---- ----
+    >   Onoza
+    >   Tue 11 Jun 12:19:17 BST 2019
+    >   534M	/data1-04/ztf_20190130_programid1-3
+    >   533M	/data1-04/ztf_20190130_programid1-5
+    >   534M	/data1-04/ztf_20190130_programid1-4
+    >   1.6G	/data1-04
+    >   ----
+    >   2.4M	/data2-04/ztf_20190130_programid1-13
+    >   2.4M	/data2-04/ztf_20190130_programid1-14
+    >   4.8M	/data2-04
+
+
+# -----------------------------------------------------
+# List the data for 20190130 on the full discs.
+#[user@trop03]
+
+    source "${HOME}/ssh-options"
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    hostname
+                    date
+                    find /data1-01 -name 'ztf_20181215*'
+                    echo '----'
+                    find /data2-01 -name 'ztf_20181215*'
+                    "
+        done
+
+
+    >   ---- ----
+    >   Stedigo
+    >   Tue 11 Jun 12:23:18 BST 2019
+    >   ----
+    >   /data2-01/ztf_20181215_programid1-5
+    >   /data2-01/ztf_20181215_programid1-13
+    >   /data2-01/ztf_20181215_programid1-8
+    >   /data2-01/ztf_20181215_programid1-12
+    >   /data2-01/ztf_20181215_programid1-3
+    >   /data2-01/ztf_20181215_programid1-10
+    >   ---- ----
+    >   Angece
+    >   Tue 11 Jun 12:23:19 BST 2019
+    >   ----
+    >   /data2-01/ztf_20181215_programid1-2
+    >   /data2-01/ztf_20181215_programid1-10
+    >   /data2-01/ztf_20181215_programid1-12
+    >   /data2-01/ztf_20181215_programid1-0
+    >   /data2-01/ztf_20181215_programid1-7
+    >   /data2-01/ztf_20181215_programid1-1
+    >   ---- ----
+    >   Edwalafia
+    >   Tue 11 Jun 12:23:19 BST 2019
+    >   ----
+    >   /data2-01/ztf_20181215_programid1-15
+    >   /data2-01/ztf_20181215_programid1-7
+    >   /data2-01/ztf_20181215_programid1-8
+    >   /data2-01/ztf_20181215_programid1-2
+    >   /data2-01/ztf_20181215_programid1-10
+    >   /data2-01/ztf_20181215_programid1-1
+    >   ---- ----
+    >   Onoza
+    >   Tue 11 Jun 12:23:20 BST 2019
+    >   ----
+    >   /data2-01/ztf_20181215_programid1-12
+    >   /data2-01/ztf_20181215_programid1-4
+    >   /data2-01/ztf_20181215_programid1-5
+    >   /data2-01/ztf_20181215_programid1-9
+    >   /data2-01/ztf_20181215_programid1-3
+    >   /data2-01/ztf_20181215_programid1-11
+
+
+# -----------------------------------------------------
+# Move the data for 20190130 to the new discs.
+#[user@trop03]
+
+    source "${HOME}/ssh-options"
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    hostname
+                    date
+                    sudo find /data1-01 -name 'ztf_20181215*' -exec mv '{}' '/data1-04' \;
+                    echo '----'
+                    sudo find /data2-01 -name 'ztf_20181215*' -exec mv '{}' '/data2-04' \;
+                    "
+        done
+
+    >   ---- ----
+    >   Stedigo
+    >   Tue 11 Jun 12:29:55 BST 2019
+    >   ----
+    >   find: ‘/data2-01/ztf_20181215_programid1-5’: No such file or directory
+    >   find: ‘/data2-01/ztf_20181215_programid1-13’: No such file or directory
+    >   find: ‘/data2-01/ztf_20181215_programid1-8’: No such file or directory
+    >   find: ‘/data2-01/ztf_20181215_programid1-12’: No such file or directory
+    >   find: ‘/data2-01/ztf_20181215_programid1-3’: No such file or directory
+    >   find: ‘/data2-01/ztf_20181215_programid1-10’: No such file or directory
+    >   ---- ----
+    >   Angece
+    >   Tue 11 Jun 12:30:02 BST 2019
+    >   ----
+    >   find: ‘/data2-01/ztf_20181215_programid1-2’: No such file or directory
+    >   find: ‘/data2-01/ztf_20181215_programid1-10’: No such file or directory
+    >   find: ‘/data2-01/ztf_20181215_programid1-12’: No such file or directory
+    >   find: ‘/data2-01/ztf_20181215_programid1-0’: No such file or directory
+    >   find: ‘/data2-01/ztf_20181215_programid1-7’: No such file or directory
+    >   find: ‘/data2-01/ztf_20181215_programid1-1’: No such file or directory
+    >   ---- ----
+    >   Edwalafia
+    >   Tue 11 Jun 12:30:10 BST 2019
+    >   ----
+    >   find: ‘/data2-01/ztf_20181215_programid1-15’: No such file or directory
+    >   find: ‘/data2-01/ztf_20181215_programid1-7’: No such file or directory
+    >   find: ‘/data2-01/ztf_20181215_programid1-8’: No such file or directory
+    >   find: ‘/data2-01/ztf_20181215_programid1-2’: No such file or directory
+    >   find: ‘/data2-01/ztf_20181215_programid1-10’: No such file or directory
+    >   find: ‘/data2-01/ztf_20181215_programid1-1’: No such file or directory
+    >   ---- ----
+    >   Onoza
+    >   Tue 11 Jun 12:30:17 BST 2019
+    >   ----
+    >   find: ‘/data2-01/ztf_20181215_programid1-12’: No such file or directory
+    >   find: ‘/data2-01/ztf_20181215_programid1-4’: No such file or directory
+    >   find: ‘/data2-01/ztf_20181215_programid1-5’: No such file or directory
+    >   find: ‘/data2-01/ztf_20181215_programid1-9’: No such file or directory
+    >   find: ‘/data2-01/ztf_20181215_programid1-3’: No such file or directory
+    >   find: ‘/data2-01/ztf_20181215_programid1-11’: No such file or directory
+
+    #
+    # Errors are because find tries to look inside each directory after they have been moved.
+    # https://unix.stackexchange.com/a/334841
+
+    #
+    # Fix would be to add -maxdepth 0 ?
+    #
+
+# -----------------------------------------------------
+# List the available space on each node.
+#[user@trop03]
+
+    source "${HOME}/ssh-options"
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    hostname
+                    date
+                    df -h | grep '/data'
+                    "
+        done
+
+
+    >   ---- ----
+    >   Stedigo
+    >   Tue 11 Jun 12:36:55 BST 2019
+    >   /dev/vdc         32G   29G  1.6G  95% /data1-01
+    >   /dev/vdd         32G   30G  256M 100% /data2-01
+    >   /dev/vde         64G   50G   13G  80% /data1-02
+    >   /dev/vdf         64G   47G   16G  75% /data2-02
+    >   /dev/vdg        256G   40G  215G  16% /data1-03
+    >   /dev/vdh        256G   39G  216G  16% /data2-03
+    >   /dev/vdi        256G  1.6G  253G   1% /data1-04
+    >   /dev/vdj        256G  272M  254G   1% /data2-04
+    >   ---- ----
+    >   Angece
+    >   Tue 11 Jun 12:36:55 BST 2019
+    >   /dev/vdc         32G   28G  2.1G  94% /data1-01
+    >   /dev/vdd         32G   30G  257M 100% /data2-01
+    >   /dev/vde         64G   51G   12G  82% /data1-02
+    >   /dev/vdf         64G   47G   16G  75% /data2-02
+    >   /dev/vdg        256G   40G  215G  16% /data1-03
+    >   /dev/vdh        256G   39G  216G  16% /data2-03
+    >   /dev/vdi        256G  2.2G  252G   1% /data1-04
+    >   /dev/vdj        256G  273M  254G   1% /data2-04
+    >   ---- ----
+    >   Edwalafia
+    >   Tue 11 Jun 12:36:56 BST 2019
+    >   /dev/vdc         32G   29G  1.6G  95% /data1-01
+    >   /dev/vdd         32G   30G  256M 100% /data2-01
+    >   /dev/vde         64G   48G   15G  77% /data1-02
+    >   /dev/vdf         64G   47G   16G  76% /data2-02
+    >   /dev/vdg        256G   40G  215G  16% /data1-03
+    >   /dev/vdh        256G   39G  216G  16% /data2-03
+    >   /dev/vdi        256G  1.6G  253G   1% /data1-04
+    >   /dev/vdj        256G  272M  254G   1% /data2-04
+    >   ---- ----
+    >   Onoza
+    >   Tue 11 Jun 12:36:56 BST 2019
+    >   /dev/vdc         32G   29G  1.6G  95% /data1-01
+    >   /dev/vdd         32G   30G  257M 100% /data2-01
+    >   /dev/vde         64G   46G   17G  74% /data1-02
+    >   /dev/vdf         64G   49G   14G  79% /data2-02
+    >   /dev/vdg        256G   40G  215G  16% /data1-03
+    >   /dev/vdh        256G   39G  216G  16% /data2-03
+    >   /dev/vdi        256G  1.6G  253G   1% /data1-04
+    >   /dev/vdj        256G  273M  254G   1% /data2-04
+
+    #
+    # Ok, now we have some space on each drive ..
+    # Try restarting Kafka again ?
+    #
+
+
+# -----------------------------------------------------
+# Check the container status on each node.
+#[user@trop03]
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            ssh \
+                ${scpopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                date
+                hostname
+                docker ps -a
+                "
+        done
+
+    >   ---- ----
+    >   Tue 11 Jun 12:40:00 BST 2019
+    >   Stedigo
+    >   CONTAINER ID        IMAGE                         COMMAND                  CREATED             STATUS                   PORTS               NAMES
+    >   23ebf060a8ef        confluentinc/cp-kafka:4.1.1   "/etc/confluent/dock…"   7 hours ago         Exited (1) 3 hours ago                       stevedore_emily_1
+    >   ---- ----
+    >   Tue 11 Jun 12:40:01 BST 2019
+    >   Angece
+    >   CONTAINER ID        IMAGE                         COMMAND                  CREATED             STATUS                   PORTS               NAMES
+    >   d92ef7b038ef        confluentinc/cp-kafka:4.1.1   "/etc/confluent/dock…"   7 hours ago         Exited (1) 3 hours ago                       stevedore_emily_1
+    >   ---- ----
+    >   Tue 11 Jun 12:40:02 BST 2019
+    >   Edwalafia
+    >   CONTAINER ID        IMAGE                         COMMAND                  CREATED             STATUS                   PORTS               NAMES
+    >   f83370c9df1d        confluentinc/cp-kafka:4.1.1   "/etc/confluent/dock…"   7 hours ago         Exited (1) 3 hours ago                       stevedore_emily_1
+    >   ---- ----
+    >   Tue 11 Jun 12:40:03 BST 2019
+    >   Onoza
+    >   CONTAINER ID        IMAGE                         COMMAND                  CREATED             STATUS                   PORTS               NAMES
+    >   aaa85b938718        confluentinc/cp-kafka:4.1.1   "/etc/confluent/dock…"   7 hours ago         Exited (1) 3 hours ago                       stevedore_emily_1
+
+
+# -----------------------------------------------------
+# Start Kafka on each node.
+#[user@trop03]
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            ssh \
+                ${scpopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                date
+                hostname
+
+                docker-compose \
+                    --file kafka.yml \
+                    up -d
+                "
+        done
+
+
+    >   ---- ----
+    >   Tue 11 Jun 12:40:43 BST 2019
+    >   Stedigo
+    >   Starting stevedore_emily_1 ... done
+    >   ---- ----
+    >   Tue 11 Jun 12:40:45 BST 2019
+    >   Angece
+    >   Starting stevedore_emily_1 ... done
+    >   ---- ----
+    >   Tue 11 Jun 12:40:48 BST 2019
+    >   Edwalafia
+    >   Starting stevedore_emily_1 ... done
+    >   ---- ----
+    >   Tue 11 Jun 12:40:50 BST 2019
+    >   Onoza
+    >   Starting stevedore_emily_1 ... done
+
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+# Tail the logs on each node.
+# https://www.systutorials.com/docs/linux/man/1-gnome-terminal/
+# https://www.systutorials.com/docs/linux/man/7-X/#lbAH
+#[user@desktop]
+
+    mate-terminal \
+        --geometry '160x10+25+25' \
+        --command '
+            ssh -t Stedigo "
+                docker logs -f stevedore_emily_1
+                ${SHELL}
+                "
+            '
+    sleep 1
+
+    mate-terminal \
+        --geometry '160x10+125+125' \
+        --command '
+            ssh -t Angece "
+                docker logs -f stevedore_emily_1
+                ${SHELL}
+                "
+            '
+    sleep 1
+
+    mate-terminal \
+        --geometry '160x10+225+225' \
+        --command '
+            ssh -t Edwalafia "
+                docker logs -f stevedore_emily_1
+                ${SHELL}
+                "
+            '
+    sleep 1
+
+    mate-terminal \
+        --geometry '160x10+325+325' \
+        --command '
+            ssh -t Onoza "
+                docker logs -f stevedore_emily_1
+                ${SHELL}
+                "
+            '
+
+
+[Stedigo]
+    >   ....
+    >   ....
+    >   [2019-06-11 11:43:14,294] INFO [ProducerStateManager partition=ztf_20181219_programid1-15] Loading producer state from snapshot file '/data2-02/ztf_20181219_programid1-15/00000000000000018252.snapshot' (kafka.log.ProducerStateManager)
+    >   [2019-06-11 11:43:14,295] INFO [Log partition=ztf_20181219_programid1-15, dir=/data2-02] Completed load of log with 2 segments, log start offset 0 and log end offset 18252 in 45104 ms (kafka.log.Log)
+    >   [2019-06-11 11:43:16,784] WARN [Log partition=ztf_20181219_programid1-9, dir=/data2-02] Found a corrupted index file corresponding to log file /data2-02/ztf_20181219_programid1-9/00000000000000016001.log due to Corrupt index found, index file (/data2-02/ztf_20181219_programid1-9/00000000000000016001.index) has non-zero size but the last offset is 16001 which is no greater than the base offset 16001.}, recovering segment and rebuilding index files... (kafka.log.Log)
+    >   [2019-06-11 11:43:16,793] INFO [ProducerStateManager partition=ztf_20181219_programid1-9] Loading producer state from snapshot file '/data2-02/ztf_20181219_programid1-9/00000000000000016001.snapshot' (kafka.log.P
+
+[Angece]
+    >   ....
+    >   ....
+    >   [2019-06-11 11:43:42,577] INFO [ProducerStateManager partition=ztf_20181219_programid1-11] Loading producer state from snapshot file '/data2-02/ztf_20181219_programid1-11/00000000000000018251.snapshot' (kafka.log.ProducerStateManager)
+    >   [2019-06-11 11:43:42,578] INFO [Log partition=ztf_20181219_programid1-11, dir=/data2-02] Completed load of log with 2 segments, log start offset 0 and log end offset 18251 in 40117 ms (kafka.log.Log)
+    >   [2019-06-11 11:43:45,986] WARN [Log partition=ztf_20181219_programid1-2, dir=/data2-02] Found a corrupted index file corresponding to log file /data2-02/ztf_20181219_programid1-2/00000000000000015985.log due to Corrupt index found, index file (/data2-02/ztf_20181219_programid1-2/00000000000000015985.index) has non-zero size but the last offset is 15985 which is no greater than the base offset 15985.}, recovering segment and rebuilding index files... (kafka.log.Log)
+    >   [2019-06-11 11:43:45,988] INFO [ProducerStateManager partition=ztf_20181219_programid1-2] Loading producer state from snapshot file '/data2-02/ztf_20181219_programid1-2/00000000000000015985.snapshot' (kafka.l
+
+[Edwalafia]
+    >   [2019-06-11 11:41:07,517] INFO [Log partition=ztf_20181215_programid1-1, dir=/data2-04] Loading producer state from offset 642 with message format version 2 (kafka.log.Log)
+    >   [2019-06-11 11:41:07,518] INFO [ProducerStateManager partition=ztf_20181215_programid1-1] Loading producer state from snapshot file '/data2-04/ztf_20181215_programid1-1/00000000000000000642.snapshot' (kafka.log.ProducerStateManager)
+    >   [2019-06-11 11:41:07,519] INFO [Log partition=ztf_20181215_programid1-1, dir=/data2-04] Completed load of log with 1 segments, log start offset 0 and log end offset 642 in 422 ms (kafka.log.Log)
+    >   [2019-06-11 11:43:59,738] INFO [ProducerStateManager partition=ztf_20190130_programid1-6] Writing producer snapshot at offset 8279 (kafka.log.ProducerStateManager)
+    >   [2019-06-11 11:43:59,741] INFO [Log partition=ztf_20190130_programid1-6, dir=/data1-04] Recovering unflushed segment 0 (kafka.log.Log)
+    >   ....
+    >   ....
+
+[Onoza]
+    >   ....
+    >   ....
+    >   [2019-06-11 11:44:29,225] INFO [Log partition=ztf_20181219_programid1-11, dir=/data1-02] Loading producer state from offset 18251 with message format version 2 (kafka.log.Log)
+    >   [2019-06-11 11:44:29,226] INFO [ProducerStateManager partition=ztf_20181219_programid1-11] Loading producer state from snapshot file '/data1-02/ztf_20181219_programid1-11/00000000000000018251.snapshot' (kafka.log.ProducerStateManager)
+    >   [2019-06-11 11:44:29,226] INFO [Log partition=ztf_20181219_programid1-11, dir=/data1-02] Completed load of log with 2 segments, log start offset 0 and log end offset 18251 in 43825 ms (kafka.log.Log)
+    >   [2019-06-11 11:44:29,416] INFO [Log partition=ztf_20181205_programid1-9, dir=/data2-01] Recovering unflushed segment 0 (kafka.log.Log)
+    >   [2019-06-11 11:44:30,558] WARN [Log partition=ztf_20181219_programid1-2, dir=/data1-02] Found a corrupted index file corresponding to log file /data1-02/ztf_20181219_programid1-2/00000000000000015985.log due to Corrupt index found, index file (/data1-02/ztf_20181219_programid1-2/00000000000000015985.index) has non-zero size but the last offset is 15985 which is no greater than the base offset 15985.}, recovering segment and rebuilding index files... (kafka.log.Log)
+    >   [2019-06-11 11:44:30,559] INFO [ProducerStateManager partition=ztf_20181219_programid1-2] Loading producer state from snapshot file '/data1-02/ztf_20181219_programid1-2/00000000000000015985.snapshot' (kafka.log.ProducerStateManager)
+
+
+    #
+    # "Found a corrupted index file ...."
+    # Caused by unclean shutdown.
+    # https://community.hortonworks.com/content/supportkb/191865/errorfound-a-corrupted-index-file-due-to-requireme.html
+
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+# Check the available memory on each node.
+#[user@trop03]
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            ssh \
+                ${scpopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                hostname
+                date
+                free -h
+                "
+        done
+
+    >   ---- ----
+    >   Stedigo
+    >   Tue 11 Jun 12:52:03 BST 2019
+    >                 total        used        free      shared  buff/cache   available
+    >   Mem:           3.9G        935M        116M        400K        2.8G        2.7G
+    >   Swap:          1.0G         57M        966M
+    >   ---- ----
+    >   Angece
+    >   Tue 11 Jun 12:52:13 BST 2019
+    >                 total        used        free      shared  buff/cache   available
+    >   Mem:           3.9G        926M        106M        388K        2.8G        2.7G
+    >   Swap:          1.0G         60M        963M
+    >   ---- ----
+    >   Edwalafia
+    >   Tue 11 Jun 12:53:53 BST 2019
+    >                 total        used        free      shared  buff/cache   available
+    >   Mem:           3.9G        933M        107M        392K        2.8G        2.7G
+    >   Swap:          1.0G         58M        965M
+    >   ---- ----
+    >   Onoza
+    >   Tue 11 Jun 12:54:11 BST 2019
+    >                 total        used        free      shared  buff/cache   available
+    >   Mem:           3.9G        934M         99M        444K        2.8G        2.7G
+    >   Swap:          1.0G         62M        961M
+
+    #
+    # None of the nodes are short of memory.
+    # We _could_ add more, but we don't _need_ to yet.
+    #
+
+    #
+    # ssh login to each node was very slow.
+    #
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+# Logs show network issues between the nodes.
+
+
+    >   [2019-06-11 11:53:25,510] WARN Client session timed out, have not heard from server in 4839ms for sessionid 0x26b448978c40006 (org.apache.zookeeper.ClientCnxn)
+    >   [2019-06-11 11:53:25,511] INFO Client session timed out, have not heard from server in 4839ms for sessionid 0x26b448978c40006, closing socket connection and attempting reconnect (org.apache.zookeeper.ClientCnxn)
+    >   [2019-06-11 11:53:34,249] INFO Opening socket connection to server Byflame.lsstuk/172.16.5.16:2181. Will not attempt to authenticate using SASL (unknown error) (org.apache.zookeeper.ClientCnxn)
+    >   [2019-06-11 11:53:34,250] INFO Socket connection established to Byflame.lsstuk/172.16.5.16:2181, initiating session (org.apache.zookeeper.ClientCnxn)
+    >   [2019-06-11 11:53:34,253] WARN Unable to reconnect to ZooKeeper service, session 0x26b448978c40006 has expired (org.apache.zookeeper.ClientCnxn)
+    >   [2019-06-11 11:53:34,253] INFO Unable to reconnect to ZooKeeper service, session 0x26b448978c40006 has expired, closing socket connection (org.apache.zookeeper.ClientCnxn)
+    >   [2019-06-11 11:53:34,264] INFO [ZooKeeperClient] Session expired. (kafka.zookeeper.ZooKeeperClient)
+    >   [2019-06-11 11:53:34,269] INFO EventThread shut down for session: 0x26b448978c40006 (org.apache.zookeeper.ClientCnxn)
+    >   [2019-06-11 11:53:34,271] INFO [ZooKeeperClient] Initializing a new session to Fosauri,Marpus,Byflame. (kafka.zookeeper.ZooKeeperClient)
+    >   [2019-06-11 11:53:34,271] INFO Initiating client connection, connectString=Fosauri,Marpus,Byflame sessionTimeout=6000 watcher=kafka.zookeeper.ZooKeeperClient$ZooKeeperClientWatcher$@3c46e67a (org.apache.zookeeper.ZooKeeper)
+    >   [2019-06-11 11:53:34,309] INFO Opening socket connection to server Fosauri.lsstuk/172.16.5.14:2181. Will not attempt to authenticate using SASL (unknown error) (org.apache.zookeeper.ClientCnxn)
+    >   [2019-06-11 11:53:34,310] INFO Socket connection established to Fosauri.lsstuk/172.16.5.14:2181, initiating session (org.apache.zookeeper.ClientCnxn)
+    >   [2019-06-11 11:53:34,329] INFO Session establishment complete on server Fosauri.lsstuk/172.16.5.14:2181, sessionid = 0x16b448978b50007, negotiated timeout = 6000 (org.apache.zookeeper.ClientCnxn)
+
+
+# -----------------------------------------------------
+# Logs show service healthy and stable.
+
+    >   [Stedigo]
+    >   [2019-06-11 17:36:57,420] DEBUG [Controller id=1] Topics not in preferred replica for broker 1 Map() (kafka.controller.KafkaController)
+    >   [2019-06-11 17:36:57,420] TRACE [Controller id=1] Leader imbalance ratio for broker 1 is 0.0 (kafka.controller.KafkaController)
+    >   [2019-06-11 17:41:52,124] INFO [GroupMetadataManager brokerId=1] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   [2019-06-11 17:41:57,420] TRACE [Controller id=1] Checking need to trigger auto leader balancing (kafka.controller.KafkaController)
+    >   [2019-06-11 17:41:57,421] DEBUG [Controller id=1] Preferred replicas by broker Map(1 -> Map(__confluent.support.metrics-0 -> Vector(1))) (kafka.controller.KafkaController)
+    >   [2019-06-11 17:41:57,421] DEBUG [Controller id=1] Topics not in preferred replica for broker 1 Map() (kafka.controller.KafkaController)
+    >   [2019-06-11 17:41:57,421] TRACE [Controller id=1] Leader imbalance ratio for broker 1 is 0.0 (kafka.controller.KafkaController)
+
+
+    >   [Angece]
+    >   [2019-06-11 16:55:08,131] TRACE [Broker id=2] Cached leader info PartitionState(controllerEpoch=1, leader=1, leaderEpoch=0, isr=[1], zkVersion=0, replicas=[1], offlineReplicas=[]) for partition __confluent.support.metrics-0 in response to UpdateMetadata request sent by controller 1 epoch 1 with correlation id 1 (state.change.logger)
+    >   [2019-06-11 16:55:08,291] TRACE [Broker id=2] Cached leader info PartitionState(controllerEpoch=1, leader=1, leaderEpoch=0, isr=[1], zkVersion=0, replicas=[1], offlineReplicas=[]) for partition __confluent.support.metrics-0 in response to UpdateMetadata request sent by controller 1 epoch 1 with correlation id 2 (state.change.logger)
+    >   [2019-06-11 17:04:37,547] INFO [GroupMetadataManager brokerId=2] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   [2019-06-11 17:14:37,547] INFO [GroupMetadataManager brokerId=2] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   [2019-06-11 17:24:37,547] INFO [GroupMetadataManager brokerId=2] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   [2019-06-11 17:34:37,547] INFO [GroupMetadataManager brokerId=2] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+
+
+    >   [Edwalafia]
+    >   [2019-06-11 16:55:19,529] INFO [Producer clientId=producer-1] Closing the Kafka producer with timeoutMillis = 0 ms. (org.apache.kafka.clients.producer.KafkaProducer)
+    >   [2019-06-11 16:55:19,532] ERROR Could not submit metrics to Kafka topic __confluent.support.metrics: Failed to construct kafka producer (io.confluent.support.metrics.BaseMetricsReporter)
+    >   [2019-06-11 16:55:21,134] INFO Successfully submitted metrics to Confluent via secure endpoint (io.confluent.support.metrics.submitters.ConfluentSubmitter)
+    >   [2019-06-11 17:05:08,792] INFO [GroupMetadataManager brokerId=3] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   [2019-06-11 17:15:08,792] INFO [GroupMetadataManager brokerId=3] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   [2019-06-11 17:25:08,792] INFO [GroupMetadataManager brokerId=3] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   [2019-06-11 17:35:08,792] INFO [GroupMetadataManager brokerId=3] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+
+
+    >   [Onoza]
+    >   [2019-06-11 16:55:19,573] INFO [Producer clientId=producer-1] Closing the Kafka producer with timeoutMillis = 0 ms. (org.apache.kafka.clients.producer.KafkaProducer)
+    >   [2019-06-11 16:55:19,573] ERROR Could not submit metrics to Kafka topic __confluent.support.metrics: Failed to construct kafka producer (io.confluent.support.metrics.BaseMetricsReporter)
+    >   [2019-06-11 16:55:21,132] INFO Successfully submitted metrics to Confluent via secure endpoint (io.confluent.support.metrics.submitters.ConfluentSubmitter)
+    >   [2019-06-11 17:05:08,908] INFO [GroupMetadataManager brokerId=4] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   [2019-06-11 17:15:08,908] INFO [GroupMetadataManager brokerId=4] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   [2019-06-11 17:25:08,908] INFO [GroupMetadataManager brokerId=4] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   [2019-06-11 17:35:08,908] INFO [GroupMetadataManager brokerId=4] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+
+
+
+

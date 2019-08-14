@@ -1,0 +1,282 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+
+# -----------------------------------------------------
+# Check our local ssh config.
+#[user@desktop]
+
+    gedit "${HOME}/.SSH/config"
+
+        ....
+        Host trop01 trop02
+            HostName %h.roe.ac.uk
+            User ###
+            IdentityFile ~/.ssh/###.###.rsa
+
+        Host trop03 trop04
+            HostName %h.roe.ac.uk
+            User ###
+            IdentityFile ~/.ssh/###.###.rsa
+
+        ....
+        Host work01
+            HostName 192.41.108.44
+            User ###
+            IdentityFile ~/.ssh/###.###.rsa
+
+        Host work02 work03 work04
+            ProxyCommand ssh work01 nc -q0 %h %p
+            User ###
+            IdentityFile ~/.ssh/###.###.rsa
+
+
+# -----------------------------------------------------
+# Check the trop machines
+#[user@desktop]
+
+    sshnames=(
+        dmr@trop01
+        dmr@129.215.175.96
+        dmr@trop02
+        dmr@129.215.175.97
+        dmr@trop03
+        dmr@129.215.175.98
+        dmr@trop04
+        dmr@129.215.175.99
+        )
+
+    for sshname in ${sshnames[@]}
+    do
+        echo "----"
+        echo "Checking [${sshname}]"
+        ssh "${sshname}" \
+            '
+            date
+            hostname
+            '
+    done
+
+    >   ----
+    >   Checking [dmr@trop01]
+    >   Thu 23 May 15:59:16 BST 2019
+    >   trop01
+    >   ----
+    >   Checking [dmr@129.215.175.96]
+    >   Thu 23 May 15:59:17 BST 2019
+    >   trop01
+    >   ----
+    >   Checking [dmr@trop02]
+    >   Thu 23 May 16:56:41 BST 2019
+    >   trop02
+    >   ----
+    >   Checking [dmr@129.215.175.97]
+    >   Thu 23 May 16:56:41 BST 2019
+    >   trop02
+    >   ----
+    >   Checking [dmr@trop03]
+    >   Thu 23 May 15:59:56 BST 2019
+    >   trop03
+    >   ----
+    >   Checking [dmr@129.215.175.98]
+    >   Thu 23 May 15:59:57 BST 2019
+    >   trop03
+    >   ----
+    >   Checking [dmr@trop04]
+    >   Thu 23 May 16:59:27 BST 2019
+    >   trop04
+    >   ----
+    >   Checking [dmr@129.215.175.99]
+    >   Thu 23 May 16:59:28 BST 2019
+    >   trop04
+
+# -----------------------------------------------------
+# Check the worker nodes machines
+#[user@desktop]
+
+    sshnames=(
+        dmr@192.41.108.44
+        dmr@work01
+        dmr@work02
+        dmr@work03
+        dmr@work04
+        )
+
+    for sshname in ${sshnames[@]}
+    do
+        echo "----"
+        echo "Checking [${sshname}]"
+        ssh "${sshname}" \
+            '
+            date
+            hostname
+            '
+    done
+
+    >   ----
+    >   Checking [dmr@192.41.108.44]
+    >   ssh: connect to host 192.41.108.44 port 22: Connection timed out
+    >   ----
+    >   Checking [dmr@work01]
+    >   ssh: connect to host 192.41.108.44 port 22: Connection timed out
+    >   ----
+    >   Checking [dmr@work02]
+    >   ssh: connect to host 192.41.108.44 port 22: Connection timed out
+    >   ssh_exchange_identification: Connection closed by remote host
+    >   ----
+    >   Checking [dmr@work03]
+    >   ssh: connect to host 192.41.108.44 port 22: Connection timed out
+    >   ssh_exchange_identification: Connection closed by remote host
+    >   ----
+    >   Checking [dmr@work04]
+    >   ssh: connect to host 192.41.108.44 port 22: Connection timed out
+    >   ssh_exchange_identification: Connection closed by remote host
+
+    #
+    # Looks like we are blocked by the firewall.
+    #
+
+# -----------------------------------------------------
+# Indirect via trop03.
+#[user@trop03]
+
+    sshnames=(
+        dmr@172.16.1.1
+        dmr@172.16.1.2
+        dmr@172.16.1.3
+        dmr@172.16.1.4
+        dmr@172.16.1.5
+        dmr@172.16.1.6
+        dmr@172.16.1.7
+        dmr@172.16.1.8
+        )
+
+    for sshname in ${sshnames[@]}
+    do
+        echo "----"
+        echo "Checking [${sshname}]"
+        ssh "${sshname}" \
+            '
+            date
+            hostname
+            '
+    done
+
+
+    >   ----
+    >   Checking [dmr@172.16.1.1]
+    >   Permission denied (publickey,password).
+    >   ----
+    >   Checking [dmr@172.16.1.2]
+    >   Permission denied (publickey,password).
+    >   ----
+    >   Checking [dmr@172.16.1.3]
+    >   Permission denied (publickey,password).
+    >   ----
+    >   Checking [dmr@172.16.1.4]
+    >   Permission denied (publickey,password).
+    >   ----
+    >   Checking [dmr@172.16.1.5]
+    >   Thu 23 May 16:32:06 BST 2019
+    >   trop03
+    >   ----
+    >   Checking [dmr@172.16.1.6]
+    >   Thu 23 May 17:31:36 BST 2019
+    >   trop04
+    >   ----
+    >   Checking [dmr@172.16.1.7]
+    >   Permission denied (publickey,password).
+    >   ----
+    >   Checking [dmr@172.16.1.8]
+    >   Permission denied (publickey,password).
+
+    #
+    # Looks like user account isn't in place.
+    #
+
+# -----------------------------------------------------
+# Indirect via trop03.
+#[user@trop03]
+
+    sshuser=root
+
+    sshnames=(
+        172.16.1.1
+        172.16.1.2
+        172.16.1.3
+        172.16.1.4
+        172.16.1.5
+        172.16.1.6
+        172.16.1.7
+        172.16.1.8
+        )
+
+    for sshname in ${sshnames[@]}
+    do
+        echo "----"
+        echo "Checking [${sshuser}@${sshname}]"
+        ssh -A "${sshuser}@${sshname}" \
+            '
+            date
+            hostname
+            '
+    done
+
+---START--
+----
+Checking [root@172.16.1.1]
+Thu 23 May 17:43:11 BST 2019
+lsstukwork1
+----
+Checking [root@172.16.1.2]
+Thu 23 May 17:37:21 BST 2019
+lsstukwork1
+----
+Checking [root@172.16.1.3]
+Thu 23 May 17:36:28 BST 2019
+lsstukwork2
+----
+Checking [root@172.16.1.4]
+Thu 23 May 17:36:58 BST 2019
+lsstukwork3
+----
+Checking [root@172.16.1.5]
+Thu 23 May 17:43:14 BST 2019
+trop03
+----
+Checking [root@172.16.1.6]
+Thu 23 May 18:42:44 BST 2019
+trop04
+----
+Checking [root@172.16.1.7]
+Thu 23 May 17:43:15 BST 2019
+lsstdata1
+----
+Checking [root@172.16.1.8]
+Thu 23 May 17:43:39 BST 2019
+lsstdata2
+--END--
+
+
+
+
+

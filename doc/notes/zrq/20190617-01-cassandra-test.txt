@@ -1,0 +1,477 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+
+    # Create the objects table.
+    # Create the candidates table.
+
+    # Java code to write to the objects table.
+    # Java code to write to the candidates table.
+
+
+# -----------------------------------------------------
+# Create a virtual machine to run the Cassandra client.
+#[user@trop03]
+
+    createvm
+
+    >   INFO : Node name [Haosien]
+    >   INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Disc name [Haosien.qcow]
+    >   INFO : Disc size [8GiB]
+    >   
+    >   INFO : MAC  [06:00:AC:10:02:0C]
+    >   INFO : IPv4 [172.16.2.12]
+    >   INFO : IPv6 []
+
+# -----------------------------------------------------
+# Define a host lookup function.
+# https://askubuntu.com/questions/627906/why-is-my-etc-hosts-file-not-queried-when-nslookup-tries-to-resolve-an-address#comment1536517_627909
+# TODO Add this to a toolit script.
+#[user@work02]
+
+    getipv4()
+        {
+        getent hosts "${1:?}" | cut -d ' ' -f 1
+        }
+
+
+#---------------------------------------------------------------------
+# Update the ssh keys for the new node.
+# TODO Add this to a toolit script.
+#[user@work02]
+
+    source "${HOME}/nodenames.txt"
+    source "${HOME}/libvirt.settings"
+
+    vmname=${caclient}
+
+    ssh-keygen \
+        -q -R \
+            "${vmname:?}"
+
+    >   Host Haosien not found in /home/dmr/.ssh/known_hosts
+
+
+    ssh-keyscan \
+        "${vmname:?}" \
+        >> "${HOME}/.ssh/known_hosts"
+
+    >   # Haosien:22 SSH-2.0-OpenSSH_7.8
+    >   # Haosien:22 SSH-2.0-OpenSSH_7.8
+    >   # Haosien:22 SSH-2.0-OpenSSH_7.8
+
+
+    ssh-keyscan \
+        -t ecdsa $(getipv4 "${vmname:?}") \
+        >> "${HOME}/.ssh/known_hosts"
+
+    >   # 172.16.2.12:22 SSH-2.0-OpenSSH_7.8
+
+
+#---------------------------------------------------------------------
+# Login and run the Cassandra client.
+#[user@work02]
+
+    source "${HOME}/nodenames.txt"
+    source "${HOME}/ssh-options"
+
+    vmname=${caclient}
+
+    ssh \
+        ${sshopts[*]} \
+        ${sshuser:?}@${vmname:?}
+
+            docker run \
+                --rm \
+                --tty \
+                --interactive \
+                cassandra:3.11 \
+                    cqlsh \
+                        Umiwiel
+
+
+    >   Connected to Hofmannophila at Umiwiel:9042.
+    >   [cqlsh 5.0.1 | Cassandra 3.11.4 | CQL spec 3.4.4 | Native protocol v4]
+    >   Use HELP for help.
+    >   cqlsh>
+
+    // Create our keyspace.
+    CREATE KEYSPACE IF NOT EXISTS ztftest WITH REPLICATION = { 'class' : 'NetworkTopologyStrategy', 'datacenter1' : 3 };
+
+    // Delete our simple table ;
+    DROP TABLE ztftest.simple_candidates ;
+
+    // Create a simple table.
+    CREATE TABLE ztftest.simple_candidates (
+        candid           bigint PRIMARY KEY,
+        objectid         text,
+        topic            text,
+        field            int,
+        ra               double,
+        dec              double,
+        jd               double,
+        fid              int,
+        pid              bigint,
+        diffmaglim       float,
+        pdiffimfilename  text,
+        programpi        text,
+        programid        int,
+        isdiffpos        text,
+        tblid            bigint,
+        nid              int,
+        rcid             int,
+        xpos             float,
+        ypos             float,
+        magpsf           float,
+        sigmapsf         float,
+        chipsf           float,
+        magap            float,
+        sigmagap         float,
+        distnr           float,
+        magnr            float,
+        sigmagnr         float,
+        chinr            float,
+        sharpnr          float,
+        sky              float,
+        magdiff          float,
+        fwhm             float,
+        classtar         float,
+        mindtoedge       float,
+        magfromlim       float,
+        seeratio         float,
+        aimage           float,
+        bimage           float,
+        aimagerat        float,
+        bimagerat        float,
+        elong            float,
+        nneg             int,
+        nbad             int,
+        rb               float,
+        ssdistnr         float,
+        ssmagnr          float,
+        ssnamenr         text,
+        sumrat           float,
+        magapbig         float,
+        sigmagapbig      float,
+        ranr             double,
+        decnr            double,
+        scorr            double,
+        rbversion        text,
+        sgmag1           float,
+        srmag1           float,
+        simag1           float,
+        szmag1           float,
+        sgscore1         float,
+        distpsnr1        float,
+        ndethist         int,
+        ncovhist         int,
+        jdstarthist      double,
+        jdendhist        double,
+        tooflag          int,
+        objectidps1      bigint,
+        objectidps2      bigint,
+        sgmag2           float,
+        srmag2           float,
+        simag2           float,
+        szmag2           float,
+        sgscore2         float,
+        distpsnr2        float,
+        objectidps3      bigint,
+        sgmag3           float,
+        srmag3           float,
+        simag3           float,
+        szmag3           float,
+        sgscore3         float,
+        distpsnr3        float,
+        nmtchps          int,
+        rfid             bigint,
+        jdstartref       double,
+        jdendref         double,
+        nframesref       int,
+        dsnrms           float,
+        ssnrms           float,
+        dsdiff           float,
+        magzpsci         float,
+        magzpsciunc      float,
+        magzpscirms      float,
+        nmatches         int,
+        clrcoeff         float,
+        clrcounc         float,
+        zpclrcov         float,
+        zpmed            float,
+        clrmed           float,
+        clrrms           float,
+        neargaia         float,
+        neargaiabright   float,
+        maggaia          float,
+        maggaiabright    float
+        );
+
+
+    // Select all the rows from simple table - fails once we have large data;
+    SELECT candid, topic FROM ztftest.simple_candidates ;
+
+    // Select a single row.
+    SELECT candid, topic FROM ztftest.simple_candidates WHERE candid = 892204890015010006;
+
+    >    candid             | topic
+    >   --------------------+-------------------------
+    >    892204890015010006 | ztf_20190612_programid1
+    >   
+    >   (1 rows)
+
+    // Select multiple rows.
+    SELECT
+        candid,
+        topic,
+        field
+    FROM
+        ztftest.simple_candidates
+    WHERE
+        candid IN (
+            892204890015010006,
+            889304106215010008,
+            890424366315010064,
+            888380081315010006,
+            892427771915010065,
+            887454952015015011,
+            888168132615015000,
+            887408644215015005,
+            891446681315010028,
+            889273871015010160,
+            889421993215015036,
+            887473943915010016,
+            890335301015015032,
+            890335306215015050,
+            892452754615010083,
+            889297144015015027,
+            887431850915015018,
+            887461121015015002,
+            887435962915015036,
+            889273872915015013,
+            892418023415010019,
+            890455000015015028,
+            891419096015010131,
+            891453261315015023,
+            889424730715010024,
+            890319160615015005,
+            887473942715010014,
+            890470302715015010,
+            887400725615015004,
+            892311505715015009,
+            892403181115010070,
+            889443055115015012,
+            890454105915010033
+            );
+
+    >    candid             | topic                   | field
+    >   --------------------+-------------------------+-------
+    >    887400725615015004 | ztf_20190607_programid1 |   637
+    >    887408644215015005 | ztf_20190607_programid1 |   725
+    >    887431850915015018 | ztf_20190607_programid1 |   685
+    >    887435962915015036 | ztf_20190607_programid1 |   538
+    >    887454952015015011 | ztf_20190607_programid1 |   803
+    >    887461121015015002 | ztf_20190607_programid1 |   488
+    >    887473942715010014 | ztf_20190607_programid1 |   832
+    >    887473943915010016 | ztf_20190607_programid1 |   832
+    >    888168132615015000 | ztf_20190608_programid1 |   369
+    >    888380081315010006 | ztf_20190608_programid1 |   284
+    >    889273871015010160 | ztf_20190609_programid1 |   331
+    >    889273872915015013 | ztf_20190609_programid1 |   331
+    >    889297144015015027 | ztf_20190609_programid1 |   384
+    >    889304106215010008 | ztf_20190609_programid1 |   639
+    >    889421993215015036 | ztf_20190609_programid1 |   283
+    >    889424730715010024 | ztf_20190609_programid1 |   639
+    >    889443055115015012 | ztf_20190609_programid1 |   546
+    >    890319160615015005 | ztf_20190610_programid1 |   488
+    >    890335301015015032 | ztf_20190610_programid1 |   332
+    >    890335306215015050 | ztf_20190610_programid1 |   332
+    >    890424366315010064 | ztf_20190610_programid1 |   640
+    >    890454105915010033 | ztf_20190610_programid1 |   804
+    >    890455000015015028 | ztf_20190610_programid1 |   803
+    >    890470302715015010 | ztf_20190610_programid1 |   730
+    >    891419096015010131 | ztf_20190611_programid1 |   488
+    >    891446681315010028 | ztf_20190611_programid1 |   686
+    >    891453261315015023 | ztf_20190611_programid1 |   803
+    >    892204890015010006 | ztf_20190612_programid1 |   378
+    >    892311505715015009 | ztf_20190612_programid1 |   385
+    >    892403181115010070 | ztf_20190612_programid1 |   488
+    >    892418023415010019 | ztf_20190612_programid1 |   287
+    >    892427771915010065 | ztf_20190612_programid1 |   830
+    >    892452754615010083 | ztf_20190612_programid1 |   738
+    >   
+    >   (33 rows)
+
+    // Select the token for multiple rows.
+    SELECT
+        candid,
+        token(candid),
+        topic,
+        field
+    FROM
+        ztftest.simple_candidates
+    WHERE
+        candid IN (
+            892204890015010006,
+            889304106215010008,
+            890424366315010064,
+            888380081315010006,
+            892427771915010065,
+            887454952015015011,
+            888168132615015000,
+            887408644215015005,
+            891446681315010028,
+            889273871015010160,
+            889421993215015036,
+            887473943915010016,
+            890335301015015032,
+            890335306215015050,
+            892452754615010083,
+            889297144015015027,
+            887431850915015018,
+            887461121015015002,
+            887435962915015036,
+            889273872915015013,
+            892418023415010019,
+            890455000015015028,
+            891419096015010131,
+            891453261315015023,
+            889424730715010024,
+            890319160615015005,
+            887473942715010014,
+            890470302715015010,
+            887400725615015004,
+            892311505715015009,
+            892403181115010070,
+            889443055115015012,
+            890454105915010033
+            );
+
+    >    candid             | system.token(candid) | topic                   | field
+    >   --------------------+----------------------+-------------------------+-------
+    >    887400725615015004 |  9220129812124793590 | ztf_20190607_programid1 |   637
+    >    887408644215015005 |  9219809838187367676 | ztf_20190607_programid1 |   725
+    >    887431850915015018 |  9219965413270389464 | ztf_20190607_programid1 |   685
+    >    887435962915015036 |  9219995544373131206 | ztf_20190607_programid1 |   538
+    >    887454952015015011 |  9219794444487194480 | ztf_20190607_programid1 |   803
+    >    887461121015015002 |  9219967514736972901 | ztf_20190607_programid1 |   488
+    >    887473942715010014 |  9220065635246875427 | ztf_20190607_programid1 |   832
+    >    887473943915010016 |  9219874958057030216 | ztf_20190607_programid1 |   832
+    >    888168132615015000 |  9219808612517193499 | ztf_20190608_programid1 |   369
+    >    888380081315010006 |  9219761847633529897 | ztf_20190608_programid1 |   284
+    >    889273871015010160 |  9219826357511892043 | ztf_20190609_programid1 |   331
+    >    889273872915015013 |  9220005230892689932 | ztf_20190609_programid1 |   331
+    >    889297144015015027 |  9219932206245447352 | ztf_20190609_programid1 |   384
+    >    889304106215010008 |  9223157498163953453 | ztf_20190609_programid1 |   639
+    >    889421993215015036 |  9219849132356662927 | ztf_20190609_programid1 |   283
+    >    889424730715010024 |  9220029985527684061 | ztf_20190609_programid1 |   639
+    >    889443055115015012 |  9220202678314181718 | ztf_20190609_programid1 |   546
+    >    890319160615015005 |  9220032862704740580 | ztf_20190610_programid1 |   488
+    >    890335301015015032 |  9219898027520998467 | ztf_20190610_programid1 |   332
+    >    890335306215015050 |  9219916694917844111 | ztf_20190610_programid1 |   332
+    >    890424366315010064 |  9219729442847886478 | ztf_20190610_programid1 |   640
+    >    890454105915010033 |  9220205459222027342 | ztf_20190610_programid1 |   804
+    >    890455000015015028 |  9220014767785287817 | ztf_20190610_programid1 |   803
+    >    890470302715015010 |  9220072200512024257 | ztf_20190610_programid1 |   730
+    >    891419096015010131 |  9220023430275405343 | ztf_20190611_programid1 |   488
+    >    891446681315010028 |  9219820477480296503 | ztf_20190611_programid1 |   686
+    >    891453261315015023 |  9220024935386320189 | ztf_20190611_programid1 |   803
+    >    892204890015010006 |  9222338317219741434 | ztf_20190612_programid1 |   378
+    >    892311505715015009 |  9220138267277547107 | ztf_20190612_programid1 |   385
+    >    892403181115010070 |  9220188604603897694 | ztf_20190612_programid1 |   488
+    >    892418023415010019 |  9220014168952541232 | ztf_20190612_programid1 |   287
+    >    892427771915010065 |  9219789250491498562 | ztf_20190612_programid1 |   830
+    >    892452754615010083 |  9219926616557465072 | ztf_20190612_programid1 |   738
+    >   
+    >   (33 rows)
+
+    // Select multiple rows based on a token range.
+    // https://dzone.com/articles/data-locality-w-cassandra-how
+    SELECT
+        candid,
+        token(candid),
+        topic,
+        field
+    FROM
+        ztftest.simple_candidates
+    WHERE
+        token(candid) >  9223100000000000000
+    AND
+        token(candid) <= 9223200000000000000
+        ;
+
+
+    >    candid             | system.token(candid) | topic                   | field
+    >   --------------------+----------------------+-------------------------+-------
+    >    892403631215010044 |  9223106168065038791 | ztf_20190612_programid1 |   436
+    >    892427771815015125 |  9223127476902165534 | ztf_20190612_programid1 |   830
+    >    892454233315015000 |  9223151600266210566 | ztf_20190612_programid1 |   806
+    >    889422475915010046 |  9223154860433404736 | ztf_20190609_programid1 |   385
+    >    889304106215010008 |  9223157498163953453 | ztf_20190609_programid1 |   639
+    >    887461120615010040 |  9223171356374594415 | ztf_20190607_programid1 |   488
+    >    890226072215010006 |  9223173476925387515 | ztf_20190610_programid1 |   794
+    >    889446273915015021 |  9223179901844990591 | ztf_20190609_programid1 |   691
+    >    886274401115010252 |  9223190006165993182 | ztf_20190606_programid1 |   331
+    >    889298553815015043 |  9223190578149369676 | ztf_20190609_programid1 |   488
+    >   
+    >   (10 rows)
+
+    // Select multiple rows based on a token range.
+    // https://dzone.com/articles/data-locality-w-cassandra-how
+    SELECT
+        candid,
+        token(candid),
+        topic,
+        field
+    FROM
+        ztftest.simple_candidates
+    WHERE
+        token(candid) >  9220000000000000000
+    AND
+        token(candid) <= 9223000000000000000
+        ;
+
+    >    candid             | system.token(candid) | topic                   | field
+    >   --------------------+----------------------+-------------------------+-------
+    >    895300576015015012 |  9220001657092001806 | ztf_20190615_programid1 |   802
+    >    889273872915015013 |  9220005230892689932 | ztf_20190609_programid1 |   331
+    >    896441091815010026 |  9220009427690578326 | ztf_20190616_programid1 |   538
+    >    ....
+    >    ....
+    >    886476081915010013 |  9222987588901277355 | ztf_20190606_programid1 |   801
+    >    896231411815010006 |  9222991509021946915 | ztf_20190616_programid1 |   325
+    >    886471495915010023 |  9222996963995596962 | ztf_20190606_programid1 |   804
+    >   
+    >   (301 rows)
+
+
+    SELECT * from ztftest.simple_candidates WHERE candid = 748439784515015028 ;
+
+    >    candid             | aimage | aimagerat | bimage | bimagerat | chinr | chipsf  | classtar | clrcoeff  | clrcounc | clrmed | clrrms   | dec      | decnr    | diffmaglim | distnr   | distpsnr1 | distpsnr2 | distpsnr3 | dsdiff    | dsnrms   | elong   | fid | field | fwhm | isdiffpos | jd         | jdendhist  | jdendref   | jdstarthist | jdstartref | magap   | magapbig | magdiff   | magfromlim | maggaia  | maggaiabright | magnr  | magpsf   | magzpsci | magzpscirms | magzpsciunc | mindtoedge | nbad | ncovhist | ndethist | neargaia | neargaiabright | nframesref | nid | nmatches | nmtchps | nneg | objectidps1        | objectidps2        | objectidps3 | pdiffimfilename                                           | pid          | programid | programpi | ra        | ranr      | rb       | rbversion | rcid | rfid      | scorr    | seeratio | sgmag1 | sgmag2 | sgmag3 | sgscore1 | sgscore2 | sgscore3 | sharpnr | sigmagap | sigmagapbig | sigmagnr | sigmapsf | simag1  | simag2  | simag3 | sky      | srmag1 | srmag2  | srmag3 | ssdistnr | ssmagnr | ssnamenr | ssnrms  | sumrat | szmag1  | szmag2  | szmag3 | tblid | tooflag | topic                   | xpos       | ypos       | zpclrcov | zpmed
+    >   --------------------+--------+-----------+--------+-----------+-------+---------+----------+-----------+----------+--------+----------+----------+----------+------------+----------+-----------+-----------+-----------+-----------+----------+---------+-----+-------+------+-----------+------------+------------+------------+-------------+------------+---------+----------+-----------+------------+----------+---------------+--------+----------+----------+-------------+-------------+------------+------+----------+----------+----------+----------------+------------+-----+----------+---------+------+--------------------+--------------------+-------------+-----------------------------------------------------------+--------------+-----------+-----------+-----------+-----------+----------+-----------+------+-----------+----------+----------+--------+--------+--------+----------+----------+----------+---------+----------+-------------+----------+----------+---------+---------+--------+----------+--------+---------+--------+----------+---------+----------+---------+--------+---------+---------+--------+-------+---------+-------------------------+------------+------------+----------+--------
+    >    748439784515015028 |  1.127 |  0.298939 |  1.035 |  0.274536 | 0.484 | 4.37422 |    0.983 | -0.132579 |  9.3e-05 |  0.537 | 0.269594 | 12.71469 | 12.71432 |    19.2777 | 12.00581 |   3.77837 |   17.7888 |      -999 | -32.38321 | 18.04599 | 1.08889 |   1 |   521 | 3.77 |         t | 2.4585e+06 | 2.4585e+06 | 2.4584e+06 |  2.4585e+06 | 2.4582e+06 | 17.3319 |  17.3184 | -0.044361 |     1.9458 | 17.92441 |          -999 | 22.531 | 17.37626 | 26.33226 |    0.053749 |     4.3e-05 |      82.16 |    0 |      124 |        1 | 40.81488 |           -999 |         22 | 748 |      239 |       2 |    0 | 123251540325129421 | 123261540327724027 |        -999 | ztf_20190119439722_000521_zg_c12_o_q2_scimrefdiffimg.fits | 748439784515 |         1 |  Kulkarni | 154.03202 | 154.02858 | 0.634286 | t15_f5_c3 |   45 | 521120145 | 40.14252 | 0.976517 |   -999 |   -999 |   -999 | 0.981488 | 0.018708 |     -999 |   -0.07 |   0.0448 |      0.0564 |    0.172 | 0.071078 | 21.2844 | 21.9251 |   -999 | -1.47547 |   -999 | 21.9341 |   -999 |        0 |    16.9 |     1065 | 50.4292 |      1 | 20.4557 | 20.9278 |   -999 |    28 |       0 | ztf_20190119_programid1 | 2744.51465 | 2998.34009 | -5.8e-05 | 26.253
+    >   
+    >   (1 rows)
+
+

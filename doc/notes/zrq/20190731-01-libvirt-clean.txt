@@ -1,0 +1,305 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+
+# -----------------------------------------------------
+# List our virtual machines.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+    virsh \
+        --connect ${libvirtcon:?} \
+        list \
+            --all
+
+    >    Id    Name                           State
+    >   ----------------------------------------------------
+    >    4     Umiawyth                       running
+    >    5     Fosauri                        running
+    >    6     Marpus                         running
+    >    7     Byflame                        running
+    >    33    Stedigo                        running
+    >    34    Angece                         running
+    >    35    Edwalafia                      running
+    >    36    Onoza                          running
+    >    -     Grerat                         shut off
+    >    -     Jeralenia                      shut off
+
+
+# -----------------------------------------------------
+# Remove all the virtual machines.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+    for vmname in $(
+        virsh \
+            --connect ${libvirtcon:?} \
+            list \
+                --all \
+                --name
+        )
+        do
+            echo "---- ----"
+            echo "Node [${vmname}]"
+            virsh \
+                --connect ${libvirtcon:?} \
+                destroy \
+                    "${vmname}"
+            virsh \
+                --connect ${libvirtcon:?} \
+                undefine \
+                    "${vmname}"
+        done
+
+    >   ---- ----
+    >   Node [Umiawyth]
+    >   Domain Umiawyth destroyed
+    >   Domain Umiawyth has been undefined
+    >   
+    >   ---- ----
+    >   Node [Fosauri]
+    >   Domain Fosauri destroyed
+    >   Domain Fosauri has been undefined
+    >   
+    >   ---- ----
+    >   Node [Marpus]
+    >   Domain Marpus destroyed
+    >   Domain Marpus has been undefined
+    >   
+    >   ---- ----
+    >   Node [Byflame]
+    >   Domain Byflame destroyed
+    >   Domain Byflame has been undefined
+    >   
+    >   ---- ----
+    >   Node [Stedigo]
+    >   Domain Stedigo destroyed
+    >   Domain Stedigo has been undefined
+    >   
+    >   ---- ----
+    >   Node [Angece]
+    >   Domain Angece destroyed
+    >   Domain Angece has been undefined
+    >   
+    >   ---- ----
+    >   Node [Edwalafia]
+    >   Domain Edwalafia destroyed
+    >   Domain Edwalafia has been undefined
+    >   
+    >   ---- ----
+    >   Node [Onoza]
+    >   Domain Onoza destroyed
+    >   Domain Onoza has been undefined
+    >   
+    >   ---- ----
+    >   Node [Grerat]
+    >   error: Failed to destroy domain Grerat
+    >   error: Requested operation is not valid: domain is not running
+    >   Domain Grerat has been undefined
+    >   
+    >   ---- ----
+    >   Node [Jeralenia]
+    >   error: Failed to destroy domain Jeralenia
+    >   error: Requested operation is not valid: domain is not running
+    >   Domain Jeralenia has been undefined
+
+
+# -----------------------------------------------------
+# List our storage pools.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+    virsh \
+        --connect ${libvirtcon:?} \
+        pool-list
+
+    >    Name                 State      Autostart
+    >   -------------------------------------------
+    >    base                 active     yes
+    >    boot-scratch         active     no
+    >    data0                active     yes
+    >    data1                active     yes
+    >    data2                active     yes
+    >    home                 active     yes
+    >    images               active     yes
+    >    init                 active     yes
+    >    live                 active     yes
+
+
+# -----------------------------------------------------
+# List our data pools.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+    virsh \
+        --connect ${libvirtcon:?} \
+        pool-list \
+    | grep '^ data' \
+    | awk '{print $1}'
+
+    >   data0
+    >   data1
+    >   data2
+
+
+# -----------------------------------------------------
+# List the contents of our data pools.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+    for poolname in $(
+        virsh \
+            --connect ${libvirtcon:?} \
+            pool-list \
+        | grep '^ data' \
+        | awk '{print $1}'
+        )
+        do
+            echo "---- ----"
+            echo "Pool [${poolname}]"
+            for volname in $(
+                virsh \
+                    --connect ${libvirtcon:?} \
+                    vol-list \
+                        --pool "${poolname}" \
+                | awk '{ if (NR > 2) { print $1 } }'
+                )
+                do
+                    echo "Volume [${volname}]"
+                done
+        done
+
+    >   ---- ----
+    >   Pool [data1]
+    >   Volume [Angece-data1-01.qcow]
+    >   Volume [Edwalafia-data1-01.qcow]
+    >   Volume [Onoza-data1-01.qcow]
+    >   Volume [Stedigo-data1-01.qcow]
+    >   ---- ----
+    >   Pool [data2]
+    >   Volume [Angece-data2-01.qcow]
+    >   Volume [Edwalafia-data2-01.qcow]
+    >   Volume [Onoza-data2-01.qcow]
+    >   Volume [Stedigo-data2-01.qcow]
+
+
+# -----------------------------------------------------
+# Delete the contents of our data pools.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+    for poolname in $(
+        virsh \
+            --connect ${libvirtcon:?} \
+            pool-list \
+        | grep '^ data' \
+        | awk '{print $1}'
+        )
+        do
+            echo "---- ----"
+            echo "Pool [${poolname}]"
+            echo ""
+            for volname in $(
+                virsh \
+                    --connect ${libvirtcon:?} \
+                    vol-list \
+                        --pool "${poolname}" \
+                | awk '{ if (NR > 2) { print $1 } }'
+                )
+                do
+                    echo "Volume [${volname}]"
+                    virsh \
+                        --connect ${libvirtcon:?} \
+                        vol-delete \
+                            --pool "${poolname}" \
+                                "${volname}"
+                done
+        done
+
+    >   ---- ----
+    >   Pool [data1]
+    >   
+    >   Volume [Angece-data1-01.qcow]
+    >   Vol Angece-data1-01.qcow deleted
+    >   
+    >   Volume [Edwalafia-data1-01.qcow]
+    >   Vol Edwalafia-data1-01.qcow deleted
+    >   
+    >   Volume [Onoza-data1-01.qcow]
+    >   Vol Onoza-data1-01.qcow deleted
+    >   
+    >   Volume [Stedigo-data1-01.qcow]
+    >   Vol Stedigo-data1-01.qcow deleted
+    >   
+    >   ---- ----
+    >   Pool [data2]
+    >   
+    >   Volume [Angece-data2-01.qcow]
+    >   Vol Angece-data2-01.qcow deleted
+    >   
+    >   Volume [Edwalafia-data2-01.qcow]
+    >   Vol Edwalafia-data2-01.qcow deleted
+    >   
+    >   Volume [Onoza-data2-01.qcow]
+    >   Vol Onoza-data2-01.qcow deleted
+    >   
+    >   Volume [Stedigo-data2-01.qcow]
+    >   Vol Stedigo-data2-01.qcow deleted
+
+
+# -----------------------------------------------------
+# List the contents of our data pools.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+    for poolname in $(
+        virsh \
+            --connect ${libvirtcon:?} \
+            pool-list \
+        | grep '^ data' \
+        | awk '{print $1}'
+        )
+        do
+            echo "---- ----"
+            echo "Pool [${poolname}]"
+            for volname in $(
+                virsh \
+                    --connect ${libvirtcon:?} \
+                    vol-list \
+                        --pool "${poolname}" \
+                | awk '{ if (NR > 2) { print $1 } }'
+                )
+                do
+                    echo "Volume [${volname}]"
+                done
+        done
+
+    >   ---- ----
+    >   Pool [data1]
+    >   ---- ----
+    >   Pool [data2]
+
+

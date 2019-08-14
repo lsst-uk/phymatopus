@@ -1,0 +1,228 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+# -----------------------------------------------------
+# Edit the network config on trop03
+#[root@trop03]
+
+    vi /etc/network/interfaces
+
+        # The loopback network interface
+        auto lo
+        iface lo inet loopback
+
+        # Public interface
+        auto br0
+        iface br0 inet static
+            address   129.215.175.98
+            netmask   255.255.255.0
+            network   129.215.175.0
+            gateway   129.215.175.126
+            broadcast 129.215.175.255
+            # dns-* options are implemented by the resolvconf package, if installed
+    ~       # dns-nameservers 195.194.120.1 195.194.120.2
+    ~       # dns-search roe.ac.uk
+            # Configure bridge port and STP.
+            bridge_ports eth0
+	        bridge_fd 0
+            bridge_stp off
+            bridge_maxwait 0
+
+        # private LSST LAN
+        auto br1
+        iface br1 inet static
+            address   172.16.1.5
+            netmask   255.255.0.0
+            broadcast 172.16.255.255
+    +       dns-nameservers 172.16.1.1
+    +       dns-search lsstuk roe.ac.uk
+            # Configure bridge port and STP.
+            bridge_ports eth1
+            bridge_fd 0
+            bridge_stp off
+            bridge_maxwait 0
+
+
+
+# -----------------------------------------------------
+# Check the DNS resolver on trop03.
+#[user@trop03]
+
+    host data.metagrid.co.uk
+
+    >   data.metagrid.co.uk is an alias for bullfinch.linode.metagrid.co.uk.
+    >   bullfinch.linode.metagrid.co.uk has address 178.79.157.93
+    >   bullfinch.linode.metagrid.co.uk has IPv6 address 2a01:7e00::f03c:91ff:fedf:f8b
+
+
+    host work-01.lsstuk
+
+    >   Host work-01.lsstuk not found: 3(NXDOMAIN)
+
+
+# -----------------------------------------------------
+# Check the resolver config on trop03.
+#[user@trop03]
+
+     cat /etc/resolv.conf
+
+    >   search roe.ac.uk
+    >   nameserver 8.8.8.8
+    >   nameserver 195.194.120.1
+    >   nameserver 195.194.120.2
+
+
+# -----------------------------------------------------
+# Reboot and login again.
+#[user@trop03]
+
+    sudo reboot
+
+    >   Connection to trop03.roe.ac.uk closed by remote host.
+    >   Connection to trop03.roe.ac.uk closed.
+
+# -----------------------------------------------------
+# Edit the resolver config on trop03.
+#[user@trop03]
+
+     vi /etc/resolv.conf
+
+    -   search roe.ac.uk
+    +   search lsstuk roe.ac.uk
+    -   nameserver 8.8.8.8
+    -   nameserver 195.194.120.1
+    -   nameserver 195.194.120.2
+    +   nameserver 172.16.1.1
+
+
+# -----------------------------------------------------
+# Check the DNS resolver on trop03.
+#[user@trop03]
+
+    host data.metagrid.co.uk
+
+    >   data.metagrid.co.uk is an alias for bullfinch.linode.metagrid.co.uk.
+    >   bullfinch.linode.metagrid.co.uk has address 178.79.157.93
+    >   bullfinch.linode.metagrid.co.uk has IPv6 address 2a01:7e00::f03c:91ff:fedf:f8b
+
+
+    host work-01.lsstuk
+
+    >   work-01.lsstuk has address 172.16.1.1
+
+
+# -----------------------------------------------------
+# Edit the network config on trop04
+#[root@trop04]
+
+    vi /etc/network/interfaces
+
+
+        # The loopback network interface
+        auto lo
+        iface lo inet loopback
+
+        # Public interface
+        auto br0
+        iface br0 inet static
+	        address   129.215.175.99
+            netmask   255.255.255.0
+            network   129.215.175.0
+            gateway   129.215.175.126
+            broadcast 129.215.175.255
+            # dns-* options are implemented by the resolvconf package, if installed
+    ~       # dns-nameservers 195.194.120.1 195.194.120.2
+    ~       # dns-search roe.ac.uk
+            # Configure bridge port and STP.
+            bridge_ports eth0
+	        bridge_fd 0
+            bridge_stp off
+            bridge_maxwait 0
+
+        # private LSST LAN
+        auto br1
+        iface br1 inet static
+            address   172.16.1.6
+            netmask   255.255.0.0
+            broadcast 172.16.1.255
+    +       dns-nameservers 172.16.1.1
+    +       dns-search lsstuk roe.ac.uk
+            # Configure bridge port and STP.
+            bridge_ports eth1
+            bridge_fd 0
+            bridge_stp off
+            bridge_maxwait 0
+
+
+# -----------------------------------------------------
+# Edit the resolver config on trop04.
+#[user@trop04]
+
+     vi /etc/resolv.conf
+
+    -   search roe.ac.uk
+    +   search lsstuk roe.ac.uk
+    -   nameserver 8.8.8.8
+    -   nameserver 195.194.120.1
+    -   nameserver 195.194.120.2
+    +   nameserver 172.16.1.1
+
+
+# -----------------------------------------------------
+# Reboot and login ...
+#[user@trop04]
+
+    sudo reboot
+
+    >   Connection to trop04.roe.ac.uk closed by remote host.
+    >   Connection to trop04.roe.ac.uk closed.
+
+
+# -----------------------------------------------------
+# Add the DN resolver clients.
+#[user@trop04]
+
+    sudo apt-get update
+    sudo apt-get install dnsutils
+
+    >   Reading package lists... Done
+    >   Building dependency tree
+    >   Reading state information... Done
+    >   ....
+    >   ....
+
+# -----------------------------------------------------
+# Check the DNS resolver on trop04.
+#[user@trop04]
+
+
+    host data.metagrid.co.uk
+
+    >   data.metagrid.co.uk is an alias for bullfinch.linode.metagrid.co.uk.
+    >   bullfinch.linode.metagrid.co.uk has address 178.79.157.93
+    >   bullfinch.linode.metagrid.co.uk has IPv6 address 2a01:7e00::f03c:91ff:fedf:f8b
+
+
+    host work-01.lsstuk
+
+    >   work-01.lsstuk has address 172.16.1.1
+

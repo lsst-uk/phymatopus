@@ -1,0 +1,652 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+    #
+    # Start all of the other VMs.
+    # Edit the libvirt configuration.
+    # Start the virtual machine.
+    # Login and edit the network configuration.
+    # Reboot and test.
+    #
+
+# -----------------------------------------------------
+# Our Zookeeper nodes.
+#[user@trop03]
+
+    zknames=(
+        Fosauri
+        Marpus
+        Byflame
+        )
+
+# -----------------------------------------------------
+# Our Kafka nodes.
+#[user@trop03]
+
+    kfnames=(
+        Stedigo
+        Angece
+        Edwalafia
+        Onoza
+        )
+
+# -----------------------------------------------------
+# Our MirrorMaker nodes.
+#[user@trop04]
+
+    mmnames=(
+        Moemond
+        Iberidia
+        )
+
+
+# -----------------------------------------------------
+# Stop our Zookeeper nodes.
+#[user@trop03]
+
+    for vmname in ${zknames[@]}
+    do
+        virsh \
+            --connect ${connection:?} \
+            shutdown \
+                "${vmname}"
+    done
+
+    >   Domain Fosauri is being shutdown
+    >   
+    >   Domain Marpus is being shutdown
+    >   
+    >   error: Failed to shutdown domain Byflame
+    >   error: Requested operation is not valid: domain is not running
+
+
+# -----------------------------------------------------
+# Stop our MirrorMaker nodes.
+#[user@trop03]
+
+    for vmname in ${mmnames[@]}
+    do
+        virsh \
+            --connect ${connection:?} \
+            shutdown \
+                "${vmname}"
+    done
+
+    >   ....
+
+
+# -----------------------------------------------------
+# Get the configuration data for our libvirt networks.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+    getnetinfo()
+        {
+        local netname=${1:?}
+        virsh \
+            --connect ${connection:?} \
+            net-dumpxml \
+                "${netname}" \
+        > "/tmp/${netname}.xml"
+        }
+
+    for netname in natted routed
+    do
+        getnetinfo ${netname:?}
+    done
+
+
+# -----------------------------------------------------
+# Get the net address from a network config.
+#[user@trop03]
+
+    getnetip()
+        {
+        local netname=${1:?}
+        xmlstarlet \
+            select \
+                --indent \
+                --template \
+                    --match "//ip[1]" \
+                    --value-of "@address" \
+        "/tmp/${netname}.xml"
+        }
+
+
+# -----------------------------------------------------
+# Get a MAC address from a network config.
+#[user@trop03]
+
+    getvmmac()
+        {
+        local vmname=${1:?}
+        local netname=${2:?}
+        xmlstarlet \
+            select \
+                --indent \
+                --template \
+                    --match "//host[@name='${vmname:?}']" \
+                    --value-of "@mac" \
+        "/tmp/${netname}.xml"
+        }
+
+
+# -----------------------------------------------------
+# Get the pci slot for a network interface.
+#[user@trop03]
+
+    getnetpci()
+        {
+        local vmname=${1:?}
+        local netname=${2:?}
+        xmlstarlet \
+            select \
+                --indent \
+                --template \
+                    --match "//interface[source/@network='${netname:?}']" \
+                    --value-of "address/@slot" \
+        "/tmp/${vmname}.xml"
+        }
+
+
+# -----------------------------------------------------
+# Get the device name for a network interface.
+#[user@trop03]
+
+    getnetdev()
+        {
+        local vmname=${1:?}
+        local netname=${2:?}
+
+        local devnum=$(($(getnetpci ${vmname} ${netname})))
+
+        echo "ens${devnum}"
+        }
+
+
+# -----------------------------------------------------
+# Update a virtual machine network configuration.
+#[user@trop03]
+
+    setvminfo()
+        {
+        local vmname=${1:?}
+
+        virsh \
+            --connect ${connection:?} \
+            dumpxml \
+                --inactive \
+                --security-info \
+                    "${vmname:?}" \
+        > "/tmp/${vmname:?}.xml"
+
+        local nattedmac=$(getvmmac "${vmname:?}" 'natted')
+        local routedmac=$(getvmmac "${vmname:?}" 'routed')
+
+        local nattedpci=$(getnetpci ${vmname} 'natted')
+        local routedpci=$(getnetpci ${vmname} 'routed')
+
+        echo "natted MAC [${nattedmac}]"
+        echo "natted PCI [${nattedpci}]"
+
+        echo "routed MAC [${routedmac}]"
+        echo "routed PCI [${routedpci}]"
+
+        xmlstarlet \
+            edit \
+                --inplace \
+                --update "//interface[1]/source/@network" \
+                    --value 'natted' \
+                --update "//interface[1]/mac/@address" \
+                    --value "${nattedmac:?}" \
+                --update "//interface[1]/address/@slot" \
+                    --value "${nattedpci:?}" \
+                --update "//interface[2]/source/@network" \
+                    --value 'routed' \
+                --update "//interface[2]/mac/@address" \
+                    --value "${routedmac:?}" \
+                --update "//interface[2]/address/@slot" \
+                    --value "${routedpci:?}" \
+        "/tmp/${vmname:?}.xml"
+
+        virsh \
+            --connect ${connection:?} \
+            define \
+                "/tmp/${vmname:?}.xml"
+        }
+
+# -----------------------------------------------------
+# Update the vm config for our Zookeeper nodes.
+#[user@trop03]
+
+    for vmname in ${zknames[@]}
+    do
+        echo "---- ----"
+        echo "Node [${vmname:?}]"
+        setvminfo "${vmname:?}"
+    done
+
+    >   ---- ----
+    >   Node [Fosauri]
+    >   natted MAC [52:54:00:05:00:0E]
+    >   natted PCI [0x07]
+    >   routed MAC [52:54:00:05:01:0E]
+    >   routed PCI [0x08]
+    >   Domain Fosauri defined from /tmp/Fosauri.xml
+    >   
+    >   ---- ----
+    >   Node [Marpus]
+    >   natted MAC [52:54:00:05:00:0F]
+    >   natted PCI [0x03]
+    >   routed MAC [52:54:00:05:01:0F]
+    >   routed PCI [0x07]
+    >   Domain Marpus defined from /tmp/Marpus.xml
+    >   
+    >   ---- ----
+    >   Node [Byflame]
+    >   natted MAC [52:54:00:05:00:10]
+    >   natted PCI [0x03]
+    >   routed MAC [52:54:00:05:01:10]
+    >   routed PCI [0x07]
+    >   Domain Byflame defined from /tmp/Byflame.xml
+
+
+# -----------------------------------------------------
+# Update the vm config for our Kafka nodes.
+#[user@trop03]
+
+    ....
+
+
+# -----------------------------------------------------
+# Start our Zookeeper nodes.
+#[user@trop03]
+
+    #vmname=Fosauri
+    #vmname=Marpus
+
+    for vmname in ${zknames[@]}
+    do
+        echo "---- ----"
+        echo "Node [${vmname:?}]"
+        virsh \
+            --connect ${connection:?} \
+            start \
+                "${vmname}"
+    done
+
+    >   Domain Fosauri started
+    >   
+    >   Domain Marpus started
+    >   
+    >   Domain Byflame started
+
+
+# -----------------------------------------------------
+# Stop the Docker service.
+#[user@trop03]
+
+    for vmname in ${zknames[@]}
+    do
+        echo "---- ----"
+        echo "Node [${vmname:?}]"
+        ssh "${vmname}" \
+            "
+            date
+            hostname
+            sudo systemctl stop    docker
+            sudo systemctl disable docker
+            sudo systemctl status  docker
+            "
+    done
+
+
+    >   Fri 22 Mar 04:29:03 GMT 2019
+    >   Fosauri
+    >   ● docker.service - Docker Application Container Engine
+    >      Loaded: loaded (/usr/lib/systemd/system/docker.service; disabled; vendor preset: disabled)
+    >      Active: inactive (dead)
+    >        Docs: https://docs.docker.com
+    >   
+    >   Fri 22 Mar 04:29:05 GMT 2019
+    >   Marpus
+    >   ● docker.service - Docker Application Container Engine
+    >      Loaded: loaded (/usr/lib/systemd/system/docker.service; disabled; vendor preset: disabled)
+    >      Active: inactive (dead)
+    >        Docs: https://docs.docker.com
+    >   
+    >   Fri 22 Mar 04:29:08 GMT 2019
+    >   Byflame
+    >   Removed /etc/systemd/system/multi-user.target.wants/docker.service.
+    >   ● docker.service - Docker Application Container Engine
+    >      Loaded: loaded (/usr/lib/systemd/system/docker.service; disabled; vendor preset: disabled)
+    >      Active: inactive (dead)
+    >        Docs: https://docs.docker.com
+
+
+# -----------------------------------------------------
+# Update the virtual machine configuration.
+#[user@trop03]
+
+
+    for vmname in ${zknames[@]}
+    do
+        echo "---- ----"
+        echo "Node [${vmname:?}]"
+
+        nattedmac=$(getvmmac "${vmname:?}" 'natted')
+        nattedpci=$(getnetpci ${vmname} 'natted')
+        natteddev=$(getnetdev ${vmname} 'natted')
+        nattedip=$(getnetip 'natted')
+
+        routedmac=$(getvmmac "${vmname:?}" 'routed')
+        routedpci=$(getnetpci ${vmname} 'routed')
+        routeddev=$(getnetdev ${vmname} 'routed')
+        routedip=$(getnetip 'routed')
+
+        ssh "${vmname}" \
+            "
+            date
+            hostname
+
+            cat > /tmp/network << EOCFG
+NOZEROCONF=yes
+NETWORKING=yes
+GATEWAYDEV=${natteddev:?}
+EOCFG
+
+            cat > "/tmp/ifcfg-${routeddev:?}" << EOCFG
+BOOTPROTO=dhcp
+DEVICE=${routeddev:?}
+HWADDR=${routedmac:?}
+ONBOOT=yes
+TYPE=Ethernet
+USERCTL=no
+DEFROUTE=no
+EOCFG
+
+            cat > "/tmp/ifcfg-${natteddev:?}" << EOCFG
+BOOTPROTO=dhcp
+DEVICE=${natteddev:?}
+HWADDR=${nattedmac:?}
+ONBOOT=yes
+TYPE=Ethernet
+USERCTL=no
+DEFROUTE=yes
+EOCFG
+
+            cat > "/tmp/route-${routeddev:?}" << EOCFG
+172.16.0.0/16 via ${routedip:?} dev ${routeddev:?}
+172.17.5.1/24 via ${routedip:?} dev ${routeddev:?}
+172.17.6.1/24 via ${routedip:?} dev ${routeddev:?}
+EOCFG
+
+            cat > "/tmp/route-${natteddev:?}" << EOCFG
+EOCFG
+
+            install-ifcfg()
+                {
+                local tempfile=\${1:?}
+                local filepath=\${2:-/etc/sysconfig/network-scripts}
+                local filename=\${3:-\${tempfile}}
+                local reference=/etc/sysconfig/network-scripts/ifcfg-lo
+
+                sudo mv "/tmp/\${tempfile}" "\${filepath}/\${filename}"
+                sudo chown root:root "\${filepath}/\${filename}"
+                sudo chcon --reference=\${reference} "\${filepath}/\${filename}"
+                }
+
+            install-ifcfg "network" "/etc/sysconfig"
+
+            install-ifcfg "ifcfg-${routeddev:?}"
+            install-ifcfg "ifcfg-${natteddev:?}"
+
+            install-ifcfg "route-${routeddev:?}"
+            install-ifcfg "route-${natteddev:?}"
+
+            "
+    done
+
+    >   ---- ----
+    >   Node [Fosauri]
+    >   Fri 22 Mar 04:32:05 GMT 2019
+    >   Fosauri
+    >   ---- ----
+    >   Node [Marpus]
+    >   Fri 22 Mar 04:32:06 GMT 2019
+    >   Marpus
+    >   ---- ----
+    >   Node [Byflame]
+    >   Fri 22 Mar 04:32:07 GMT 2019
+    >   Byflame
+
+
+# -----------------------------------------------------
+# Reboot the virtual machine.
+#[user@trop03]
+
+    for vmname in ${zknames[@]}
+    do
+        echo "---- ----"
+        echo "Node [${vmname:?}]"
+        virsh \
+            --connect ${connection:?} \
+            reboot \
+                "${vmname}"
+    done
+
+    >   ---- ----
+    >   Node [Fosauri]
+    >   Domain Fosauri is being rebooted
+    >   
+    >   ---- ----
+    >   Node [Marpus]
+    >   Domain Marpus is being rebooted
+    >   
+    >   ---- ----
+    >   Node [Byflame]
+    >   Domain Byflame is being rebooted
+
+
+# -----------------------------------------------------
+# Debug check of the network config.
+# Not needed unless things go pear shaped ...
+#[user@trop03]
+
+    for vmname in ${zknames[@]}
+    do
+        echo ""
+        echo "---- ----"
+        echo "Node [${vmname:?}]"
+
+        ssh "${vmname}" \
+            "
+            date
+            hostname
+
+            ls -alZ /etc/sysconfig/network
+            ls -alZ /etc/sysconfig/network-scripts/ifcfg-*
+            ls -alZ /etc/sysconfig/network-scripts/route-*
+
+            echo '---- [network]'
+            cat  '/etc/sysconfig/network'
+            echo '---- [ifcfg-ens3]'
+            cat  '/etc/sysconfig/network-scripts/ifcfg-ens3'
+            echo '---- [ifcfg-ens7]'
+            cat  '/etc/sysconfig/network-scripts/ifcfg-ens7'
+            echo '---- [route-ens3]'
+            cat  '/etc/sysconfig/network-scripts/route-ens3'
+            echo '---- [route-ens7]'
+            cat  '/etc/sysconfig/network-scripts/route-ens7'
+
+            echo '---- [routes]'
+
+            /usr/sbin/ip route
+            "
+    done
+
+
+
+# -----------------------------------------------------
+# Check of the network config.
+#[user@trop03]
+
+    for vmname in ${zknames[@]}
+    do
+        echo ""
+        echo "---- ----"
+        echo "Node [${vmname:?}]"
+
+        ssh "${vmname}" \
+            "
+            date
+            hostname
+            /usr/sbin/ip route
+            "
+    done
+
+    >   ---- ----
+    >   Node [Fosauri]
+    >   Fri 22 Mar 04:38:38 GMT 2019
+    >   Fosauri
+    >   default via 192.168.5.254 dev ens7 proto dhcp metric 100
+    >   172.16.0.0/16 via 172.17.5.254 dev ens8 proto static metric 101
+    >   172.17.5.0/24 dev ens8 proto kernel scope link src 172.17.5.14 metric 101
+    >   172.17.5.0/24 via 172.17.5.254 dev ens8 proto static metric 101
+    >   172.17.6.0/24 via 172.17.5.254 dev ens8 proto static metric 101
+    >   192.168.5.0/24 dev ens7 proto kernel scope link src 192.168.5.14 metric 100
+    >   
+    >   ---- ----
+    >   Node [Marpus]
+    >   Fri 22 Mar 04:38:38 GMT 2019
+    >   Marpus
+    >   default via 192.168.5.254 dev ens3 proto dhcp metric 100
+    >   172.16.0.0/16 via 172.17.5.254 dev ens7 proto static metric 101
+    >   172.17.5.0/24 dev ens7 proto kernel scope link src 172.17.5.15 metric 101
+    >   172.17.5.0/24 via 172.17.5.254 dev ens7 proto static metric 101
+    >   172.17.6.0/24 via 172.17.5.254 dev ens7 proto static metric 101
+    >   192.168.5.0/24 dev ens3 proto kernel scope link src 192.168.5.15 metric 100
+    >   
+    >   ---- ----
+    >   Node [Byflame]
+    >   Fri 22 Mar 04:38:39 GMT 2019
+    >   Byflame
+    >   default via 192.168.5.254 dev ens3 proto dhcp metric 100
+    >   172.16.0.0/16 via 172.17.5.254 dev ens7 proto static metric 101
+    >   172.17.5.0/24 dev ens7 proto kernel scope link src 172.17.5.16 metric 101
+    >   172.17.5.0/24 via 172.17.5.254 dev ens7 proto static metric 101
+    >   172.17.6.0/24 via 172.17.5.254 dev ens7 proto static metric 101
+    >   192.168.5.0/24 dev ens3 proto kernel scope link src 192.168.5.16 metric 100
+
+
+
+# -----------------------------------------------------
+# Check the network access.
+#[user@trop03]
+
+    for vmname in ${zknames[@]}
+    do
+        echo ""
+        echo "---- ----"
+        echo "Node [${vmname:?}]"
+
+        ssh "${vmname}" \
+            "
+            date
+            hostname
+
+            echo '---- [public internet]'
+            curl --silent --head 'http://data.metagrid.co.uk/temp/' | head -n 4
+
+            echo '---- [Edinburgh uni]'
+            curl --silent --head 'https://www.ed.ac.uk/' | head -n 4
+
+            echo '---- [Observatory]'
+            curl --silent --head 'http://tap.roe.ac.uk/osa/availability' | head -n 4
+            "
+    done
+
+
+    >   ---- ----
+    >   Node [Fosauri]
+    >   Fri 22 Mar 04:48:54 GMT 2019
+    >   Fosauri
+    >   ---- [public internet]
+    >   HTTP/1.1 200 OK
+    >   Date: Fri, 22 Mar 2019 04:48:54 GMT
+    >   Server: Apache/2.2.15 (CentOS)
+    >   Connection: close
+    >   ---- [Edinburgh uni]
+    >   HTTP/1.1 200 OK
+    >   Server: Apache/2.4.6 (CentOS)
+    >   Expires: Sun, 19 Nov 1978 05:00:00 GMT
+    >   Cache-Control: no-cache, must-revalidate
+    >   ---- [Observatory]
+    >   HTTP/1.1 200
+    >   Date: Fri, 22 Mar 2019 05:45:54 GMT
+    >   Server: Apache/2.4.34 (Fedora)
+    >   X-Clacks-Overhead: GNU Terry Pratchett
+    >   
+    >   ---- ----
+    >   Node [Marpus]
+    >   Fri 22 Mar 04:48:55 GMT 2019
+    >   Marpus
+    >   ---- [public internet]
+    >   HTTP/1.1 200 OK
+    >   Date: Fri, 22 Mar 2019 04:48:55 GMT
+    >   Server: Apache/2.2.15 (CentOS)
+    >   Connection: close
+    >   ---- [Edinburgh uni]
+    >   HTTP/1.1 200 OK
+    >   Server: Apache/2.4.6 (CentOS)
+    >   Expires: Sun, 19 Nov 1978 05:00:00 GMT
+    >   Cache-Control: no-cache, must-revalidate
+    >   ---- [Observatory]
+    >   HTTP/1.1 200
+    >   Date: Fri, 22 Mar 2019 05:45:54 GMT
+    >   Server: Apache/2.4.34 (Fedora)
+    >   X-Clacks-Overhead: GNU Terry Pratchett
+    >   
+    >   ---- ----
+    >   Node [Byflame]
+    >   Fri 22 Mar 04:48:55 GMT 2019
+    >   Byflame
+    >   ---- [public internet]
+    >   HTTP/1.1 200 OK
+    >   Date: Fri, 22 Mar 2019 04:48:55 GMT
+    >   Server: Apache/2.2.15 (CentOS)
+    >   Connection: close
+    >   ---- [Edinburgh uni]
+    >   HTTP/1.1 200 OK
+    >   Server: Apache/2.4.6 (CentOS)
+    >   Expires: Sun, 19 Nov 1978 05:00:00 GMT
+    >   Cache-Control: no-cache, must-revalidate
+    >   ---- [Observatory]
+    >   HTTP/1.1 200
+    >   Date: Fri, 22 Mar 2019 05:45:55 GMT
+    >   Server: Apache/2.4.34 (Fedora)
+    >   X-Clacks-Overhead: GNU Terry Pratchett
+
+
+
+

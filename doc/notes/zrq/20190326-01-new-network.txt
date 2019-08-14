@@ -1,0 +1,766 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+    #
+    # Docker networking is also on 172...
+    #
+
+
+    #
+    # Docker creates new networks starting from 172.17.0.0/16 upwards.
+    # https://docs.docker.com/v17.09/engine/userguide/networking/
+    #
+
+    #
+    # How to change the default (live not persistent)
+    # https://support.zenoss.com/hc/en-us/articles/203582809-How-to-Change-the-Default-Docker-Subnet
+
+    # How do I configure the default bridge (docker0) network for Docker Engine to a different subnet?
+    # https://success.docker.com/article/how-do-i-configure-the-default-bridge-docker0-network-for-docker-engine-to-a-different-subnet
+
+    # Customize the docker0 bridge
+    # https://docs.docker.com/v17.09/engine/userguide/networking/default_network/custom-docker0/
+
+    # Configuring Docker to not use the 172.17.0.0 range
+    # https://serverfault.com/questions/916941/configuring-docker-to-not-use-the-172-17-0-0-range
+    # Source code
+    # https://github.com/moby/moby/blob/0ac8cbf74765ca32e1b82df343bdf52ebb0fb6e2/vendor/github.com/docker/libnetwork/ipamutils/utils.go#L21
+
+    # Example: a Base "10.10.0.0/16 with Size 24 will define the set of 256
+    # 10.10.[0-255].0/24 address pools
+
+        {
+        "default-address-pools": [
+            {"base":"10.10.0.0/16","size":24}
+            ]
+        }
+
+
+    # Isolate containers with a user namespace
+    # https://docs.docker.com/engine/security/userns-remap/
+
+
+# -----------------------------------------------------
+# Start the Docker service.
+#[user@Fosauri]
+
+    sudo systemctl start   docker
+
+    sudo systemctl status  docker
+
+    >   sudo systemctl status  docker
+    >   ● docker.service - Docker Application Container Engine
+    >      Loaded: loaded (/usr/lib/systemd/system/docker.service; disabled; vendor preset: disabled)
+    >      Active: active (running) since Fri 2019-03-22 04:52:33 GMT; 6min ago
+    >        Docs: https://docs.docker.com
+    >    Main PID: 1297 (dockerd)
+    >       Tasks: 23
+    >      Memory: 160.8M
+    >      CGroup: /system.slice/docker.service
+    >              ├─1297 /usr/bin/dockerd
+    >              └─1304 docker-containerd --config /var/run/docker/containerd/containerd.toml
+    >   
+    >   Mar 22 04:52:32 Fosauri dockerd[1297]: time="2019-03-22T04:52:32.512683468Z" level=info msg="ClientConn switching balancer to \"pick_first\"" module=grpc
+    >   Mar 22 04:52:32 Fosauri dockerd[1297]: time="2019-03-22T04:52:32.512749003Z" level=info msg="pickfirstBalancer: HandleSubConnStateChange: 0xc420213a90, CONNECTING" module=grpc
+    >   Mar 22 04:52:32 Fosauri dockerd[1297]: time="2019-03-22T04:52:32.512975140Z" level=info msg="pickfirstBalancer: HandleSubConnStateChange: 0xc420213a90, READY" module=grpc
+    >   Mar 22 04:52:32 Fosauri dockerd[1297]: time="2019-03-22T04:52:32.513011335Z" level=info msg="Loading containers: start."
+    >   Mar 22 04:52:33 Fosauri dockerd[1297]: time="2019-03-22T04:52:33.411359169Z" level=info msg="Default bridge (docker0) is assigned with an IP address 172.17.0.0/16. Daemon option --bip can be used to set a preferred IP address"
+    >   Mar 22 04:52:33 Fosauri dockerd[1297]: time="2019-03-22T04:52:33.663987429Z" level=info msg="Loading containers: done."
+    >   Mar 22 04:52:33 Fosauri dockerd[1297]: time="2019-03-22T04:52:33.760821608Z" level=info msg="Docker daemon" commit=e68fc7a graphdriver(s)=btrfs version=18.06.1-ce
+    >   Mar 22 04:52:33 Fosauri dockerd[1297]: time="2019-03-22T04:52:33.761327969Z" level=info msg="Daemon has completed initialization"
+    >   Mar 22 04:52:33 Fosauri systemd[1]: Started Docker Application Container Engine.
+    >   Mar 22 04:52:33 Fosauri dockerd[1297]: time="2019-03-22T04:52:33.823702213Z" level=info msg="API listen on /var/run/docker.sock"
+
+
+# -----------------------------------------------------
+# Check the network interfaces.
+#[user@Fosauri]
+
+    ifconfig
+
+    >   br-e0c48872d186: flags=4099<UP,BROADCAST,MULTICAST>  mtu 1500
+    >       inet 172.18.0.1  netmask 255.255.0.0  broadcast 172.18.255.255
+    >       ether 02:42:1e:3e:a3:27  txqueuelen 0  (Ethernet)
+    >       ....
+    >   
+    >   docker0: flags=4099<UP,BROADCAST,MULTICAST>  mtu 1500
+    >       inet 172.17.0.1  netmask 255.255.0.0  broadcast 172.17.255.255
+    >       ether 02:42:6b:39:0d:26  txqueuelen 0  (Ethernet)
+    >       ....
+    >   
+    >   ens7: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+    >       ....
+    >       ....
+    >   
+    >   ens8: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+    >       ....
+    >       ....
+    >   
+    >   lo: flags=73<UP,LOOPBACK,RUNNING>  mtu 65536
+    >       ....
+    >       ....
+
+
+# -----------------------------------------------------
+# Create a Docker network.
+#[user@Fosauri]
+
+    docker \
+        network \
+            create albert
+
+    >   9dd3b9fdd3da1adef20fcaecd8e34695c4098997a8f4d22ee54e0375eb61d0e7
+
+
+# -----------------------------------------------------
+# Check the network interfaces.
+#[user@Fosauri]
+
+    ifconfig
+
+    >   br-9dd3b9fdd3da: flags=4099<UP,BROADCAST,MULTICAST>  mtu 1500
+    >       inet 172.19.0.1  netmask 255.255.0.0  broadcast 172.19.255.255
+    >       ether 02:42:49:d7:13:de  txqueuelen 0  (Ethernet)
+    >       ....
+    >   
+    >   br-e0c48872d186: flags=4099<UP,BROADCAST,MULTICAST>  mtu 1500
+    >       inet 172.18.0.1  netmask 255.255.0.0  broadcast 172.18.255.255
+    >       ether 02:42:1e:3e:a3:27  txqueuelen 0  (Ethernet)
+    >       ....
+    >   
+    >   docker0: flags=4099<UP,BROADCAST,MULTICAST>  mtu 1500
+    >       inet 172.17.0.1  netmask 255.255.0.0  broadcast 172.17.255.255
+    >       ether 02:42:6b:39:0d:26  txqueuelen 0  (Ethernet)
+    >       ....
+    >   
+    >   ....
+    >       ....
+    >       ....
+
+
+
+# -----------------------------------------------------
+# List the docker networks.
+#[user@Fosauri]
+
+    docker network list
+
+    >   NETWORK ID          NAME                  DRIVER              SCOPE
+    >   9dd3b9fdd3da        albert                bridge              local
+    >   291e5f17d16f        bridge                bridge              local
+    >   3a1b574943a2        host                  host                local
+    >   00b2c8edd5b0        none                  null                local
+    >   e0c48872d186        stevedore_zookeeper   bridge              local
+
+
+# -----------------------------------------------------
+# Inspect the docker networks.
+#[user@Fosauri]
+
+    for netid in $(docker network list -q)
+    do
+        echo ""
+        echo "---- ----"
+        echo "Network [${netid:?}]"
+        docker network inspect ${netid}
+    done
+
+    >   ---- ----
+    >   Network [9dd3b9fdd3da]
+    >   [
+    >       {
+    >           "Name": "albert",
+    >           "Id": "9dd3b9fdd3da1adef20fcaecd8e34695c4098997a8f4d22ee54e0375eb61d0e7",
+    >           "Created": "2019-03-22T05:07:20.471918017Z",
+    >           "Scope": "local",
+    >           "Driver": "bridge",
+    >           "EnableIPv6": false,
+    >           "IPAM": {
+    >               "Driver": "default",
+    >               "Options": {},
+    >               "Config": [
+    >                   {
+    >                       "Subnet": "172.19.0.0/16",
+    >                       "Gateway": "172.19.0.1"
+    >                   }
+    >               ]
+    >           },
+    >           "Internal": false,
+    >           "Attachable": false,
+    >           "Ingress": false,
+    >           "ConfigFrom": {
+    >               "Network": ""
+    >           },
+    >           "ConfigOnly": false,
+    >           "Containers": {},
+    >           "Options": {},
+    >           "Labels": {}
+    >       }
+    >   ]
+    >   
+    >   ---- ----
+    >   Network [291e5f17d16f]
+    >   [
+    >       {
+    >           "Name": "bridge",
+    >           "Id": "291e5f17d16f120e99622c1c99a41acc301a0b6a2fa6ec69cb5bc482d198dbf5",
+    >           "Created": "2019-03-22T04:52:33.411754041Z",
+    >           "Scope": "local",
+    >           "Driver": "bridge",
+    >           "EnableIPv6": false,
+    >           "IPAM": {
+    >               "Driver": "default",
+    >               "Options": null,
+    >               "Config": [
+    >                   {
+    >                       "Subnet": "172.17.0.0/16",
+    >                       "Gateway": "172.17.0.1"
+    >                   }
+    >               ]
+    >           },
+    >           "Internal": false,
+    >           "Attachable": false,
+    >           "Ingress": false,
+    >           "ConfigFrom": {
+    >               "Network": ""
+    >           },
+    >           "ConfigOnly": false,
+    >           "Containers": {},
+    >           "Options": {
+    >               "com.docker.network.bridge.default_bridge": "true",
+    >               "com.docker.network.bridge.enable_icc": "true",
+    >               "com.docker.network.bridge.enable_ip_masquerade": "true",
+    >               "com.docker.network.bridge.host_binding_ipv4": "0.0.0.0",
+    >               "com.docker.network.bridge.name": "docker0",
+    >               "com.docker.network.driver.mtu": "1500"
+    >           },
+    >           "Labels": {}
+    >       }
+    >   ]
+    >   
+    >   ---- ----
+    >   Network [3a1b574943a2]
+    >   [
+    >       {
+    >           "Name": "host",
+    >           "Id": "3a1b574943a211e02d666c9fd62b6e7e02c241fc1477dfb2524ec7e22fbf2149",
+    >           "Created": "2019-01-17T01:28:17.009093568Z",
+    >           "Scope": "local",
+    >           "Driver": "host",
+    >           "EnableIPv6": false,
+    >           "IPAM": {
+    >               "Driver": "default",
+    >               "Options": null,
+    >               "Config": []
+    >           },
+    >           "Internal": false,
+    >           "Attachable": false,
+    >           "Ingress": false,
+    >           "ConfigFrom": {
+    >               "Network": ""
+    >           },
+    >           "ConfigOnly": false,
+    >           "Containers": {},
+    >           "Options": {},
+    >           "Labels": {}
+    >       }
+    >   ]
+    >   
+    >   ---- ----
+    >   Network [00b2c8edd5b0]
+    >   [
+    >       {
+    >           "Name": "none",
+    >           "Id": "00b2c8edd5b069d534a9b2db2d9e725008b153b8211b8ffec98741de06fd3161",
+    >           "Created": "2019-01-17T01:28:16.902397092Z",
+    >           "Scope": "local",
+    >           "Driver": "null",
+    >           "EnableIPv6": false,
+    >           "IPAM": {
+    >               "Driver": "default",
+    >               "Options": null,
+    >               "Config": []
+    >           },
+    >           "Internal": false,
+    >           "Attachable": false,
+    >           "Ingress": false,
+    >           "ConfigFrom": {
+    >               "Network": ""
+    >           },
+    >           "ConfigOnly": false,
+    >           "Containers": {},
+    >           "Options": {},
+    >           "Labels": {}
+    >       }
+    >   ]
+    >   
+    >   ---- ----
+    >   Network [e0c48872d186]
+    >   [
+    >       {
+    >           "Name": "stevedore_zookeeper",
+    >           "Id": "e0c48872d1863198cc82783fa908746e6e195809d3f002b5c4f044cbe4cedb93",
+    >           "Created": "2019-01-17T19:11:33.838499323Z",
+    >           "Scope": "local",
+    >           "Driver": "bridge",
+    >           "EnableIPv6": false,
+    >           "IPAM": {
+    >               "Driver": "default",
+    >               "Options": null,
+    >               "Config": [
+    >                   {
+    >                       "Subnet": "172.18.0.0/16",
+    >                       "Gateway": "172.18.0.1"
+    >                   }
+    >               ]
+    >           },
+    >           "Internal": false,
+    >           "Attachable": true,
+    >           "Ingress": false,
+    >           "ConfigFrom": {
+    >               "Network": ""
+    >           },
+    >           "ConfigOnly": false,
+    >           "Containers": {},
+    >           "Options": {},
+    >           "Labels": {
+    >               "com.docker.compose.network": "zookeeper",
+    >               "com.docker.compose.project": "stevedore",
+    >               "com.docker.compose.version": "1.21.2"
+    >           }
+    >       }
+    >   ]
+
+
+# -----------------------------------------------------
+# Try configuring Docker to use a different base address..
+# https://success.docker.com/article/how-do-i-configure-the-default-bridge-docker0-network-for-docker-engine-to-a-different-subnet
+#[user@Fosauri]
+
+    sudo vi /etc/docker/daemon.json
+
+        {
+          "bip": "172.26.0.1/16"
+        }
+
+    sudo systemctl restart docker
+
+    sudo systemctl status docker
+
+    >   ● docker.service - Docker Application Container Engine
+    >      Loaded: loaded (/usr/lib/systemd/system/docker.service; disabled; vendor preset: disabled)
+    >      Active: active (running) since Fri 2019-03-22 05:28:42 GMT; 6s ago
+    >        Docs: https://docs.docker.com
+    >    Main PID: 1777 (dockerd)
+    >       Tasks: 22
+    >      Memory: 45.1M
+    >      CGroup: /system.slice/docker.service
+    >              ├─1777 /usr/bin/dockerd
+    >              └─1785 docker-containerd --config /var/run/docker/containerd/containerd.toml
+    >   
+    >   Mar 22 05:28:41 Fosauri dockerd[1777]: time="2019-03-22T05:28:41.282496763Z" level=info msg="ccResolverWrapper: sending new addresses to cc: [{unix:///var/run/docker/containerd/docker-containerd.sock 0  <nil>}]" module=grpc
+    >   Mar 22 05:28:41 Fosauri dockerd[1777]: time="2019-03-22T05:28:41.282527420Z" level=info msg="ClientConn switching balancer to \"pick_first\"" module=grpc
+    >   Mar 22 05:28:41 Fosauri dockerd[1777]: time="2019-03-22T05:28:41.282573131Z" level=info msg="pickfirstBalancer: HandleSubConnStateChange: 0xc4202111b0, CONNECTING" module=grpc
+    >   Mar 22 05:28:41 Fosauri dockerd[1777]: time="2019-03-22T05:28:41.283263254Z" level=info msg="pickfirstBalancer: HandleSubConnStateChange: 0xc4202111b0, READY" module=grpc
+    >   Mar 22 05:28:41 Fosauri dockerd[1777]: time="2019-03-22T05:28:41.283356854Z" level=info msg="Loading containers: start."
+    >   Mar 22 05:28:42 Fosauri dockerd[1777]: time="2019-03-22T05:28:42.594590625Z" level=info msg="Loading containers: done."
+    >   Mar 22 05:28:42 Fosauri dockerd[1777]: time="2019-03-22T05:28:42.609159025Z" level=info msg="Docker daemon" commit=e68fc7a graphdriver(s)=btrfs version=18.06.1-ce
+    >   Mar 22 05:28:42 Fosauri dockerd[1777]: time="2019-03-22T05:28:42.609449673Z" level=info msg="Daemon has completed initialization"
+    >   Mar 22 05:28:42 Fosauri dockerd[1777]: time="2019-03-22T05:28:42.642263699Z" level=info msg="API listen on /var/run/docker.sock"
+    >   Mar 22 05:28:42 Fosauri systemd[1]: Started Docker Application Container Engine.
+
+# -----------------------------------------------------
+# Check the network interfaces.
+#[user@Fosauri]
+
+    ifconfig
+
+    >   br-9dd3b9fdd3da: flags=4099<UP,BROADCAST,MULTICAST>  mtu 1500
+    >       inet 172.19.0.1  netmask 255.255.0.0  broadcast 172.19.255.255
+    >       ether 02:42:49:d7:13:de  txqueuelen 0  (Ethernet)
+    >       ....
+    >   
+    >   br-e0c48872d186: flags=4099<UP,BROADCAST,MULTICAST>  mtu 1500
+    >       inet 172.18.0.1  netmask 255.255.0.0  broadcast 172.18.255.255
+    >       ether 02:42:1e:3e:a3:27  txqueuelen 0  (Ethernet)
+    >       ....
+    >   
+    >   docker0: flags=4099<UP,BROADCAST,MULTICAST>  mtu 1500
+    >       inet 172.26.0.1  netmask 255.255.0.0  broadcast 172.26.255.255
+    >       ether 02:42:6b:39:0d:26  txqueuelen 0  (Ethernet)
+    >       ....
+    >   
+    >   ....
+    >       ....
+    >       ....
+
+    #
+    # That moves the default `docker0` network, but not the others.
+    #
+
+# -----------------------------------------------------
+# Create a new network.
+#[user@Fosauri]
+
+    docker \
+        network \
+            create helena
+
+    >   de225d992778fc4d147cbafef33afd85dc09290eba15f2a35cee5ce0be5bc41e
+
+
+# -----------------------------------------------------
+# Check the network interfaces.
+#[user@Fosauri]
+
+    ifconfig
+
+
+    >   br-9dd3b9fdd3da: flags=4099<UP,BROADCAST,MULTICAST>  mtu 1500
+    >       inet 172.19.0.1  netmask 255.255.0.0  broadcast 172.19.255.255
+    >       ether 02:42:49:d7:13:de  txqueuelen 0  (Ethernet)
+    >       ....
+    >   
+    >   br-de225d992778: flags=4099<UP,BROADCAST,MULTICAST>  mtu 1500
+    >       inet 172.20.0.1  netmask 255.255.0.0  broadcast 172.20.255.255
+    >       ether 02:42:ea:d8:08:9e  txqueuelen 0  (Ethernet)
+    >       ....
+    >   
+    >   br-e0c48872d186: flags=4099<UP,BROADCAST,MULTICAST>  mtu 1500
+    >       inet 172.18.0.1  netmask 255.255.0.0  broadcast 172.18.255.255
+    >       ether 02:42:1e:3e:a3:27  txqueuelen 0  (Ethernet)
+    >       ....
+    >   
+    >   docker0: flags=4099<UP,BROADCAST,MULTICAST>  mtu 1500
+    >       inet 172.26.0.1  netmask 255.255.0.0  broadcast 172.26.255.255
+    >       ether 02:42:6b:39:0d:26  txqueuelen 0  (Ethernet)
+    >       ....
+    >   
+    >   ....
+    >       ....
+    >       ....
+
+
+# -----------------------------------------------------
+# Check the new network.
+#[user@Fosauri]
+
+        docker network inspect helena
+
+    >   [
+    >       {
+    >           "Name": "helena",
+    >           "Id": "de225d992778fc4d147cbafef33afd85dc09290eba15f2a35cee5ce0be5bc41e",
+    >           "Created": "2019-03-22T05:32:48.90138198Z",
+    >           "Scope": "local",
+    >           "Driver": "bridge",
+    >           "EnableIPv6": false,
+    >           "IPAM": {
+    >               "Driver": "default",
+    >               "Options": {},
+    >               "Config": [
+    >                   {
+    >                       "Subnet": "172.20.0.0/16",
+    >                       "Gateway": "172.20.0.1"
+    >                   }
+    >               ]
+    >           },
+    >           "Internal": false,
+    >           "Attachable": false,
+    >           "Ingress": false,
+    >           "ConfigFrom": {
+    >               "Network": ""
+    >           },
+    >           "ConfigOnly": false,
+    >           "Containers": {},
+    >           "Options": {},
+    >           "Labels": {}
+    >       }
+    >   ]
+
+    #
+    # Looks like any new networks are created above the base.
+    # So in theory, this would work.
+    #
+
+# -----------------------------------------------------
+# Reboot the system to see what happens ...
+#[user@Fosauri]
+
+    sudo reboot
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+# Reboot the system to see what happens ...
+#[user@trop03]
+
+    ssh Fosauri
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+# Start the Docker service.
+#[user@Fosauri]
+
+    sudo systemctl start docker
+
+# -----------------------------------------------------
+# Inspect the docker networks.
+#[user@Fosauri]
+
+    for netid in $(docker network list -q)
+    do
+        echo ""
+        echo "---- ----"
+        echo "Network [${netid:?}]"
+        docker network inspect ${netid}
+    done
+
+    >   ---- ----
+    >   Network [9dd3b9fdd3da]
+    >   [
+    >       {
+    >           "Name": "albert",
+    >           "Id": "9dd3b9fdd3da1adef20fcaecd8e34695c4098997a8f4d22ee54e0375eb61d0e7",
+    >           "Created": "2019-03-22T05:07:20.471918017Z",
+    >           "Scope": "local",
+    >           "Driver": "bridge",
+    >           "EnableIPv6": false,
+    >           "IPAM": {
+    >               "Driver": "default",
+    >               "Options": {},
+    >               "Config": [
+    >                   {
+    >                       "Subnet": "172.19.0.0/16",
+    >                       "Gateway": "172.19.0.1"
+    >                   }
+    >               ]
+    >           },
+    >           "Internal": false,
+    >           "Attachable": false,
+    >           "Ingress": false,
+    >           "ConfigFrom": {
+    >               "Network": ""
+    >           },
+    >           "ConfigOnly": false,
+    >           "Containers": {},
+    >           "Options": {},
+    >           "Labels": {}
+    >       }
+    >   ]
+    >   
+    >   ---- ----
+    >   Network [6e5322c1fbd4]
+    >   [
+    >       {
+    >           "Name": "bridge",
+    >           "Id": "6e5322c1fbd4b9c8cbcbb56986cf3b97613d91ff07122993a8719328a504b83f",
+    >           "Created": "2019-03-22T06:37:13.954184276Z",
+    >           "Scope": "local",
+    >           "Driver": "bridge",
+    >           "EnableIPv6": false,
+    >           "IPAM": {
+    >               "Driver": "default",
+    >               "Options": null,
+    >               "Config": [
+    >                   {
+    >                       "Subnet": "172.26.0.1/16",
+    >                       "Gateway": "172.26.0.1"
+    >                   }
+    >               ]
+    >           },
+    >           "Internal": false,
+    >           "Attachable": false,
+    >           "Ingress": false,
+    >           "ConfigFrom": {
+    >               "Network": ""
+    >           },
+    >           "ConfigOnly": false,
+    >           "Containers": {},
+    >           "Options": {
+    >               "com.docker.network.bridge.default_bridge": "true",
+    >               "com.docker.network.bridge.enable_icc": "true",
+    >               "com.docker.network.bridge.enable_ip_masquerade": "true",
+    >               "com.docker.network.bridge.host_binding_ipv4": "0.0.0.0",
+    >               "com.docker.network.bridge.name": "docker0",
+    >               "com.docker.network.driver.mtu": "1500"
+    >           },
+    >           "Labels": {}
+    >       }
+    >   ]
+    >   
+    >   ---- ----
+    >   Network [de225d992778]
+    >   [
+    >       {
+    >           "Name": "helena",
+    >           "Id": "de225d992778fc4d147cbafef33afd85dc09290eba15f2a35cee5ce0be5bc41e",
+    >           "Created": "2019-03-22T05:32:48.90138198Z",
+    >           "Scope": "local",
+    >           "Driver": "bridge",
+    >           "EnableIPv6": false,
+    >           "IPAM": {
+    >               "Driver": "default",
+    >               "Options": {},
+    >               "Config": [
+    >                   {
+    >                       "Subnet": "172.20.0.0/16",
+    >                       "Gateway": "172.20.0.1"
+    >                   }
+    >               ]
+    >           },
+    >           "Internal": false,
+    >           "Attachable": false,
+    >           "Ingress": false,
+    >           "ConfigFrom": {
+    >               "Network": ""
+    >           },
+    >           "ConfigOnly": false,
+    >           "Containers": {},
+    >           "Options": {},
+    >           "Labels": {}
+    >       }
+    >   ]
+    >   
+    >   ---- ----
+    >   Network [3a1b574943a2]
+    >   [
+    >       {
+    >           "Name": "host",
+    >           "Id": "3a1b574943a211e02d666c9fd62b6e7e02c241fc1477dfb2524ec7e22fbf2149",
+    >           "Created": "2019-01-17T01:28:17.009093568Z",
+    >           "Scope": "local",
+    >           "Driver": "host",
+    >           "EnableIPv6": false,
+    >           "IPAM": {
+    >               "Driver": "default",
+    >               "Options": null,
+    >               "Config": []
+    >           },
+    >           "Internal": false,
+    >           "Attachable": false,
+    >           "Ingress": false,
+    >           "ConfigFrom": {
+    >               "Network": ""
+    >           },
+    >           "ConfigOnly": false,
+    >           "Containers": {},
+    >           "Options": {},
+    >           "Labels": {}
+    >       }
+    >   ]
+    >   
+    >   ---- ----
+    >   Network [00b2c8edd5b0]
+    >   [
+    >       {
+    >           "Name": "none",
+    >           "Id": "00b2c8edd5b069d534a9b2db2d9e725008b153b8211b8ffec98741de06fd3161",
+    >           "Created": "2019-01-17T01:28:16.902397092Z",
+    >           "Scope": "local",
+    >           "Driver": "null",
+    >           "EnableIPv6": false,
+    >           "IPAM": {
+    >               "Driver": "default",
+    >               "Options": null,
+    >               "Config": []
+    >           },
+    >           "Internal": false,
+    >           "Attachable": false,
+    >           "Ingress": false,
+    >           "ConfigFrom": {
+    >               "Network": ""
+    >           },
+    >           "ConfigOnly": false,
+    >           "Containers": {},
+    >           "Options": {},
+    >           "Labels": {}
+    >       }
+    >   ]
+    >   
+    >   ---- ----
+    >   Network [e0c48872d186]
+    >   [
+    >       {
+    >           "Name": "stevedore_zookeeper",
+    >           "Id": "e0c48872d1863198cc82783fa908746e6e195809d3f002b5c4f044cbe4cedb93",
+    >           "Created": "2019-01-17T19:11:33.838499323Z",
+    >           "Scope": "local",
+    >           "Driver": "bridge",
+    >           "EnableIPv6": false,
+    >           "IPAM": {
+    >               "Driver": "default",
+    >               "Options": null,
+    >               "Config": [
+    >                   {
+    >                       "Subnet": "172.18.0.0/16",
+    >                       "Gateway": "172.18.0.1"
+    >                   }
+    >               ]
+    >           },
+    >           "Internal": false,
+    >           "Attachable": true,
+    >           "Ingress": false,
+    >           "ConfigFrom": {
+    >               "Network": ""
+    >           },
+    >           "ConfigOnly": false,
+    >           "Containers": {},
+    >           "Options": {},
+    >           "Labels": {
+    >               "com.docker.compose.network": "zookeeper",
+    >               "com.docker.compose.project": "stevedore",
+    >               "com.docker.compose.version": "1.21.2"
+    >           }
+    >       }
+    >   ]
+
+    #
+    # Is it just coincidence that 'helena' ended up with '172.20.0.0'.
+    # Because '172.20.0.0' is still below the base network at '172.26.0.0'.
+    #
+
+    #
+    # Is there anything preventing Docker using 172.17.0.0 at some point ?
+    # .. and we need to do this on every VM, before Docker is run.
+    #
+
+-------
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+
+    #
+    # More clues ...
+    # https://serverfault.com/questions/916941/configuring-docker-to-not-use-the-172-17-0-0-range
+    # https://serverfault.com/a/942176
+
+    >   {
+    >     "bip": "10.200.0.0/24",
+    >     "default-address-pools":[
+    >       {"base":"10.201.0.0/16","size":24},
+    >       {"base":"10.202.0.0/16","size":24}
+    >     ]
+    >   }
+
+
+
+

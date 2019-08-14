@@ -1,0 +1,584 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+
+    unset devnames
+    devnames=(
+        sdb
+        sdc
+        sdd
+        )
+
+    unset mntpaths
+    declare -A mntpaths=(
+        [sdb]=/data1
+        [sdc]=/data2
+        [sdd]=/data3
+        )
+
+    unset virtpools
+    declare -A virtpools=(
+        [data1]=/data1/libvirt/images/data1
+        [data2]=/data2/libvirt/images/data2
+        [data3]=/data3/libvirt/images/data3
+        )
+
+
+
+# -----------------------------------------------------
+# Check for a filesystem on the data discs.
+#[user@work02]
+
+    sudo ls
+
+    for devname in ${devnames[@]}
+        do
+            echo "---- ----"
+            echo "Device [${devname}]"
+            sudo btrfs filesystem show "/dev/${devname:?}"
+
+        done
+
+    >   ---- ----
+    >   Device [sdb]
+    >   ERROR: no btrfs on /dev/sdb
+    >   ---- ----
+    >   Device [sdc]
+    >   ERROR: no btrfs on /dev/sdc
+    >   ---- ----
+    >   Device [sdd]
+    >   ERROR: no btrfs on /dev/sdd
+
+
+# -----------------------------------------------------
+# Check for a filesystem on the data discs.
+# https://unix.stackexchange.com/questions/53542/how-to-determine-the-filesystem-of-an-unmounted-device
+# https://unix.stackexchange.com/a/53552
+#[user@work02]
+
+        sudo parted --list
+
+    >   Model: ATA INTEL SSDSC2KG48 (scsi)
+    >   Disk /dev/sda: 480GB
+    >   Sector size (logical/physical): 512B/4096B
+    >   Partition Table: msdos
+    >   Disk Flags:
+    >   
+    >   Number  Start   End    Size    Type      File system     Flags
+    >    1      1049kB  100GB  100GB   primary   ext4            boot
+    >    2      100GB   108GB  8000MB  primary   linux-swap(v1)
+    >    3      108GB   480GB  372GB   extended
+    >    5      108GB   148GB  40.0GB  logical   ext4
+    >    6      148GB   480GB  332GB   logical   ext4
+    >   
+    >   
+    >   Error: /dev/sdb: unrecognised disk label
+    >   Model: ATA HGST HUS728T8TAL (scsi)
+    >   Disk /dev/sdb: 8002GB
+    >   Sector size (logical/physical): 512B/4096B
+    >   Partition Table: unknown
+    >   Disk Flags:
+    >   
+    >   Error: /dev/sdc: unrecognised disk label
+    >   Model: ATA HGST HUS728T8TAL (scsi)
+    >   Disk /dev/sdc: 8002GB
+    >   Sector size (logical/physical): 512B/4096B
+    >   Partition Table: unknown
+    >   Disk Flags:
+    >   
+    >   Error: /dev/sdd: unrecognised disk label
+    >   Model: ATA HGST HUS728T8TAL (scsi)
+    >   Disk /dev/sdd: 8002GB
+    >   Sector size (logical/physical): 512B/4096B
+    >   Partition Table: unknown
+    >   Disk Flags:
+
+
+# -----------------------------------------------------
+# Create a btrfs filesystem on each disc.
+#[user@work02]
+
+    sudo ls
+
+    for devname in ${devnames[@]}
+        do
+            echo "---- ----"
+            echo "Device [${devname}]"
+            sudo mkfs.btrfs \
+                "/dev/${devname:?}"
+        done
+
+    >   ---- ----
+    >   Device [sdb]
+    >   btrfs-progs v4.15.1
+    >   See http://btrfs.wiki.kernel.org for more information.
+    >   
+    >   Label:              (null)
+    >   UUID:               93fff125-217f-465b-8103-ba366abe173c
+    >   Node size:          16384
+    >   Sector size:        4096
+    >   Filesystem size:    7.28TiB
+    >   Block group profiles:
+    >     Data:             single            8.00MiB
+    >     Metadata:         DUP               1.00GiB
+    >     System:           DUP               8.00MiB
+    >   SSD detected:       no
+    >   Incompat features:  extref, skinny-metadata
+    >   Number of devices:  1
+    >   Devices:
+    >      ID        SIZE  PATH
+    >       1     7.28TiB  /dev/sdb
+    >   
+    >   ---- ----
+    >   Device [sdc]
+    >   btrfs-progs v4.15.1
+    >   See http://btrfs.wiki.kernel.org for more information.
+    >   
+    >   Label:              (null)
+    >   UUID:               44e75b2d-c6eb-4c8e-be2b-73a1227448e7
+    >   Node size:          16384
+    >   Sector size:        4096
+    >   Filesystem size:    7.28TiB
+    >   Block group profiles:
+    >     Data:             single            8.00MiB
+    >     Metadata:         DUP               1.00GiB
+    >     System:           DUP               8.00MiB
+    >   SSD detected:       no
+    >   Incompat features:  extref, skinny-metadata
+    >   Number of devices:  1
+    >   Devices:
+    >      ID        SIZE  PATH
+    >       1     7.28TiB  /dev/sdc
+    >   
+    >   ---- ----
+    >   Device [sdd]
+    >   btrfs-progs v4.15.1
+    >   See http://btrfs.wiki.kernel.org for more information.
+    >   
+    >   Label:              (null)
+    >   UUID:               507e5162-5f50-4dcb-bf5e-359ff2a142e7
+    >   Node size:          16384
+    >   Sector size:        4096
+    >   Filesystem size:    7.28TiB
+    >   Block group profiles:
+    >     Data:             single            8.00MiB
+    >     Metadata:         DUP               1.00GiB
+    >     System:           DUP               8.00MiB
+    >   SSD detected:       no
+    >   Incompat features:  extref, skinny-metadata
+    >   Number of devices:  1
+    >   Devices:
+    >      ID        SIZE  PATH
+    >       1     7.28TiB  /dev/sdd
+
+
+sudo parted --list
+Model: ATA INTEL SSDSC2KG48 (scsi)
+Disk /dev/sda: 480GB
+Sector size (logical/physical): 512B/4096B
+Partition Table: msdos
+Disk Flags:
+
+Number  Start   End    Size    Type      File system     Flags
+ 1      1049kB  100GB  100GB   primary   ext4            boot
+ 2      100GB   108GB  8000MB  primary   linux-swap(v1)
+ 3      108GB   480GB  372GB   extended
+ 5      108GB   148GB  40.0GB  logical   ext4
+ 6      148GB   480GB  332GB   logical   ext4
+
+
+Model: ATA HGST HUS728T8TAL (scsi)
+Disk /dev/sdb: 8002GB
+Sector size (logical/physical): 512B/4096B
+Partition Table: loop
+Disk Flags:
+
+Number  Start  End     Size    File system  Flags
+ 1      0.00B  8002GB  8002GB  btrfs
+
+
+Model: ATA HGST HUS728T8TAL (scsi)
+Disk /dev/sdc: 8002GB
+Sector size (logical/physical): 512B/4096B
+Partition Table: loop
+Disk Flags:
+
+Number  Start  End     Size    File system  Flags
+ 1      0.00B  8002GB  8002GB  btrfs
+
+
+Model: ATA HGST HUS728T8TAL (scsi)
+Disk /dev/sdd: 8002GB
+Sector size (logical/physical): 512B/4096B
+Partition Table: loop
+Disk Flags:
+
+Number  Start  End     Size    File system  Flags
+ 1      0.00B  8002GB  8002GB  btrfs
+
+
+# -----------------------------------------------------
+# Check for a filesystem on the data discs.
+#[user@work02]
+
+        sudo parted --list
+
+    >   Model: ATA INTEL SSDSC2KG48 (scsi)
+    >   Disk /dev/sda: 480GB
+    >   Sector size (logical/physical): 512B/4096B
+    >   Partition Table: msdos
+    >   Disk Flags:
+    >   
+    >   Number  Start   End    Size    Type      File system     Flags
+    >    1      1049kB  100GB  100GB   primary   ext4            boot
+    >    2      100GB   108GB  8000MB  primary   linux-swap(v1)
+    >    3      108GB   480GB  372GB   extended
+    >    5      108GB   148GB  40.0GB  logical   ext4
+    >    6      148GB   480GB  332GB   logical   ext4
+    >   
+    >   
+    >   Model: ATA HGST HUS728T8TAL (scsi)
+    >   Disk /dev/sdb: 8002GB
+    >   Sector size (logical/physical): 512B/4096B
+    >   Partition Table: loop
+    >   Disk Flags:
+    >   
+    >   Number  Start  End     Size    File system  Flags
+    >    1      0.00B  8002GB  8002GB  btrfs
+    >   
+    >   
+    >   Model: ATA HGST HUS728T8TAL (scsi)
+    >   Disk /dev/sdc: 8002GB
+    >   Sector size (logical/physical): 512B/4096B
+    >   Partition Table: loop
+    >   Disk Flags:
+    >   
+    >   Number  Start  End     Size    File system  Flags
+    >    1      0.00B  8002GB  8002GB  btrfs
+    >   
+    >   
+    >   Model: ATA HGST HUS728T8TAL (scsi)
+    >   Disk /dev/sdd: 8002GB
+    >   Sector size (logical/physical): 512B/4096B
+    >   Partition Table: loop
+    >   Disk Flags:
+    >   
+    >   Number  Start  End     Size    File system  Flags
+    >    1      0.00B  8002GB  8002GB  btrfs
+
+
+#---------------------------------------------------------------------
+# Scan for the disc UUIDs.
+#[user@work02]
+
+    for devname in ${devnames[@]}
+        do
+            echo "---- ----"
+            echo "Device name [${devname}]"
+
+            mntpath=${mntpaths[${devname}]}
+            echo "Mount point [${mntpath}]"
+
+            devuuid=$(
+                lsblk --noheadings --output UUID "/dev/${devname:?}"
+                )
+            echo "Device UUID [${devuuid}]"
+        done
+
+    >   ---- ----
+    >   Device name [sdb]
+    >   Mount point [/data1]
+    >   Device UUID [93fff125-217f-465b-8103-ba366abe173c]
+    >   ---- ----
+    >   Device name [sdc]
+    >   Mount point [/data2]
+    >   Device UUID [44e75b2d-c6eb-4c8e-be2b-73a1227448e7]
+    >   ---- ----
+    >   Device name [sdd]
+    >   Mount point [/data3]
+    >   Device UUID [507e5162-5f50-4dcb-bf5e-359ff2a142e7]
+
+    #
+    # If these come uop blank to start with - just wait.
+    # The OS may take a few minutes get round to scanning the new partitions.
+    #
+
+#---------------------------------------------------------------------
+# Create our mount points.
+#[user@work02]
+
+    sudo date
+
+    for devname in ${devnames[@]}
+        do
+            echo "---- ----"
+            echo "Device [${devname}]"
+            mntpath=${mntpaths[${devname}]}
+            echo "Mount point [${mntpath}]"
+            sudo mkdir -p "${mntpath:?}"
+            sudo touch "${mntpath:?}/mount-failed"
+        done
+
+    >   ---- ----
+    >   Device [sdb]
+    >   Mount point [/data1]
+    >   ---- ----
+    >   Device [sdc]
+    >   Mount point [/data2]
+    >   ---- ----
+    >   Device [sdd]
+    >   Mount point [/data3]
+
+
+#---------------------------------------------------------------------
+# Add the discs to our FSTAB file.
+# https://www.howtoforge.com/reducing-disk-io-by-mounting-partitions-with-noatime
+#[user@work02]
+
+    for devname in ${devnames[@]}
+        do
+            echo "---- ----"
+            echo "Device name [${devname}]"
+
+            mntpath=${mntpaths[${devname}]}
+            echo "Mount point [${mntpath}]"
+
+            devuuid=$(
+                lsblk --noheadings --output UUID "/dev/${devname:?}"
+                )
+            echo "Device UUID [${devuuid}]"
+
+            sudo tee -a /etc/fstab << EOTAB
+UUID=${devuuid:?} ${mntpath:?}    btrfs    defaults,noatime    0  0
+EOTAB
+        done
+
+    >   ---- ----
+    >   Device name [sdb]
+    >   Mount point [/data1]
+    >   Device UUID [93fff125-217f-465b-8103-ba366abe173c]
+    >   UUID=93fff125-217f-465b-8103-ba366abe173c /data1    btrfs    defaults,noatime    0  0
+    >   ---- ----
+    >   Device name [sdc]
+    >   Mount point [/data2]
+    >   Device UUID [44e75b2d-c6eb-4c8e-be2b-73a1227448e7]
+    >   UUID=44e75b2d-c6eb-4c8e-be2b-73a1227448e7 /data2    btrfs    defaults,noatime    0  0
+    >   ---- ----
+    >   Device name [sdd]
+    >   Mount point [/data3]
+    >   Device UUID [507e5162-5f50-4dcb-bf5e-359ff2a142e7]
+    >   UUID=507e5162-5f50-4dcb-bf5e-359ff2a142e7 /data3    btrfs    defaults,noatime    0  0
+
+#---------------------------------------------------------------------
+# Mount the new discs.
+#[user@work02]
+
+    for devname in ${devnames[@]}
+        do
+            echo "---- ----"
+            echo "Device name [${devname}]"
+
+            mntpath=${mntpaths[${devname}]}
+            echo "Mount point [${mntpath}]"
+            sudo \
+                mount "${mntpath:?}"
+        done
+
+    >   ---- ----
+    >   Device name [sdb]
+    >   Mount point [/data1]
+    >   ---- ----
+    >   Device name [sdc]
+    >   Mount point [/data2]
+    >   ---- ----
+    >   Device name [sdd]
+    >   Mount point [/data3]
+
+
+#---------------------------------------------------------------------
+# Check the space on the new volumes.
+#[user@work02]
+
+    for devname in ${devnames[@]}
+        do
+            echo "---- ----"
+            mntpath=${mntpaths[${devname}]}
+            echo "Checking data space [${mntpath:?}]"
+            df -h "${mntpath:?}"
+        done
+
+    >   ---- ----
+    >   Checking data space [/data1]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/sdb        7.3T   17M  7.3T   1% /data1
+    >   ---- ----
+    >   Checking data space [/data2]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/sdc        7.3T   17M  7.3T   1% /data2
+    >   ---- ----
+    >   Checking data space [/data3]
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/sdd        7.3T   17M  7.3T   1% /data3
+
+
+
+#---------------------------------------------------------------------
+# Define our libvirt pools.
+#[user@work02]
+
+    source "${HOME}/libvirt.settings"
+
+    for poolname in "${!virtpools[@]}"
+        do
+            poolpath=${virtpools[${poolname:?}]}
+            echo "Name [${poolname:?}]"
+            echo "Path [${poolpath:?}]"
+
+            sudo mkdir -p ${poolpath:?}
+
+            virsh \
+                --connect ${connection:?} \
+                pool-define-as \
+                    "${poolname:?}" \
+                    'dir' \
+                    --target "${poolpath}"
+        done
+
+    >   Name [data1]
+    >   Path [/data1/libvirt/images/data1]
+    >   Pool data1 defined
+    >   
+    >   Name [data2]
+    >   Path [/data2/libvirt/images/data2]
+    >   Pool data2 defined
+    >   
+    >   Name [data3]
+    >   Path [/data3/libvirt/images/data3]
+    >   Pool data3 defined
+
+
+# -----------------------------------------------------
+# Initialise the new pools.
+#[user@work02]
+
+    source "${HOME}/libvirt.settings"
+
+    for poolname in "${!virtpools[@]}"
+        do
+
+            virsh \
+                --connect ${connection:?} \
+                pool-build \
+                    "${poolname:?}"
+
+            virsh \
+                --connect ${connection:?} \
+                pool-autostart \
+                    ${poolname:?}
+
+            virsh \
+                --connect ${connection:?} \
+                pool-start \
+                    ${poolname:?}
+
+        done
+
+    >   Pool data1 built
+    >   Pool data1 marked as autostarted
+    >   Pool data1 started
+    >   
+    >   Pool data2 built
+    >   Pool data2 marked as autostarted
+    >   Pool data2 started
+    >   
+    >   Pool data3 built
+    >   Pool data3 marked as autostarted
+    >   Pool data3 started
+
+
+# -----------------------------------------------------
+# List the current pools.
+#[user@work02]
+
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        --connect ${connection:?} \
+        pool-list \
+            --all \
+            --details
+
+    >    Name   State    Autostart  Persistent    Capacity  Allocation   Available
+    >   ---------------------------------------------------------------------------
+    >    base   running  yes        yes         303.44 GiB    1.54 GiB  301.90 GiB
+    >    data1  running  yes        yes           7.28 TiB   16.50 MiB    7.28 TiB
+    >    data2  running  yes        yes           7.28 TiB   16.50 MiB    7.28 TiB
+    >    data3  running  yes        yes           7.28 TiB   16.50 MiB    7.28 TiB
+    >    init   running  yes        yes         303.44 GiB   13.58 GiB  289.86 GiB
+    >    live   running  yes        yes         303.44 GiB  542.05 MiB  302.91 GiB
+
+
+# -----------------------------------------------------
+# List the pool paths.
+#[user@work02]
+
+    for poolname in $(
+        virsh \
+            --quiet \
+            --connect ${connection:?} \
+            pool-list --all \
+          | sed '
+            s/[[:space:]]*\([^[:space:]]*\)[[:space:]]*\([^[:space:]]*\)[[:space:]]*\([^[:space:]]*\)/\1/
+            '
+        )
+        do
+            poolpath=$(
+                virsh \
+                    --connect ${connection:?} \
+                    pool-dumpxml \
+                        "${poolname:?}" \
+                  | xmlstarlet select -t -v '//target/path'
+                )
+            echo ""
+            echo "Name [${poolname}]"
+            echo "Path [${poolpath}]"
+        done
+
+    >   Name [base]
+    >   Path [/var/lib/libvirt/images/base]
+    >   
+    >   Name [data1]
+    >   Path [/data1/libvirt/images/data1]
+    >   
+    >   Name [data2]
+    >   Path [/data2/libvirt/images/data2]
+    >   
+    >   Name [data3]
+    >   Path [/data3/libvirt/images/data3]
+    >   
+    >   Name [init]
+    >   Path [/var/lib/libvirt/images/init]
+    >   
+    >   Name [live]
+    >   Path [/var/lib/libvirt/images/live]
+
+
