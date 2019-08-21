@@ -1,0 +1,367 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+
+    #
+    # Roy reported his test client is getting no data.
+    #
+    # He claims he connected to two topics 'banana' and 'ztf_20190820_programid1'.
+    # His Python client gives very little information about what happend.
+    #
+
+--START--
+$ python consumer_thread.py 1
+using group_id LASAIR-test384
+Topic: ztf_20190820_programid1, Thread: Thread-1
+got EopError
+partition:1, status:end, offset:0, key:None
+Exiting Thread-1 with 0 events
+======= 6.3 seconds =========
+
+--END--
+--START--
+$ python consumer_thread.py 1
+using group_id LASAIR-test254
+Topic: banana, Thread: Thread-1
+got EopError
+partition:0, status:end, offset:0, key:None
+Exiting Thread-1 with 0 events
+======= 6.3 seconds =========
+--END--
+
+
+    #
+    # Checking the server side statistics afterwards, shows the topic for 20190820 is empty.
+    # 20190820 is empty for some reason.
+    # 20190821 seems to be ok.
+    #
+
+    #
+    # Either something happend to collect no data on the 20th.
+    # Or, Roy's client managed to accidentally reset the offsets and empty the data from the topic.
+    # Could be either.
+    #
+
+    #
+    # Stelios mentioned that there were network issues at ROE a few days ago,
+    # but at the moment we don't have any details of when that was.
+    # Network would have to be down for 24hrs to prevent Kafka MirrorMaker from getting any data at all.
+    #
+
+
+# -----------------------------------------------------
+# Get the offsets for the empty topic.
+#[user@trop03]
+
+    topicid=ztf_20190820_programid1
+
+    source "${HOME}/nodenames"
+    ssh -t "${mmnames[0]}" \
+        "
+        docker run -it --rm \
+            phymatopus/kafka-core \
+                bin/kafka-run-class.sh \
+                    kafka.tools.GetOffsetShell \
+                        --broker-list 'Stedigo:9092' \
+                        --topic "${topicid:?}" \
+        "
+
+--START--
+ztf_20190820_programid1:8:0
+ztf_20190820_programid1:11:0
+ztf_20190820_programid1:2:0
+ztf_20190820_programid1:5:0
+ztf_20190820_programid1:14:0
+ztf_20190820_programid1:13:0
+ztf_20190820_programid1:4:0
+ztf_20190820_programid1:7:0
+ztf_20190820_programid1:1:0
+ztf_20190820_programid1:10:0
+ztf_20190820_programid1:9:0
+ztf_20190820_programid1:12:0
+ztf_20190820_programid1:3:0
+ztf_20190820_programid1:15:0
+ztf_20190820_programid1:6:0
+ztf_20190820_programid1:0:0
+--END--
+
+
+    topicid=ztf_20190821_programid1
+
+    source "${HOME}/nodenames"
+    ssh -t "${mmnames[0]}" \
+        "
+        docker run -it --rm \
+            phymatopus/kafka-core \
+                bin/kafka-run-class.sh \
+                    kafka.tools.GetOffsetShell \
+                        --broker-list 'Stedigo:9092' \
+                        --topic "${topicid:?}" \
+        "
+
+--START--
+ztf_20190821_programid1:8:7830
+ztf_20190821_programid1:11:7830
+ztf_20190821_programid1:2:7829
+ztf_20190821_programid1:5:7829
+ztf_20190821_programid1:14:7829
+ztf_20190821_programid1:4:7829
+ztf_20190821_programid1:13:7829
+ztf_20190821_programid1:7:7828
+ztf_20190821_programid1:1:7828
+ztf_20190821_programid1:10:7828
+ztf_20190821_programid1:9:7828
+ztf_20190821_programid1:3:7829
+ztf_20190821_programid1:12:7830
+ztf_20190821_programid1:6:7830
+ztf_20190821_programid1:15:7830
+ztf_20190821_programid1:0:7830
+--END--
+
+
+
+# -----------------------------------------------------
+# Check our client offsets in the ZTF broker.
+#[user@trop03]
+
+    source "${HOME}/ssh-options"
+    source "${HOME}/nodenames"
+
+    ztfconnect=public.alerts.ztf.uw.edu:9092
+    roegroupid=ztf-mirror.roe.ac.uk
+
+    offsetcheck()
+        {
+        date ; \
+        ssh \
+            ${sshopts[*]} \
+            ${sshuser:?}@${mmnames[0]:?} \
+            "
+            docker run --rm phymatopus/kafka-core \
+                bin/kafka-consumer-groups.sh \
+                    --bootstrap-server "${ztfconnect:?}" \
+                    --describe \
+                    --group "${roegroupid:?}"
+             " \
+        | sort \
+        ; date
+        }
+
+    offsetcheck
+
+--START--
+Wed 21 Aug 18:00:10 BST 2019
+Note: This will not show information about old Zookeeper-based consumers.
+
+TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                 HOST            CLIENT-ID
+ztf_20190821_programid1 0          8947            8947            0               ztf-mirror.roe.ac.uk-0-7fd34c7f-b6c5-4fb1-979a-83b9eeaf04e8 /192.41.108.44  ztf-mirror.roe.ac.uk-0
+ztf_20190821_programid1 10         8948            8948            0               ztf-mirror.roe.ac.uk-1-349ce056-24ac-4c07-a92c-ced6067e357f /192.41.108.44  ztf-mirror.roe.ac.uk-1
+ztf_20190821_programid1 11         8947            8947            0               ztf-mirror.roe.ac.uk-1-4fb50369-417c-448f-9100-2645ca23b7ec /192.41.108.44  ztf-mirror.roe.ac.uk-1
+ztf_20190821_programid1 12         8947            8947            0               ztf-mirror.roe.ac.uk-2-0bd46c75-60e9-47a9-81bc-cb45de07cd84 /192.41.108.44  ztf-mirror.roe.ac.uk-2
+ztf_20190821_programid1 13         8948            8948            0               ztf-mirror.roe.ac.uk-2-c553bd66-b84c-4c50-9aef-9d0b3f4fac92 /192.41.108.44  ztf-mirror.roe.ac.uk-2
+ztf_20190821_programid1 1          8948            8948            0               ztf-mirror.roe.ac.uk-0-bd05f45f-60c5-49a8-ad77-80ef58770e29 /192.41.108.44  ztf-mirror.roe.ac.uk-0
+ztf_20190821_programid1 2          8948            8948            0               ztf-mirror.roe.ac.uk-1-349ce056-24ac-4c07-a92c-ced6067e357f /192.41.108.44  ztf-mirror.roe.ac.uk-1
+ztf_20190821_programid1 3          8947            8947            0               ztf-mirror.roe.ac.uk-1-4fb50369-417c-448f-9100-2645ca23b7ec /192.41.108.44  ztf-mirror.roe.ac.uk-1
+ztf_20190821_programid1 4          8948            8948            0               ztf-mirror.roe.ac.uk-2-0bd46c75-60e9-47a9-81bc-cb45de07cd84 /192.41.108.44  ztf-mirror.roe.ac.uk-2
+ztf_20190821_programid1 5          8948            8948            0               ztf-mirror.roe.ac.uk-2-c553bd66-b84c-4c50-9aef-9d0b3f4fac92 /192.41.108.44  ztf-mirror.roe.ac.uk-2
+ztf_20190821_programid1 6          8947            8947            0               ztf-mirror.roe.ac.uk-3-6ffe560e-d470-436c-9db3-fe7235405f52 /192.41.108.44  ztf-mirror.roe.ac.uk-3
+ztf_20190821_programid1 7          8948            8948            0               ztf-mirror.roe.ac.uk-3-ddca5267-2e61-4788-9f5d-f492b2dfbdb3 /192.41.108.44  ztf-mirror.roe.ac.uk-3
+ztf_20190821_programid1 8          8947            8947            0               ztf-mirror.roe.ac.uk-0-7fd34c7f-b6c5-4fb1-979a-83b9eeaf04e8 /192.41.108.44  ztf-mirror.roe.ac.uk-0
+ztf_20190821_programid1 9          8948            8948            0               ztf-mirror.roe.ac.uk-0-bd05f45f-60c5-49a8-ad77-80ef58770e29 /192.41.108.44  ztf-mirror.roe.ac.uk-0
+Wed 21 Aug 18:00:18 BST 2019
+--END--
+
+
+
+# -----------------------------------------------------
+# Check the disc space on each node.
+#[user@trop03]
+
+    topicid=ztf_20190820_programid1
+
+    source "${HOME}/nodenames"
+    source "${HOME}/ssh-options"
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    hostname
+                    date
+                    du -h /data*/${topicid}*
+                    "
+        done
+
+--START--
+---- ----
+Stedigo
+Wed 21 Aug 18:16:10 BST 2019
+0	/data1-01/ztf_20190820_programid1-0
+0	/data1-01/ztf_20190820_programid1-11
+0	/data1-01/ztf_20190820_programid1-12
+0	/data1-01/ztf_20190820_programid1-14
+0	/data1-01/ztf_20190820_programid1-15
+0	/data1-01/ztf_20190820_programid1-2
+0	/data1-01/ztf_20190820_programid1-3
+0	/data1-01/ztf_20190820_programid1-4
+0	/data1-01/ztf_20190820_programid1-5
+0	/data1-01/ztf_20190820_programid1-6
+0	/data1-01/ztf_20190820_programid1-8
+0	/data1-01/ztf_20190820_programid1-9
+---- ----
+Angece
+Wed 21 Aug 18:16:10 BST 2019
+0	/data2-01/ztf_20190820_programid1-0
+0	/data2-01/ztf_20190820_programid1-1
+0	/data2-01/ztf_20190820_programid1-10
+0	/data2-01/ztf_20190820_programid1-12
+0	/data2-01/ztf_20190820_programid1-13
+0	/data2-01/ztf_20190820_programid1-15
+0	/data2-01/ztf_20190820_programid1-3
+0	/data2-01/ztf_20190820_programid1-5
+0	/data2-01/ztf_20190820_programid1-6
+0	/data2-01/ztf_20190820_programid1-7
+0	/data2-01/ztf_20190820_programid1-8
+0	/data2-01/ztf_20190820_programid1-9
+---- ----
+Edwalafia
+Wed 21 Aug 18:16:11 BST 2019
+0	/data1-01/ztf_20190820_programid1-0
+0	/data1-01/ztf_20190820_programid1-1
+0	/data1-01/ztf_20190820_programid1-10
+0	/data1-01/ztf_20190820_programid1-11
+0	/data1-01/ztf_20190820_programid1-12
+0	/data1-01/ztf_20190820_programid1-13
+0	/data1-01/ztf_20190820_programid1-14
+0	/data1-01/ztf_20190820_programid1-2
+0	/data1-01/ztf_20190820_programid1-4
+0	/data1-01/ztf_20190820_programid1-6
+0	/data1-01/ztf_20190820_programid1-7
+0	/data1-01/ztf_20190820_programid1-9
+---- ----
+Onoza
+Wed 21 Aug 18:16:11 BST 2019
+0	/data2-01/ztf_20190820_programid1-1
+0	/data2-01/ztf_20190820_programid1-10
+0	/data2-01/ztf_20190820_programid1-11
+0	/data2-01/ztf_20190820_programid1-13
+0	/data2-01/ztf_20190820_programid1-14
+0	/data2-01/ztf_20190820_programid1-15
+0	/data2-01/ztf_20190820_programid1-2
+0	/data2-01/ztf_20190820_programid1-3
+0	/data2-01/ztf_20190820_programid1-4
+0	/data2-01/ztf_20190820_programid1-5
+0	/data2-01/ztf_20190820_programid1-7
+0	/data2-01/ztf_20190820_programid1-8
+--END--
+
+
+    topicid=ztf_20190821_programid1
+
+    source "${HOME}/nodenames"
+    source "${HOME}/ssh-options"
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    hostname
+                    date
+                    du -h /data*/${topicid}*
+                    "
+        done
+
+--START--
+---- ----
+Stedigo
+Wed 21 Aug 18:18:30 BST 2019
+537M	/data1-01/ztf_20190821_programid1-0
+537M	/data1-01/ztf_20190821_programid1-1
+537M	/data1-01/ztf_20190821_programid1-10
+537M	/data1-01/ztf_20190821_programid1-12
+538M	/data1-01/ztf_20190821_programid1-13
+537M	/data1-01/ztf_20190821_programid1-15
+537M	/data1-01/ztf_20190821_programid1-3
+536M	/data1-01/ztf_20190821_programid1-5
+538M	/data1-01/ztf_20190821_programid1-6
+537M	/data1-01/ztf_20190821_programid1-7
+537M	/data1-01/ztf_20190821_programid1-8
+537M	/data1-01/ztf_20190821_programid1-9
+---- ----
+Angece
+Wed 21 Aug 18:18:30 BST 2019
+537M	/data2-01/ztf_20190821_programid1-0
+537M	/data2-01/ztf_20190821_programid1-1
+537M	/data2-01/ztf_20190821_programid1-10
+537M	/data2-01/ztf_20190821_programid1-11
+537M	/data2-01/ztf_20190821_programid1-12
+538M	/data2-01/ztf_20190821_programid1-13
+536M	/data2-01/ztf_20190821_programid1-14
+537M	/data2-01/ztf_20190821_programid1-2
+538M	/data2-01/ztf_20190821_programid1-4
+538M	/data2-01/ztf_20190821_programid1-6
+537M	/data2-01/ztf_20190821_programid1-7
+537M	/data2-01/ztf_20190821_programid1-9
+---- ----
+Edwalafia
+Wed 21 Aug 18:18:31 BST 2019
+537M	/data1-01/ztf_20190821_programid1-1
+537M	/data1-01/ztf_20190821_programid1-10
+537M	/data1-01/ztf_20190821_programid1-11
+538M	/data1-01/ztf_20190821_programid1-13
+536M	/data1-01/ztf_20190821_programid1-14
+537M	/data1-01/ztf_20190821_programid1-15
+537M	/data1-01/ztf_20190821_programid1-2
+537M	/data1-01/ztf_20190821_programid1-3
+538M	/data1-01/ztf_20190821_programid1-4
+536M	/data1-01/ztf_20190821_programid1-5
+537M	/data1-01/ztf_20190821_programid1-7
+537M	/data1-01/ztf_20190821_programid1-8
+---- ----
+Onoza
+Wed 21 Aug 18:18:31 BST 2019
+537M	/data2-01/ztf_20190821_programid1-0
+537M	/data2-01/ztf_20190821_programid1-11
+537M	/data2-01/ztf_20190821_programid1-12
+536M	/data2-01/ztf_20190821_programid1-14
+537M	/data2-01/ztf_20190821_programid1-15
+537M	/data2-01/ztf_20190821_programid1-2
+537M	/data2-01/ztf_20190821_programid1-3
+538M	/data2-01/ztf_20190821_programid1-4
+536M	/data2-01/ztf_20190821_programid1-5
+538M	/data2-01/ztf_20190821_programid1-6
+537M	/data2-01/ztf_20190821_programid1-8
+537M	/data2-01/ztf_20190821_programid1-9
+--END--
+
+    #
+    # All the offsets are zero, and all the partitions are empty.
+    # No actual evidence that there was originally any data there.
+    # Shiny clean.
+    #
+
