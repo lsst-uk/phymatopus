@@ -1,0 +1,120 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2018, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+# -----------------------------------------------------
+
+    First step fast processing chain
+
+        Array of
+            interface Processor
+                void process(Alert)
+
+    because steps are tiny (yes/no filters) and Kafka buffers between them would be waay overkill
+
+# -----------------------------------------------------
+
+    All of the nodes are redundant, managed by K8s
+
+    ChaosMonkey randomly kills nodes, even on production (just lower rate)
+
+# -----------------------------------------------------
+
+    Different types of test data source
+
+        trop03 buffer for measuring network and disc loads
+        atop etc on physical machines
+
+            local testing only
+            intermittent operation
+            regularly re-format the data and partitions
+            loaded from Avro files for each test run
+
+
+        Eleanor or equivalent, rolling FIFO of ZTF, what will become live LSST
+
+        Eleanor or equivalent, 30x multiple of ZTF
+
+        Eleanor or equivalent, stored data, loaded from Avro backups
+
+        Eleanor or equivalent, simulated data
+
+# -----------------------------------------------------
+
+    Calculating object statistics
+
+    How big would a years data be ?
+
+    1kHz * 60 sec * 60 min * 24 hr * 326 days
+
+    1000 * 60 * 60 * 24 * 326 = 28,166,400,000
+
+            28166400000
+    ~2^35 = 34359738368
+
+    candid(8b), mag(8b), objid(8b) 4*8 bytes = 32 bytes
+    objid(8b), zone(8b), ra(8b), dec(8b), 8x(8b) stats ... 4*8 + 8*8 = 12*8 = 96 bytes
+
+    If they are all new candidates and new objects, 2^35 * (96 + 32)
+
+    2^35 * 128
+    (2^35) * (2^7)
+    2^(35+7)
+    2^(42)
+    4.398046511x10^12
+
+      4G = 2^32
+      8G = 2^33
+     16G = 2^34
+     32G = 2^35
+     64G = 2^36
+    128G = 2^37
+    256G = 2^38
+    512G = 2^39
+      1T = 2^40
+      2T = 2^41
+      4T = 2^42
+
+    512G + 32 cores = £9240
+                    ~ 10k
+
+    8 machines ~= 80k per year
+    to store object and candidate arrays in memory
+    (*) no replication, no margin for error
+
+
+    Ratio between candidate and object is 100:1
+    2^35 * ((96/100) + 32)
+    2^35 * (32)
+
+    2^(35+5)
+    2^40
+
+    1Tbyte = 2 machines
+           ~ 20k per year
+
+
+
+
+
+
+
+
