@@ -1,0 +1,202 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+
+# -----------------------------------------------------
+# Create a VM on each physical host.
+#[user@desktop]
+
+    ssh work01
+    ssh work02
+    ssh work03
+    ssh work04
+
+        createvm
+
+--START--
+INFO : Node name [Onaukon]
+INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+INFO : Disc name [Onaukon.qcow]
+INFO : Disc size [8GiB]
+
+INFO : MAC  [06:00:AC:10:00:01]
+INFO : IPv4 [172.16.0.1]
+INFO : IPv6 []
+--END--
+
+--START--
+INFO : Node name [Nydiabaen]
+INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+INFO : Disc name [Nydiabaen.qcow]
+INFO : Disc size [8GiB]
+
+INFO : MAC  [06:00:AC:10:02:01]
+INFO : IPv4 [172.16.2.1]
+INFO : IPv6 []
+--END--
+
+--START--
+INFO : Node name [Umynd]
+INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+INFO : Disc name [Umynd.qcow]
+INFO : Disc size [8GiB]
+
+INFO : MAC  [06:00:AC:10:03:01]
+INFO : IPv4 [172.16.3.1]
+INFO : IPv6 []
+--END--
+
+--START--
+INFO : Node name [Rhaler]
+INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+INFO : Disc name [Rhaler.qcow]
+INFO : Disc size [8GiB]
+
+INFO : MAC  [06:00:AC:10:04:01]
+INFO : IPv4 [172.16.4.1]
+INFO : IPv6 []
+--END--
+
+
+# -----------------------------------------------------
+# Create a container to work with.
+#[user@virtual]
+
+    ssh Onaukon
+    ssh Nydiabaen
+    ssh Umynd
+    ssh Rhaler
+
+
+    #
+    # 'normal' user requires chmod in firethorn image.
+    # --user $(id -u) \
+
+    docker run \
+        --rm \
+        --tty \
+        --interactive \
+        --hostname builder \
+        --env SSH_AUTH_SOCK=/tmp/ssh_auth_sock \
+        --volume ${SSH_AUTH_SOCK}:/tmp/ssh_auth_sock \
+        firethorn/builder \
+        bash
+
+    >   ....
+    >   Digest: sha256:e668160c68cda1ce76ac7982b9dadf21bcbd6cbfb8427c3a3c26d8def3c3a49f
+    >   Status: Downloaded newer image for firethorn/builder:latest
+
+# -----------------------------------------------------
+# Checkout a copy of our source code.
+#[user@builder]
+
+    PHYMATOPUS_REPO=https://github.com/Zarquan/phymatopus
+    PHYMATOPUS_CODE=/var/local/build/phymatopus
+
+    if [ ! -e "${PHYMATOPUS_CODE:?}" ]
+    then
+        if [ ! -e "$(dirname ${PHYMATOPUS_CODE:?})" ]
+        then
+            mkdir -p "$(dirname ${PHYMATOPUS_CODE:?})"
+        fi
+        pushd "$(dirname ${PHYMATOPUS_CODE:?})"
+            git clone "${PHYMATOPUS_REPO:?}" "$(basename ${PHYMATOPUS_CODE:?})"
+
+        popd
+    else
+        pushd "${PHYMATOPUS_CODE:?}"
+            git pull
+        popd
+    fi
+
+# -----------------------------------------------------
+# Build and run our tests.
+#[user@builder]
+
+    pushd "${PHYMATOPUS_CODE:?}"
+        pushd kafka-tools
+
+            git pull
+
+            mvn clean compile
+
+            rewind=true
+            rewind=false
+
+            datetime=$(date +%Y%m%d%H%M%S)
+            echo "datetime [${datetime}]"
+
+            topic=ztf_20190731_programid1
+            looplimit=30000
+            threads=4
+
+            mvn test \
+                -D 'test=ZtfAlertReaderTest' \
+                -D "phymatopus.kafka.reader.rewind=${rewind}" \
+                -D "phymatopus.kafka.reader.threads=${threads}" \
+                -D "phymatopus.kafka.reader.looplimit=${looplimit}" \
+                -D "phymatopus.kafka.reader.topic=${topic}"
+
+
+--START--
+2019-08-28 01:10:41,161 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [4] threads read [120124] alerts from topic [ztf_20190731_programid1] in [79462.0]ms at [0.6614998]ms per alert
+2019-08-28 01:10:44,197 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [4] threads read [120074] alerts from topic [ztf_20190731_programid1] in [79215.0]ms at [0.65971816]ms per alert
+2019-08-28 01:10:47,790 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [4] threads read [120131] alerts from topic [ztf_20190731_programid1] in [79598.0]ms at [0.66259336]ms per alert
+2019-08-28 01:10:51,232 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [4] threads read [120049] alerts from topic [ztf_20190731_programid1] in [78818.0]ms at [0.65654856]ms per alert
+--END--
+
+
+            topic=ztf_20190826_programid1
+            looplimit=200000
+            threads=4
+
+            mvn test \
+                -D 'test=ZtfAlertReaderTest' \
+                -D "phymatopus.kafka.reader.rewind=${rewind}" \
+                -D "phymatopus.kafka.reader.threads=${threads}" \
+                -D "phymatopus.kafka.reader.topic=${topic}" \
+                -D "phymatopus.kafka.reader.looplimit=${looplimit}"
+
+
+
+--START--
+2019-08-28 01:54:12,027 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [4] threads read [261208] alerts from topic [ztf_20190826_programid1] in [160399.0]ms at [0.6140662]ms per alert
+2019-08-28 01:54:13,219 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [4] threads read [257574] alerts from topic [ztf_20190826_programid1] in [158438.0]ms at [0.6151164]ms per alert
+2019-08-28 01:54:14,929 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [4] threads read [258116] alerts from topic [ztf_20190826_programid1] in [157629.0]ms at [0.61069053]ms per alert
+2019-08-28 01:54:14,573 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [4] threads read [255602] alerts from topic [ztf_20190826_programid1] in [154858.0]ms at [0.605856]ms per alert
+--END--
+
+261208+257574+258116+255602=1032500
+1032500
+
+
+--START--
+2019-08-28 02:15:28,699 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [4] threads read [262316] alerts from topic [ztf_20190826_programid1] in [161060.0]ms at [0.6139923]ms per alert
+2019-08-28 02:15:30,273 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [4] threads read [258248] alerts from topic [ztf_20190826_programid1] in [157659.0]ms at [0.61049455]ms per alert
+2019-08-28 02:15:30,879 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [4] threads read [255849] alerts from topic [ztf_20190826_programid1] in [156423.0]ms at [0.61138797]ms per alert
+2019-08-28 02:15:34,186 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [4] threads read [256087] alerts from topic [ztf_20190826_programid1] in [157865.0]ms at [0.61645067]ms per alert
+--END--
+
