@@ -1,0 +1,592 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+
+This document outlines a design for a scalable architecture to implement a real-time alert
+processing platform for LSST:UK, capable of handling the data rates expected during the
+lifetime of the LSST project.
+
+The evaluation criteria for the design are based on the following requirements:
+
+    * Capable of meeting the initial expected data rate from the LSST project.
+    * The ability to increase the processing speed of the system by adding new resources.
+    * The ability to increase the storage capacity of the system by adding new resources.
+    * How much downtime, if any, is required to add new resources to the system.
+    * The resilience of the system to individual component failures.
+
+An additional criteria is set by the requirements of the LSST:UK project and its
+links to the IRIS eInfrastructure initiative and the DiRAC integrated supercomputing facility.
+
+    * Where possible implement the system using standard hardware resources.
+
+The target data rates for the experiments are:
+
+    * Sustained 1,000 alerts per second
+    * Stretch goal 10,000 alerts per second
+
+These numbers are based on the values given in table 29 of the LSST System Science Requirements Document.
+
+The LSST System Science Requirements Document (LPM-17)
+https://docushare.lsstcorp.org/docushare/dsweb/Get/LPM-17/LPM17_LSSTSRD_20180130.pdf
+
+    “Specification: The system should be capable of reporting such data for at least transN candidate
+    transients per field of view and visit (Table29)”
+
+    Quantity    DesignSpec  MinimumSpec StretchGoal
+    transN      10^4        10^3        10^5
+
+    Table 29: The minimum number of candidate transients per field of view that the system can report in realtime
+
+The transN value sets the number of alerts per visit, this combined with the expected cadence of 30 to 40 seconds
+per visit gives us our target evaluation criteria of 1,000 alerts per second and the stretch goal of 10,000 alerts
+per second for these experiment.
+
+To meet the scalability and fault tolerance requirements the architecture design for the alert processing system is
+based on a distributed micro-service architecture, where multiple instances of each component can be deployed in
+parallel, using Kafka data streams to distribute the alert data between each stage of the pipeline.
+
+----
+
+The high level view of the architecture devides the system into four stages of processing.
+
+-- Stage #1
+
+The first stage of the LSST:UK system should be a local Kafka mirror configured as a 7day
+rolling buffer of the live stream from LSST.
+
+This buffer would have a number of functions:
+
+1) Provide a local Kafka mirror for our processing components to connect to.
+To support multiple processing components operating in parrallel we will need to have
+a local Kfakfa endpoint for the components to connect to.
+
+The upstream Kafka endpoint provided by LSST is bandwidth limited and will only
+allow a specific set of clients to connect to it. As a registered community broker,
+we will be able to subscribe to the upstream service, but we will only have
+permission to connect once.
+
+We have been experimenting with the MirrorMaker component provided by the Apache
+Kafka project to implement this.
+
+
+2) Provide a simple FIFO buffer, making our system more resilient to networking issues
+and component failures.
+
+If a component in our system fails, the 7 day buffer gives us time to fix the issue,
+test and restart the failed component using data from the local buffer.
+
+The default out-of-the-box deployment of Kafka implements a 7 day FIFO buffer, so
+this would not need any additional configuration.
+
+
+3) Increase the number of partitions in the stream to match our processing requirements.
+
+The number of partitions in a Kafka stream puts an upper limit on the level of parallelism
+that downstream components can apply to processing a stream (see [kafka-partitions]).
+
+Adding a buffer at the start of our chain give us direct control over the number
+of partitions in the the alert stream.
+
+The configuration tools provided with Kafka enable us to configure the number of
+partitions on a per topic basis.
+
+However, the best place to implement this would be to modify the code for our
+MirroMaker to set the numebr of partitions when the topic is created in our
+local service.
+
+4) Update SchemaRegistry schema ID identifiers to match the value registered in our
+local SchemaRegistry.
+
+Incomming messages from the main LSST stream will use a schema ID from the main LSST SchemaRegistry.
+If we want our internal components to use our own local SchemaRegistry, then we will need to replace
+the schema ID in incoming messages with the corresponding schema ID from our local SchemaRegistry.
+(see [schema-registry])
+
+This requires a bit more than then standard MirrorMaker service provided by the Apache Kafka
+project. To impleemnt this we would need to fork the code for the standard MirrorMaker
+and add our own code to manipulate the schema ID field in each message.
+
+5) Merge 'daily' topics into a single continous stream.
+
+At the moment ZTF publish their data in a series of separate 'daily' streams, one for each night of
+observations. LSST are likley to do the same for their live stream.
+
+Handling the data in chunks like this a useful format to manage the bulk transfer and archiving of
+the data. It makes it easy to refer to [the data from yesterday] or [the data from three days ago].
+
+However, in terms of our end users, they are likley to want to receive [the live data from LSST],
+in one continous stream.
+
+This gateway buffer is the ideal place to take the data from each of the
+separate 'daily' topics and publish them locally as one continous stream.
+
+Again, this requires a bit more than then standard MirrorMaker service provided by the Apache Kafka
+project. To impleemnt this we would need to fork the code for the standard MirrorMaker
+and add our own code to use different topic names for the consumer and producer sides.
+
+
+5) Provide a suite of test data in the different formats.
+
+The same Kafka service (or a separate deployment of the same code base for testing) can be used to
+store a known set of test data that can be used both to replicate conditions for a set of integration
+tests and as test data during the development of new filters.
+
+Example test data:
+
+    -- Known sets of simulated data
+    -- Known subsets of real data
+    -- Data using different schema
+        -- ZTF
+        -- LSST
+            -- static schema
+            -- inline schema
+            -- registered schema
+
+The advantage of using this service to store and serve test data is it means that clients under test
+will use the same client libraries and configurations in both test, developent and live production
+scenarios.
+
+(multiple servers runing in parallel)
+(replication)
+
+
+-- Stage #2
+
+The second stage of processing consists of a set of loosely coupled components that consume data
+from a stream, apply a filter or processing step, and produce a new stream of results.
+
+In order to make it easier to develop pipeline components the project should provide a set of template components
+which implement of the Kafka consumer and producer connections along with the configuration needed to connect them.
+
+A wide range of different components can subscribe to the same Kafka topic and process the
+messages at different rates without interfering with each other (see [kafka-offsets]).
+
+So it is possible to have a set of slow low bandwidth copmponents iterating through the
+messages in their own time running alongside a set of high speed high bandwidth
+components that are processing the messages as fast as possible.
+
+--- Low speed processors
+
+Some example low speed processors might include
+
+    Read Avro alert messages and write them to Avro files for backup.
+    Read Avro alert messages and write Candidates to Parquet files for downstream Spark analysis.
+    Read Avro alert messages, extract light curves from the alert Candidates and write them to FITS/VOTable files for downstream analysis.
+    Read Avro alert messages, extract images from the alert Candidates and write them to FITS/PNG/JPEG files for downstream display or analysis.
+
+These can all function as independent stand alone components, listening to the live stream,
+processing the alert messages as they arrive and writing the output to a file archive.
+
+Note that these components still have to meet a minimum level of processing speed  in order to be able to process
+a days worth of data within a day. The data rate from the telescope is likley to be non-uniform, periods with a
+high rate of alerts, and periods with a much lower rate.
+
+While the low speed components don't need to be able to match the peak bandwidth of the busy periods,
+they do need to be able to process the cumulative data from each night fast enough to have completed
+that night's worth of data and emptied the buffer in time to start processing the next night's data.
+
+--- Medium speed processors
+
+Some example medium speed processors might include :
+
+    Read Avro alert messages, write Candidates to MariaDB for analysis.
+    Read Avro alert messages, write Candidates to Cassandra for analysis.
+
+These processors are very similar to the file based examples given above, the only difference is that
+for these use cases there are stronger requirements for these processosr to transfer the data into
+the databases as fast as possible.
+
+In which case it may be necessary to run multiple instances of these processors in parrallel
+in order to meet the speed requirements.
+
+(partitioning)
+
+--- High speed processors
+
+The high speed, high low latency, components would aim to process the messages from the same stream at
+the fastest rate possible.
+
+In most of these cases the reason for the low latency requiement is that the output from these components will be
+used as the input for other components, creating a pipeline or workflow.
+
+Some example high speed processors might include :
+
+    (watch list)
+    (region match)
+    (solar system target)
+
+
+
+In order to help develop these processors and filters, the project should provide
+a set of Java and Python libraries that implement all of the functionality
+needed to connect to Kafka services, subscribe to topics, read and write
+messages, serialize and deserialize Avro messages into class objects etc.
+
+Using a common set of well tested libraries helps to make our own components
+easier to develop and more reliable to use.
+It also helps to lower the barrier to entry for 3rd party deveopers to
+create their own processors and filters.
+
+The framework should include implementations of a set of interfaces for reading,
+processing and writing messages.
+
+See section [java-framework] for details of an initial set of Java interfaces and
+classes that were used to develop some of the performance and scalability tests.
+
+Note - in the following examples the class names have been shortened compared
+to the full implementation to make the examples clearer.
+
+A basic interface for a class to process a candidate would be :
+
+    interface CandidateProcessor {
+
+        enum Response {
+            PASS,
+            SKIP
+            };
+
+        public Response process(Candidate candidate);
+
+        }
+
+The interface defines a process() that takes a Candidate as input and
+returns a single value a list of response codes [OK, SKIP, STOP].
+
+The meaning of the result codes are :
+
+    PASS - Processing completed, pass the candidate on to the next step.
+    SKIP - Processing completed, skip any further steps.
+
+The framework also provides a template implementation of a component that
+can connect to a Kafka service, subscribed to a topic, read alert messages
+from the topic, deserialized them into Java objects and passes each
+Candidate object to a process() method.
+
+    public class ComponentTemplate
+        {
+        //
+        // Code to connect, subscribe, read messages  and deserialized alerts ..
+        //
+
+        /**
+         * Template method to process a candidate.
+         *
+         */
+        public void process(Candidate candidate)
+            {
+            //
+            // Code to process a Candidate goes here ...
+            //
+            }
+
+        }
+
+Extend this a bit further, adding a list of CandidateProcessor instances
+and a for loop to iterate through the list, passing the candidate
+object to each of the CandidateProcessor(s) in turn.
+
+    public class ComponentTemplate
+        {
+        //
+        // Code to connect, subscribe, read messages,
+        // deserialized alerts and extract Candidates
+        // from the stream ..
+        //
+
+        /**
+         * Initialise our array of processors.
+         *
+         */
+        public void init()
+            {
+            this.processors = new ArrayList<CandidateProcessor>();
+            }
+
+        /**
+         * Our list of CandidateProcessor(s).
+         *
+         */
+        private List<CandidateProcessor> processors ;
+
+        /**
+         * Top level method to process a candidate.
+         *
+         */
+        public void process(Candidate candidate)
+            {
+            // Iterate the list of processors.
+            foreach (CandidateProcessor processor : this.processors)
+                {
+                // Pass the candidate to the processor.
+                Response response = processor.process(candidate);
+
+                // If the processor response is SKIP.
+                if (response == SKIP)
+                    {
+                    // Skip the rest of the list and continue
+                    // to the next candidate.
+                    continue;
+                    }
+
+                }
+            }
+        }
+
+To implement a specific alert processor, the end user only has to provide
+instances of MessageProcessors to populate the list.
+
+A simple example of a MessageProcessor implementation would be a
+a solar system object filter.
+
+For alerts that correspond to known solar system objects the ZTF and LSST alert messages
+will contain information about the corresponding solar system object.
+
+In the ZTF alert schema these include :
+
+    ssnamenr    Name of nearest known solar system object if exists within 30 arcsec (from MPC archive).
+    ssdistnr    Distance to nearest known solar system object if exists within 30 arcsec [arcsec]
+    ssmagnr     Magnitude of nearest known solar system object if exists within 30 arcsec (usually V-band from MPC archive) [mag].
+
+If we assume alerts that correspond to known solar system objects will have the solar system object name set,
+and alerts that do not correspond to known solar system objects will have a null value,
+then we can implement a simple CandidateProcessor that filters alert candidates and selects
+those that have been matched with a corresponding solar system object.
+
+    class SolarSystemFilter implements CandidateProcessor
+        {
+        public Response process(Candidate candidate)
+            {
+            if (candidate.ssnamenr != null)
+                {
+                return PASS;
+                }
+            else {
+                return SKIP;
+                }
+            }
+        }
+
+If we add an instance of this class to the list of MessageProcessors in an alert processor,
+we create a processor that will only pass on alert Candidates that have been associated with
+a known solar system object.
+
+    class MySolarSystemComponent
+        extends ComponentTemplate
+        {
+        /**
+         * Initialise our List of processors.
+         *
+         */
+        public void init()
+            {
+            // Initialise our list.
+            super.init();
+
+            // Add the solar system filter
+            this.processors.add(
+                new SolarSystemFilter()
+                );
+            }
+        }
+
+The result is a processor component with a filter that selects solar system objects,
+which can be used as a building block to develop more complex processing chains.
+
+We could also create a CandidateProcessor class designed to write Candidate objects
+to a database table.
+
+    class MyDatabaseWriter implements CandidateProcessor
+        {
+        //
+        // Code to connect to a database.
+        //
+
+        public Response process(Candidate candidate)
+            {
+            //
+            // Code to write a Candidate object to a database table.
+            //
+            return PASS;
+            }
+        }
+
+Then we can then create a component that combines the two processors to filter out
+solar system objects from the input stream and write them to a database table.
+
+    class MySolarSystemComponent
+        extends ComponentTemplate
+        {
+        /**
+         * Initialise our List of processors.
+         *
+         */
+        public void init()
+            {
+            // Initialise our list.
+            super.init();
+
+            // Add the solar system filter
+            this.processors.add(
+                new SolarSystemFilter()
+                );
+
+            // Add the database writer
+            this.processors.add(
+                new MyDatabaseWriter(
+                    "databasename",
+                    "tablename"
+                    )
+                );
+            }
+        }
+
+In practice, the project would provide a basic toolkit of processor classes, including
+processors to write to a range of different database platforms, processors that write
+messages to Kafka streams, generate VOEvent messages, write to a Slack chanel or send
+emails.
+
+The project would also provide tools for creating the processing component
+and initialising the list of processors from a configuration file.
+Enabling end users to combine processor classes from the library to create their
+own processing chains just by writing a JSON or YAML configuration file.
+
+For example, the following YAML fragment defines a processing component
+based on the ComponentTemplate described above, with a slighly extended version
+of the SolarSystemFilter described above that selects alerts associated with
+'jupiter' and 'saturn', and writes them to an external MariaDB database table.
+
+    component:
+
+        class:
+            "uk.org.example.ComponentTemplate"
+
+        params:
+            - kafkaurl: "kafka-head:9092"
+              topicid:  "ztf-buffer"
+              groupid:  "f2542d11-df48-4b62-a052-1872bee0c055"
+
+        processors:
+
+            filter:
+                class:
+                    "uk.org.example.SolarSystemFilter"
+                params:
+                    - action: "include"
+                    - targets:
+                        - "saturn"
+                        - "jupiter"
+
+            writer:
+                class:
+                    "uk.org.example.MariaDBWriter"
+                params:
+                    - tablename: "ztfevents"
+                      database:  "jdbc:mariadb://hostname:3306/dbname"
+                      username:  "Albert"
+                      password:  "Saxe-Coburg-Saalfeld"
+
+
+The component designer creates this YAML configuration file, or use a GUI design tool
+that creates YAML configuration files like this, and submits it to the system.
+
+The framework behind would create the processing component wrapped up as a Docker container
+and pass it to the ochestration layer to run one or more instances of it in parallel.
+
+This is a deliberately simplified example, and there are many more details to work out,
+including user accounts, permissions and access controls to limit who is allowed to
+connect to which streams, who is allowed to create new streams, and what
+compute resources they are allowed to use etc.
+
+However, this example is enough to demonstrate the ideas behind a basic framework
+which enables project developers, and potentially end users, to create alert processing
+pipelines from a toolkit of building blocks provided by the project.
+
+Based on this design we can imagine a number of building blocks that could be used to
+do useful things with the ZTF or LSST data streams, including implementing parts of the
+Lasair ingestion process.
+
+
+
+
+
+
+
+
+
+
+            Use cases
+
+                Solar system
+
+                    Solar system filter
+                        Filter to based on the solar system values
+                            ssdistnr != null
+                            ssmagnr  != null
+                            ssnamenr != null
+
+
+                    Solar system stream
+                        -- listen to main stream, apply solar-system filter
+                        Generates solar-system and non-solar-system streams
+
+
+                    Solar system writer
+                        -- listen to the solar-system stream
+                        or
+                        -- listen to main stream, apply solar-system filter
+
+                        Writes to Cassandra database table
+                            CassandraWriter extends DatabaseWriter
+                                DatabaseWriter has Avro schema to table mapping.
+                        Writes to MariaDB database table
+                            MariaDB extends DatabaseWriter
+                                DatabaseWriter has Avro schema to table mapping.
+
+                    Solar system object stream
+                        -- listen to the solar-system stream
+                        or
+                        -- listen to main stream, apply solar-system filter
+                        and
+                        -- apply filter on solar system object name (ssnamenr)
+
+
+                    Solar system object writers
+                        -- listen to a solar-system object stream
+                        or
+                        -- listen to main stream, apply solar-system filter
+                        and
+                        -- apply filter on solar system object name (ssnamenr)
+
+                        Writes to Cassandra database table
+                            CassandraWriter extends DatabaseWriter
+                                DatabaseWriter has Avro to table mapping.
+                        Writes to MariaDB database table
+                            MariaDB extends DatabaseWriter
+                                DatabaseWriter has Avro to table mapping.
+
+
+
+
+
+
+
+
