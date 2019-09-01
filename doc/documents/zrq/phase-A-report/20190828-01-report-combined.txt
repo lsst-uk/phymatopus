@@ -476,13 +476,12 @@ of the SolarSystemFilter described above that selects alerts associated with
 
     component:
 
-        class:
-            "uk.org.example.ComponentTemplate"
+        type: "processing-node"
 
         params:
             - kafkaurl: "kafka-head:9092"
               topicid:  "ztf-buffer"
-              groupid:  "f2542d11-df48-4b62-a052-1872bee0c055"
+              groupid:  "groupid-f2542d11-df48-4b62-a052-1872bee0c055"
 
         processors:
 
@@ -521,8 +520,251 @@ which enables project developers, and potentially end users, to create alert pro
 pipelines from a toolkit of building blocks provided by the project.
 
 Based on this design we can imagine a number of building blocks that could be used to
-do useful things with the ZTF or LSST data streams, including implementing parts of the
-Lasair ingestion process.
+implement parts of the Lasair ingestion process.
+
+Our example list of low speed processors could all be implemented as processing components
+wrapped up in Docker containers, subscribed to the level #1 Kafka buffer.
+
+    Read Avro alert messages and write them to Avro files for backup.
+        Implemented as a CandidateProcessor that serialises Candidate data to Avro files.
+
+    Read Avro alert messages and write Candidates to Parquet files for downstream Spark analysis.
+        Implemented as a CandidateProcessor that serialises Candidate data to Parquet files.
+
+    Read Avro alert messages, extract light curves from the alert Candidates and write them to FITS/VOTable files for downstream analysis.
+        Implemented as a CandidateProcessor that extracts the light curve data from the Candidate and serialises it to FITS files.
+
+    Read Avro alert messages, extract images from the alert Candidates and write them to FITS/PNG/JPEG files for downstream display or analysis.
+        Implemented as a CandidateProcessor that extracts the images from the Candidate and serialises them to image files.
+
+Using the proposed architecture, all of these could be described using the YAML configuration file
+format, deployed automatically and managed by our orchestration system.
+
+We have already discussed how to implement a filter that includes or excludes solar system objects.
+This filter could be combined with different database writers to build a set of components that write
+data about solar system objects to different storage databases.
+
+    SolarSystemFilter + MariaDBWriter
+    -- SolarSystemFilter configured to include any solar system object.
+    -- MariaDBWriter writes solar-system alerts in a MariaDB database.
+
+    SolarSystemFilter + CassandraWriter
+    -- SolarSystemFilter configured to include any solar system object.
+    -- CassandraWriter writes solar-system alerts in a Cassandra database.
+
+If we create a CandidateProcessor capable of writing data to a Kafka stream,
+we can combine this with our SolarSystemFilter to create a component
+that reads messages from the main ztf-buffer, selecting,
+or excluding, alert messages associated with known solar system objects
+and writes them to a new Kafka stream.
+
+    SolarSystemFilter + KafkaProducer
+    -- SolarSystemFilter configured to include any solar system object.
+    -- KafkaProducer writes solar-system alerts to a new Kafka stream.
+
+    SolarSystemFilter + KafkaProducer
+    -- SolarSystemFilter configured to exclude all solar system objects.
+    -- KafkaProducer writes non-solar-system alerts to a separate Kafka stream.
+
+The same can be applied to the database writer components,
+creating database of non-solar system objects.
+
+    SolarSystemFilter + MariaDBWriter
+    -- SolarSystemFilter configured to exclude all solar system objects.
+    -- MariaDBWriter writes non-solar-system alerts in a MariaDB database.
+
+    SolarSystemFilter + CassandraWriter
+    -- SolarSystemFilter configured to exclude all solar system objects.
+    -- CassandraWriter writes non-solar-system alerts in a Cassandra database.
+
+Section [zone-match] describes an experiment that looks at
+a high speed cross match algorithm for matching Candidates
+against a static catalog of positions.
+
+However, at this level, the cross matching algorithm can be
+imagined as a CrossmatchProcessor component that cross matches
+each Candidate against the catalog of positions, adding
+an annotation to the Candidate to hold the result of the match.
+
+Each match annotation contains a reference identifier and position for
+the Candidate, a reference identifier and position for the catalog
+entry it has been matched with and the distance between the two
+positions.
+
+    interface CandidateMatch
+        {
+        long   candid();
+        double candra();
+        double canddec();
+
+        long   catalogid();
+        long   sourceid();
+        double sourcera();
+        double sourcedec();
+
+        double distance();
+        }
+
+We can extend the Candidate class, adding a list of
+cross matches, creating a new class, AnnotatedCandidate.
+
+    interface AnnotatedCandidate extends Candidate
+        {
+        List<CandidateMatch> matches();
+        }
+
+We can then build a component that combines a CrossmatchProcessor
+that matches the candidates against a catalog, and then either
+a stream writer to create a new Kafka stream.
+
+    CatalogMatcher + KafkaProducer
+    -- CrossmatchProcessor matches against a catalog and adds annotations.
+    -- Writes matched candidates to a new Kafka stream.
+
+Realistically it does not make sense to cross match Candidates that
+are associated with know solar system objects, so we want to exclude
+the solar system objects from the crossmatch processing.
+
+One way to acheive this would be to add a SolarSystemFilter to the processing chain.
+
+    SolarSystemFilter + CatalogMatcher + KafkaProducer
+    -- SolarSystemFilter configured to exclude all solar system objects.
+    -- CrossmatchProcessor matches against a catalog and adds annotations.
+    -- Writes matched candidates to a new Kafka stream.
+
+Alternativley, we could deploy the [SolarSystemFilter] and [CatalogMatcher]
+processors in separate chains, linking them together using a Kafka stream.
+
+    SolarSystemFilter + KafkaProducer
+    -- SolarSystemFilter configured to exclude all solar system objects.
+    -- KafkaProducer writes non-solar-system alerts to a separate Kafka stream.
+
+    CatalogMatcher + KafkaProducer
+    -- Subscribed to the output of the non-solar-system stream
+    -- CrossmatchProcessor matches against a catalog and adds annotations.
+    -- Writes matched candidates to a new Kafka stream.
+
+In this example, the resource cost of the SolarSystemFilter is so low,
+the more complex solution is probably not practical. The resource
+cost of publishing the non-solar-system results as a separate stream
+and reading them back in to to the cross match processor far out weighs
+the minimal cost of the very simple SolarSystemFilter.
+
+However, a CrossmatchProcessor for a large catalog requires a lot of
+resources to implement. Significantly more resources than would be needed by
+an additional Kafka stream. So it would be better to do the cross match once
+and publish the results as a new stream of annotated Candidates.
+This new stream can then be used as the source stream for a range of different
+processors.
+
+In this situation there are two options for adding extra Kafka streams.
+Ths first is to simply add another stream to the existing Kafka service
+that is providing the stage #1 input buffer.
+
+However, this may cause issues with resource contention for the physical network
+and the local disks.
+
+There are likley to be a lot of processes subscribed to the output of the stage #1
+input buffer, and it is likley that a lot of clients will want to subscribe to
+the output of the main catalog cross match as well.
+
+Placing two heavily subscribed streams on the same logical Kafka service, served by
+the same set of physical Kafra servers, could cause resource contention
+(see [kafa-distribution]).
+
+To solve this issue the Kafka services themselves can be treated as components,
+configured and deployed automatically using a similar YAML configuration file
+as the processing components.
+
+    component:
+
+        type: "kafka-buffer"
+        instances: 4
+        serviceid: "serviceid-903a2730-23c9-4e96-bf7a-240426063766"
+
+        topics:
+
+            - topic:
+                - topicid: "topicid-c22d9283-2661-4239-80ef-11da68c07e00"
+                  replication :  1
+                  partitions  : 64
+
+            - topic:
+                - topicid: "topicid-6b5e41ac-8c8c-436a-b911-c3b83507f47c"
+                  replication :  1
+                  partitions  : 64
+
+
+Treating Kafka services as components makes it easy to deploy them alongside
+the processing components described earlier. A single YAML configuration file
+could describe a chain of kafka buffers and processing nodes that work together
+to implement everything needed for a science use case.
+
+Readers familiar with the Docker eco-system will reconginse a strong similarity
+between these YAML configuration files and docker-compose configuration files
+used to deploy groups of Docker containers.
+
+In fact implementing the system behind all will probably use many of the
+infrastructure orchestration tools provided by Open Stack, Docker and Kubernetes.
+
+However, where possible we should avoid exposing these interfaces directly
+to either our science users or our system administratiors.
+
+The component configuration outlined above is intended to provide thin interface
+layer that sits on top of the system level tools and processes.
+
+The goal of this interface is to provide a thin abstraction layer between
+the programming interface that the user interacts with and the technologies
+selected to implement the system underneath.
+
+We do not want to develop a new set of orchestration tools.
+Equally, we do not want implementation specific details of the underlying
+technologies to be exposed as part of the interface.
+
+Designing our own an abstraction layer has [n] key advantages.
+
+Firtsly, it provides a level of insulation between our users and the technologies
+we have selected to build the system. Containerization and container orchestration
+is new and raplidly changing field and the technologies behind it are themselves
+evolving rapidly.
+
+Using our own tools for the the user facing interface means we can evolve our
+implemntation to adopt new technologies as the become available without causing
+huge problems for our users.
+
+
+Second, it is unlikley that one technology will provide everything we will need to
+implement all of the functionality we will want to have.
+As a result we will need to use a combination of different technologies, tools
+and frameworks to implement the system. Each of which will have their own
+slightly different programming interface and configuration file syntax.
+
+Using our own tools for the the user facing interface means our system can use
+a consistent programming interface and configuration syntax across all the
+different layers of the system implementation.
+
+Thirdly, using a mapping between our component configuration interface and the
+underlying technologies means it will be easier to make our components portable
+across a range of different platforms.
+
+Our initial system will probably be developed using a combination of KVM,
+OpenStack and Kubernetes.
+However, we may also want to implement a lightweight test platform using
+technologies like VirtualBox and Vagrant to provide parts of the virtualization
+layer.
+
+As long as the lightweight test platform used the same YAML syntax for the
+component configuration files and the same containerization layer interface,
+then a researcher could use the lightweight platform to develop their
+processing components using local test data, and be confident that they could
+deploy their processing components into a full scale system without having to
+make major changes.
+
+
+
+
+parts of our platform using technologies like
+VirtualBox, Xen, VMWare and Apache Mesos
 
 
 
@@ -533,60 +775,105 @@ Lasair ingestion process.
 
 
 
-            Use cases
-
-                Solar system
-
-                    Solar system filter
-                        Filter to based on the solar system values
-                            ssdistnr != null
-                            ssmagnr  != null
-                            ssnamenr != null
-
-
-                    Solar system stream
-                        -- listen to main stream, apply solar-system filter
-                        Generates solar-system and non-solar-system streams
-
-
-                    Solar system writer
-                        -- listen to the solar-system stream
-                        or
-                        -- listen to main stream, apply solar-system filter
-
-                        Writes to Cassandra database table
-                            CassandraWriter extends DatabaseWriter
-                                DatabaseWriter has Avro schema to table mapping.
-                        Writes to MariaDB database table
-                            MariaDB extends DatabaseWriter
-                                DatabaseWriter has Avro schema to table mapping.
-
-                    Solar system object stream
-                        -- listen to the solar-system stream
-                        or
-                        -- listen to main stream, apply solar-system filter
-                        and
-                        -- apply filter on solar system object name (ssnamenr)
-
-
-                    Solar system object writers
-                        -- listen to a solar-system object stream
-                        or
-                        -- listen to main stream, apply solar-system filter
-                        and
-                        -- apply filter on solar system object name (ssnamenr)
-
-                        Writes to Cassandra database table
-                            CassandraWriter extends DatabaseWriter
-                                DatabaseWriter has Avro to table mapping.
-                        Writes to MariaDB database table
-                            MariaDB extends DatabaseWriter
-                                DatabaseWriter has Avro to table mapping.
 
 
 
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+section [kafa-distribution]Kafa services and servers
+Kafka is a distributed system with multiple levels of components running in parallel
+on multiple nachines.
+
+For this document we define a distinction between a logial Kafka *service* providing
+access to a logical *stream* of messages and the physical deployment of one or more
+Kafa *servers* that provide
+
+
+Placing two heavily subscribed streams on the same logical Kafka service, served by
+the same set of physical Kafra servers, could cause resource contention.
+
+However the fact that one of the streams is used as the direct input to the next
+stream
+
+
+
+
+logical and physical Kafa services and servers
+
+Placing two very heavily used streams on the same logical Kafka service, served by
+the same set of physical Kafra servers, could in itself cause
+
+
+
+section [component-deploy] Component deployment
+
+    components:
+
+        - component:
+
+            type: "kafka-buffer"
+
+            instances: 4
+            serviceid: "service-903a2730-23c9-4e96-bf7a-240426063766"
+
+            topics:
+
+                - topic:
+                    - topicid: "topicid-c22d9283-2661-4239-80ef-11da68c07e00"
+                      replication :  1
+                      partitions  : 64
+
+                - topic:
+                    - topicid: "topicid-6b5e41ac-8c8c-436a-b911-c3b83507f47c"
+                      replication :  1
+                      partitions  : 64
+
+
+        component:
+
+            type: "processing-node"
+
+            source:
+                - topicid: "topicid-c22d9283-2661-4239-80ef-11da68c07e00"
+                  groupid: "groupid-f2542d11-df48-4b62-a052-1872bee0c055"
+
+            processors:
+                - processor:
+                      class:
+                          "uk.org.example.SolarSystemFilter"
+                      params:
+                          - action: "include"
+                          - targets:
+                              - "saturn"
+                              - "jupiter"
+
+                  processor:
+                      class:
+                          "uk.org.example.KafkaStreamWriter"
+                      params:
+                          - topicid: "topicid-aded3365-49f1-4679-b884-2f31528f59af"
+                            groupid: "groupid-6f1ad6ce-3f5b-44cd-b859-835dc385de2a"
+
+
+                  processor:
+                      class:
+                          "uk.org.example.MariaDBWriter"
+                      params:
+                          - tablename: "ztfevents"
+                            database:  "jdbc:mariadb://hostname:3306/dbname"
+                            username:  "Albert"
+                            password:  "Saxe-Coburg-Saalfeld"
 
 
