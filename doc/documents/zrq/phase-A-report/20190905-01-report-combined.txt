@@ -1,0 +1,360 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+
+
+\section{Crossmatch algorithms}
+\label{crossmatch-algorithms}
+
+The following experiments compare the Hierarchical Triangular Mesh (HTM) algorithm
+used to index many of the WFAU catalogs with the zones based algorithm described in
+a 2004 paper by J. Gray et al. to identify the best option for implementing a cross-match
+component capable of matching the live alert stream against one or more of the large
+catalogs held by WFAU.
+
+The target criteria for these experiments is to demonstrate a cross match implementation
+capable of meeting the target of 1,000 alerts per second, and be able to scale up to meet
+the higher stretch goals by adding additional resources.
+
+The source code for these tests is available on GitHub :
+https://github.com/lsst-uk/enteucha
+
+\subsection{Hierarchical Triangular Mesh}
+\label{crossmatch.htm}
+
+The Hierarchical Triangular Mesh (HTM) algorithm starts by dividing the celestial sphere into
+8 spherical triangles, and then builds a quad-tree recursively decomposing each triangle into
+4 sub-triangles.
+
+See the following references for details of the algorithm :
+
+The Hierarchical Triangular Mesh, P. Z. Kunszt et al.
+https://link.springer.com/chapter/10.1007/10849171_83
+
+The Indexing of the SDSS Science Archive, P. Z. Kunszt et al.
+http://www.skyserver.org/HTM/doc/adass99.ps
+
+SkyServer HTM Documentation
+http://www.skyserver.org/HTM/doc/intro.aspx
+
+The code to implement the HTM algorithm in our tests are based on the Java library available
+from the SkyServer website at John Hopkins University.
+
+http://www.skyserver.org/htm/implementation.aspx#download
+
+Due to licensing issues we are unable to make this part of our code open source at this time.
+
+\subsection{Zone based algorithm}
+\label{crossmatch-zones}
+
+The zones based indexing uses a much simpler method of dividing the celestial sphere into
+thin horizontal zones based simply on the position declication.
+
+\begin{lstlisting}[style=Java]
+zoneNumber = floor((dec+90) /zoneHeight)
+\end{lstlisting}
+
+Details of how the algorithm works are described in Technical Report MSR-TR-2004-32 by Jim Gray published by Microsoft Research in 2004.
+\textit{There Goes the Neighborhood: Relational Algebra for Spatial Data Search, J. Gray et al}
+https://arxiv.org/pdf/cs/0408031.pdf
+
+More recently, the same zone based indexing has been used as part of the \textit{Astronomy eXtensions for Spark (AXS)} toolkit for
+the \apachespark platform, described in a 2019 paper by Petar Zečević.
+\textit{AXS: A framework for fast astronomical data processing based on Apache Spark}
+https://arxiv.org/abs/1905.09034
+
+The initial steps of the zones based algorithm are much simpler to implement and faster to execute than
+the equivalent steps of in HTM algorithm, requiring only simple floating point and integer arithmetic
+operations compared to the complex trigonometry involved in the HTM algorithm.
+
+The trade off is to start the selection process using very simple steps, significantly reducing the
+amount of data involved, and then use more complex steps later in the process.
+
+\subsection{Database platform}
+\label{database-platform}
+
+Performing crossmatches using a conventional database system tends to be limited by physical I/O performance.
+The overhead of getting the data off disc can obscure the relative performance of the indexing algorithms.
+
+In order to maximize the performance, the following experiments were performed using in-memory databases.
+Once the I/O data access bottle neck is removed from the equation, the differences between the indexing
+algorithms becomes much more significant.
+
+The database tests used an in-memory instance of the \hsqldb database engine to evaluate the algorithms.
+
+HSQLDB (Hyper SQL Database) Java relational database management system.
+http://hsqldb.org/
+
+\subsubsection{HTM vs zone comparison}
+\label{database-algorithms}
+
+The HTM tests used the Java library from JHU to calculate which HTM triangles intersected the target
+region and then queried the database to find all the sources within those triangles.
+
+The zone based tests calculated which zones intersected the target region and then queried the database
+to find all the sources within those zones.
+
+The tests showed a significant advantage to the zone based algorithm, demonstrating a performance increase
+of a factor of 10 compared to the HTM algorithm.
+
+\begin{itemize}
+    \item 4,004,000 rows of test data
+    \item  HTM algorithm : found [10] in [213]ms
+    \item  Zone algorithm : found [11] in [17]ms
+\end{itemize}
+
+It is important to note that development time for this project was limited,
+and we did not set out to perform an accurate performance benchmark of the algorithms.
+
+The objective of these experiments was to check the findings in the paper by Gray et al,
+that the zone based algorithm was simpler to implement and performed significantly faster than the HTM algorithm.
+After the initial tests confirmed this we moved on to exploring various optimizations to see how fast we could
+get the zone based algorithm to work.
+
+As a result, the database queries and indexing used in the HTM version were not optimized. If an accurate benchmark is needed then it would be worth re-visiting the code and optimizing the HTM implementation to get the best performance from it.
+
+\subsection{Database indexing}
+\label{database-indexing}
+
+The next set of tests looked at the database query and indexing used in the zone based algorithm.
+
+The SQL query used for the tests came from the query outlined in the paper by Gray, which included all three steps in the same query. The initial selection for the target Zone based on declination, the selection within the zone based on right ascension, and then a final selection based on distance.
+
+    SELECT
+        ...
+     FROM
+        zones
+     WHERE
+        zone BETWEEN ? AND ?
+     AND
+        ra BETWEEN ? AND ?
+     AND
+        dec BETWEEN ? AND ?
+    AND
+        (power((cx - ?), 2) + power((cy - ?), 2) + power(cz - ?, 2)) < ?
+
+
+The tests evaluated three different indexing schemes, the first scheme created three separate indexes, one index on the integer zone id, one on the right ascension and one on the declination.
+
+    CREATE INDEX zoneindex ON zones (zone)
+    CREATE INDEX raindex   ON zones (ra)
+    CREATE INDEX decindex  ON zones (dec)
+
+The second scheme created two separate indexes, one index for the integer zone id alone, and one index on the right ascension and declination combined.
+
+    CREATE INDEX zoneindex  ON zones (zone)
+    CREATE INDEX radecindex ON zones (ra, dec)
+
+The third scheme created a complex index of zone id, right ascension and declination combined.
+
+    CREATE INDEX complexindex ON zones (zone, ra, dec)
+
+The database tests showed that for this particular complex query, the combined and complex indexes performed better than the separate single value indexes.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{|l|l|l|}
+\hline
+\textit{Index type} & \textit{Data size} & \textit{Search time}
+Separate & 2,563,201 & 83ms
+Combined [ra,dec] & 2,563,201 & 50ms
+Complex  [zone,ra,dec] & 2,563,201 & 38ms
+\end{tabular}
+\end{table}
+
+\subsection{CQEngine implementation}
+\label{cqengine-implementation}
+
+At this point we began to develop a native Java implementation of the zone algorithm using the CQEngine library to index data in Java Collections.
+
+CQEngine - Collection Query Engine
+https://github.com/npgall/cqengine
+
+This version implemented the zone algorithm directly in Java code, using the CQEngine classes to implement an indexed collection of zones:
+
+    public class ZoneMatcherImpl
+    implements ZoneMatcher
+        {
+        ....
+        private final IndexedCollection<ZoneImpl> zones =
+            new ConcurrentIndexedCollection<ZoneImpl>();
+        ....
+        }
+
+and an indexed collection of positions within each zone:
+
+    public class ZoneImpl
+    implements Zone
+        {
+        ....
+        private final IndexedCollection<PositionImpl> positions =
+            new ConcurrentIndexedCollection<PositionImpl>();
+        ....
+        }
+
+These tests showed a significant advantage to the native Java implementation, which out performed the HSQLDB database implementation by a factor of 10.
+
+    • 2,563,201 rows of test data
+    • In-memory HSQLDB implementation : search time 38ms
+    • In-memory CQEngine implementation : search time 3ms
+    •
+Collection indexing
+The next set of tests looked at different ways of indexing the data in the CQEngine Collections.
+
+The tests looked at three different indexing schemes for the inner ConcurrentIndexedCollection of Positions. The first scheme simply created separate indexes on right ascension and declination.
+
+    positions.addIndex(
+        NavigableIndex.onAttribute(
+            ZoneMatcherImpl.POS_RA
+            )
+        );
+
+    positions.addIndex(
+        NavigableIndex.onAttribute(
+            ZoneMatcherImpl.POS_DEC
+            )
+        );
+
+The second scheme created separate indexes, but used a quantized index on right ascension.
+
+    positions.addIndex(
+        NavigableIndex.withQuantizerOnAttribute(
+            DoubleQuantizer.withCompressionFactor(
+                5
+                ),
+            ZoneMatcherImpl.POS_RA
+            )
+        );
+
+    positions.addIndex(
+        NavigableIndex.onAttribute(
+            ZoneMatcherImpl.POS_DEC
+            )
+        );
+
+The third scheme created a combined CompoundIndex on right ascension and declination together.
+
+    positions.addIndex(
+        CompoundIndex.onAttributes(
+            ZoneMatcherImpl.POS_RA,
+            ZoneMatcherImpl.POS_DEC
+            )
+        );
+
+These tests showed a significant advantage for the separate simple indexes for this particular use case:
+
+    • 12,587,009 rows of test data
+    • Combined indexes : average 42ms
+    • Quantized ra index : average 21ms
+    • Separate indexes : average 0.45ms
+
+The results of the indexing tests match the way that the algorithm was implemented in the database version and the native Java version.
+
+The HSQLDB database implementation used a single SQL query to perform all three stages of the zone algorithm, selecting the zone, selecting positions within the zone based on ra and dec and then performing the final distance calculation all in one database query. It therefore makes sense that the combined and complex indexes performed better than the separate single value indexes for this case.
+
+The  CQEngine Collections implementation performed the three stages of the zone algorithm, selecting the zone, selecting positions within the zone and then performing the final distance calculation as separate steps in the Java program.  It therefore makes sense that using three separate indexes gave the best performance for this implementation.
+
+Zone height
+The final set of tests looked at the relationship between the size of the zones, search radius and performance. Due to limited time we were unable to develop a detailed model of the relationship . However we were able to confirm the general rule described in Gray et al. That the algorithm produced the best results when the zone height was close to or equal to the search radius.
+
+Data size
+Zone height
+Search radius
+Search time (ms)
+12,587,009
+0.25
+0.015625
+1.665
+12,587,009
+0.125
+0.015625
+2.312
+12,587,009
+0.0625
+0.015625
+0.669
+12,587,009
+0.03125
+0.015625
+0.528
+12,587,009
+0.015625
+0.015625
+0.419
+12,587,009
+0.0078125
+0.015625
+0.450
+12,587,009
+0.00390625
+0.015625
+0.607
+
+
+
+
+
+
+
+\textit{Data size} & \textit{Zone height} & \textit{Search radius} & \textit{Search time (ms)} \\ \hline
+12,587,009 & 0.25       & 0.015625 & 1.665 \\ \hline
+12,587,009 & 0.125      & 0.015625 & 2.312 \\ \hline
+12,587,009 & 0.0625     & 0.015625 & 0.669 \\ \hline
+12,587,009 & 0.03125    & 0.015625 & 0.528 \\ \hline
+12,587,009 & 0.015625   & 0.015625 & 0.419 \\ \hline
+12,587,009 & 0.0078125  & 0.015625 & 0.450 \\ \hline
+12,587,009 & 0.00390625 & 0.015625 & 0.607 \\ \hline
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Although some test results suggested that this may not always be the case and the true relationship may depend on additional factors such as the size or structure of the catalog being compared.
+
+Summary of results
+Based on the test results, this set of experiments have been able to demonstrate a cross match algorithm that is capable of meeting the target data rate of 1,000 alerts per second for catalog sizes of the order of 60 million sources. Further testing will be needed to demonstrate how this capability can be scaled to handle larger data sets.
+
+Further experiments
+There is more  that could be done to develop these experiments further, extending the size of the test data set, optimizing the indexing and exploring the relationship between zone size, search radius and search performance.
+
+There is also more work to do to explore ways to make the system scalable and fault tolerance.
+
+To meet the scalability and fault tolerance criteria we need to look at ways to distribute the crossmatch searches over multiple machines.
+
+There are two aspects to the scalability question:
+
+    • How to increase the processing rate.
+    • How to increase the size of the catalog.
+
