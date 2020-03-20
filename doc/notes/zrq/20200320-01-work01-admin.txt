@@ -1,0 +1,233 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2020, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#zrq-notes-time
+#zrq-notes-indent
+#zrq-notes-crypto
+#zrq-notes-ansible
+#zrq-notes-osformat
+#
+
+
+# -----------------------------------------------------
+# Setup the node names.
+#[user@desktop]
+
+    unset mmnames
+    mmnames=(
+        Glaubard
+        Legendamwen
+        )
+
+    unset zknames
+    zknames=(
+        Ocelisean
+        Araeri
+        Nyderrad
+        )
+
+    unset kfnames
+    kfnames=(
+        Rhoawien
+        Gwirabard
+        Boasien
+        Falidon
+        Brawia
+        )
+
+# -----------------------------------------------------
+# Get a list of available topics.
+#[user@desktop]
+
+    source "${HOME}/ssh-options"
+
+    ssh \
+        ${sshopts[*]} \
+        ${sshuser:?}@${mmnames[0]:?} \
+            "
+            docker run --rm \
+                phymatopus/kafka-core \
+                    bin/kafka-topics.sh \
+                        --zookeeper '${zknames[0]}' \
+                        --list \
+            | sort | tee /tmp/topiclist
+            "
+
+--START--
+ztf_20190928_programid1
+ztf_20190930_programid1
+ztf_20191001_programid1
+ztf_20191002_programid1
+ztf_20191002_programid3_public
+ztf_20191003_programid1
+ztf_20191003_programid3_public
+ztf_20191004_programid1
+ztf_20191004_programid3_public
+ztf_20191005_programid1
+ztf_20191005_programid3_public
+ztf_20191006_programid1
+ztf_20191006_programid3_public
+ztf_20191007_programid1
+ztf_20191007_programid3_public
+ztf_20191008_programid1
+ztf_20191008_programid3_public
+ztf_20191009_programid1
+ztf_20191009_programid3_public
+ztf_20191010_programid1
+ztf_20191010_programid3_public
+ztf_20191011_programid1
+ztf_20191012_programid1
+ztf_20191012_programid3_public
+ztf_20191013_programid1
+ztf_20191013_programid3_public
+ztf_20191014_programid1
+ztf_20191014_programid3_public
+ztf_20191015_programid1
+ztf_20191015_programid3_public
+ztf_20191016_programid1
+ztf_20191017_programid1
+ztf_20191018_programid1
+ztf_20191019_programid1
+ztf_20191020_programid1
+ztf_20191021_programid1
+ztf_20191022_programid1
+ztf_20191023_programid1
+ztf_20191025_programid1
+ztf_20191026_programid1
+ztf_20191027_programid1
+ztf_20191028_programid1
+ztf_20191029_programid1
+ztf_20191030_programid1
+ztf_20191031_programid1
+ztf_20191101_programid1
+ztf_20191102_programid1
+ztf_20191103_programid1
+ztf_20191103_programid3_public
+ztf_20191104_programid1
+ztf_20191104_programid3_public
+ztf_20191105_programid1
+ztf_20191105_programid3_public
+ztf_20191106_programid1
+ztf_20191106_programid3_public
+ztf_20191107_programid1
+ztf_20191107_programid3_public
+ztf_20191108_programid1
+ztf_20191108_programid3_public
+ztf_20191109_programid1
+ztf_20191109_programid3_public
+ztf_20191110_programid1
+ztf_20191111_programid1
+ztf_20191112_programid1
+ztf_20191113_programid1
+ztf_20191114_programid1
+ztf_20191115_programid1
+ztf_20191116_programid1
+ztf_20191117_programid1
+ztf_20191118_programid1
+ztf_20191119_programid1
+ztf_20191124_programid1
+ztf_20191125_programid1
+ztf_20191126_programid1
+ztf_20191127_programid1
+ztf_20191202_programid1
+ztf_20191203_programid1
+ztf_20191206_programid1
+ztf_20191210_programid1
+ztf_20191211_programid1
+ztf_20191212_programid1
+ztf_20191213_programid1
+ztf_20191214_programid1
+ztf_20191216_programid1
+ztf_20191217_programid1
+ztf_20191218_programid1
+ztf_20191219_programid1
+ztf_20191220_programid1
+ztf_20191221_programid1
+ztf_20191222_programid1
+ztf_20191223_programid1
+--END--
+
+
+# -----------------------------------------------------
+# Get the total rows in each topic.
+#[user@desktop]
+
+    source "${HOME}/ssh-options"
+
+    ssh \
+        ${sshopts[*]} \
+        ${sshuser:?}@${mmnames[0]:?}
+
+            kafka=Rhoawien
+
+            for topic in $(tail -n 8 /tmp/topiclist)
+            do
+                echo "---- ----"
+                echo "Topic [${topic:?}]"
+                docker run -it --rm \
+                    phymatopus/kafka-core \
+                        bin/kafka-run-class.sh \
+                            kafka.tools.GetOffsetShell \
+                                --broker-list "${kafka:?}:9092" \
+                                --topic "${topic:?}" \
+                | sed '
+                    s/\([^:]*\):\([^:]*\):\([^:]*\)/\3/
+                    ' \
+                | awk '
+                    {sum += $1} END {print sum}
+                    '
+            done
+
+--START--
+---- ----
+Topic [ztf_20191216_programid1]
+2
+---- ----
+Topic [ztf_20191217_programid1]
+7
+---- ----
+Topic [ztf_20191218_programid1]
+12
+---- ----
+Topic [ztf_20191219_programid1]
+17
+---- ----
+Topic [ztf_20191220_programid1]
+22
+---- ----
+Topic [ztf_20191221_programid1]
+27
+---- ----
+Topic [ztf_20191222_programid1]
+32
+---- ----
+Topic [ztf_20191223_programid1]
+37
+--END--
+
+
+    #
+    # Not very healthy ....
+    #
+
+
+
+
+

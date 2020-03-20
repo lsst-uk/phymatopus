@@ -1,0 +1,124 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2020, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#zrq-notes-time
+#zrq-notes-indent
+#zrq-notes-ansible
+#zrq-notes-osformat
+#
+
+
+
+
+------------------------------------------------------
+
+Kafka archive
+
+One of the user cases we explored was to use Kafalk as a long term archive for the event stream.
+
+This is fairly easy to configure, setting both the expiry time and disc space limits to null.
+
+    example
+
+This means that Kafka will never delete any messages, accumulating a permanent record of all the
+events that pass through the service.
+
+This is a recognised use case for Kafka, documented on the Confluent developer blog.
+https://www.confluent.io/blog/okay-store-data-apache-kafka/
+
+
+Problems associated with unclean exit
+Kafka assumes the data is dirty, and so tries to re-index the data locally before joining the cluster.
+preserve the cluster
+takes a long time
+shared spindles has a high impact
+
+Data has grown since it was indexed, so the index files will have grown too.
+If Kafka re-indexes local data, it can end up running out of disc space, which triggers a shutdown, which means an unclean exit, which means it will re-index again.
+Solution was to have a reserverd block on each disc that we could delete to free up some space.
+That only works once.
+
+After that, have to delete some of the data on the disc, and rely on Kafka replication to have another copy elsewhere.
+Moving the data is to another disc is an option, but that would trigger a re-index of the disc it was moved to.
+
+ZTF whitelist
+https://github.com/dirac-institute/zads-ip-whitelist-msip/blob/master/whitelist.txt
+
+    Private GitHub repository
+    returns 404 if not authorised
+
+Kafka network - not sure this is an issue any more
+No evidence of this actually being used.
+No evidence of public dns records being created.
+Drop it.
+
+    Layers of networking, changes of IP address at each layer.
+
+        Docker
+        Virtual machine
+        OpenStack VLAN per virtual network
+        OpenStack router
+
+    Floating IP address designed for packets originating outside the system from public internet.
+    Packets sent from outside pass through the layers with no problem.
+    Packets sent from inmside the network get re-routed at the edge and sent back in.
+    However, the TCP response packets don't survive the return journey.
+
+    Kafka cluster is made up of several servers.
+    The data for a topic is spread (striped) across multiple servers.
+    In order to recive all the messages for a topic, a client needs to conmnect to all of the servers that have data for that topic.
+
+    A client initiates a connection to one of the servers in the cluster, which replies with the endpoint addresses of the other servers in the cluster that hold data for that topic.
+
+    In order to do this, each server needs to know how it should be addressed by clients.
+    ADVERTISE This is the name or IP address that clients should use to access the service.
+
+    Fix we found was to use the internal and external DNS resolvers to give different addresses for the Kafka servers.
+    Externally, we used an external DNS service to register names for the Kafka servers,
+    pointing to the OpenStack floating IP addresses connected to each
+    virtual machine.
+
+        kafka-001.metagrid.org  external
+        kafka-002.metagrid.org  external
+        kafka-003.metagrid.org  external
+        kafka-004.metagrid.org  external
+
+    Internally, we used the /etc/hosts file on each machine to
+    connect the same set of names to the internal addresses
+    for each virtual machine.
+
+        kafka-001.metagrid.org  external
+        kafka-002.metagrid.org  external
+        kafka-003.metagrid.org  external
+        kafka-004.metagrid.org  external
+
+    So when a client connects to the Kafka cluster, and gets a list
+    of host names names for the servers in that cluster,
+    the names will resolve to different IP addresses
+    dependiong on where the client is.
+
+    An external client will use the public DNS service to resolve the names
+    into the publicly accessible IP addresses.
+    An internal client will use the host names in /etc/hosts
+    to resolve the names into the internal 10. local addresses.
+
+
+
+

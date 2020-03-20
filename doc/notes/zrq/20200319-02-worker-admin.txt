@@ -1,0 +1,497 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2020, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#zrq-notes-time
+#zrq-notes-indent
+#zrq-notes-crypto
+#zrq-notes-ansible
+#zrq-notes-osformat
+#
+
+    #
+    # Check what VMs are running on the worker ndoes ..
+    #
+
+
+# -----------------------------------------------------
+# Run our Ansible client.
+#[user@desktop]
+
+    source "${HOME}/esperia.settings"
+
+    cat << EOF
+ESPERIA_USER [${ESPERIA_USER:?}]
+ESPERIA_CODE [${ESPERIA_CODE:?}]
+EOF
+
+--START--
+ESPERIA_USER [dmr]
+ESPERIA_CODE [/var/local/projects/WFAU/esperia/github-zrq]
+--END--
+
+
+    podman run \
+        --rm \
+        --tty \
+        --interactive \
+        --hostname ansible-client \
+        --env ESPERIA_USER=${ESPERIA_USER:?} \
+        --env SSH_AUTH_SOCK=/tmp/ssh_auth_sock \
+        --volume ${SSH_AUTH_SOCK}:/tmp/ssh_auth_sock \
+        --volume ${ESPERIA_CODE:?}/src/ansible:/etc/ansible:Z \
+        atolmis/ansible-client:latest \
+            bash
+
+
+
+# -----------------------------------------------------
+# Create our ssh config.
+#[root@ansible-client]
+
+    ansible-playbook \
+        --inventory /etc/ansible/hosts.yml \
+        /etc/ansible/ssh-config.yml
+
+
+--START--
+TASK [Check our ssh directory] **************************************************************************************************************************************************************************************************************
+changed: [localhost]
+
+TASK [Generate our ssh config file] *********************************************************************************************************************************************************************************************************
+changed: [localhost]
+--END--
+
+
+# -----------------------------------------------------
+# Accept host keys for the gateway.
+#[root@ansible-client]
+
+    ansible-playbook \
+        --inventory /etc/ansible/hosts.yml \
+        /etc/ansible/ssh-hostkeys.yml
+
+--START--
+TASK [Check our ssh directory] **************************************************************************************************************************************************************************************************************
+ok: [localhost]
+
+TASK [Accept the gateway host key] **********************************************************************************************************************************************************************************************************
+changed: [localhost]
+--END--
+
+
+# -----------------------------------------------------
+# Check we can connect.
+#[root@ansible-client]
+
+    ansible-playbook \
+        --inventory /etc/ansible/hosts.yml \
+         /etc/ansible/ping-test.yml
+
+
+--START--
+PLAY [gateways:lsstnodes:tropnodes:gaianodes] ***********************************************************************************************************************************************************************************************
+
+TASK [Check we can connect] *****************************************************************************************************************************************************************************************************************
+ok: [lsstukhead]
+ok: [lsstukwork3]
+ok: [lsstukwork4]
+ok: [lsstukwork2]
+ok: [lsstukwork1]
+ok: [trop03]
+ok: [trop04]
+ok: [gaia01]
+ok: [gaia02]
+
+TASK [Check we can use sudo] ****************************************************************************************************************************************************************************************************************
+ok: [lsstukhead]
+ok: [lsstukwork4]
+ok: [lsstukwork1]
+ok: [lsstukwork3]
+ok: [lsstukwork2]
+ok: [trop03]
+ok: [trop04]
+ok: [gaia01]
+ok: [gaia02]
+--END--
+
+
+# -----------------------------------------------------
+# List the virtual machines on each node.
+#[root@ansible-client]
+
+    cat > /tmp/vlist.yml << EOF
+
+# hosts: lsstnodes:gaianodes:tropnodes
+# hosts: lsstnodes:gaianodes
+- hosts: tropnodes
+  gather_facts: false
+  tasks:
+
+  - name: "Check Python pip is installed"
+    become: true
+    apt:
+     pkg: 
+     - python3-pip
+
+
+  - name: "Check the libraries needed to build 'libvirt-python'"
+    become: true
+    apt:
+     pkg: 
+     - pkg-config
+     - libvirt-dev
+
+  - name: "Install 'libvirt-python' for Ansible to use"
+    become: true
+    pip:
+      name: [
+          'libvirt-python'
+          ]
+
+  - name: "List current VMs"
+    virt:
+      command: list_vms
+    register: vmlist
+    
+  - debug:
+      var: vmlist.list_vms
+
+EOF
+
+    ansible-playbook \
+        --inventory /etc/ansible/hosts.yml \
+         /tmp/vlist.yml
+         
+
+
+--START--
+PLAY [lsstnodes:gaianodes] ******************************************************************************************************************************************************************************************************************
+
+TASK [Check Python pip is installed] ********************************************************************************************************************************************************************************************************
+ok: [lsstukwork4]
+ok: [lsstukwork2]
+ok: [lsstukwork3]
+ok: [lsstukwork1]
+ok: [gaia01]
+ok: [gaia02]
+
+TASK [Check the libraries needed to build 'libvirt-python'] *********************************************************************************************************************************************************************************
+ok: [lsstukwork4]
+ok: [lsstukwork2]
+ok: [lsstukwork3]
+ok: [lsstukwork1]
+ok: [gaia01]
+ok: [gaia02]
+
+TASK [Install 'libvirt-python' for Ansible to use] ******************************************************************************************************************************************************************************************
+ok: [lsstukwork2]
+ok: [lsstukwork3]
+ok: [lsstukwork4]
+ok: [lsstukwork1]
+ok: [gaia01]
+ok: [gaia02]
+
+TASK [List current VMs] *********************************************************************************************************************************************************************************************************************
+ok: [lsstukwork1]
+ok: [lsstukwork2]
+ok: [lsstukwork3]
+ok: [lsstukwork4]
+ok: [gaia01]
+ok: [gaia02]
+
+TASK [debug] ********************************************************************************************************************************************************************************************************************************
+ok: [lsstukwork1] => {
+    "vmlist.list_vms": [
+        "Nyderrad",
+        "Glaubard",
+        "Araeri",
+        "Iberigan",
+        "Brawia",
+        "Gwirabard",
+        "Falidon",
+        "Ocelisean",
+        "Legendamwen",
+        "Rhoawien",
+        "Boasien"
+    ]
+}
+ok: [lsstukwork2] => {
+    "vmlist.list_vms": [
+        "Ybigorid",
+        "Drilawyr"
+    ]
+}
+ok: [lsstukwork3] => {
+    "vmlist.list_vms": []
+}
+ok: [lsstukwork4] => {
+    "vmlist.list_vms": []
+}
+ok: [gaia01] => {
+    "vmlist.list_vms": [
+        "Cinna",
+        "Edieldan"
+    ]
+}
+ok: [gaia02] => {
+    "vmlist.list_vms": []
+}
+--END--
+
+
+# -----------------------------------------------------
+# Login to each virtual machine and list the docker containers.
+#[root@ansible-client]
+
+    vmnames=(
+        Nyderrad
+        Glaubard
+        Araeri
+        Iberigan
+        Brawia
+        Gwirabard
+        Falidon
+        Ocelisean
+        Legendamwen
+        Rhoawien
+        Boasien
+        Cinna
+        Edieldan
+        )
+        
+    for vmname in ${vmnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            ssh -F "${HOME}/.ssh/esperia-config" "${vmname:?}" '
+                docker ps
+                '
+        done
+
+--START--
+---- ----
+Node [Nyderrad]
+CONTAINER ID        IMAGE                             COMMAND                  CREATED             STATUS              PORTS                                                                    NAMES
+5b7027e114d8        confluentinc/cp-zookeeper:4.1.1   "/etc/confluent/dock…"   5 months ago        Up 5 months         0.0.0.0:2181->2181/tcp, 0.0.0.0:2888->2888/tcp, 0.0.0.0:3888->3888/tcp   stevedore_courtney_1
+---- ----
+Node [Glaubard]
+CONTAINER ID        IMAGE               COMMAND                  CREATED             STATUS              PORTS               NAMES
+12a3e3d08c71        atolmis/kafka       "bin/kafka-mirror-ma…"   18 hours ago        Up 18 hours                             stevedore_tina_1
+---- ----
+Node [Araeri]
+CONTAINER ID        IMAGE                             COMMAND                  CREATED             STATUS              PORTS                                                                    NAMES
+21eefac60b95        confluentinc/cp-zookeeper:4.1.1   "/etc/confluent/dock…"   5 months ago        Up 5 months         0.0.0.0:2181->2181/tcp, 0.0.0.0:2888->2888/tcp, 0.0.0.0:3888->3888/tcp   stevedore_courtney_1
+---- ----
+Node [Iberigan]
+CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS               NAMES
+---- ----
+Node [Brawia]
+CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS               NAMES
+---- ----
+Node [Gwirabard]
+CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS               NAMES
+---- ----
+Node [Falidon]
+CONTAINER ID        IMAGE                         COMMAND                  CREATED             STATUS              PORTS                              NAMES
+7e130408b046        confluentinc/cp-kafka:4.1.1   "/etc/confluent/dock…"   5 months ago        Up 5 months         0.0.0.0:9092-9093->9092-9093/tcp   stevedore_emily_1
+---- ----
+Node [Ocelisean]
+CONTAINER ID        IMAGE                             COMMAND                  CREATED             STATUS              PORTS                                                                    NAMES
+34d30a0505b9        confluentinc/cp-zookeeper:4.1.1   "/etc/confluent/dock…"   5 months ago        Up 5 months         0.0.0.0:2181->2181/tcp, 0.0.0.0:2888->2888/tcp, 0.0.0.0:3888->3888/tcp   stevedore_courtney_1
+---- ----
+Node [Legendamwen]
+CONTAINER ID        IMAGE               COMMAND                  CREATED             STATUS              PORTS               NAMES
+322f87087c5a        atolmis/kafka       "bin/kafka-mirror-ma…"   18 hours ago        Up 18 hours                             stevedore_tina_1
+---- ----
+Node [Rhoawien]
+CONTAINER ID        IMAGE                         COMMAND                  CREATED             STATUS              PORTS                              NAMES
+abb0be14bd6a        confluentinc/cp-kafka:4.1.1   "/etc/confluent/dock…"   5 months ago        Up 5 months         0.0.0.0:9092-9093->9092-9093/tcp   stevedore_emily_1
+---- ----
+Node [Boasien]
+CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS               NAMES
+---- ----
+Node [Cinna]
+CONTAINER ID        IMAGE                                  COMMAND                  CREATED             STATUS              PORTS                          NAMES
+305cab55b57c        bde2020/spark-worker:2.4.0-hadoop2.7   "/bin/bash /worker.sh"   5 months ago        Up 5 months         8081/tcp                       spark_spark-worker.6.e0cye5jzn89e1bb0g75pklvln
+0c3ce58c0098        bde2020/spark-worker:2.4.0-hadoop2.7   "/bin/bash /worker.sh"   5 months ago        Up 5 months         8081/tcp                       spark_spark-worker.5.yh1a14quutvyei28ux8r6yvhb
+4f1037fc0b53        bde2020/spark-worker:2.4.0-hadoop2.7   "/bin/bash /worker.sh"   5 months ago        Up 5 months         8081/tcp                       spark_spark-worker.3.ixx9pwtzwj39y74sv4mh6g34o
+c9cf3c78de77        bde2020/spark-worker:2.4.0-hadoop2.7   "/bin/bash /worker.sh"   5 months ago        Up 5 months         8081/tcp                       spark_spark-worker.4.vtj349c918okl3yk6ccrjtzg1
+9df4e584cf71        bde2020/spark-worker:2.4.0-hadoop2.7   "/bin/bash /worker.sh"   5 months ago        Up 5 months         8081/tcp                       spark_spark-worker.2.0xfln4il0wacq349tlu9a21in
+0db0b70c5f10        bde2020/spark-worker:2.4.0-hadoop2.7   "/bin/bash /worker.sh"   5 months ago        Up 5 months         8081/tcp                       spark_spark-worker.1.ngqmyp87e5b9djipis9ybsjuk
+1db29c585497        bde2020/spark-master:2.4.0-hadoop2.7   "/bin/bash /master.sh"   5 months ago        Up 5 months         6066/tcp, 7077/tcp, 8080/tcp   spark_spark-master.1.shimlk0jyom665413dsrtgwhw
+---- ----
+Node [Edieldan]
+CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS               NAMES
+--END--
+
+    #
+    # Include the stopped containers ..
+
+    for vmname in ${vmnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            ssh -F "${HOME}/.ssh/esperia-config" "${vmname:?}" '
+                docker ps --all
+                '
+        done
+
+--START--
+---- ----
+Node [Nyderrad]
+CONTAINER ID        IMAGE                             COMMAND                  CREATED             STATUS              PORTS                                                                    NAMES
+5b7027e114d8        confluentinc/cp-zookeeper:4.1.1   "/etc/confluent/dock…"   5 months ago        Up 5 months         0.0.0.0:2181->2181/tcp, 0.0.0.0:2888->2888/tcp, 0.0.0.0:3888->3888/tcp   stevedore_courtney_1
+---- ----
+Node [Glaubard]
+CONTAINER ID        IMAGE                   COMMAND                  CREATED             STATUS              PORTS               NAMES
+12a3e3d08c71        atolmis/kafka           "bin/kafka-mirror-ma…"   18 hours ago        Up 18 hours                             stevedore_tina_1
+e10c619ddc2f        phymatopus/kafka-core   "bin/kafka-run-class…"   2 months ago        Created                                 magical_bassi
+d085c83e728d        phymatopus/kafka-core   "bin/kafka-run-class…"   2 months ago        Created                                 vibrant_banach
+---- ----
+Node [Araeri]
+CONTAINER ID        IMAGE                             COMMAND                  CREATED             STATUS              PORTS                                                                    NAMES
+21eefac60b95        confluentinc/cp-zookeeper:4.1.1   "/etc/confluent/dock…"   5 months ago        Up 5 months         0.0.0.0:2181->2181/tcp, 0.0.0.0:2888->2888/tcp, 0.0.0.0:3888->3888/tcp   stevedore_courtney_1
+---- ----
+Node [Iberigan]
+CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS               NAMES
+---- ----
+Node [Brawia]
+CONTAINER ID        IMAGE                         COMMAND                  CREATED             STATUS                      PORTS               NAMES
+4ceafaf50756        confluentinc/cp-kafka:4.1.1   "/etc/confluent/dock…"   5 months ago        Exited (139) 3 months ago                       stevedore_emily_1
+---- ----
+Node [Gwirabard]
+CONTAINER ID        IMAGE                         COMMAND                  CREATED             STATUS                    PORTS               NAMES
+97f5fc50ac2e        confluentinc/cp-kafka:4.1.1   "/etc/confluent/dock…"   5 months ago        Exited (1) 2 months ago                       stevedore_emily_1
+---- ----
+Node [Falidon]
+CONTAINER ID        IMAGE                         COMMAND                  CREATED             STATUS              PORTS                              NAMES
+7e130408b046        confluentinc/cp-kafka:4.1.1   "/etc/confluent/dock…"   5 months ago        Up 5 months         0.0.0.0:9092-9093->9092-9093/tcp   stevedore_emily_1
+---- ----
+Node [Ocelisean]
+CONTAINER ID        IMAGE                             COMMAND                  CREATED             STATUS              PORTS                                                                    NAMES
+34d30a0505b9        confluentinc/cp-zookeeper:4.1.1   "/etc/confluent/dock…"   5 months ago        Up 5 months         0.0.0.0:2181->2181/tcp, 0.0.0.0:2888->2888/tcp, 0.0.0.0:3888->3888/tcp   stevedore_courtney_1
+---- ----
+Node [Legendamwen]
+CONTAINER ID        IMAGE               COMMAND                  CREATED             STATUS              PORTS               NAMES
+322f87087c5a        atolmis/kafka       "bin/kafka-mirror-ma…"   18 hours ago        Up 18 hours                             stevedore_tina_1
+---- ----
+Node [Rhoawien]
+CONTAINER ID        IMAGE                         COMMAND                  CREATED             STATUS              PORTS                              NAMES
+abb0be14bd6a        confluentinc/cp-kafka:4.1.1   "/etc/confluent/dock…"   5 months ago        Up 5 months         0.0.0.0:9092-9093->9092-9093/tcp   stevedore_emily_1
+---- ----
+Node [Boasien]
+CONTAINER ID        IMAGE                         COMMAND                  CREATED             STATUS                      PORTS               NAMES
+79ff4df4d2d3        confluentinc/cp-kafka:4.1.1   "/etc/confluent/dock…"   5 months ago        Exited (139) 2 months ago                       stevedore_emily_1
+---- ----
+Node [Cinna]
+CONTAINER ID        IMAGE                                  COMMAND                  CREATED             STATUS              PORTS                          NAMES
+305cab55b57c        bde2020/spark-worker:2.4.0-hadoop2.7   "/bin/bash /worker.sh"   5 months ago        Up 5 months         8081/tcp                       spark_spark-worker.6.e0cye5jzn89e1bb0g75pklvln
+0c3ce58c0098        bde2020/spark-worker:2.4.0-hadoop2.7   "/bin/bash /worker.sh"   5 months ago        Up 5 months         8081/tcp                       spark_spark-worker.5.yh1a14quutvyei28ux8r6yvhb
+4f1037fc0b53        bde2020/spark-worker:2.4.0-hadoop2.7   "/bin/bash /worker.sh"   5 months ago        Up 5 months         8081/tcp                       spark_spark-worker.3.ixx9pwtzwj39y74sv4mh6g34o
+c9cf3c78de77        bde2020/spark-worker:2.4.0-hadoop2.7   "/bin/bash /worker.sh"   5 months ago        Up 5 months         8081/tcp                       spark_spark-worker.4.vtj349c918okl3yk6ccrjtzg1
+9df4e584cf71        bde2020/spark-worker:2.4.0-hadoop2.7   "/bin/bash /worker.sh"   5 months ago        Up 5 months         8081/tcp                       spark_spark-worker.2.0xfln4il0wacq349tlu9a21in
+0db0b70c5f10        bde2020/spark-worker:2.4.0-hadoop2.7   "/bin/bash /worker.sh"   5 months ago        Up 5 months         8081/tcp                       spark_spark-worker.1.ngqmyp87e5b9djipis9ybsjuk
+1db29c585497        bde2020/spark-master:2.4.0-hadoop2.7   "/bin/bash /master.sh"   5 months ago        Up 5 months         6066/tcp, 7077/tcp, 8080/tcp   spark_spark-master.1.shimlk0jyom665413dsrtgwhw
+---- ----
+Node [Edieldan]
+CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS               NAMES
+--END--
+
+    
+    #
+    # 3 nodes runnin Zookeeper
+    # 2 nodes running Kafka
+    # 2 nodes running MirrorMAker
+    #
+
+        Boasien
+
+        Falidon
+        Rhoawien
+        Brawia
+        Gwirabard
+
+
+--START--
+---- ----
+Node [Nyderrad]
+confluentinc/cp-zookeeper:4.1.1
+---- ----
+Node [Ocelisean]
+confluentinc/cp-zookeeper:4.1.1
+---- ----
+Node [Araeri]
+confluentinc/cp-zookeeper:4.1.1
+
+---- ----
+Node [Falidon]
+confluentinc/cp-kafka:4.1.1
+---- ----
+Node [Rhoawien]
+confluentinc/cp-kafka:4.1.1
+
+---- ----
+Node [Glaubard]
+atolmis/kafka       "bin/kafka-mirror-ma…"
+---- ----
+Node [Legendamwen]
+atolmis/kafka       "bin/kafka-mirror-ma…"
+--END--
+
+    #
+    # 3 nodes with stopped Kafka 
+    #
+
+--START--
+---- ----
+Node [Brawia]
+CONTAINER ID        IMAGE                         COMMAND                  CREATED             STATUS
+4ceafaf50756        confluentinc/cp-kafka:4.1.1   "/etc/confluent/dock…"   5 months ago        Exited (139) 3 months ago
+---- ----
+Node [Gwirabard]
+CONTAINER ID        IMAGE                         COMMAND                  CREATED             STATUS
+97f5fc50ac2e        confluentinc/cp-kafka:4.1.1   "/etc/confluent/dock…"   5 months ago        Exited (1) 2 months ago
+---- ----
+Node [Boasien]
+CONTAINER ID        IMAGE                         COMMAND                  CREATED             STATUS                      PORTS               NAMES
+79ff4df4d2d3        confluentinc/cp-kafka:4.1.1   "/etc/confluent/dock…"   5 months ago        Exited (139) 2 months ago                       stevedore_emily_1
+--END--
+
+
+
+
+
+
+
+
+
+
+
+
+--START--
+--END--
+
+
+--START--
+--END--
+
+
+
+
