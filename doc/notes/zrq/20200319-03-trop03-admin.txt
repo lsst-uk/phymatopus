@@ -26,7 +26,10 @@
 #
 
     #
-    # Check what VMs are running on the worker ndoes ..
+    # Re-build the Kafka service running on trop03 ..
+    #
+    # TODO Docker log limits
+    # https://stackoverflow.com/a/42510314
     #
 
 
@@ -858,6 +861,14 @@ Domain Byflame started
 --END--
 
 
+--START--
+....
+[2020-03-20 06:14:45,140] TRACE [Broker id=4] Cached leader info PartitionState(controllerEpoch=7, leader=4, leaderEpoch=1, isr=[4], zkVersion=15, replicas=[4, 3, 1], offlineReplicas=[3, 1]) for partition ztf_20190904_programid1-76 in response to UpdateMetadata request sent by controller 2 epoch 7 with correlation id 7 (state.change.logger)
+[2020-03-20 06:14:45,140] TRACE [Broker id=4] Cached leader info PartitionState(controllerEpoch=7, leader=4, leaderEpoch=2, isr=[4], zkVersion=2, replicas=[2, 4, 1], offlineReplicas=[1]) for partition ztf_20190919_programid1-156 in response to UpdateMetadata request sent by controller 2 epoch 7 with correlation id 7 (state.change.logger)
+....
+--END--
+
+
 # -----------------------------------------------------
 # Re-create our missing node.
 #[user@trop03]
@@ -1460,16 +1471,784 @@ kafka.common.StateChangeFailedException: Failed to elect leader for partition zt
 
 --START--
 ....
+[2020-03-20 06:17:13,755] WARN [ReplicaFetcher replicaId=2, leaderId=4, fetcherId=0] Reset fetch offset for partition ztf_20190916_programid1-211 from 0 to current leader's start offset 839 (kafka.server.ReplicaFetcherThread)
+[2020-03-20 06:17:13,755] INFO The cleaning for partition ztf_20190916_programid1-211 is aborted and paused (kafka.log.LogCleaner)
+[2020-03-20 06:17:13,755] INFO [Log partition=ztf_20190916_programid1-211, dir=/data2-01] Scheduling log segment [baseOffset 0, size 0] for deletion. (kafka.log.Log)
+[2020-03-20 06:17:13,866] INFO Compaction for partition ztf_20190916_programid1-211 is resumed (kafka.log.LogCleaner)
+[2020-03-20 06:17:14,334] INFO [Log partition=ztf_20190922_programid1-168, dir=/data2-01] Deleting segment 0 (kafka.log.Log)
+[2020-03-20 06:17:14,334] INFO Deleted log /data2-01/ztf_20190922_programid1-168/00000000000000000000.log.deleted. (kafka.log.LogSegment)
+[2020-03-20 06:17:14,337] INFO Deleted offset index /data2-01/ztf_20190922_programid1-168/00000000000000000000.index.deleted. (kafka.log.LogSegment)
+[2020-03-20 06:17:14,337] INFO Deleted time index /data2-01/ztf_20190922_programid1-168/00000000000000000000.timeindex.deleted. (kafka.log.LogSegment)
+[2020-03-20 06:17:14,348] INFO [ReplicaFetcher replicaId=2, leaderId=4, fetcherId=0] Current offset 0 for partition ztf_20190916_programid1-211 is out of range, which typically implies a leader change. Reset fetch offset to 839 (kafka.server.ReplicaFetcherThread)
+[2020-03-20 06:17:14,351] WARN [ReplicaFetcher replicaId=2, leaderId=4, fetcherId=0] Reset fetch offset for partition ztf_20190916_programid1-2 from 0 to current leader's start offset 839 (kafka.server.ReplicaFetcherThread)
+[2020-03-20 06:17:14,351] INFO The cleaning for partition ztf_20190916_programid1-2 is aborted and paused (kafka.log.LogCleaner)
+[2020-03-20 06:17:14,351] INFO [Log partition=ztf_20190916_programid1-2, dir=/data2-01] Scheduling log segment [baseOffset 0, size 0] for deletion. (kafka.log.Log)
+[2020-03-20 06:17:14,474] INFO Compaction for partition ztf_20190916_programid1-2 is resumed (kafka.log.LogCleaner)
+[2020-03-20 06:17:14,956] INFO [ReplicaFetcher replicaId=2, leaderId=4, fetcherId=0] Current offset 0 for partition ztf_20190916_programid1-2 is out of range, which typically implies a leader change. Reset fetch offset to 839 (kafka.server.ReplicaFetcherThread)
+....
+--END--
+
+    #
+    # 6+hrs later ...
+    #
+
+--START--
+....
+[2020-03-20 14:11:13,995] INFO [Partition ztf_20190916_programid1-16 broker=1] Shrinking ISR from 1,3,2 to 1,3 (kafka.cluster.Partition)
+[2020-03-20 14:11:14,030] INFO [Partition ztf_20190924_programid1-161 broker=1] Expanding ISR from 1,3 to 1,3,2 (kafka.cluster.Partition)
+[2020-03-20 14:11:14,030] INFO [Partition ztf_20190925_programid1-82 broker=1] Shrinking ISR from 1,3,2 to 1,3 (kafka.cluster.Partition)
+[2020-03-20 14:11:14,093] INFO [Partition ztf_20190922_programid1-13 broker=1] Shrinking ISR from 1,3,2 to 1,3 (kafka.cluster.Partition)
+[2020-03-20 14:11:14,094] INFO [Partition ztf_20190909_programid1-138 broker=1] Expanding ISR from 1,4 to 1,4,2 (kafka.cluster.Partition)
+[2020-03-20 14:11:14,128] INFO [Partition ztf_20190905_programid1-170 broker=1] Expanding ISR from 1,4 to 1,4,2 (kafka.cluster.Partition)
+[2020-03-20 14:11:14,129] INFO [Partition ztf_20190921_programid1-253 broker=1] Shrinking ISR from 1,3,2 to 1,3 (kafka.cluster.Partition)
+[2020-03-20 14:11:14,158] INFO [Partition ztf_20190902_programid1-4 broker=1] Expanding ISR from 1,3 to 1,3,2 (kafka.cluster.Partition)
+....
+--END--
+
+--START--
+....
+[2020-03-20 14:11:51,435] INFO [Partition ztf_20190908_programid1-30 broker=3] Expanding ISR from 1,3 to 1,3,2 (kafka.cluster.Partition)
+[2020-03-20 14:11:51,452] INFO [Partition ztf_20190905_programid1-72 broker=3] Shrinking ISR from 4,3,2 to 4,3 (kafka.cluster.Partition)
+[2020-03-20 14:11:51,459] INFO [Partition ztf_20190916_programid1-226 broker=3] Expanding ISR from 1,3 to 1,3,2 (kafka.cluster.Partition)
+[2020-03-20 14:11:51,474] INFO [Partition ztf_20190915_programid1-147 broker=3] Shrinking ISR from 4,3,2 to 4,3 (kafka.cluster.Partition)
+[2020-03-20 14:11:51,481] INFO [Partition ztf_20190904_programid1-207 broker=3] Expanding ISR from 1,3 to 1,3,2 (kafka.cluster.Partition)
+[2020-03-20 14:11:51,500] INFO [Partition ztf_20190918_programid1-172 broker=3] Shrinking ISR from 4,3,2 to 4,3 (kafka.cluster.Partition)
+....
+--END--
+
+--START--
+....
+[2020-03-20 14:12:02,882] INFO [Partition ztf_20190917_programid1-239 broker=4] Expanding ISR from 4,2 to 4,2,3 (kafka.cluster.Partition)
+[2020-03-20 14:12:02,891] INFO [Partition banana-10 broker=4] Shrinking ISR from 4,1,3 to 4,1 (kafka.cluster.Partition)
+[2020-03-20 14:12:02,911] INFO [Partition ztf_20190907_programid1-146 broker=4] Expanding ISR from 4,1 to 4,1,3 (kafka.cluster.Partition)
+[2020-03-20 14:12:02,922] INFO [Partition ztf_20190910_programid1-27 broker=4] Shrinking ISR from 4,1,3 to 4,1 (kafka.cluster.Partition)
+[2020-03-20 14:12:02,941] INFO [Partition ztf_20190919_programid1-21 broker=4] Expanding ISR from 4,1 to 4,1,3 (kafka.cluster.Partition)
+[2020-03-20 14:12:02,945] INFO [Partition ztf_20190812_programid1-5 broker=4] Shrinking ISR from 4,1,3 to 4,1 (kafka.cluster.Partition)
+[2020-03-20 14:12:02,972] INFO [Partition ztf_20190904_programid1-24 broker=4] Expanding ISR from 4,2 to 4,2,3 (kafka.cluster.Partition)
+....
+--END--
+
+--START--
+....
+[2020-03-20 14:12:10,069] TRACE [Broker id=2] Cached leader info PartitionState(controllerEpoch=7, leader=3, leaderEpoch=3, isr=[1, 3], zkVersion=1311, replicas=[3, 1, 2], offlineReplicas=[]) for partition ztf_20190910_programid1-70 in response to UpdateMetadata request sent by controller 2 epoch 7 with correlation id 7487 (state.change.logger)
+[2020-03-20 14:12:10,069] TRACE [Broker id=2] Cached leader info PartitionState(controllerEpoch=7, leader=3, leaderEpoch=3, isr=[4, 3, 2], zkVersion=1482, replicas=[3, 2, 4], offlineReplicas=[]) for partition ztf_20190921_programid1-251 in response to UpdateMetadata request sent by controller 2 epoch 7 with correlation id 7487 (state.change.logger)
+[2020-03-20 14:12:10,070] TRACE [Controller id=2 epoch=7] Received response {error_code=0} for request UPDATE_METADATA with correlation id 7487 sent to broker Angece:9092 (id: 2 rack: 2) (state.change.logger)
+[2020-03-20 14:12:10,092] TRACE [Controller id=2 epoch=7] Received response {error_code=0} for request UPDATE_METADATA with correlation id 5025 sent to broker Stedigo:9092 (id: 1 rack: 1) (state.change.logger)
+[2020-03-20 14:12:10,122] TRACE [Controller id=2 epoch=7] Received response {error_code=0} for request UPDATE_METADATA with correlation id 6786 sent to broker Onoza:9092 (id: 4 rack: 4) (state.change.logger)
+....
+....
+[2020-03-20 14:13:28,043] TRACE [Broker id=2] Cached leader info PartitionState(controllerEpoch=7, leader=4, leaderEpoch=1, isr=[4, 1], zkVersion=1470, replicas=[4, 3, 1], offlineReplicas=[]) for partition ztf_20190904_programid1-76 in response to UpdateMetadata request sent by controller 2 epoch 7 with correlation id 7491 (state.change.logger)
+[2020-03-20 14:13:28,043] TRACE [Broker id=2] Cached leader info PartitionState(controllerEpoch=7, leader=4, leaderEpoch=1, isr=[4, 1, 3], zkVersion=1455, replicas=[4, 3, 1], offlineReplicas=[]) for partition ztf_20190919_programid1-222 in response to UpdateMetadata request sent by controller 2 epoch 7 with correlation id 7491 (state.change.logger)
+[2020-03-20 14:13:28,043] TRACE [Broker id=2] Cached leader info PartitionState(controllerEpoch=7, leader=4, leaderEpoch=1, isr=[4, 1, 3], zkVersion=1289, replicas=[4, 3, 1], offlineReplicas=[]) for partition ztf_20190907_programid1-83 in response to UpdateMetadata request sent by controller 2 epoch 7 with correlation id 7491 (state.change.logger)
+[2020-03-20 14:13:28,043] TRACE [Broker id=2] Cached leader info PartitionState(controllerEpoch=7, leader=4, leaderEpoch=1, isr=[4, 1, 3], zkVersion=1447, replicas=[4, 3, 1], offlineReplicas=[]) for partition ztf_20190919_programid1-90 in response to UpdateMetadata request sent by controller 2 epoch 7 with correlation id 7491 (state.change.logger)
+[2020-03-20 14:13:28,043] TRACE [Controller id=2 epoch=7] Received response {error_code=0} for request UPDATE_METADATA with correlation id 7491 sent to broker Angece:9092 (id: 2 rack: 2) (state.change.logger)
+[2020-03-20 14:13:28,056] TRACE [Controller id=2 epoch=7] Received response {error_code=0} for request UPDATE_METADATA with correlation id 6790 sent to broker Onoza:9092 (id: 4 rack: 4) (state.change.logger)
+[2020-03-20 14:13:28,060] TRACE [Controller id=2 epoch=7] Received response {error_code=0} for request UPDATE_METADATA with correlation id 5591 sent to broker Edwalafia:9092 (id: 3 rack: 3) (state.change.logger)
+[2020-03-20 14:13:28,070] TRACE [Controller id=2 epoch=7] Received response {error_code=0} for request UPDATE_METADATA with correlation id 5029 sent to broker Stedigo:9092 (id: 1 rack: 1) (state.change.logger)
 ....
 --END--
 
 
+# -----------------------------------------------------
+# List the VM states.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+    
+    virsh \
+        --connect "${libvirtcon:?}" \
+        list \
+            --all
 
 
+--START--
+ Id    Name                           State
+----------------------------------------------------
+ 57    Edwalafia                      running
+ 58    Stedigo                        running
+ 59    Onoza                          running
+ 60    Fosauri                        running
+ 61    Marpus                         running
+ 62    Byflame                        running
+ 64    Angece                         running
+ -     Grerat                         shut off
+ -     Jeralenia                      shut off
+ -     Umiawyth                       shut off
+--END--
+
+# -----------------------------------------------------
+# Start the MirrorMaker VMs.
+#[user@trop03]
+
+    source "${HOME}/nodenames"
+
+    for vmname in ${mmnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            virsh \
+                --connect "${libvirtcon:?}" \
+                start \
+                    "${vmname:?}"
+        done
+
+--START--
+---- ----
+Node [Grerat]
+Domain Grerat started
+
+---- ----
+Node [Jeralenia]
+Domain Jeralenia started
+--END--
 
 
+# -----------------------------------------------------
+# Check the crontab is not active on any of them.
+#[user@trop03]
+
+    source "${HOME}/ssh-options"
+    source "${HOME}/nodenames"
+
+    for vmname in ${mmnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            ssh \
+                ${scpopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                hostname
+                date
+                crontab -l
+                "
+        done
+
+--START--
+---- ----
+Node [Grerat]
+Grerat
+Fri 20 Mar 14:21:47 GMT 2020
+no crontab for Stevedore
+---- ----
+Node [Jeralenia]
+Jeralenia
+Fri 20 Mar 14:21:48 GMT 2020
+bash: line 3: crontab: command not found
+--END--
 
 
+# -----------------------------------------------------
+# See if we can get a list of available topics.
+#[user@trop03]
+
+    source "${HOME}/ssh-options"
+    source "${HOME}/nodenames"
+
+    ssh \
+        ${sshopts[*]} \
+        ${sshuser:?}@${mmnames[0]:?} \
+            "
+            docker run --rm \
+                phymatopus/kafka-core \
+                    bin/kafka-topics.sh \
+                        --zookeeper '${zknames[0]}' \
+                        --list \
+            | sort | tee /tmp/topiclist
+            "
+
+--START--
+banana
+__confluent.support.metrics
+__consumer_offsets
+ztf_20190724_programid1
+ztf_20190725_programid1
+ztf_20190726_programid1
+ztf_20190727_programid1
+ztf_20190728_programid1
+ztf_20190729_programid1
+ztf_20190730_programid1
+ztf_20190731_programid1
+ztf_20190801_programid1
+ztf_20190802_programid1
+ztf_20190803_programid1
+ztf_20190804_programid1
+ztf_20190805_programid1
+ztf_20190806_programid1
+ztf_20190807_programid1
+ztf_20190808_programid1
+ztf_20190809_programid1
+ztf_20190810_programid1
+ztf_20190811_programid1
+ztf_20190812_programid1
+ztf_20190813_programid1
+ztf_20190814_programid1
+ztf_20190815_programid1
+ztf_20190816_programid1
+ztf_20190817_programid1
+ztf_20190818_programid1
+ztf_20190819_programid1
+ztf_20190820_programid1
+ztf_20190821_programid1
+ztf_20190822_programid1
+ztf_20190823_programid1
+ztf_20190824_programid1
+ztf_20190825_programid1
+ztf_20190826_programid1
+ztf_20190827_programid1
+ztf_20190828_programid1
+ztf_20190829_programid1
+ztf_20190830_programid1
+ztf_20190831_programid1
+ztf_20190901_programid1
+ztf_20190902_programid1
+ztf_20190903_programid1
+ztf_20190904_programid1
+ztf_20190905_programid1
+ztf_20190906_programid1
+ztf_20190907_programid1
+ztf_20190908_programid1
+ztf_20190909_programid1
+ztf_20190910_programid1
+ztf_20190911_programid1
+ztf_20190912_programid1
+ztf_20190913_programid1
+ztf_20190914_programid1
+ztf_20190915_programid1
+ztf_20190916_programid1
+ztf_20190917_programid1
+ztf_20190918_programid1
+ztf_20190919_programid1
+ztf_20190920_programid1
+ztf_20190921_programid1
+ztf_20190922_programid1
+ztf_20190923_programid1
+ztf_20190924_programid1
+ztf_20190925_programid1
+ztf_20190930_programid1
+ztf_20191012_programid1
+ztf_20191126_programid1
+--END--
+
+
+# -----------------------------------------------------
+# Try to get the total count all our topics.
+#[user@trop03]
+
+    source "${HOME}/ssh-options"
+    source "${HOME}/nodenames"
+
+    ssh \
+        ${sshopts[*]} \
+        ${sshuser:?}@${mmnames[0]:?}
+
+            brokers=$(
+                sed -n '
+                    s/^bootstrap.servers=\(.*\)$/\1/p
+                    ' producer.config 
+                )
+
+            for topic in $(cat /tmp/topiclist)
+            do
+                echo "---- ----"
+                echo "Topic [${topic:?}]"
+                docker run -it --rm \
+                    phymatopus/kafka-core \
+                        bin/kafka-run-class.sh \
+                            kafka.tools.GetOffsetShell \
+                                --broker-list "${brokers:?}" \
+                                --topic "${topic:?}" \
+                | sed '
+                    s/\([^:]*\):\([^:]*\):\([^:]*\)/\3/
+                    ' \
+                | awk '
+                    {sum += $1} END {print sum}
+                    '
+            done
+
+--START--
+---- ----
+Topic [banana]
+0
+---- ----
+Topic [__confluent.support.metrics]
+0
+---- ----
+Topic [__consumer_offsets]
+1631848
+---- ----
+Topic [ztf_20190724_programid1]
+158021
+---- ----
+Topic [ztf_20190725_programid1]
+138401
+---- ----
+Topic [ztf_20190726_programid1]
+209502
+---- ----
+Topic [ztf_20190727_programid1]
+175742
+---- ----
+Topic [ztf_20190728_programid1]
+125586
+---- ----
+Topic [ztf_20190729_programid1]
+300320
+---- ----
+Topic [ztf_20190730_programid1]
+385590
+---- ----
+Topic [ztf_20190731_programid1]
+525648
+---- ----
+Topic [ztf_20190801_programid1]
+246044
+---- ----
+Topic [ztf_20190802_programid1]
+142952
+---- ----
+Topic [ztf_20190803_programid1]
+432503
+---- ----
+Topic [ztf_20190804_programid1]
+360773
+---- ----
+Topic [ztf_20190805_programid1]
+188259
+---- ----
+Topic [ztf_20190806_programid1]
+171045
+---- ----
+Topic [ztf_20190807_programid1]
+152045
+---- ----
+Topic [ztf_20190808_programid1]
+185032
+---- ----
+Topic [ztf_20190809_programid1]
+161631
+---- ----
+Topic [ztf_20190810_programid1]
+141310
+---- ----
+Topic [ztf_20190811_programid1]
+157253
+---- ----
+Topic [ztf_20190812_programid1]
+160219
+---- ----
+Topic [ztf_20190813_programid1]
+105297
+---- ----
+Topic [ztf_20190814_programid1]
+125047
+---- ----
+Topic [ztf_20190815_programid1]
+57374
+---- ----
+Topic [ztf_20190816_programid1]
+122321
+---- ----
+Topic [ztf_20190817_programid1]
+88370
+---- ----
+Topic [ztf_20190818_programid1]
+195882
+---- ----
+Topic [ztf_20190819_programid1]
+149580
+---- ----
+Topic [ztf_20190820_programid1]
+0
+---- ----
+Topic [ztf_20190821_programid1]
+125266
+---- ----
+Topic [ztf_20190822_programid1]
+138783
+---- ----
+Topic [ztf_20190823_programid1]
+179150
+---- ----
+Topic [ztf_20190824_programid1]
+130723
+---- ----
+Topic [ztf_20190825_programid1]
+184504
+---- ----
+Topic [ztf_20190826_programid1]
+1032500
+---- ----
+Topic [ztf_20190827_programid1]
+167450
+---- ----
+Topic [ztf_20190828_programid1]
+191143
+---- ----
+Topic [ztf_20190829_programid1]
+206362
+---- ----
+Topic [ztf_20190830_programid1]
+203625
+---- ----
+Topic [ztf_20190831_programid1]
+178229
+---- ----
+Topic [ztf_20190901_programid1]
+162662
+---- ----
+Topic [ztf_20190902_programid1]
+2521
+---- ----
+Topic [ztf_20190903_programid1]
+1321
+---- ----
+Topic [ztf_20190904_programid1]
+310593
+---- ----
+Topic [ztf_20190905_programid1]
+48408
+---- ----
+Topic [ztf_20190906_programid1]
+317153
+---- ----
+Topic [ztf_20190907_programid1]
+97183
+---- ----
+Topic [ztf_20190908_programid1]
+68360
+---- ----
+Topic [ztf_20190909_programid1]
+74470
+---- ----
+Topic [ztf_20190910_programid1]
+23726
+---- ----
+Topic [ztf_20190911_programid1]
+4708
+---- ----
+Topic [ztf_20190912_programid1]
+142672
+---- ----
+Topic [ztf_20190913_programid1]
+92449
+---- ----
+Topic [ztf_20190914_programid1]
+78329
+---- ----
+Topic [ztf_20190915_programid1]
+151226
+---- ----
+Topic [ztf_20190916_programid1]
+214991
+---- ----
+Topic [ztf_20190917_programid1]
+127069
+---- ----
+Topic [ztf_20190918_programid1]
+169324
+---- ----
+Topic [ztf_20190919_programid1]
+133721
+---- ----
+Topic [ztf_20190920_programid1]
+91832
+---- ----
+Topic [ztf_20190921_programid1]
+207217
+---- ----
+Topic [ztf_20190922_programid1]
+226788
+---- ----
+Topic [ztf_20190923_programid1]
+187690
+---- ----
+Topic [ztf_20190924_programid1]
+233422
+---- ----
+Topic [ztf_20190925_programid1]
+199858
+---- ----
+Topic [ztf_20190930_programid1]
+0
+---- ----
+Topic [ztf_20191012_programid1]
+0
+---- ----
+Topic [ztf_20191126_programid1]
+0
+--END--
+
+    
+# -----------------------------------------------------
+# Get the retention time for a topic.
+# (ztf_20190821_programid1 shuld be a long lasting one)
+#[user@trop03]
+
+    source "${HOME}/ssh-options"
+    source "${HOME}/nodenames"
+
+    ssh \
+        ${sshopts[*]} \
+        ${sshuser:?}@${mmnames[0]:?}
+
+            source "${HOME}/nodenames"
+
+            topic=ztf_20190821_programid1
+
+            docker run -it --rm \
+                phymatopus/kafka-core \
+                    bin/kafka-configs.sh \
+                        --zookeeper "${zknames[0]:?}" \
+                        --entity-type topics \
+                        --entity-name "${topic:?}" \
+                        --describe
+
+--START--
+Configs for topic 'ztf_20190821_programid1' are retention.ms=-1
+--END--
+
+
+# -----------------------------------------------------
+# Try to get all the retention times for all our topics.
+#[user@trop03]
+
+    source "${HOME}/ssh-options"
+    source "${HOME}/nodenames"
+
+    ssh \
+        ${sshopts[*]} \
+        ${sshuser:?}@${mmnames[0]:?}
+
+            source "${HOME}/nodenames"
+
+            for topic in $(cat /tmp/topiclist)
+            do
+                echo "---- ----"
+                echo "Topic [${topic:?}]"
+
+                docker run -it --rm \
+                    phymatopus/kafka-core \
+                        bin/kafka-configs.sh \
+                            --zookeeper "${zknames[0]:?}" \
+                            --entity-type topics \
+                            --entity-name "${topic:?}" \
+                            --describe
+        
+            done
+
+--START--
+---- ----
+Topic [banana]
+Configs for topic 'banana' are 
+---- ----
+Topic [__confluent.support.metrics]
+Configs for topic '__confluent.support.metrics' are retention.ms=31536000000
+---- ----
+Topic [__consumer_offsets]
+Configs for topic '__consumer_offsets' are segment.bytes=104857600,cleanup.policy=compact,compression.type=producer
+---- ----
+Topic [ztf_20190724_programid1]
+Configs for topic 'ztf_20190724_programid1' are 
+---- ----
+Topic [ztf_20190725_programid1]
+Configs for topic 'ztf_20190725_programid1' are 
+---- ----
+Topic [ztf_20190726_programid1]
+Configs for topic 'ztf_20190726_programid1' are 
+---- ----
+Topic [ztf_20190727_programid1]
+Configs for topic 'ztf_20190727_programid1' are 
+---- ----
+Topic [ztf_20190728_programid1]
+Configs for topic 'ztf_20190728_programid1' are 
+---- ----
+Topic [ztf_20190729_programid1]
+Configs for topic 'ztf_20190729_programid1' are 
+---- ----
+Topic [ztf_20190730_programid1]
+Configs for topic 'ztf_20190730_programid1' are 
+---- ----
+Topic [ztf_20190731_programid1]
+Configs for topic 'ztf_20190731_programid1' are 
+---- ----
+Topic [ztf_20190801_programid1]
+Configs for topic 'ztf_20190801_programid1' are retention.ms=-1
+---- ----
+Topic [ztf_20190802_programid1]
+Configs for topic 'ztf_20190802_programid1' are retention.ms=-1
+---- ----
+Topic [ztf_20190803_programid1]
+Configs for topic 'ztf_20190803_programid1' are retention.ms=-1
+---- ----
+Topic [ztf_20190804_programid1]
+Configs for topic 'ztf_20190804_programid1' are retention.ms=-1
+---- ----
+Topic [ztf_20190805_programid1]
+Configs for topic 'ztf_20190805_programid1' are retention.ms=-1
+---- ----
+Topic [ztf_20190806_programid1]
+Configs for topic 'ztf_20190806_programid1' are retention.ms=-1
+---- ----
+Topic [ztf_20190807_programid1]
+Configs for topic 'ztf_20190807_programid1' are retention.ms=-1
+---- ----
+Topic [ztf_20190808_programid1]
+Configs for topic 'ztf_20190808_programid1' are retention.ms=-1
+---- ----
+Topic [ztf_20190809_programid1]
+Configs for topic 'ztf_20190809_programid1' are retention.ms=-1
+---- ----
+Topic [ztf_20190810_programid1]
+Configs for topic 'ztf_20190810_programid1' are retention.ms=-1
+---- ----
+Topic [ztf_20190811_programid1]
+Configs for topic 'ztf_20190811_programid1' are retention.ms=-1
+---- ----
+Topic [ztf_20190812_programid1]
+Configs for topic 'ztf_20190812_programid1' are retention.ms=-1
+---- ----
+Topic [ztf_20190813_programid1]
+Configs for topic 'ztf_20190813_programid1' are retention.ms=-1
+---- ----
+Topic [ztf_20190814_programid1]
+Configs for topic 'ztf_20190814_programid1' are retention.ms=-1
+---- ----
+Topic [ztf_20190815_programid1]
+Configs for topic 'ztf_20190815_programid1' are retention.ms=-1
+---- ----
+Topic [ztf_20190816_programid1]
+Configs for topic 'ztf_20190816_programid1' are retention.ms=-1
+---- ----
+Topic [ztf_20190817_programid1]
+Configs for topic 'ztf_20190817_programid1' are retention.ms=-1
+---- ----
+Topic [ztf_20190818_programid1]
+Configs for topic 'ztf_20190818_programid1' are retention.ms=-1
+---- ----
+Topic [ztf_20190819_programid1]
+Configs for topic 'ztf_20190819_programid1' are retention.ms=-1
+---- ----
+Topic [ztf_20190820_programid1]
+Configs for topic 'ztf_20190820_programid1' are retention.ms=-1
+---- ----
+Topic [ztf_20190821_programid1]
+Configs for topic 'ztf_20190821_programid1' are retention.ms=-1
+---- ----
+Topic [ztf_20190822_programid1]
+Configs for topic 'ztf_20190822_programid1' are retention.ms=-1
+---- ----
+Topic [ztf_20190823_programid1]
+Configs for topic 'ztf_20190823_programid1' are retention.ms=-1
+---- ----
+Topic [ztf_20190824_programid1]
+Configs for topic 'ztf_20190824_programid1' are retention.ms=-1
+---- ----
+Topic [ztf_20190825_programid1]
+Configs for topic 'ztf_20190825_programid1' are retention.ms=-1
+---- ----
+Topic [ztf_20190826_programid1]
+Configs for topic 'ztf_20190826_programid1' are retention.ms=-1
+---- ----
+Topic [ztf_20190827_programid1]
+Configs for topic 'ztf_20190827_programid1' are retention.ms=-1
+---- ----
+Topic [ztf_20190828_programid1]
+Configs for topic 'ztf_20190828_programid1' are retention.ms=-1
+---- ----
+Topic [ztf_20190829_programid1]
+Configs for topic 'ztf_20190829_programid1' are retention.ms=-1
+---- ----
+Topic [ztf_20190830_programid1]
+Configs for topic 'ztf_20190830_programid1' are retention.ms=-1
+---- ----
+Topic [ztf_20190831_programid1]
+Configs for topic 'ztf_20190831_programid1' are retention.ms=-1
+---- ----
+Topic [ztf_20190901_programid1]
+Configs for topic 'ztf_20190901_programid1' are 
+---- ----
+Topic [ztf_20190902_programid1]
+Configs for topic 'ztf_20190902_programid1' are 
+---- ----
+Topic [ztf_20190903_programid1]
+Configs for topic 'ztf_20190903_programid1' are 
+---- ----
+Topic [ztf_20190904_programid1]
+Configs for topic 'ztf_20190904_programid1' are 
+---- ----
+Topic [ztf_20190905_programid1]
+Configs for topic 'ztf_20190905_programid1' are 
+---- ----
+Topic [ztf_20190906_programid1]
+Configs for topic 'ztf_20190906_programid1' are 
+---- ----
+Topic [ztf_20190907_programid1]
+Configs for topic 'ztf_20190907_programid1' are 
+---- ----
+Topic [ztf_20190908_programid1]
+Configs for topic 'ztf_20190908_programid1' are 
+---- ----
+Topic [ztf_20190909_programid1]
+Configs for topic 'ztf_20190909_programid1' are 
+---- ----
+Topic [ztf_20190910_programid1]
+Configs for topic 'ztf_20190910_programid1' are 
+---- ----
+Topic [ztf_20190911_programid1]
+Configs for topic 'ztf_20190911_programid1' are 
+---- ----
+Topic [ztf_20190912_programid1]
+Configs for topic 'ztf_20190912_programid1' are 
+---- ----
+Topic [ztf_20190913_programid1]
+Configs for topic 'ztf_20190913_programid1' are 
+---- ----
+Topic [ztf_20190914_programid1]
+Configs for topic 'ztf_20190914_programid1' are 
+---- ----
+Topic [ztf_20190915_programid1]
+Configs for topic 'ztf_20190915_programid1' are 
+---- ----
+Topic [ztf_20190916_programid1]
+Configs for topic 'ztf_20190916_programid1' are 
+---- ----
+Topic [ztf_20190917_programid1]
+Configs for topic 'ztf_20190917_programid1' are 
+---- ----
+Topic [ztf_20190918_programid1]
+Configs for topic 'ztf_20190918_programid1' are 
+---- ----
+Topic [ztf_20190919_programid1]
+Configs for topic 'ztf_20190919_programid1' are 
+---- ----
+Topic [ztf_20190920_programid1]
+Configs for topic 'ztf_20190920_programid1' are 
+---- ----
+Topic [ztf_20190921_programid1]
+Configs for topic 'ztf_20190921_programid1' are 
+---- ----
+Topic [ztf_20190922_programid1]
+Configs for topic 'ztf_20190922_programid1' are 
+---- ----
+Topic [ztf_20190923_programid1]
+Configs for topic 'ztf_20190923_programid1' are 
+---- ----
+Topic [ztf_20190924_programid1]
+Configs for topic 'ztf_20190924_programid1' are 
+---- ----
+Topic [ztf_20190925_programid1]
+Configs for topic 'ztf_20190925_programid1' are 
+---- ----
+Topic [ztf_20190930_programid1]
+Configs for topic 'ztf_20190930_programid1' are 
+---- ----
+Topic [ztf_20191012_programid1]
+Configs for topic 'ztf_20191012_programid1' are 
+---- ----
+Topic [ztf_20191126_programid1]
+Configs for topic 'ztf_20191126_programid1' are 
+--END--
 
 
 
