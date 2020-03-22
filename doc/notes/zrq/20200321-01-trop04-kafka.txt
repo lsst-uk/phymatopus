@@ -1,0 +1,700 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2020, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#zrq-notes-time
+#zrq-notes-indent
+#zrq-notes-crypto
+#zrq-notes-ansible
+#zrq-notes-osformat
+#
+
+    #
+    # trop03 is already overloaded, so run the MirrorMaker VMs on trop04.
+    # 
+
+
+# -----------------------------------------------------
+# Update our machine lists.
+#[user@trop03]
+
+    vi "${HOME}/nodenames"
+
+        ....
+
+        # Mirror-maker nodes.
+        unset mmnames
+        mmnames=(
+    -       Grerat
+    -       Jeralenia
+    +       Dwalewen
+    +       Gwoeric
+            )
+
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+# Updfate our Fedora image.
+#[user@trop04]
+
+    pushd $(mktemp -d)
+
+        source "${HOME}/libvirt.settings"
+        source "${HOME}/ischnura.settings"
+
+        basecpu=4
+        basemem=4096
+        basesize=16G
+        basearch=x86_64
+
+        basever=30
+        basedate=20190903
+        basedist=fedora-${basever:?}
+
+        basename=${basedist}-docker-base-${basedate:?}
+        basefile=${basename}.qcow
+        basegzip=${basefile}.gz
+
+#---------------------------------------------------------------------
+# Download a copy of the base image.
+#[user@trop04]
+
+        wget "http://data.metagrid.co.uk/ischnura/base/${basefile:?}"
+
+#---------------------------------------------------------------------
+# Check the image details.
+#[user@trop04]
+
+        qemu-img \
+            info \
+                "${basefile:?}"
+
+--START--
+image: fedora-30-docker-base-20190903.qcow
+file format: qcow2
+virtual size: 16G (17179869184 bytes)
+disk size: 1.1G
+cluster_size: 65536
+Format specific information:
+    compat: 1.1
+    lazy refcounts: false
+    refcount bits: 16
+    corrupt: false
+--END--
+
+#---------------------------------------------------------------------
+# Delete any existing volume.
+#[user@trop04]
+
+        virsh \
+            --connect "${libvirtcon:?}" \
+            vol-delete \
+                --pool "${basepool}" \
+                "${basefile:?}"
+
+--START--
+error: failed to get vol 'fedora-30-docker-base-20190903.qcow'
+error: Storage volume not found: no storage vol with matching path 'fedora-30-docker-base-20190903.qcow'
+--END--
+
+#---------------------------------------------------------------------
+# Create a new (empty) volume.
+#[user@trop04]
+
+        virsh \
+            --connect "${libvirtcon:?}" \
+            vol-create-as \
+                "${basepool:?}" \
+                "${basefile:?}" \
+                "${basesize:?}" \
+                --format qcow2
+
+--START--
+Vol fedora-30-docker-base-20190903.qcow created
+--END--
+
+#---------------------------------------------------------------------
+# Upload the image into the new volume.
+#[user@trop04]
+
+        virsh \
+            --connect "${libvirtcon:?}" \
+            vol-upload \
+                --pool "${basepool:?}" \
+                "${basefile:?}" \
+                "${basefile:?}"
+
+#---------------------------------------------------------------------
+# Delete the downloaded file.
+#[user@trop04]
+
+        rm "${basefile:?}"
+
+    popd
+
+
+#---------------------------------------------------------------------
+# Create our MirrorMaker VMs.
+#[user@trop04]
+
+    createvm
+
+--START--
+INFO : Node name [Dwalewen]
+INFO : Base name [fedora-30-docker-base-20190903.qcow]
+INFO : Base path [/var/lib/libvirt/images/base/fedora-30-docker-base-20190903.qcow]
+INFO : Disc name [Dwalewen.qcow]
+INFO : Disc size [16GiB]
+--END--
+    
+
+    createvm
+
+--START--
+INFO : Node name [Gwoeric]
+INFO : Base name [fedora-30-docker-base-20190903.qcow]
+INFO : Base path [/var/lib/libvirt/images/base/fedora-30-docker-base-20190903.qcow]
+INFO : Disc name [Gwoeric.qcow]
+INFO : Disc size [16GiB]
+--END--
+
+
+#---------------------------------------------------------------------
+#---------------------------------------------------------------------
+# Define a host lookup function.
+# https://askubuntu.com/questions/627906/why-is-my-etc-hosts-file-not-queried-when-nslookup-tries-to-resolve-an-address#comment1536517_627909
+# TODO Add this to a toolit script.
+#[user@trop03]
+
+    getipv4()
+        {
+        getent hosts "${1:?}" | cut -d ' ' -f 1
+        }
+
+
+#---------------------------------------------------------------------
+# Update our SSH keys for each node.
+#[user@trop03]
+
+    source "${HOME}/nodenames"
+
+    for vmname in ${mmnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+
+            ssh-keygen \
+                -q -R \
+                    "${vmname:?}"
+
+            ssh-keyscan \
+                "${vmname:?}" \
+                >> "${HOME}/.ssh/known_hosts"
+
+            ssh-keyscan \
+                -t ecdsa $(getipv4 "${vmname:?}") \
+                >> "${HOME}/.ssh/known_hosts"
+
+        done
+
+--START--
+---- ----
+Node [Dwalewen]
+Host Dwalewen not found in /home/dmr/.ssh/known_hosts
+# Dwalewen:22 SSH-2.0-OpenSSH_8.0
+# Dwalewen:22 SSH-2.0-OpenSSH_8.0
+# Dwalewen:22 SSH-2.0-OpenSSH_8.0
+# 172.16.6.31:22 SSH-2.0-OpenSSH_8.0
+---- ----
+Node [Gwoeric]
+Host Gwoeric not found in /home/dmr/.ssh/known_hosts
+# Gwoeric:22 SSH-2.0-OpenSSH_8.0
+# Gwoeric:22 SSH-2.0-OpenSSH_8.0
+# Gwoeric:22 SSH-2.0-OpenSSH_8.0
+# 172.16.6.32:22 SSH-2.0-OpenSSH_8.0
+--END--
+
+
+# -----------------------------------------------------
+# Update the number of cores on our MirrorMaker nodes.
+#[user@trop03]
+
+    source "${HOME}/nodenames"
+    source "${HOME}/libvirt.settings"
+
+    for vmname in ${mmnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname}]"
+            ssh trop04 \
+                "
+                virsh \
+                    --connect ${libvirtcon:?} \
+                        setvcpus \
+                        ${vmname:?} \
+                        2 \
+                        --maximum \
+                        --config
+                "
+        done
+
+--START--
+---- ----
+Node [Dwalewen]
+
+---- ----
+Node [Gwoeric]
+--END--
+
+
+# -----------------------------------------------------
+# Restart each of our MirrorMaker nodes.
+#[user@trop03]
+
+    source "${HOME}/nodenames"
+    source "${HOME}/libvirt.settings"
+
+    for vmname in ${mmnames[@]}
+        do
+            ssh trop04 \
+                "                
+                virsh \
+                    --connect ${libvirtcon:?} \
+                        shutdown \
+                        ${vmname:?}
+                "                
+        done
+
+--START--
+Domain Dwalewen is being shutdown
+
+Domain Gwoeric is being shutdown
+--END--
+
+    sleep 30
+
+    for vmname in ${mmnames[@]}
+        do
+            ssh trop04 \
+                "
+                virsh \
+                    --connect ${libvirtcon:?} \
+                        start \
+                        ${vmname:?}
+                "
+        done
+
+--START--
+Domain Dwalewen started
+
+Domain Gwoeric started
+--END--
+
+
+# -----------------------------------------------------
+# Create our broker connection lists.
+#[user@trop03]
+
+    source "${HOME}/nodenames"
+
+    ztftopicid=ztf_$(date +%Y%m%d)_programid1
+    ztfconnect=public.alerts.ztf.uw.edu:9092
+
+    kafkanames=${kfnames[*]}
+    roeconnect=${kafkanames// /:9092,}:9092
+    roegroupid=ztf-mirror.roe.ac.uk
+
+    cat > "${HOME}/connections" << EOF
+ztftopicid=${ztftopicid:?}
+ztfconnect=${ztfconnect:?}
+roeconnect=${roeconnect:?}
+roegroupid=${roegroupid:?}
+EOF
+
+    cat "${HOME}/connections"
+
+--START--
+ztftopicid=ztf_20200321_programid1
+ztfconnect=public.alerts.ztf.uw.edu:9092
+roeconnect=Stedigo:9092,Angece:9092,Edwalafia:9092,Onoza:9092
+roegroupid=ztf-mirror.roe.ac.uk
+--END--
+
+
+    #
+    # Install and configure MirrorMaker .. later 
+    #
+
+
+# -----------------------------------------------------
+# See if we can get a list of available topics.
+#[user@trop03]
+
+    source "${HOME}/nodenames"
+    source "${HOME}/ssh-options"
+
+    ssh \
+        ${sshopts[*]} \
+        ${sshuser:?}@${mmnames[0]:?} \
+        << EOF
+
+    docker run --rm \
+        phymatopus/kafka-core \
+            bin/kafka-topics.sh \
+                --zookeeper "${zknames[0]}" \
+                --list \
+    | sort | tee /tmp/topiclist
+EOF
+
+
+
+--START--
+Unable to find image 'phymatopus/kafka-core:latest' locally
+latest: Pulling from phymatopus/kafka-core
+e71c36a80ba9: Pulling fs layer
+ddd7f2d439fc: Pulling fs layer
+....
+....
+906d0ec5db14: Pull complete
+57d9f5cfa5f7: Pull complete
+Digest: sha256:998482164d8991aa867730ec2b0d7b0c062311687964d53d255c7857621f28f1
+Status: Downloaded newer image for phymatopus/kafka-core:latest
+--END--
+
+--START--
+banana
+__confluent.support.metrics
+__consumer_offsets
+ztf_20190724_programid1
+ztf_20190725_programid1
+ztf_20190726_programid1
+ztf_20190727_programid1
+ztf_20190728_programid1
+ztf_20190729_programid1
+ztf_20190730_programid1
+ztf_20190731_programid1
+ztf_20190801_programid1
+ztf_20190802_programid1
+ztf_20190803_programid1
+ztf_20190804_programid1
+ztf_20190805_programid1
+ztf_20190806_programid1
+ztf_20190807_programid1
+ztf_20190808_programid1
+ztf_20190809_programid1
+ztf_20190810_programid1
+ztf_20190811_programid1
+ztf_20190812_programid1
+ztf_20190813_programid1
+ztf_20190814_programid1
+ztf_20190815_programid1
+ztf_20190816_programid1
+ztf_20190817_programid1
+ztf_20190818_programid1
+ztf_20190819_programid1
+ztf_20190820_programid1
+ztf_20190821_programid1
+ztf_20190822_programid1
+ztf_20190823_programid1
+ztf_20190824_programid1
+ztf_20190825_programid1
+ztf_20190826_programid1
+ztf_20190827_programid1
+ztf_20190828_programid1
+ztf_20190829_programid1
+ztf_20190830_programid1
+ztf_20190831_programid1
+ztf_20190901_programid1
+ztf_20190902_programid1
+ztf_20190903_programid1
+ztf_20190904_programid1
+ztf_20190905_programid1
+ztf_20190906_programid1
+ztf_20190907_programid1
+ztf_20190908_programid1
+ztf_20190909_programid1
+ztf_20190910_programid1
+ztf_20190911_programid1
+ztf_20190912_programid1
+ztf_20190913_programid1
+ztf_20190914_programid1
+ztf_20190915_programid1
+ztf_20190916_programid1
+ztf_20190917_programid1
+ztf_20190918_programid1
+ztf_20190919_programid1
+ztf_20190920_programid1
+ztf_20190921_programid1
+ztf_20190922_programid1
+ztf_20190923_programid1
+ztf_20190924_programid1
+ztf_20190925_programid1
+ztf_20190930_programid1
+ztf_20191012_programid1
+ztf_20191126_programid1
+--END--
+
+
+# -----------------------------------------------------
+# Try to get the row count for our topics.
+#[user@trop03]
+
+    source "${HOME}/nodenames"
+    source "${HOME}/connections"
+    source "${HOME}/ssh-options"
+
+    ssh \
+        ${sshopts[*]} \
+        ${sshuser:?}@${mmnames[0]:?} \
+        << EOF
+    for topic in \$(cat /tmp/topiclist)
+    do
+        echo "---- ----"
+        echo "Topic [\${topic:?}]"
+        docker run -t --rm \\
+            phymatopus/kafka-core \\
+                bin/kafka-run-class.sh \\
+                    kafka.tools.GetOffsetShell \\
+                        --broker-list '${roeconnect:?}' \\
+                        --topic "\${topic:?}" \\
+        | sed '
+            s/\([^:]*\):\([^:]*\):\([^:]*\)/\3/
+            ' \
+        | awk '
+            {sum += \$1} END {print sum}
+            '
+    done
+EOF
+
+
+--START--
+---- ----
+Topic [banana]
+0
+---- ----
+Topic [__confluent.support.metrics]
+8
+---- ----
+Topic [__consumer_offsets]
+1631848
+---- ----
+Topic [ztf_20190724_programid1]
+148172
+---- ----
+Topic [ztf_20190725_programid1]
+138401
+---- ----
+Topic [ztf_20190726_programid1]
+183338
+---- ----
+Topic [ztf_20190727_programid1]
+175771
+---- ----
+Topic [ztf_20190728_programid1]
+117805
+---- ----
+Topic [ztf_20190729_programid1]
+300398
+---- ----
+Topic [ztf_20190730_programid1]
+385676
+---- ----
+Topic [ztf_20190731_programid1]
+492796
+---- ----
+Topic [ztf_20190801_programid1]
+230719
+---- ----
+Topic [ztf_20190802_programid1]
+134017
+---- ----
+Topic [ztf_20190803_programid1]
+405474
+---- ----
+Topic [ztf_20190804_programid1]
+338233
+---- ----
+Topic [ztf_20190805_programid1]
+188285
+---- ----
+Topic [ztf_20190806_programid1]
+160355
+---- ----
+Topic [ztf_20190807_programid1]
+152091
+---- ----
+Topic [ztf_20190808_programid1]
+161932
+---- ----
+Topic [ztf_20190809_programid1]
+161663
+---- ----
+Topic [ztf_20190810_programid1]
+132515
+---- ----
+Topic [ztf_20190811_programid1]
+157253
+---- ----
+Topic [ztf_20190812_programid1]
+140192
+---- ----
+Topic [ztf_20190813_programid1]
+98768
+---- ----
+Topic [ztf_20190814_programid1]
+125047
+---- ----
+Topic [ztf_20190815_programid1]
+53788
+---- ----
+Topic [ztf_20190816_programid1]
+122321
+---- ----
+Topic [ztf_20190817_programid1]
+82858
+---- ----
+Topic [ztf_20190818_programid1]
+183640
+---- ----
+Topic [ztf_20190819_programid1]
+140270
+---- ----
+Topic [ztf_20190820_programid1]
+23
+---- ----
+Topic [ztf_20190821_programid1]
+125293
+---- ----
+Topic [ztf_20190822_programid1]
+130109
+---- ----
+Topic [ztf_20190823_programid1]
+179150
+---- ----
+Topic [ztf_20190824_programid1]
+130805
+---- ----
+Topic [ztf_20190825_programid1]
+184504
+---- ----
+Topic [ztf_20190826_programid1]
+967968
+---- ----
+Topic [ztf_20190827_programid1]
+156985
+---- ----
+Topic [ztf_20190828_programid1]
+191259
+---- ----
+Topic [ztf_20190829_programid1]
+204910
+---- ----
+Topic [ztf_20190830_programid1]
+178185
+---- ----
+Topic [ztf_20190831_programid1]
+155960
+---- ----
+Topic [ztf_20190901_programid1]
+162694
+---- ----
+Topic [ztf_20190902_programid1]
+2363
+---- ----
+Topic [ztf_20190903_programid1]
+1346
+---- ----
+Topic [ztf_20190904_programid1]
+297247
+---- ----
+Topic [ztf_20190905_programid1]
+46716
+---- ----
+Topic [ztf_20190906_programid1]
+302297
+---- ----
+Topic [ztf_20190907_programid1]
+93769
+---- ----
+Topic [ztf_20190908_programid1]
+66268
+---- ----
+Topic [ztf_20190909_programid1]
+70498
+---- ----
+Topic [ztf_20190910_programid1]
+22897
+---- ----
+Topic [ztf_20190911_programid1]
+4511
+---- ----
+Topic [ztf_20190912_programid1]
+136540
+---- ----
+Topic [ztf_20190913_programid1]
+87759
+---- ----
+Topic [ztf_20190914_programid1]
+75575
+---- ----
+Topic [ztf_20190915_programid1]
+144136
+---- ----
+Topic [ztf_20190916_programid1]
+205752
+---- ----
+Topic [ztf_20190917_programid1]
+120193
+---- ----
+Topic [ztf_20190918_programid1]
+158791
+---- ----
+Topic [ztf_20190919_programid1]
+128549
+---- ----
+Topic [ztf_20190920_programid1]
+89021
+---- ----
+Topic [ztf_20190921_programid1]
+199245
+---- ----
+Topic [ztf_20190922_programid1]
+218818
+---- ----
+Topic [ztf_20190923_programid1]
+180366
+---- ----
+Topic [ztf_20190924_programid1]
+226140
+---- ----
+Topic [ztf_20190925_programid1]
+194392
+---- ----
+Topic [ztf_20190930_programid1]
+0
+---- ----
+Topic [ztf_20191012_programid1]
+0
+---- ----
+Topic [ztf_20191126_programid1]
+35
+--END--
+
+
+
