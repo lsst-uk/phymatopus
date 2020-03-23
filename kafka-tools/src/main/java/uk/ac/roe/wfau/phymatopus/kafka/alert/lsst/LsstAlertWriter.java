@@ -177,17 +177,17 @@ extends BaseClient
         {
         log.debug("write(alert)");
         try {
-            log.debug("Creating ProducerRecord");
+            //log.debug("Creating ProducerRecord");
             final ProducerRecord<Long, Object> record = new ProducerRecord<Long, Object>(
                     this.config.getTopic(),
                     count,
                     alert
                     );
-            log.debug("Sending ProducerRecord");
+            //log.debug("Sending ProducerRecord");
             final RecordMetadata metadata = producer.send(
                 record
                 ).get();
-            log.debug("Response [{}][{}]", metadata.partition(), metadata.offset());
+            //log.debug("Response [{}][{}]", metadata.partition(), metadata.offset());
             }
         catch (InterruptedException ouch)
             {
