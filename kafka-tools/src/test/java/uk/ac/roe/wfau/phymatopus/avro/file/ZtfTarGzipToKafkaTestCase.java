@@ -53,6 +53,13 @@ public class ZtfTarGzipToKafkaTestCase
      */
     @Value("${phymatopus.kafka.writer.group:}")
     protected String group;
+
+    /**
+     * The Avro file to load.
+     * 
+     */
+    @Value("${phymatopus.kafka.loader.avrofile:}")
+    protected String avrofile;
     
     /**
     *
@@ -116,8 +123,7 @@ public class ZtfTarGzipToKafkaTestCase
        {
        ZtfTarGzipReader reader = new ZtfTarGzipReader(
            this.processor(),
-           //"/var/local/projects/LSST-UK/phymatopus/data/archive/ztf_public_20191206.tar.gz"
-           "/var/local/projects/LSST-UK/phymatopus/data/archive/ztf_public_20200125.tar.gz"
+           avrofile
            );
 
        ReaderStatistics stats = reader.loop();
