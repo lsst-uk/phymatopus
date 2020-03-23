@@ -36,15 +36,16 @@ import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientExcept
 import io.confluent.kafka.serializers.KafkaAvroDeserializer;
 import io.confluent.kafka.serializers.KafkaAvroDeserializerConfig;
 import lombok.extern.slf4j.Slf4j;
-import uk.ac.roe.wfau.phymatopus.kafka.alert.AlertProcessor;
-import uk.ac.roe.wfau.phymatopus.kafka.alert.AlertReader;
-import uk.ac.roe.wfau.phymatopus.kafka.alert.BaseAlert;
+import uk.ac.roe.wfau.phymatopus.alert.AlertProcessor;
+import uk.ac.roe.wfau.phymatopus.alert.AlertReader;
+import uk.ac.roe.wfau.phymatopus.alert.BaseAlert;
+import uk.ac.roe.wfau.phymatopus.avro.lsst.LsstAlertWrapper;
 import uk.ac.roe.wfau.phymatopus.kafka.alert.GenericAlertReader;
 import ztf.alert;
 
 
 /**
- * Reads a series on ZtfAlerts from a stream and stops when there are no more alerts and the poll timeout is reached.
+ * Reads a series on LsstAlerts from a stream and stops when there are no more alerts and the poll timeout is reached.
  *
  */
 @Slf4j

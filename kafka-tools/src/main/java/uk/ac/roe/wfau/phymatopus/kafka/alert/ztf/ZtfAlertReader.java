@@ -34,9 +34,10 @@ import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.LongDeserializer;
 
 import lombok.extern.slf4j.Slf4j;
-import uk.ac.roe.wfau.phymatopus.kafka.alert.AlertProcessor;
-import uk.ac.roe.wfau.phymatopus.kafka.alert.AlertReader;
-import uk.ac.roe.wfau.phymatopus.kafka.alert.BaseAlert;
+import uk.ac.roe.wfau.phymatopus.alert.AlertProcessor;
+import uk.ac.roe.wfau.phymatopus.alert.AlertReader;
+import uk.ac.roe.wfau.phymatopus.alert.BaseAlert;
+import uk.ac.roe.wfau.phymatopus.avro.ztf.ZtfAlertWrapper;
 import uk.ac.roe.wfau.phymatopus.kafka.alert.GenericAlertReader;
 import uk.ac.roe.wfau.phymatopus.kafka.tools.DebugFormatter;
 import ztf.alert;
@@ -117,7 +118,9 @@ implements AlertReader
     protected long process(final byte[] bytes)
         {
         log.trace("Processing byte[]");
-
+/*
+ * We already know the schema.
+ * If we move to using the SchemaRegistry, then the schema won't be in the message. 
         DebugFormatter debug = new DebugFormatter();
         debug.asciiBytes(bytes);
         
@@ -126,15 +129,17 @@ implements AlertReader
         log.trace("Schema fingerprint [{}]", fingerprint);
 
         debug.asciiBytes(bytes);
+ * 
+ */
         DataFileReader<alert> reader = reader(bytes);
 
         long alertcount = 0 ;
         while (reader.hasNext())
             {
             try {
-                log.trace("Hydrating alert [{}]", alertcount);
+                //log.trace("Hydrating alert [{}]", alertcount);
                 ztf.alert alert = reader.next();
-                log.trace("Processing alert [{}]", alertcount);
+                //log.trace("Processing alert [{}]", alertcount);
                 try {
                     processor.process(
                         new ZtfAlertWrapper(

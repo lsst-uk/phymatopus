@@ -21,10 +21,10 @@ package uk.ac.roe.wfau.phymatopus.kafka.tools;
 import org.junit.Test;
 
 import lombok.extern.slf4j.Slf4j;
+import uk.ac.roe.wfau.phymatopus.alert.AlertProcessor;
+import uk.ac.roe.wfau.phymatopus.alert.AlertReader;
 import uk.ac.roe.wfau.phymatopus.kafka.BaseClient;
 import uk.ac.roe.wfau.phymatopus.kafka.KafkaReaderTestBase;
-import uk.ac.roe.wfau.phymatopus.kafka.alert.AlertProcessor;
-import uk.ac.roe.wfau.phymatopus.kafka.alert.AlertReader;
 
 /**
  * 

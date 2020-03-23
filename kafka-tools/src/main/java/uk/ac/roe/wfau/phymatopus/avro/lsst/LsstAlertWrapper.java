@@ -15,51 +15,45 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
-package uk.ac.roe.wfau.phymatopus.kafka.alert.ztf;
+package uk.ac.roe.wfau.phymatopus.avro.lsst;
 
 import org.apache.avro.Schema;
+import org.apache.avro.generic.GenericData;
+import org.mortbay.log.Log;
 
-import uk.ac.roe.wfau.phymatopus.kafka.alert.AlertCandidate;
-import uk.ac.roe.wfau.phymatopus.kafka.alert.BaseAlert;
-import uk.ac.roe.wfau.phymatopus.kafka.alert.PrevCandidate;
+import uk.ac.roe.wfau.phymatopus.alert.AlertCandidate;
+import uk.ac.roe.wfau.phymatopus.alert.BaseAlert;
+import uk.ac.roe.wfau.phymatopus.alert.PrevCandidate;
+import uk.ac.roe.wfau.phymatopus.avro.ztf.ZtfCutout;
 import ztf.alert;
 
-public class ZtfAlertWrapper implements BaseAlert
+public class LsstAlertWrapper implements BaseAlert
     {
-    /**
-     * Our Avro alert bean.
-     *
-     */
-    private ztf.alert bean ;
-
-    /**
-     * Public constructor.
-     * 
-     */    
-    public ZtfAlertWrapper(final ztf.alert bean, final String topic)
+    private GenericData.Record record;
+    public LsstAlertWrapper(final GenericData.Record record, final String topic)
         {
-        this.bean  = bean ;
-        this.topic = topic;
+        this.topic  = topic ;
+        this.record = record;
         }
 
     @Override
     public Object get(int key)
         {
-        return bean.get(key);
+        return record.get(key);
         }
 
     @Override
     public void put(int key, final Object value)
         {
-        bean.put(key, value);
+        record.put(key, value);        
         }
 
     @Override
     public Schema getSchema()
         {
-        return bean.getSchema();
+        return alert.SCHEMA$;
         }
-
+    
     private String topic;
     @Override
     public String getTopic()
@@ -70,67 +64,66 @@ public class ZtfAlertWrapper implements BaseAlert
     @Override
     public CharSequence getSchemavsn()
         {
-        return bean.getSchemavsn();
+        return (CharSequence) record.get(0);
         }
-
+    
     @Override
     public CharSequence getPublisher()
         {
-        return bean.getPublisher();
+        return (CharSequence) record.get(1);
         }
-        
+    
     @Override
     public CharSequence getObjectId()
         {
-        return bean.getObjectId();
+        return (CharSequence) record.get(2);
         }
-        
+    
     @Override
     public Long getCandid()
         {
-        return bean.getCandid();
+        return (Long) record.get(3);
         }
-        
+    
     @Override
     public AlertCandidate getCandidate()
         {
-        return new ZtfAlertCandidateWrapper(
-            this.topic,
-            bean.getObjectId(),
-            bean.getCandidate()
-            );        
+        return new LsstAlertCandidateWrapper(
+            (GenericData.Record) record.get(4),
+            this.getObjectId(),
+            this.getTopic()
+            );
         }
-        
+    
+    @SuppressWarnings("unchecked")
     @Override
     public Iterable<PrevCandidate> getPrvCandidates()
         {
-        return new ZtfPrevCandidateWrapper.IterableWrapper(
-            bean.getPrvCandidates(),
-            bean.getObjectId()
+        return new LsstPrevCandidateWrapper.IterableWrapper(
+            (GenericData.Array<GenericData.Record>) record.get(5),
+            this.getObjectId()
             );
         }
-        
+    
     @Override
     public ZtfCutout getCutoutScience()
         {
-        return new ZtfCutoutWrapper(
-            bean.getCutoutScience()
-            );
+        Log.debug("getCutoutScience() [{}]", record.get(6).getClass().getName());
+        //return (ZtfCutout) record.get(6);
+        return null;
         }
-        
+    
     @Override
     public ZtfCutout getCutoutTemplate()
         {
-        return new ZtfCutoutWrapper(
-            bean.getCutoutTemplate()
-            );
+        //return (ZtfCutout) record.get(7);
+        return null;
         }
-        
+    
     @Override
     public ZtfCutout getCutoutDifference()
         {
-        return new ZtfCutoutWrapper(
-            bean.getCutoutDifference()
-            );
+        //return (ZtfCutout) record.get(8);
+        return null;
         }
     }

@@ -1,13 +1,13 @@
 /**
  * 
  */
-package uk.ac.roe.wfau.phymatopus.kafka.alert.lsst;
+package uk.ac.roe.wfau.phymatopus.avro.lsst;
 
 import java.util.Iterator;
 
 import org.apache.avro.generic.GenericData;
 
-import uk.ac.roe.wfau.phymatopus.kafka.alert.PrevCandidate;
+import uk.ac.roe.wfau.phymatopus.alert.PrevCandidate;
 
 /**
  * 

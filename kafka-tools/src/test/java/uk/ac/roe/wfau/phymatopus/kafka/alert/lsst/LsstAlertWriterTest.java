@@ -30,9 +30,9 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 import lombok.extern.slf4j.Slf4j;
-import uk.ac.roe.wfau.phymatopus.kafka.alert.BaseAlert;
+import uk.ac.roe.wfau.phymatopus.alert.BaseAlert;
+import uk.ac.roe.wfau.phymatopus.avro.ztf.ZtfAlertWrapper;
 import uk.ac.roe.wfau.phymatopus.kafka.alert.lsst.LsstAlertWriter;
-import uk.ac.roe.wfau.phymatopus.kafka.alert.ztf.ZtfAlertWrapper;
 import ztf.alert;
 import ztf.candidate;
 import ztf.cutout;

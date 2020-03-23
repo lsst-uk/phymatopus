@@ -1,0 +1,116 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2020, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#zrq-notes-time
+#zrq-notes-indent
+#zrq-notes-crypto
+#zrq-notes-ansible
+#zrq-notes-osformat
+#
+
+
+# -----------------------------------------------------
+# Components in Roy's implementation
+
+    https://github.com/RoyWilliams/LasairTech/tree/master/database_tests/ingest
+
+    " .. fetches batches of alerts to a local MySQL, runs active queries,
+      and uses file transfer to send the batch to the master database .."
+
+    ingestStreamThreaded.py
+
+        # Compute the HTM ID for later cone searches
+            htmID = 0
+            names.append('htmid16')
+            values.append(str(htmID))
+
+        # Compute apparent magnitude
+            d = dc_mag(fid, magpsf,sigmapsf, magnr,sigmagnr, magzpsci, isdiffpos)
+            names.append('dc_mag')
+            values.append(str(d['dc_mag']))
+            names.append('dc_sigmag')
+            values.append(str(d['dc_sigmag']))
+
+        # and here is the SQL
+            sql = 'INSERT IGNORE INTO candidates \n(%s) \nVALUES \n(%s)' % (','.join(names), ','.join(values))
+            return sql
+
+
+        # light curve features
+            prv_array = data['prv_candidates']
+            maglist = {'g':[], 'r':[]}
+            if prv_array:
+                for prv in prv_array:
+                    if prv['candid'] and prv['magpsf']:
+                        w = [prv['jd'], prv['magpsf'], prv['sigmapsf']]
+                        if prv['fid'] == 1: maglist['g'].append(w)
+                        else:               maglist['r'].append(w)
+       # compute features from maglist #
+
+
+    mag.py
+
+        def dc_mag(fid, magpsf,sigmapsf, magnr,sigmagnr, magzpsci, isdiffpos):
+            """ Compute apparent magnitude from difference magnitude supplied by ZTF
+
+    refresh.py
+    
+        query = 'TRUNCATE TABLE candidates'
+
+    ingestBatch.py
+
+        ....
+
+        def msg_text(message):
+            """Remove postage stamp cutouts from an alert message.
+            """
+            message_text = {k: message[k] for k in message
+                            if k not in ['cutoutDifference', 'cutoutTemplate', 'cutoutScience']}
+            return message_text
+
+        def write_stamp_file(stamp_dict, store):
+            """Given a stamp dict that follows the cutout schema,
+               write data to a file in a given directory.
+            """
+            t = stamp_dict['fileName'].split('.')
+            u = t[0].split('/') # after the last / and before the first .
+            store.putObject(u[-1], stamp_dict['stampData'])
+            return
+
+        def write_lightcurve_file(alert, store):
+            s = json.dumps(alert, indent=2).encode()
+            store.putObject(alert['objectId'], s)
+
+        def write_blobs(alert, store):
+            """Filter to apply to each alert.
+               See schemas: https://github.com/ZwickyTransientFacility/ztf-avro-alert
+            """
+            candid = 0
+            data = msg_text(alert)
+            if data:  # Write your condition statement here
+                if 'fits' in store:  # Collect all postage stamps
+                    write_stamp_file( alert.get('cutoutDifference'), store['fits'])
+                    write_stamp_file( alert.get('cutoutTemplate'),   store['fits'])
+                    write_stamp_file( alert.get('cutoutScience'),    store['fits'])
+                if 'lightcurve' in store:
+                    write_lightcurve_file(data, store['lightcurve'])
+                return candid
+        
+

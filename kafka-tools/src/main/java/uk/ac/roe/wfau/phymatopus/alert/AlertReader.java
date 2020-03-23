@@ -16,7 +16,7 @@
  *
  */
 
-package uk.ac.roe.wfau.phymatopus.kafka.alert;
+package uk.ac.roe.wfau.phymatopus.alert;
 
 import java.util.concurrent.Callable;
 

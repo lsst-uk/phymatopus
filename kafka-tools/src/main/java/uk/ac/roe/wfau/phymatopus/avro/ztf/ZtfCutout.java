@@ -15,25 +15,20 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
+package uk.ac.roe.wfau.phymatopus.avro.ztf;
 
-package uk.ac.roe.wfau.phymatopus.kafka.alert;
-
-/**
- * Alert processor interface.
- * 
- */
-public interface AlertProcessor<AlertType>
+public interface ZtfCutout
     {
     /**
-     * Process an alert.
-     * 
+     * Gets the value of the 'fileName' field.
+     * @return The value of the 'fileName' field.
      */
-    public void process(final AlertType alert);
+    public java.lang.CharSequence getFileName();
 
     /**
-     * The number of alerts this processor has handled. 
-     * 
+     * Gets the value of the 'stampData' field.
+     * @return fits.gz
      */
-    public long count();
+    public java.nio.ByteBuffer getStampData();
 
     }

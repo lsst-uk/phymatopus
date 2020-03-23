@@ -15,13 +15,11 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
-package uk.ac.roe.wfau.phymatopus.kafka.alert.lsst;
-
-import java.util.Iterator;
+package uk.ac.roe.wfau.phymatopus.avro.lsst;
 
 import org.apache.avro.generic.GenericData;
 
-import uk.ac.roe.wfau.phymatopus.kafka.alert.BaseCandidate;
+import uk.ac.roe.wfau.phymatopus.alert.BaseCandidate;
 
 public class LsstBaseCandidateWrapper
 implements BaseCandidate

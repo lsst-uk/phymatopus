@@ -36,8 +36,8 @@ import io.confluent.kafka.schemaregistry.client.SchemaRegistryClient;
 import io.confluent.kafka.serializers.KafkaAvroSerializer;
 import io.confluent.kafka.serializers.KafkaAvroSerializerConfig;
 import lombok.extern.slf4j.Slf4j;
+import uk.ac.roe.wfau.phymatopus.alert.BaseAlert;
 import uk.ac.roe.wfau.phymatopus.kafka.BaseClient;
-import uk.ac.roe.wfau.phymatopus.kafka.alert.BaseAlert;
 import ztf.alert;
 
 /**

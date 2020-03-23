@@ -28,9 +28,9 @@ import java.util.concurrent.Future;
 import org.springframework.beans.factory.annotation.Value;
 
 import lombok.extern.slf4j.Slf4j;
-import uk.ac.roe.wfau.phymatopus.kafka.alert.AlertProcessor;
-import uk.ac.roe.wfau.phymatopus.kafka.alert.AlertReader;
-import uk.ac.roe.wfau.phymatopus.kafka.alert.BaseAlert;
+import uk.ac.roe.wfau.phymatopus.alert.AlertProcessor;
+import uk.ac.roe.wfau.phymatopus.alert.AlertReader;
+import uk.ac.roe.wfau.phymatopus.alert.BaseAlert;
 import uk.ac.roe.wfau.phymatopus.kafka.alert.ztf.ZtfAlertReader;
 
 /**

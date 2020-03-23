@@ -16,11 +16,11 @@
  *
  */
 
-package uk.ac.roe.wfau.phymatopus.kafka.alert;
+package uk.ac.roe.wfau.phymatopus.alert;
 
 import org.apache.avro.specific.SpecificRecord;
 
-import uk.ac.roe.wfau.phymatopus.kafka.alert.ztf.ZtfCutout;
+import uk.ac.roe.wfau.phymatopus.avro.ztf.ZtfCutout;
 
 public interface BaseAlert
 extends SpecificRecord
