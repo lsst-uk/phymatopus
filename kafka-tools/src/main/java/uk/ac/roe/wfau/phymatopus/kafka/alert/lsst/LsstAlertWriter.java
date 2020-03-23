@@ -175,7 +175,7 @@ extends BaseClient
      */
     public void write(final BaseAlert alert)
         {
-        log.debug("write(alert)");
+        //log.debug("write(alert)");
         try {
             //log.debug("Creating ProducerRecord");
             final ProducerRecord<Long, Object> record = new ProducerRecord<Long, Object>(
