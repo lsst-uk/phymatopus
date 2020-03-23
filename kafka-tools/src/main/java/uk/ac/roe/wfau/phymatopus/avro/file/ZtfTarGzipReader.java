@@ -106,7 +106,6 @@ TarArchiveInputStream tarInput =
                     byte bytes[] = new byte[size];
                     tarstream.read(bytes);                
                     DataFileReader<alert> reader = reader(bytes);
-
                     while (reader.hasNext())
                         {
                         try {
