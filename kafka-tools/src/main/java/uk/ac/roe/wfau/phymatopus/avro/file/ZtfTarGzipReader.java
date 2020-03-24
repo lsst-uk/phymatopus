@@ -1,7 +1,23 @@
+/*
+ *  Copyright (C) 2020 Royal Observatory, University of Edinburgh, UK
+ *
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ */
 package uk.ac.roe.wfau.phymatopus.avro.file;
 
 import java.io.BufferedInputStream;
-import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -14,18 +30,21 @@ import org.apache.commons.compress.archivers.ArchiveEntry;
 import org.apache.commons.compress.archivers.ArchiveException;
 import org.apache.commons.compress.archivers.ArchiveInputStream;
 import org.apache.commons.compress.archivers.ArchiveStreamFactory;
-import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
-import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 
 import lombok.extern.slf4j.Slf4j;
 import uk.ac.roe.wfau.phymatopus.alert.AlertProcessor;
 import uk.ac.roe.wfau.phymatopus.alert.AlertReader;
 import uk.ac.roe.wfau.phymatopus.alert.BaseAlert;
-import uk.ac.roe.wfau.phymatopus.avro.ztf.ZtfAlertWrapper;
+import uk.ac.roe.wfau.phymatopus.avro.bean.AvroBeanAlertWrapper;
 import ztf.alert;
 
+/**
+ * An {@link AlertReader} to read alerts from the ZTF tar.gz archive files.
+ * Based on an example from https://stackoverflow.com/a/17079034
+ *     
+ *     
+ */
 @Slf4j
-//public class TarGzipAlertReader<AlertType> implements AlertReader
 public class ZtfTarGzipReader implements AlertReader
     {
 
@@ -51,28 +70,12 @@ public class ZtfTarGzipReader implements AlertReader
      */
     final String tarname ;
     
-    /*
- * https://stackoverflow.com/a/17079034
-
-TarArchiveInputStream tarInput = 
-      new TarArchiveInputStream(new GZipInputStream(new FileInputStream("Your file name")));
-
- TarArchiveEntry currentEntry = tarInput.getNextTarEntry();
- while(currentEntry != null) {
-      File f = currentEntry.getFile();
-      // TODO write to file as usual
- }
- *     
- *     
- */
-    
     @Override
-    public ReaderStatistics loop()
+    public LoopStats loop()
         {
         long  totalalerts = 0 ;
         long  totalstart  = System.nanoTime() ;
 
-        //TarArchiveInputStream tarstream = null ;
         ArchiveInputStream tarstream = null ;
         try {
             tarstream = new ArchiveStreamFactory().createArchiveInputStream(
@@ -84,18 +87,6 @@ TarArchiveInputStream tarInput =
                         )
                     )
                 );
-
-/*
- * 
-            tarstream = new TarArchiveInputStream(
-                new GZIPInputStream(
-                    new FileInputStream(
-                        tarname
-                        )
-                    )
-                );
- *         
- */
 
             ArchiveEntry entry = tarstream.getNextEntry();
             while(entry != null)
@@ -114,7 +105,7 @@ TarArchiveInputStream tarInput =
                             //log.trace("Processing alert [{}]", alertcount);
                             try {
                                 processor.process(
-                                    new ZtfAlertWrapper(
+                                    new AvroBeanAlertWrapper(
                                         alert,
                                         tarname
                                         )
@@ -172,7 +163,7 @@ TarArchiveInputStream tarInput =
                     totalmilli
                     );
                 }
-            return new ReaderStatistics.Bean(
+            return new LoopStats.Bean(
                 totalalerts,
                 totaltime
                 ) ;
@@ -227,7 +218,7 @@ TarArchiveInputStream tarInput =
 
     /**
      * Create a DataFileReader for the alert data type.
-     * 
+     * TODO Refactor this as AvroBeanDataFileReader.
      */
     protected DataFileReader<alert> reader(final byte[] bytes)
         {

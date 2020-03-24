@@ -1,0 +1,150 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2020, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#zrq-notes-time
+#zrq-notes-indent
+#zrq-notes-crypto
+#zrq-notes-ansible
+#zrq-notes-osformat
+#
+
+
+
+    AlertReader =>      AlertReader
+    
+                        public ReaderStatistics loop();
+
+                        public static interface Factory
+                            {
+                            public KafkaReader reader()
+                            public CallableKafkaReader callable(final AlertProcessor<BaseAlert> processor, final Configuration config)
+                            }
+
+                        public static interface CallableKafkaReader
+                        extends Callable
+                            {
+                            }
+
+    GenericAlertReader => GenericKafkaReader<KeyType, MsgType, AlertType>
+
+                        protected Map<String, Object> config()
+
+                        abstract protected Consumer<KeyType, MsgType> consumer()
+
+                        abstract protected long process(final MsgType msg);
+
+
+
+    LsstAlertReader =>  KafkaObjectReader
+                        extends GenericKafkaReader<Long, Object, BaseAlert>
+                        implements KafkaReader
+
+                        protected Consumer<Long, Object> consumer()
+                        
+                        protected long process(final Object object)
+                            new AvroRecordWrapper(
+                                (GenericData.Record) object
+                                )
+
+                        @deprecated
+                        public static CallableKafkaReader callable(final AlertProcessor<BaseAlert> processor, final Configuration config)
+
+                        public static class Factory
+                        implements KafkaReader.Factory
+                            {
+                            }
+
+
+    LsstAlertWrapper => AvroRecordWrapper
+                        implements BaseAlert
+
+                        public AvroRecordWrapper(final GenericData.Record record, final String topic)
+
+                        
+
+    ZtfAlertReader =>   KafkaInlineSchemaReader
+                        extends GenericKafkaReader<Long, byte[], BaseAlert>
+                        implements KafkaReader
+
+                        protected Consumer<Long, byte[]> consumer()
+                        
+                        protected AvroBytesProcessor processor
+
+                        protected long process(final byte[] bytes)
+                            {
+                            processor.process(
+                                bytes
+                                )
+                            }
+
+                        @deprecated
+                        public static CallableAlertReader callable(final AlertProcessor<BaseAlert> processor, final Configuration config)
+
+                        public static class Factory
+                        implements KafkaReader.Factory
+                            {
+                            }
+
+
+
+
+    ZtfAlertWrapper =>  ZtfAlertWrapper implements BaseAlert
+
+                        public ZtfAlertWrapper(final ztf.alert bean, final String topic)
+
+
+
+    .... =>             AvroBytesProcessor
+    
+                        public AvroBytesProcessor(AlertProcessor<BaseAlert> processor)
+                            {
+                            this.processor = processor
+                            }
+
+                        AlertProcessor<BaseAlert> processor
+    
+                        protected long process(final byte[] bytes)
+                            process(
+                                reader(
+                                    bytes
+                                    )
+                                )
+                            
+                        protected long process(final DataFileReader<alert> reader)
+                            while(reader.hasNext())
+                                {
+                                processor.process(
+                                    new AlertBeanWrapper(
+                                        reader.next()
+                                        )
+                                    )
+                                }
+
+                        protected DataFileReader<alert> reader(final byte[] bytes)
+                            {
+                            }
+
+                        protected Schema schema(final byte[] bytes)
+                            {
+                            }
+
+
+
+

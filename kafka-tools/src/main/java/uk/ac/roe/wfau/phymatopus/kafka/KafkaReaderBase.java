@@ -27,13 +27,13 @@ import lombok.extern.slf4j.Slf4j;
  * 
  * 
  */
-public class BaseReader extends BaseClient
+public class KafkaReaderBase extends KafkaClientBase
     {
     /**
      * Public interface for a Reader configuration.
      * 
      */
-    public static interface Configuration extends BaseClient.Configuration
+    public static interface Configuration extends KafkaClientBase.Configuration
         {
         /**
          * The timeout for waiting for new messages.
@@ -59,7 +59,7 @@ public class BaseReader extends BaseClient
      * 
      */
     @Slf4j
-    public static class ConfigurationBean extends BaseClient.ConfigurationBean implements Configuration 
+    public static class ConfigurationBean extends KafkaClientBase.ConfigurationBean implements Configuration 
         {
         static final Long     DEFAULT_LOOPLIMIT = Long.MAX_VALUE;
         static final Boolean  DEFAULT_AUTOCOMIT = true ;
@@ -132,7 +132,7 @@ public class BaseReader extends BaseClient
      * @param config The reader configuration. 
      * 
      */
-    public BaseReader(final Configuration config)
+    public KafkaReaderBase(final Configuration config)
         {
         super(config);
         this.config = config;

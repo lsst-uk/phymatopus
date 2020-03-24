@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2018 Royal Observatory, University of Edinburgh, UK
+ *  Copyright (C) 2020 Royal Observatory, University of Edinburgh, UK
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -16,7 +16,7 @@
  *
  */
 
-package uk.ac.roe.wfau.phymatopus.kafka.alert.lsst;
+package uk.ac.roe.wfau.phymatopus.kafka;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -31,8 +31,8 @@ import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 import lombok.extern.slf4j.Slf4j;
 import uk.ac.roe.wfau.phymatopus.alert.BaseAlert;
-import uk.ac.roe.wfau.phymatopus.avro.ztf.ZtfAlertWrapper;
-import uk.ac.roe.wfau.phymatopus.kafka.alert.lsst.LsstAlertWriter;
+import uk.ac.roe.wfau.phymatopus.avro.bean.AvroBeanAlertWrapper;
+import uk.ac.roe.wfau.phymatopus.kafka.KafkaObjectWriter;
 import ztf.alert;
 import ztf.candidate;
 import ztf.cutout;
@@ -51,7 +51,7 @@ import ztf.prv_candidate;
         "classpath:component-config.xml"
         }
     )
-public class LsstAlertWriterTest
+public class KafkaObjectWriterTest
     {
     /**
      * The target kafka servers.
@@ -74,14 +74,14 @@ public class LsstAlertWriterTest
     @Value("${phymatopus.kafka.writer.group:}")
     protected String group;
 
-    protected LsstAlertWriter writer ;
+    protected KafkaObjectWriter writer ;
 
-    protected LsstAlertWriter.Configuration config ;
+    protected KafkaObjectWriter.Configuration config ;
     
     /**
      *
      */
-    public LsstAlertWriterTest()
+    public KafkaObjectWriterTest()
         {
         super();
         }
@@ -90,13 +90,13 @@ public class LsstAlertWriterTest
     public void before()
         {
         log.debug("Creating config");
-        config = new LsstAlertWriter.ConfigurationBean(
+        config = new KafkaObjectWriter.ConfigurationBean(
             servers,
             topic,
             group
             );
         log.debug("Creating writer");
-        writer = new LsstAlertWriter(
+        writer = new KafkaObjectWriter(
             config
             );
         log.debug("Initialising writer");
@@ -122,7 +122,7 @@ public class LsstAlertWriterTest
         for (int candid = 0 ; candid < 1000 ; candid++)
             {
             log.debug("Sending alert [{}]", candid);
-            BaseAlert alert = new ZtfAlertWrapper(
+            BaseAlert alert = new AvroBeanAlertWrapper(
                 new alert (
                     "schemavsn",
                     "publisher",

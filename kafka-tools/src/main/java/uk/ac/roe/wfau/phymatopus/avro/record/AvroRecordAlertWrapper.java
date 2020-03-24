@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2019 Royal Observatory, University of Edinburgh, UK
+ *  Copyright (C) 2020 Royal Observatory, University of Edinburgh, UK
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -15,22 +15,27 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
-package uk.ac.roe.wfau.phymatopus.avro.lsst;
+package uk.ac.roe.wfau.phymatopus.avro.record;
 
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.mortbay.log.Log;
 
 import uk.ac.roe.wfau.phymatopus.alert.AlertCandidate;
-import uk.ac.roe.wfau.phymatopus.alert.BaseAlert;
+import uk.ac.roe.wfau.phymatopus.alert.AlertCutout;
 import uk.ac.roe.wfau.phymatopus.alert.PrevCandidate;
-import uk.ac.roe.wfau.phymatopus.avro.ztf.ZtfCutout;
+import uk.ac.roe.wfau.phymatopus.avro.AvroAlert;
 import ztf.alert;
 
-public class LsstAlertWrapper implements BaseAlert
+/**
+ * A wrapper class for Avro {@link GenericData.Record}s based on the ZTF {@link alert} schema.  
+ *
+ */
+public class AvroRecordAlertWrapper
+implements AvroAlert
     {
     private GenericData.Record record;
-    public LsstAlertWrapper(final GenericData.Record record, final String topic)
+    public AvroRecordAlertWrapper(final GenericData.Record record, final String topic)
         {
         this.topic  = topic ;
         this.record = record;
@@ -88,7 +93,7 @@ public class LsstAlertWrapper implements BaseAlert
     @Override
     public AlertCandidate getCandidate()
         {
-        return new LsstAlertCandidateWrapper(
+        return new AvroRecordAlertCandidateWrapper(
             (GenericData.Record) record.get(4),
             this.getObjectId(),
             this.getTopic()
@@ -99,14 +104,14 @@ public class LsstAlertWrapper implements BaseAlert
     @Override
     public Iterable<PrevCandidate> getPrvCandidates()
         {
-        return new LsstPrevCandidateWrapper.IterableWrapper(
+        return new AvroRecordPrevCandidateWrapper.IterableWrapper(
             (GenericData.Array<GenericData.Record>) record.get(5),
             this.getObjectId()
             );
         }
     
     @Override
-    public ZtfCutout getCutoutScience()
+    public AlertCutout getCutoutScience()
         {
         Log.debug("getCutoutScience() [{}]", record.get(6).getClass().getName());
         //return (ZtfCutout) record.get(6);
@@ -114,15 +119,17 @@ public class LsstAlertWrapper implements BaseAlert
         }
     
     @Override
-    public ZtfCutout getCutoutTemplate()
+    public AlertCutout getCutoutTemplate()
         {
+        Log.debug("getCutoutTemplate() [{}]", record.get(7).getClass().getName());
         //return (ZtfCutout) record.get(7);
         return null;
         }
     
     @Override
-    public ZtfCutout getCutoutDifference()
+    public AlertCutout getCutoutDifference()
         {
+        Log.debug("getCutoutDifference() [{}]", record.get(8).getClass().getName());
         //return (ZtfCutout) record.get(8);
         return null;
         }

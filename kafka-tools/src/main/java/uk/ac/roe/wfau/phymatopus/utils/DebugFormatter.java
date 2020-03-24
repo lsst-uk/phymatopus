@@ -1,7 +1,7 @@
 /**
  * 
  */
-package uk.ac.roe.wfau.phymatopus.kafka.tools;
+package uk.ac.roe.wfau.phymatopus.utils;
 
 import java.util.Formatter;
 

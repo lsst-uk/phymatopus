@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2019 Royal Observatory, University of Edinburgh, UK
+ *  Copyright (C) 2020 Royal Observatory, University of Edinburgh, UK
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -22,6 +22,8 @@ extends BaseCandidate
     {
     /**
      * The Kafka topic this alert was read from.
+     * TODO Move this to another interface ?
+     * TODO URI getSource()
      *  
      */
     public String getTopic();

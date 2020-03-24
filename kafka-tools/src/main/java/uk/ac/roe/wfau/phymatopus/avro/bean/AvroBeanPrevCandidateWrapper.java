@@ -15,399 +15,423 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
-package uk.ac.roe.wfau.phymatopus.avro.lsst;
+package uk.ac.roe.wfau.phymatopus.avro.bean;
 
-import org.apache.avro.generic.GenericData;
+import java.util.Iterator;
 
-import uk.ac.roe.wfau.phymatopus.alert.BaseCandidate;
+import uk.ac.roe.wfau.phymatopus.alert.PrevCandidate;
 
-public class LsstBaseCandidateWrapper
-implements BaseCandidate
+/**
+ * A wrapper class for the ZTF {@link alert} bean generated from the JSON schema.  
+ *
+ */
+public class AvroBeanPrevCandidateWrapper
+implements PrevCandidate
     {
-    public LsstBaseCandidateWrapper(final GenericData.Record record, final CharSequence objectid)
-        {
-        this.record = record;
-        }
+    /**
+     * Our Avro alert bean.
+     *
+     */
+    private ztf.prv_candidate bean ;
 
-    protected GenericData.Record record;
-    protected GenericData.Record record()
-        {
-        return this.record;
-        }
+    /**
+     * The corresponding objectId.
+     * 
+     */
+    private CharSequence objectid ;
 
-    protected CharSequence toChar(final Object value)
-        {
-        if (null != value)
-            {
-            return (CharSequence) value ;
-            }
-        else {
-            return null;
-            }
-        }
-
-    protected Integer toInt(final Object value)
-        {
-        if (null != value)
-            {
-            return (Integer) value ;
-            }
-        else {
-            return null;
-            }
-        }
-
-    protected Long toLong(final Object value)
-        {
-        if (null != value)
-            {
-            return (Long) value ;
-            }
-        else {
-            return null;
-            }
-        }
-
-    protected Float toFloat(final Object value)
-        {
-        if (null != value)
-            {
-            return (Float) value ;
-            }
-        else {
-            return null;
-            }
-        }
-
-    protected Double toDouble(final Object value)
-        {
-        if (null != value)
-            {
-            return (Double) value ;
-            }
-        else {
-            return null;
-            }
-        }
-    
-    private CharSequence objectid;
     @Override
     public CharSequence getObjectId()
         {
-        return toChar(this.objectid);
+        return this.objectid;
+        }
+    
+    /**
+     * Public constructor.
+     * 
+     */    
+    public AvroBeanPrevCandidateWrapper(final ztf.prv_candidate bean, final CharSequence objectid)
+        {
+        this.bean = bean ;
+        this.objectid = objectid ;
         }
 
+    /**
+     * An {@link Iterable} implementation.
+     * 
+     */
+    public static class IterableWrapper
+    implements Iterable<PrevCandidate>
+        {
+        private CharSequence objectid ;
+        public IterableWrapper(final Iterable<ztf.prv_candidate> inner, final CharSequence objectid)
+            {
+            this.objectid = objectid;
+            this.inner = inner ;
+            }
+        private Iterable<ztf.prv_candidate> inner;
+        @Override
+        public Iterator<PrevCandidate> iterator()
+            {
+            return new IteratorWrapper(
+                ((this.inner != null) ? this.inner.iterator() : null),
+                this.objectid
+                );
+            }
+        }
+
+    /**
+     * An {@link Iterator} implementation.
+     * 
+     */
+    public static class IteratorWrapper
+    implements Iterator<PrevCandidate>
+        {
+        private CharSequence objectid ;
+        public IteratorWrapper(final Iterator<ztf.prv_candidate> inner, final CharSequence objectid)
+            {
+            this.objectid = objectid;
+            this.inner = inner ;
+            }
+        private Iterator<ztf.prv_candidate> inner;
+        @Override
+        public boolean hasNext()
+            {
+            if (null != inner)
+                {
+                return inner.hasNext();
+                }
+            else {
+                return false ;
+                }
+            }
+        @Override
+        public PrevCandidate next()
+            {
+            if (null != inner)
+                {
+                return new AvroBeanPrevCandidateWrapper(
+                    this.inner.next(),
+                    this.objectid
+                    );
+                }
+            else {
+                throw new RuntimeException(
+                    "Call to next() on an empty (null) Iterator."
+                    );
+                }
+            }
+        }
+    
     @Override
     public Double getJd()
         {
-        return toDouble(record.get(0));
+        return bean.getJd();
         }
 
     @Override
     public Integer getFid()
         {
-        return toInt(record.get(1));
+        return bean.getFid();
         }
 
     @Override
     public Long getPid()
         {
-        return toLong(record.get(2));
+        return bean.getPid();
         }
 
     @Override
     public Float getDiffmaglim()
         {
-        return toFloat(record.get(3));
+        return bean.getDiffmaglim();
         }
 
     @Override
     public CharSequence getPdiffimfilename()
         {
-        return toChar(record.get(4));
+        return bean.getPdiffimfilename();
         }
 
     @Override
     public CharSequence getProgrampi()
         {
-        return toChar(record.get(5));
+        return bean.getProgrampi();
         }
 
     @Override
     public Integer getProgramid()
         {
-        return toInt(record.get(6));
+        return bean.getProgramid();
         }
 
     @Override
     public Long getCandid()
         {
-        return toLong(record.get(7));
+        return bean.getCandid();
         }
-    
+
     @Override
     public CharSequence getIsdiffpos()
         {
-        return toChar(record.get(8));
+        return bean.getIsdiffpos();
         }
 
     @Override
     public Long getTblid()
         {
-        return toLong(record.get(9));
+        return bean.getTblid();
         }
 
     @Override
     public Integer getNid()
         {
-        return toInt(record.get(10));
+        return bean.getNid();
         }
 
     @Override
     public Integer getRcid()
         {
-        return toInt(record.get(11));
+        return bean.getRcid();
         }
 
     @Override
     public Integer getField()
         {
-        return toInt(record.get(12));
+        return bean.getField();
         }
 
     @Override
     public Float getXpos()
         {
-        return toFloat(record.get(13));
+        return bean.getXpos();
         }
 
     @Override
     public Float getYpos()
         {
-        return toFloat(record.get(14));
+        return bean.getYpos();
         }
 
     @Override
     public Double getRa()
         {
-        return toDouble(record.get(15));
+        return bean.getRa();
         }
 
     @Override
     public Double getDec()
         {
-        return toDouble(record.get(16));
+        return bean.getDec();
         }
 
     @Override
     public Float getMagpsf()
         {
-        return toFloat(record.get(17));
+        return bean.getMagpsf();
         }
 
     @Override
     public Float getSigmapsf()
         {
-        return toFloat(record.get(18));
+        return bean.getSigmapsf();
         }
 
     @Override
     public Float getChipsf()
         {
-        return toFloat(record.get(19));
+        return bean.getChipsf();
         }
 
     @Override
     public Float getMagap()
         {
-        return toFloat(record.get(20));
+        return bean.getMagap();
         }
 
     @Override
     public Float getSigmagap()
         {
-        return toFloat(record.get(21));
+        return bean.getSigmagap();
         }
 
     @Override
     public Float getDistnr()
         {
-        return toFloat(record.get(22));
+        return bean.getDistnr();
         }
 
     @Override
     public Float getMagnr()
         {
-        return toFloat(record.get(23));
+        return bean.getMagnr();
         }
 
     @Override
     public Float getSigmagnr()
         {
-        return toFloat(record.get(24));
+        return bean.getSigmagnr();
         }
 
     @Override
     public Float getChinr()
         {
-        return toFloat(record.get(25));
+        return bean.getChinr();
         }
 
     @Override
     public Float getSharpnr()
         {
-        return toFloat(record.get(26));
+        return bean.getSharpnr();
         }
 
     @Override
     public Float getSky()
         {
-        return toFloat(record.get(27));
+        return bean.getSky();
         }
 
     @Override
     public Float getMagdiff()
         {
-        return toFloat(record.get(28));
+        return bean.getMagdiff();
         }
 
     @Override
     public Float getFwhm()
         {
-        return toFloat(record.get(29));
+        return bean.getFwhm();
         }
 
     @Override
     public Float getClasstar()
         {
-        return toFloat(record.get(30));
+        return bean.getClasstar();
         }
 
     @Override
     public Float getMindtoedge()
         {
-        return toFloat(record.get(31));
+        return bean.getMindtoedge();
         }
 
     @Override
     public Float getMagfromlim()
         {
-        return toFloat(record.get(32));
+        return bean.getMagfromlim();
         }
 
     @Override
     public Float getSeeratio()
         {
-        return toFloat(record.get(33));
+        return bean.getSeeratio();
         }
 
     @Override
     public Float getAimage()
         {
-        return toFloat(record.get(34));
+        return bean.getAimage();
         }
 
     @Override
     public Float getBimage()
         {
-        return toFloat(record.get(35));
+        return bean.getBimage();
         }
 
     @Override
     public Float getAimagerat()
         {
-        return toFloat(record.get(36));
+        return bean.getAimagerat();
         }
 
     @Override
     public Float getBimagerat()
         {
-        return toFloat(record.get(37));
+        return bean.getBimagerat();
         }
 
     @Override
     public Float getElong()
         {
-        return toFloat(record.get(38));
+        return bean.getElong();
         }
 
     @Override
     public Integer getNneg()
         {
-        return toInt(record.get(39));
+        return bean.getNneg();
         }
 
     @Override
     public Integer getNbad()
         {
-        return toInt(record.get(40));
+        return bean.getNbad();
         }
 
     @Override
     public Float getRb()
         {
-        return toFloat(record.get(41));
+        return bean.getRb();
         }
 
     @Override
     public Float getSsdistnr()
         {
-        return toFloat(record.get(42));
+        return bean.getSsdistnr();
         }
 
     @Override
     public Float getSsmagnr()
         {
-        return toFloat(record.get(43));
+        return bean.getSsmagnr();
         }
 
     @Override
     public CharSequence getSsnamenr()
         {
-        return toChar(record.get(44));
+        return bean.getSsnamenr();
         }
 
     @Override
     public Float getSumrat()
         {
-        return toFloat(record.get(45));
+        return bean.getSumrat();
         }
 
     @Override
     public Float getMagapbig()
         {
-        return toFloat(record.get(46));
+        return bean.getMagapbig();
         }
 
     @Override
     public Float getSigmagapbig()
         {
-        return toFloat(record.get(47));
+        return bean.getSigmagapbig();
         }
 
     @Override
     public Double getRanr()
         {
-        return toDouble(record.get(48));
+        return bean.getRanr();
         }
 
     @Override
     public Double getDecnr()
         {
-        return toDouble(record.get(49));
+        return bean.getDecnr();
         }
 
-    // Different to AlertCandidate
     @Override
     public Double getScorr()
         {
-        return toDouble(record.get(50));
+        return bean.getScorr();
         }
 
-    // Different to AlertCandidate
     @Override
     public CharSequence getRbversion()
         {
-        return toChar(record.get(51));
+        return bean.getRbversion();
         }
     }

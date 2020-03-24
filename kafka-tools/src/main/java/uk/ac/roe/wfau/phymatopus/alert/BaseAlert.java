@@ -18,20 +18,13 @@
 
 package uk.ac.roe.wfau.phymatopus.alert;
 
-import org.apache.avro.specific.SpecificRecord;
-
-import uk.ac.roe.wfau.phymatopus.avro.ztf.ZtfCutout;
-
+/**
+ * Public interface for ZTF alerts.
+ *
+ */
 public interface BaseAlert
-extends SpecificRecord
     {
    
-    /**
-     * Gets the value of the 'schemavsn' field.
-     * @return schema version used
-     */
-    public CharSequence getSchemavsn();
-
     /**
      * Gets the value of the 'publisher' field.
      * @return origin of alert packet
@@ -66,24 +59,18 @@ extends SpecificRecord
      * Gets the value of the 'cutoutScience' field.
      * @return The value of the 'cutoutScience' field.
      */
-    public ZtfCutout getCutoutScience();
+    public AlertCutout getCutoutScience();
 
     /**
      * Gets the value of the 'cutoutTemplate' field.
      * @return The value of the 'cutoutTemplate' field.
      */
-    public ZtfCutout getCutoutTemplate();
+    public AlertCutout getCutoutTemplate();
 
     /**
      * Gets the value of the 'cutoutDifference' field.
      * @return The value of the 'cutoutDifference' field.
      */
-    public ZtfCutout getCutoutDifference();
+    public AlertCutout getCutoutDifference();
 
-    /**
-     * The Kafka topic this alert was read from.
-     *  
-     */
-    public String getTopic();
-    
     }

@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2018 Royal Observatory, University of Edinburgh, UK
+ *  Copyright (C) 2020 Royal Observatory, University of Edinburgh, UK
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -31,7 +31,6 @@ import lombok.extern.slf4j.Slf4j;
 import uk.ac.roe.wfau.phymatopus.alert.AlertProcessor;
 import uk.ac.roe.wfau.phymatopus.alert.AlertReader;
 import uk.ac.roe.wfau.phymatopus.alert.BaseAlert;
-import uk.ac.roe.wfau.phymatopus.kafka.alert.ztf.ZtfAlertReader;
 
 /**
  *
@@ -115,9 +114,9 @@ public abstract class KafkaReaderTestBase
      * Create a new reader configuration.
      *
      */
-    public BaseReader.Configuration configuration()
+    public KafkaReaderBase.Configuration configuration()
         {
-        return new ZtfAlertReader.ConfigurationBean(
+        return new KafkaInlineReader.ConfigurationBean(
             this.looplimit(),
             this.looptimeout(),
             this.polltimeout(),
@@ -165,13 +164,13 @@ public abstract class KafkaReaderTestBase
             readers.size()
             );
         try {
-            List<Future<AlertReader.ReaderStatistics>> futures = executor.invokeAll(readers);
+            List<Future<AlertReader.LoopStats>> futures = executor.invokeAll(readers);
             long alerts  = 0 ;
             long sumtime = 0 ;
             long maxtime = 0 ;
-            for (Future<AlertReader.ReaderStatistics> future : futures)
+            for (Future<AlertReader.LoopStats> future : futures)
                 {
-                AlertReader.ReaderStatistics result = future.get();
+                AlertReader.LoopStats result = future.get();
                 alerts  += result.count();
                 sumtime += result.time();
                 if (result.time() > maxtime)

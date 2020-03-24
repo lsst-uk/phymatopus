@@ -1,5 +1,19 @@
-/**
- * 
+/*
+ *  Copyright (C) 2020 Royal Observatory, University of Edinburgh, UK
+ *
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *
  */
 package uk.ac.roe.wfau.phymatopus.avro.file;
 
@@ -13,15 +27,14 @@ import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 import lombok.extern.slf4j.Slf4j;
 import uk.ac.roe.wfau.phymatopus.alert.AlertProcessor;
-import uk.ac.roe.wfau.phymatopus.alert.AlertReader.ReaderStatistics;
-import uk.ac.roe.wfau.phymatopus.kafka.alert.lsst.LsstAlertWriter;
+import uk.ac.roe.wfau.phymatopus.alert.AlertReader.LoopStats;
+import uk.ac.roe.wfau.phymatopus.kafka.KafkaObjectWriter;
 import uk.ac.roe.wfau.phymatopus.alert.BaseAlert;
 
 /**
- *
+ * TODO Combine this with the AlertConversionTest.
  *
  */
-
 @Slf4j
 @RunWith(
         SpringJUnit4ClassRunner.class
@@ -68,21 +81,21 @@ public class ZtfTarGzipToKafkaTestCase
        {
        }
 
-   protected LsstAlertWriter writer ;
+   protected KafkaObjectWriter writer ;
 
-   protected LsstAlertWriter.Configuration config ;
+   protected KafkaObjectWriter.Configuration config ;
 
    @Before
    public void before()
        {
        log.debug("Creating config");
-       config = new LsstAlertWriter.ConfigurationBean(
+       config = new KafkaObjectWriter.ConfigurationBean(
            servers,
            topic,
            group
            );
        log.debug("Creating writer");
-       writer = new LsstAlertWriter(
+       writer = new KafkaObjectWriter(
            config
            );
        log.debug("Initialising writer");
@@ -111,9 +124,8 @@ public class ZtfTarGzipToKafkaTestCase
                {
                writer.write(alert);
                count++;
-               log.trace("candId    [{}]", alert.getCandid());
-               log.trace("objectId  [{}]", alert.getObjectId());
-               log.trace("schemavsn [{}]", alert.getSchemavsn().toString());
+               //log.trace("candId    [{}]", alert.getCandid());
+               //log.trace("objectId  [{}]", alert.getObjectId());
                }
            };
        }
@@ -125,10 +137,7 @@ public class ZtfTarGzipToKafkaTestCase
            this.processor(),
            avrofile
            );
-
-       ReaderStatistics stats = reader.loop();
-       
+       LoopStats stats = reader.loop();
        log.debug("Read [{}] in [{}]", stats.count(), stats.time());
-
        }
     }

@@ -16,7 +16,7 @@
  *
  */
 
-package uk.ac.roe.wfau.phymatopus.kafka.alert.lsst;
+package uk.ac.roe.wfau.phymatopus.kafka;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -37,7 +37,6 @@ import io.confluent.kafka.serializers.KafkaAvroSerializer;
 import io.confluent.kafka.serializers.KafkaAvroSerializerConfig;
 import lombok.extern.slf4j.Slf4j;
 import uk.ac.roe.wfau.phymatopus.alert.BaseAlert;
-import uk.ac.roe.wfau.phymatopus.kafka.BaseClient;
 import ztf.alert;
 
 /**
@@ -45,15 +44,15 @@ import ztf.alert;
  * 
  */
 @Slf4j
-public class LsstAlertWriter
-extends BaseClient
+public class KafkaObjectWriter
+extends KafkaClientBase
     {
 
     /**
      * Public constructor.
      * 
      */
-    public LsstAlertWriter(final Configuration config)
+    public KafkaObjectWriter(final Configuration config)
         {
         super(
             config
@@ -64,7 +63,7 @@ extends BaseClient
      * Public interface for a writer configuration.
      * 
      */
-    public static interface Configuration extends BaseClient.Configuration
+    public static interface Configuration extends KafkaClientBase.Configuration
         {
         }
 
@@ -73,7 +72,7 @@ extends BaseClient
      * 
      */
     public static class ConfigurationBean
-    extends BaseClient.ConfigurationBean
+    extends KafkaClientBase.ConfigurationBean
     implements Configuration
         {
         public ConfigurationBean(final String servers, final String topic, final String group)

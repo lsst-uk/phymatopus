@@ -1,23 +1,24 @@
 /**
  * 
  */
-package uk.ac.roe.wfau.phymatopus.avro.lsst;
+package uk.ac.roe.wfau.phymatopus.avro.record;
 
 import java.util.Iterator;
 
 import org.apache.avro.generic.GenericData;
 
 import uk.ac.roe.wfau.phymatopus.alert.PrevCandidate;
+import ztf.alert;
 
 /**
- * 
+ * A wrapper class for Avro {@link GenericData.Record}s based on the ZTF {@link alert} schema.  
  *
  */
-public class LsstPrevCandidateWrapper
-extends LsstBaseCandidateWrapper
+public class AvroRecordPrevCandidateWrapper
+extends AvroRecordBaseCandidateWrapper
 implements PrevCandidate
     {
-    public LsstPrevCandidateWrapper(final GenericData.Record record, final CharSequence objectid)
+    public AvroRecordPrevCandidateWrapper(final GenericData.Record record, final CharSequence objectid)
         {
         super(
             record,
@@ -25,8 +26,20 @@ implements PrevCandidate
             );
         }
 
+    @Override
+    public Double getScorr()
+        {
+        return toDouble(record.get(50));
+        }
+
+    @Override
+    public CharSequence getRbversion()
+        {
+        return toChar(record.get(51));
+        }
+
     /**
-     * An Iterable implementation.
+     * An {@link Iterable} implementation.
      * 
      */
     public static class IterableWrapper
@@ -50,7 +63,7 @@ implements PrevCandidate
         }
 
     /**
-     * An Iterator implementation.
+     * An {@link Iterator} implementation.
      * 
      */
     public static class IteratorWrapper
@@ -79,7 +92,7 @@ implements PrevCandidate
             {
             if (null != inner)
                 {
-                return new LsstPrevCandidateWrapper(
+                return new AvroRecordPrevCandidateWrapper(
                     this.inner.next(),
                     this.objectid
                     );

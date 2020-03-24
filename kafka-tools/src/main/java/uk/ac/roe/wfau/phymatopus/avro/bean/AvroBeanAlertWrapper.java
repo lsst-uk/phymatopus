@@ -15,15 +15,23 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
-package uk.ac.roe.wfau.phymatopus.avro.ztf;
+package uk.ac.roe.wfau.phymatopus.avro.bean;
 
 import org.apache.avro.Schema;
 
 import uk.ac.roe.wfau.phymatopus.alert.AlertCandidate;
+import uk.ac.roe.wfau.phymatopus.alert.AlertCutout;
 import uk.ac.roe.wfau.phymatopus.alert.BaseAlert;
 import uk.ac.roe.wfau.phymatopus.alert.PrevCandidate;
+import uk.ac.roe.wfau.phymatopus.avro.AvroAlert;
+import ztf.alert;
 
-public class ZtfAlertWrapper implements BaseAlert
+/**
+ * A wrapper class for the ZTF {@link alert} bean generated from the JSON schema.  
+ *
+ */
+public class AvroBeanAlertWrapper
+implements AvroAlert
     {
     /**
      * Our Avro alert bean.
@@ -35,7 +43,7 @@ public class ZtfAlertWrapper implements BaseAlert
      * Public constructor.
      * 
      */    
-    public ZtfAlertWrapper(final ztf.alert bean, final String topic)
+    public AvroBeanAlertWrapper(final ztf.alert bean, final String topic)
         {
         this.bean  = bean ;
         this.topic = topic;
@@ -93,7 +101,7 @@ public class ZtfAlertWrapper implements BaseAlert
     @Override
     public AlertCandidate getCandidate()
         {
-        return new ZtfAlertCandidateWrapper(
+        return new AvroBeanAlertCandidateWrapper(
             this.topic,
             bean.getObjectId(),
             bean.getCandidate()
@@ -103,32 +111,32 @@ public class ZtfAlertWrapper implements BaseAlert
     @Override
     public Iterable<PrevCandidate> getPrvCandidates()
         {
-        return new ZtfPrevCandidateWrapper.IterableWrapper(
+        return new AvroBeanPrevCandidateWrapper.IterableWrapper(
             bean.getPrvCandidates(),
             bean.getObjectId()
             );
         }
         
     @Override
-    public ZtfCutout getCutoutScience()
+    public AlertCutout getCutoutScience()
         {
-        return new ZtfCutoutWrapper(
+        return new AvroBeanCutoutWrapper(
             bean.getCutoutScience()
             );
         }
         
     @Override
-    public ZtfCutout getCutoutTemplate()
+    public AlertCutout getCutoutTemplate()
         {
-        return new ZtfCutoutWrapper(
+        return new AvroBeanCutoutWrapper(
             bean.getCutoutTemplate()
             );
         }
         
     @Override
-    public ZtfCutout getCutoutDifference()
+    public AlertCutout getCutoutDifference()
         {
-        return new ZtfCutoutWrapper(
+        return new AvroBeanCutoutWrapper(
             bean.getCutoutDifference()
             );
         }

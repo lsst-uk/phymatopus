@@ -15,20 +15,31 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
-package uk.ac.roe.wfau.phymatopus.avro.ztf;
 
-public interface ZtfCutout
+package uk.ac.roe.wfau.phymatopus.avro;
+
+import org.apache.avro.specific.SpecificRecord;
+
+import uk.ac.roe.wfau.phymatopus.alert.BaseAlert;
+
+/**
+ * Public interface for Avro encoded alerts.
+ *
+ */
+public interface AvroAlert
+extends SpecificRecord, BaseAlert
     {
+   
     /**
-     * Gets the value of the 'fileName' field.
-     * @return The value of the 'fileName' field.
+     * Gets the value of the 'schemavsn' field.
+     * @return schema version used
      */
-    public java.lang.CharSequence getFileName();
+    public CharSequence getSchemavsn();
 
     /**
-     * Gets the value of the 'stampData' field.
-     * @return fits.gz
+     * The Kafka topic this alert was read from.
+     *  
      */
-    public java.nio.ByteBuffer getStampData();
-
+    public String getTopic();
+    
     }

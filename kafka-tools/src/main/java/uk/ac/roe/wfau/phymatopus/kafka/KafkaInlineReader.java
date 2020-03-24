@@ -16,13 +16,12 @@
  *
  */
 
-package uk.ac.roe.wfau.phymatopus.kafka.alert.ztf;
+package uk.ac.roe.wfau.phymatopus.kafka;
 
 import java.io.IOException;
 import java.util.Properties;
 
 import org.apache.avro.Schema;
-import org.apache.avro.SchemaNormalization;
 import org.apache.avro.file.DataFileReader;
 import org.apache.avro.file.SeekableByteArrayInput;
 import org.apache.avro.generic.GenericDatumReader;
@@ -35,21 +34,18 @@ import org.apache.kafka.common.serialization.LongDeserializer;
 
 import lombok.extern.slf4j.Slf4j;
 import uk.ac.roe.wfau.phymatopus.alert.AlertProcessor;
-import uk.ac.roe.wfau.phymatopus.alert.AlertReader;
 import uk.ac.roe.wfau.phymatopus.alert.BaseAlert;
-import uk.ac.roe.wfau.phymatopus.avro.ztf.ZtfAlertWrapper;
-import uk.ac.roe.wfau.phymatopus.kafka.alert.GenericAlertReader;
-import uk.ac.roe.wfau.phymatopus.kafka.tools.DebugFormatter;
+import uk.ac.roe.wfau.phymatopus.avro.bean.AvroBeanAlertWrapper;
 import ztf.alert;
 
 /**
- * Reads a series on ZtfAlerts from a stream and stops when there are no more alerts and the poll timeout is reached.
+ * A {@link KafkaAlertReader} that reads Alerts from a Kafka Avro stream with inline schema.
  *
  */
 @Slf4j
-public class ZtfAlertReader
-extends GenericAlertReader<Long, byte[], BaseAlert>
-implements AlertReader
+public class KafkaInlineReader
+extends GenericKafkaReader<Long, byte[], BaseAlert>
+implements KafkaAlertReader
     {
 
     /**
@@ -58,7 +54,7 @@ implements AlertReader
      * @param config The reader configuration.
      *
      */
-    public ZtfAlertReader(final AlertProcessor<BaseAlert> processor, final Configuration config)
+    public KafkaInlineReader(final AlertProcessor<BaseAlert> processor, final Configuration config)
         {
         super(
             processor,
@@ -142,7 +138,7 @@ implements AlertReader
                 //log.trace("Processing alert [{}]", alertcount);
                 try {
                     processor.process(
-                        new ZtfAlertWrapper(
+                        new AvroBeanAlertWrapper(
                             alert,
                             this.config.getTopic()
                             )
@@ -214,7 +210,8 @@ implements AlertReader
 
     /**
      * Create a DataFileReader for the alert data type.
-     * 
+     * TODO Refactor this as AvroBeanDataFileReader.
+     *   
      */
     protected DataFileReader<alert> reader(final byte[] bytes)
         {
@@ -232,7 +229,9 @@ implements AlertReader
         catch (IOException ouch)
             {
             log.error("IOException creating reader [{}]", ouch.getMessage());
-            return null ;
+            throw new RuntimeException(
+                ouch
+                );
             }
         }
 
@@ -244,12 +243,12 @@ implements AlertReader
         {
         return new CallableAlertReader()
             {
-            private final ZtfAlertReader reader = new ZtfAlertReader(
+            private final KafkaInlineReader reader = new KafkaInlineReader(
                 processor,
                 config
                 ); 
             @Override
-            public ReaderStatistics call()
+            public LoopStats call()
                 {
                 return reader.loop();
                 }
@@ -259,5 +258,26 @@ implements AlertReader
                 reader.rewind();
                 }
             };
+        }
+
+    public static class Factory
+    implements KafkaAlertReader.Factory
+        {
+        @Override
+        public KafkaInlineReader reader(AlertProcessor<BaseAlert> processor, Configuration config)
+            {
+            return new KafkaInlineReader(
+                processor,
+                config
+                );
+            }
+        @Override
+        public CallableAlertReader callable(AlertProcessor<BaseAlert> processor, Configuration config)
+            {
+            return KafkaInlineReader.callable(
+                processor,
+                config
+                );
+            }
         }
     }

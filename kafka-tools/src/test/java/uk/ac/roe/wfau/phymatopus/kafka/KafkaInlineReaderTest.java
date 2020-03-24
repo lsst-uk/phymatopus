@@ -16,7 +16,7 @@
  *
  */
 
-package uk.ac.roe.wfau.phymatopus.kafka.alert.lsst;
+package uk.ac.roe.wfau.phymatopus.kafka;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -25,9 +25,9 @@ import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 import lombok.extern.slf4j.Slf4j;
 import uk.ac.roe.wfau.phymatopus.alert.AlertProcessor;
-import uk.ac.roe.wfau.phymatopus.alert.AlertReader;
 import uk.ac.roe.wfau.phymatopus.alert.BaseAlert;
-import uk.ac.roe.wfau.phymatopus.kafka.KafkaReaderTestBase;
+import uk.ac.roe.wfau.phymatopus.alert.AlertReader.CallableAlertReader;
+import uk.ac.roe.wfau.phymatopus.kafka.KafkaInlineReader;
 
 @Slf4j
 @RunWith(
@@ -38,13 +38,13 @@ import uk.ac.roe.wfau.phymatopus.kafka.KafkaReaderTestBase;
         "classpath:component-config.xml"
         }
     )
-public class LsstAlertReaderTest
+public class KafkaInlineReaderTest
 extends KafkaReaderTestBase
     {
     /**
      *
      */
-    public LsstAlertReaderTest()
+    public KafkaInlineReaderTest()
         {
         super();
         }
@@ -64,19 +64,16 @@ extends KafkaReaderTestBase
             public void process(final BaseAlert alert)
                 {
                 count++;
-                log.debug("candId    [{}]", alert.getCandid());
-                log.debug("objectId  [{}]", alert.getObjectId());
-                log.debug("schemavsn [{}]", alert.getSchemavsn().toString());
-                log.debug("candidate [{}]", alert.getCandidate().getClass().getName());
-                log.debug("previous  [{}]", alert.getPrvCandidates().getClass().getName());
+                log.trace("candId    [{}]", alert.getCandid());
+                log.trace("objectId  [{}]", alert.getObjectId());
                 }
             };
         }
 
     @Override
-    protected AlertReader.CallableAlertReader reader()
+    protected CallableAlertReader reader()
         {
-        return LsstAlertReader.callable(
+        return KafkaInlineReader.callable(
             this.processor(),
             this.configuration()
             );

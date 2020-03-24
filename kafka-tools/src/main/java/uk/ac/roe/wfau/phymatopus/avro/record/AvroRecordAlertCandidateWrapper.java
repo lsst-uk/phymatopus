@@ -15,19 +15,22 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
-package uk.ac.roe.wfau.phymatopus.avro.lsst;
+package uk.ac.roe.wfau.phymatopus.avro.record;
 
 import org.apache.avro.generic.GenericData;
 
-import lombok.extern.slf4j.Slf4j;
 import uk.ac.roe.wfau.phymatopus.alert.AlertCandidate;
+import ztf.alert;
 
-@Slf4j
-public class LsstAlertCandidateWrapper
-extends LsstBaseCandidateWrapper
+/**
+ * A wrapper class for Avro {@link GenericData.Record}s based on the ZTF {@link alert} schema.  
+ *
+ */
+public class AvroRecordAlertCandidateWrapper
+extends AvroRecordBaseCandidateWrapper
 implements AlertCandidate
     {
-    public LsstAlertCandidateWrapper(final GenericData.Record record, final CharSequence objectid, final String topic)
+    public AvroRecordAlertCandidateWrapper(final GenericData.Record record, final CharSequence objectid, final String topic)
         {
         super(
             record,

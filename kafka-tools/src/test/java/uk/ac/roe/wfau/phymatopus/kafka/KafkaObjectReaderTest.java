@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2018 Royal Observatory, University of Edinburgh, UK
+ *  Copyright (C) 2020 Royal Observatory, University of Edinburgh, UK
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -16,12 +16,10 @@
  *
  */
 
-package uk.ac.roe.wfau.phymatopus.kafka.alert;
+package uk.ac.roe.wfau.phymatopus.kafka;
 
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
@@ -29,14 +27,8 @@ import lombok.extern.slf4j.Slf4j;
 import uk.ac.roe.wfau.phymatopus.alert.AlertProcessor;
 import uk.ac.roe.wfau.phymatopus.alert.AlertReader;
 import uk.ac.roe.wfau.phymatopus.alert.BaseAlert;
-import uk.ac.roe.wfau.phymatopus.kafka.KafkaReaderTestBase;
-import uk.ac.roe.wfau.phymatopus.kafka.alert.lsst.LsstAlertWriter;
-import uk.ac.roe.wfau.phymatopus.kafka.alert.ztf.ZtfAlertReader;
+import uk.ac.roe.wfau.phymatopus.kafka.KafkaObjectReader;
 
-/**
- *
- *
- */
 @Slf4j
 @RunWith(
         SpringJUnit4ClassRunner.class
@@ -46,63 +38,21 @@ import uk.ac.roe.wfau.phymatopus.kafka.alert.ztf.ZtfAlertReader;
         "classpath:component-config.xml"
         }
     )
-public class AlertConversionTest
+public class KafkaObjectReaderTest
 extends KafkaReaderTestBase
     {
     /**
-     * The target kafka servers.
-     * 
-     */
-    @Value("${phymatopus.kafka.writer.servers:}")
-    protected String servers;
-
-    /**
-     * The target kafka topic.
-     * 
-     */
-    @Value("${phymatopus.kafka.writer.topic:}")
-    protected String topic;
-
-    /**
-     * The target kafka group.
-     * 
-     */
-    @Value("${phymatopus.kafka.writer.group:}")
-    protected String group;
-
-    protected LsstAlertWriter writer ;
-
-    protected LsstAlertWriter.Configuration config ;
-    
-    /**
      *
      */
-    public AlertConversionTest()
+    public KafkaObjectReaderTest()
         {
         super();
         }
-    
-    @Before
-    public void before()
-        {
-        log.debug("Creating config");
-        config = new LsstAlertWriter.ConfigurationBean(
-            servers,
-            topic,
-            group
-            );
-        log.debug("Creating writer");
-        writer = new LsstAlertWriter(
-            config
-            );
-        log.debug("Initialising writer");
-        writer.init();
-        }
-    
+
     @Override
     protected AlertProcessor<BaseAlert> processor()
         {
-        return new AlertProcessor<BaseAlert> ()
+        return new AlertProcessor<BaseAlert>()
             {
             private long count ;
             @Override
@@ -114,13 +64,10 @@ extends KafkaReaderTestBase
             public void process(final BaseAlert alert)
                 {
                 count++;
-                log.trace("candId    [{}]", alert.getCandid());
-                log.trace("objectId  [{}]", alert.getObjectId());
-                log.trace("schemavsn [{}]", alert.getSchemavsn().toString());
-                log.trace("class     [{}]", alert.getClass().getName());
-                writer.write(
-                    alert
-                    );
+                log.debug("candId    [{}]", alert.getCandid());
+                log.debug("objectId  [{}]", alert.getObjectId());
+                log.debug("candidate [{}]", alert.getCandidate().getClass().getName());
+                log.debug("previous  [{}]", alert.getPrvCandidates().getClass().getName());
                 }
             };
         }
@@ -128,7 +75,7 @@ extends KafkaReaderTestBase
     @Override
     protected AlertReader.CallableAlertReader reader()
         {
-        return ZtfAlertReader.callable(
+        return KafkaObjectReader.callable(
             this.processor(),
             this.configuration()
             );

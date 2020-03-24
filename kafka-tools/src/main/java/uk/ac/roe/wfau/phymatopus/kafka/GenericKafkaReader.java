@@ -16,7 +16,7 @@
  *
  */
 
-package uk.ac.roe.wfau.phymatopus.kafka.alert;
+package uk.ac.roe.wfau.phymatopus.kafka;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -37,25 +37,24 @@ import org.apache.kafka.common.TopicPartition;
 import lombok.extern.slf4j.Slf4j;
 import uk.ac.roe.wfau.phymatopus.alert.AlertProcessor;
 import uk.ac.roe.wfau.phymatopus.alert.AlertReader;
-import uk.ac.roe.wfau.phymatopus.kafka.BaseReader;
 
 /**
- * Reads a series on alerts from a stream and stops when the loop timeout or limit is reached.
+ * Reads a series on alerts from a stream and stops when a timeout or limit is reached.
  *
  */
 @Slf4j
-public abstract class GenericAlertReader<KeyType, DataType, AlertType>
-extends BaseReader
+public abstract class GenericKafkaReader<KeyType, MsgType, AlertType>
+extends KafkaReaderBase
 implements ConsumerRebalanceListener, AlertReader
     {
 
     /**
      * Public constructor.
-     * @param processor The alert processor.
-     * @param config The reader configuration.
+     * @param processor The alert processor to pass alerts to.
+     * @param config The {@link KafkaReaderBase} configuration.
      *
      */
-    public GenericAlertReader(final AlertProcessor<AlertType> processor, final Configuration config)
+    public GenericKafkaReader(final AlertProcessor<AlertType> processor, final Configuration config)
         {
         super(config);
         this.processor = processor ;
@@ -68,25 +67,22 @@ implements ConsumerRebalanceListener, AlertReader
     protected AlertProcessor<AlertType> processor;
 
     /**
-     * Create our {@link Consumer}.
+     * Create our Kafka {@link Consumer}.
      *
      */
-    protected abstract Consumer<KeyType, DataType> consumer();
+    abstract protected Consumer<KeyType, MsgType> consumer();
 
     /**
-     * Process a DataType instance.
+     * Process a <MsgType> instance.
      *
      */
-    protected abstract long process(final DataType data);
+    abstract protected long process(final MsgType msg);
 
-    /**
-     * Loop until timeout or limit reached.
-     *
-     */
-    public ReaderStatistics loop()
+    @Override
+    public LoopStats loop()
         {
         log.trace("Creating consumer");
-        Consumer<KeyType, DataType> consumer = consumer();
+        Consumer<KeyType, MsgType> consumer = consumer();
 
         log.trace("Subscribing ..");
         consumer.subscribe(
@@ -117,7 +113,7 @@ implements ConsumerRebalanceListener, AlertReader
 
             log.trace("Loop [{}][{}]", loopcount, lastwait);
 
-            ConsumerRecords<KeyType, DataType> records = consumer.poll(
+            ConsumerRecords<KeyType, MsgType> records = consumer.poll(
                 polltimeout 
                 );
 
@@ -131,7 +127,7 @@ implements ConsumerRebalanceListener, AlertReader
 
             else {
                 lastwait = 0 ;
-                for (ConsumerRecord<KeyType, DataType> record : records)
+                for (ConsumerRecord<KeyType, MsgType> record : records)
                     {
                     long alertcount = process(
                         record.value()
@@ -188,7 +184,7 @@ implements ConsumerRebalanceListener, AlertReader
 
         consumer.close();
         
-        return new ReaderStatistics.Bean(
+        return new LoopStats.Bean(
             totalalerts,
             totaltime
             ) ;
@@ -201,7 +197,7 @@ implements ConsumerRebalanceListener, AlertReader
     public void rewind()
         {
         log.trace("Creating consumer");
-        Consumer<KeyType, DataType> consumer = consumer();
+        Consumer<KeyType, MsgType> consumer = consumer();
 
         log.trace("Fetching PartitionInfo for topic");
         List<PartitionInfo> partitions = consumer.partitionsFor(

@@ -16,7 +16,7 @@
  *
  */
 
-package uk.ac.roe.wfau.phymatopus.kafka.alert.lsst;
+package uk.ac.roe.wfau.phymatopus.kafka;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -37,21 +37,19 @@ import io.confluent.kafka.serializers.KafkaAvroDeserializer;
 import io.confluent.kafka.serializers.KafkaAvroDeserializerConfig;
 import lombok.extern.slf4j.Slf4j;
 import uk.ac.roe.wfau.phymatopus.alert.AlertProcessor;
-import uk.ac.roe.wfau.phymatopus.alert.AlertReader;
 import uk.ac.roe.wfau.phymatopus.alert.BaseAlert;
-import uk.ac.roe.wfau.phymatopus.avro.lsst.LsstAlertWrapper;
-import uk.ac.roe.wfau.phymatopus.kafka.alert.GenericAlertReader;
+import uk.ac.roe.wfau.phymatopus.avro.record.AvroRecordAlertWrapper;
 import ztf.alert;
 
 
 /**
- * Reads a series on LsstAlerts from a stream and stops when there are no more alerts and the poll timeout is reached.
+ * A {@link KafkaAlertReader} that reads Alerts from a Kafka Avro stream using a registered schema.
  *
  */
 @Slf4j
-public class LsstAlertReader
-extends GenericAlertReader<Long, Object, BaseAlert>
-implements AlertReader
+public class KafkaObjectReader
+extends GenericKafkaReader<Long, Object, BaseAlert>
+implements KafkaAlertReader
     {
 
     /**
@@ -60,7 +58,7 @@ implements AlertReader
      * @param config The reader configuration.
      *
      */
-    public LsstAlertReader(final AlertProcessor<BaseAlert> processor, final Configuration config)
+    public KafkaObjectReader(final AlertProcessor<BaseAlert> processor, final Configuration config)
         {
         super(
             processor,
@@ -69,25 +67,30 @@ implements AlertReader
         }
 
     /**
-     * A Deserializer for our index type.
+     * A Deserializer for our key type, {@link Long}.
      *
      */
-    public Deserializer<Long> indexDeserializer(final Map<String, Object> config)
+    protected Deserializer<Long> indexDeserializer(final Map<String, Object> config)
         {
-        LongDeserializer  result = new LongDeserializer();
-        result.configure(config, true); // True because this is the Deserializer for keys. 
-        return result ;
+        LongDeserializer deser = new LongDeserializer();
+        deser.configure(
+            config,
+            true // True because this is the Deserializer for keys.
+            );  
+        return deser ;
         }
 
     /**
-     * A Deserializer for our data type.
+     * A Deserializer for our message type, {@link Object}.
+     * At the moment this uses a {@link MockSchemaRegistryClient},
+     * later this should use the full SchemaRegistryClient.
      *
      */
-    public Deserializer<Object> dataDeserializer(final Map<String, Object> config)
+    protected Deserializer<Object> dataDeserializer(final Map<String, Object> config)
         {
-        SchemaRegistryClient  reg = new MockSchemaRegistryClient();
+        SchemaRegistryClient registry = new MockSchemaRegistryClient();
         try {
-            reg.register(
+            registry.register(
                 "alert-schema",
                 alert.SCHEMA$
                 );
@@ -95,34 +98,37 @@ implements AlertReader
         catch (IOException ouch)
             {
             log.error("IOException registering schema [{}]", ouch.getMessage());
-            log.error("IOException registering schema ", ouch);
+            throw new RuntimeException(
+                ouch
+                );
             }
         catch (RestClientException ouch)
             {
             log.error("RestClientException registering schema [{}]", ouch.getMessage());
-            log.error("RestClientException registering schema ", ouch);
+            throw new RuntimeException(
+                ouch
+                );
             }
-        KafkaAvroDeserializer ser = new KafkaAvroDeserializer(
-            reg
+        KafkaAvroDeserializer deser = new KafkaAvroDeserializer(
+            registry
             );
-        ser.configure(config, false); // False because this is the Deserializer for data.
-        return ser;
+        deser.configure(
+            config,
+            false // False because this is the Deserializer for data.
+            ); 
+        return deser;
         }
 
     /**
-     * Access our Schema.
+     * Get our Avro {@link Schema}.
      *
      */
     protected Schema schema()
         {
         return alert.SCHEMA$;
         }
-    
-    
-    /**
-     * Create our {@link Consumer}.
-     *
-     */
+
+    @Override
     public Consumer<Long, Object> consumer()
         {
         final Map<String, Object> config = new HashMap<>();
@@ -180,14 +186,14 @@ implements AlertReader
         return consumer;
         }
 
-    public long process(final Object object)
+    @Override
+    protected long process(final Object object)
         {
-        log.trace("Processing Object");
         long alertcount = 0 ;
         try {
             alertcount++;
             processor.process(
-                new LsstAlertWrapper(
+                new AvroRecordAlertWrapper(
                     (GenericData.Record) object,
                     config.getTopic()
                     )
@@ -196,30 +202,32 @@ implements AlertReader
         catch (Exception ouch)
             {
             log.error("Exception processing alert [{}][{}]", ouch.getClass().getName(), ouch.getMessage());
-            log.error("Exception processing alert ", ouch);
             if (ouch.getCause() != null)
                 {
                 Throwable cause = ouch.getCause();
                 log.error("Exception cause [{}][{}]", cause.getClass().getName(), cause.getMessage());
                 }
+            throw new RuntimeException(
+                ouch
+                );
             }
         return alertcount ;
         }
 
     /**
-     * Create a Callable reader.
-     * 
+     * Create a {@link CallableAlertReader}.
+     *  
      */
     public static CallableAlertReader callable(final AlertProcessor<BaseAlert> processor, final Configuration config)
         {
         return new CallableAlertReader()
             {
-            private final LsstAlertReader reader = new LsstAlertReader(
+            private final KafkaObjectReader reader = new KafkaObjectReader(
                 processor,
                 config
                 ); 
             @Override
-            public ReaderStatistics call()
+            public LoopStats call()
                 {
                 return reader.loop();
                 }
@@ -230,4 +238,27 @@ implements AlertReader
                 }
             };
         }
+
+    public static class Factory
+    implements KafkaAlertReader.Factory
+        {
+        @Override
+        public KafkaObjectReader reader(AlertProcessor<BaseAlert> processor, final Configuration config)
+            {
+            return new KafkaObjectReader(
+                processor,
+                config
+                ); 
+            }
+        @Override
+        public CallableAlertReader callable(AlertProcessor<BaseAlert> processor, final Configuration config)
+            {
+            return KafkaObjectReader .callable(
+                processor,
+                config
+                );
+            }
+        }
     }
+
+

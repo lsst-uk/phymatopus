@@ -24,7 +24,7 @@ import lombok.extern.slf4j.Slf4j;
  * Common base class for Kafka clients.
  * 
  */
-public class BaseClient
+public class KafkaClientBase
     {
     /**
      * Public interface for a Kafka client configuration.
@@ -105,7 +105,7 @@ public class BaseClient
      * Public constructor.
      *  
      */
-    public BaseClient(final Configuration config)
+    public KafkaClientBase(final Configuration config)
         {
         this.config = config;
         }

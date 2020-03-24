@@ -15,11 +15,18 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
  */
-package uk.ac.roe.wfau.phymatopus.avro.ztf;
+package uk.ac.roe.wfau.phymatopus.avro.bean;
 
 import java.nio.ByteBuffer;
 
-public class ZtfCutoutWrapper implements ZtfCutout
+import uk.ac.roe.wfau.phymatopus.alert.AlertCutout;
+
+/**
+ * A wrapper class for the ZTF {@link alert} bean generated from the JSON schema.  
+ *
+ */
+public class AvroBeanCutoutWrapper
+implements AlertCutout
     {
     /**
      * Our Avro alert bean.
@@ -31,7 +38,7 @@ public class ZtfCutoutWrapper implements ZtfCutout
      * Public constructor.
      * 
      */
-    public ZtfCutoutWrapper(final ztf.cutout bean)
+    public AvroBeanCutoutWrapper(final ztf.cutout bean)
         {
         this.bean = bean;
         }

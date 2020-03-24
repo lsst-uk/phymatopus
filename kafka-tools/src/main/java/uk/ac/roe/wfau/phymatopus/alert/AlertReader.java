@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2018 Royal Observatory, University of Edinburgh, UK
+ *  Copyright (C) 2020 Royal Observatory, University of Edinburgh, UK
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -20,25 +20,32 @@ package uk.ac.roe.wfau.phymatopus.alert;
 
 import java.util.concurrent.Callable;
 
+/**
+ * TODO Rename this to <something>Reader.
+ * This interface doesn't actually refer to a type of alert ...
+ * Possibly LoopProcessor .. ? 
+ *
+ */
 public interface AlertReader
     {
     /**
-     * Read alerts until the loop timeout is exceeded. 
+     * Read alerts until we reach the end of file (File) or we exceed a wait timeout (Kafka). 
      * 
      */
-    public ReaderStatistics loop();
+    public LoopStats loop();
     
     /**
-     * Rewind to the start of the topic.
+     * Rewind to the start of the file (File) or stream (Kafka).
      * 
      */
     public void rewind();
     
     /**
      * Interface for the loop statistics.
+     * @deprecated Need to figure out a better way of handling this.
      * 
      */
-    public static interface ReaderStatistics
+    public static interface LoopStats
         {
         /**
          * The number of events that have been processed.
@@ -57,7 +64,7 @@ public interface AlertReader
          * 
          */
         public static class Bean
-        implements ReaderStatistics
+        implements LoopStats
             {
             public Bean(final long count, final long time)
                 {
@@ -79,20 +86,32 @@ public interface AlertReader
             }
         }    
 
+    /**
+     * Public interface for a {@link Callable} reader.
+     *
+     */
     public static interface CallableAlertReader
-    extends Callable<AlertReader.ReaderStatistics>
+    extends Callable<AlertReader.LoopStats>
         {
         /**
-         * Read alerts until the loop timeout is exceeded.
+         * Read alerts until we reach the end of file (File) or we exceed a wait timeout (Kafka). 
          *  
          */
-        public AlertReader.ReaderStatistics call();
+        public AlertReader.LoopStats call();
 
         /**
-         * Rewind to the start of the topic.
+         * Rewind to the start of the file (File) or stream (Kafka).
          * 
          */
         public void rewind();
 
-        }    
+        }
+    
+    /**
+     * Public factory interface.
+     * 
+     */
+    public static interface Factory
+        {
+        }
     }

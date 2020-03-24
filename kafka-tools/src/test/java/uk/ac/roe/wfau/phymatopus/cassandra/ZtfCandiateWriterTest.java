@@ -27,7 +27,7 @@ import lombok.extern.slf4j.Slf4j;
 import uk.ac.roe.wfau.phymatopus.alert.AlertReader;
 import uk.ac.roe.wfau.phymatopus.cassandra.AbstractCassandraWriter;
 import uk.ac.roe.wfau.phymatopus.cassandra.CandiateWriter;
-import uk.ac.roe.wfau.phymatopus.kafka.alert.ztf.ZtfAlertReader;
+import uk.ac.roe.wfau.phymatopus.kafka.KafkaInlineReader;
 
 /**
  *
@@ -57,7 +57,7 @@ extends CassandraWriterTestBase
     @Override
     protected AlertReader.CallableAlertReader reader()
         {
-        return ZtfAlertReader.callable(
+        return KafkaInlineReader.callable(
             this.processor(),
             this.configuration()
             );
