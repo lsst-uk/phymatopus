@@ -64,10 +64,10 @@ extends KafkaReaderTestBase
             public void process(final BaseAlert alert)
                 {
                 count++;
-                log.debug("candId    [{}]", alert.getCandid());
-                log.debug("objectId  [{}]", alert.getObjectId());
-                log.debug("candidate [{}]", alert.getCandidate().getClass().getName());
-                log.debug("previous  [{}]", alert.getPrvCandidates().getClass().getName());
+                //log.debug("candId    [{}]", alert.getCandid());
+                //log.debug("objectId  [{}]", alert.getObjectId());
+                //log.debug("candidate [{}]", alert.getCandidate().getClass().getName());
+                //log.debug("previous  [{}]", alert.getPrvCandidates().getClass().getName());
                 }
             };
         }
