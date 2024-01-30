@@ -1,0 +1,2257 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2020, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#zrq-notes-time
+#zrq-notes-indent
+#zrq-notes-crypto
+#zrq-notes-ansible
+#zrq-notes-osformat
+#
+
+    #
+    # Re-build the Kafka service running on trop03 ..
+    #
+    # TODO Docker log limits
+    # https://stackoverflow.com/a/42510314
+    #
+
+
+# -----------------------------------------------------
+# Check what is happening on trop03.
+#[user@trop03]
+
+    df -h
+
+--START--
+Filesystem      Size  Used Avail Use% Mounted on
+udev             63G     0   63G   0% /dev
+tmpfs            13G  843M   12G   7% /run
+/dev/sda2        92G  1.7G   86G   2% /
+tmpfs            63G     0   63G   0% /dev/shm
+tmpfs           5.0M     0  5.0M   0% /run/lock
+tmpfs            63G     0   63G   0% /sys/fs/cgroup
+/dev/sda1       511M  132K  511M   1% /boot/efi
+/dev/sda4       9.1G  3.2G  5.4G  38% /tmp
+/dev/sda5        65G   61G   17M 100% /var
+/dev/sda6        53G  4.2G   46G   9% /home
+/dev/sdc1       3.6T  833G  2.6T  24% /data2
+/dev/sdb1       3.6T  833G  2.6T  24% /data1
+tmpfs            13G     0   13G   0% /run/user/1005
+tmpfs            13G     0   13G   0% /run/user/0
+--END--
+
+
+    sudo du -h /var/lib/
+
+--START--
+....
+....
+54G     /var/lib/libvirt/images/live
+5.2G    /var/lib/libvirt/images/base
+60G     /var/lib/libvirt/images
+60G     /var/lib/libvirt
+....
+....
+60G	/var/lib/
+--END--
+
+
+sudo du -h /var/lib/libvirt/
+
+--START--
+....
+....
+3.6M	/var/lib/libvirt/images/init
+54G	/var/lib/libvirt/images/live
+5.2G	/var/lib/libvirt/images/base
+60G	/var/lib/libvirt/images
+60G	/var/lib/libvirt/
+--END--
+
+
+sudo du -h /var/lib/libvirt/images/
+
+--START--
+3.6M    /var/lib/libvirt/images/init
+54G     /var/lib/libvirt/images/live
+5.2G    /var/lib/libvirt/images/base
+60G     /var/lib/libvirt/images/
+--END--
+
+
+ls -al /var/lib/libvirt/images/live
+
+--START--
+total 56585664
+drwxr-xr-x 2 root         root                4096 Sep  3  2019 .
+drwx--x--x 5 root         root                4096 Dec  9  2018 ..
+-rw------- 1 libvirt-qemu libvirt-qemu 14432534528 Mar 20 00:14 Angece.qcow
+-rw------- 1 libvirt-qemu libvirt-qemu  3418882048 Feb  7 13:46 Byflame.qcow
+-rw------- 1 libvirt-qemu libvirt-qemu 12795084800 Feb  7 13:13 Edwalafia.qcow
+-rw------- 1 libvirt-qemu libvirt-qemu  3448963072 Feb  7 13:26 Fosauri.qcow
+-rw------- 1 libvirt-qemu libvirt-qemu  3883728896 Feb  7 16:07 Grerat.qcow
+-rw------- 1 libvirt-qemu libvirt-qemu  3679125504 Feb  8 17:44 Jeralenia.qcow
+-rw------- 1 libvirt-qemu libvirt-qemu  3427139584 Feb  7 13:42 Marpus.qcow
+-rw------- 1 libvirt-qemu libvirt-qemu  5021106176 Feb  7 13:13 Onoza.qcow
+-rw------- 1 libvirt-qemu libvirt-qemu  5209915392 Feb  7 13:14 Stedigo.qcow
+--END--
+
+
+# -----------------------------------------------------
+# List the virtual machines.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+    
+    virsh \
+        --connect "${libvirtcon:?}" \
+        list
+
+--START--
+ Id    Name                           State
+----------------------------------------------------
+ 40    Fosauri                        paused
+ 41    Marpus                         paused
+ 42    Byflame                        paused
+ 47    Stedigo                        paused
+ 48    Angece                         running
+ 49    Edwalafia                      paused
+ 50    Onoza                          paused
+ 53    Grerat                         paused
+ 54    Jeralenia                      paused
+ 56    Umiawyth                       paused
+--END--
+
+
+# -----------------------------------------------------
+# Shutdown the paused virtual machines.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+
+    vmnames=$(
+        virsh \
+            --connect "${libvirtcon:?}" \
+            list \
+                --name \
+                --state-paused
+        )    
+
+    for vmname in ${vmnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            virsh \
+                --connect "${libvirtcon:?}" \
+                destroy \
+                    "${vmname:?}"
+        done
+
+--START--
+---- ----
+Node [Fosauri]
+Domain Fosauri destroyed
+
+---- ----
+Node [Marpus]
+Domain Marpus destroyed
+
+---- ----
+Node [Byflame]
+Domain Byflame destroyed
+
+---- ----
+Node [Stedigo]
+Domain Stedigo destroyed
+
+---- ----
+Node [Edwalafia]
+Domain Edwalafia destroyed
+
+---- ----
+Node [Onoza]
+Domain Onoza destroyed
+
+---- ----
+Node [Grerat]
+Domain Grerat destroyed
+
+---- ----
+Node [Jeralenia]
+Domain Jeralenia destroyed
+
+---- ----
+Node [Umiawyth]
+Domain Umiawyth destroyed
+--END--
+
+
+# -----------------------------------------------------
+# Try login to Angece.
+#[user@desktop]
+
+    ssh Angece
+
+--START--
+Last login: Tue Sep  3 16:41:54 2019 from 172.16.1.5
+--END--
+
+
+# -----------------------------------------------------
+# Check the disc space on Angece.
+#[user@Angece]
+
+    df -h
+
+--START--
+Filesystem      Size  Used Avail Use% Mounted on
+devtmpfs        2.0G     0  2.0G   0% /dev
+tmpfs           2.0G     0  2.0G   0% /dev/shm
+tmpfs           2.0G   25M  2.0G   2% /run
+tmpfs           2.0G     0  2.0G   0% /sys/fs/cgroup
+/dev/vda3        15G   14G  6.0M 100% /
+tmpfs           2.0G  4.0K  2.0G   1% /tmp
+/dev/vda1       240M   92M  132M  41% /boot
+/dev/vdc        512G   17M  510G   1% /data1-01
+/dev/vdd        512G  307G  203G  61% /data2-01
+tmpfs           395M     0  395M   0% /run/user/1001
+--END--
+
+
+# -----------------------------------------------------
+# Check the disc use on Angece.
+#[user@Angece]
+
+    sudo du -h /var/lib/libvirt/
+
+--START--
+60G     /var/lib/libvirt/images
+60G     /var/lib/libvirt/
+--END--
+
+
+    sudo du -h /var/lib/libvirt/images/
+
+--START--
+3.6M    /var/lib/libvirt/images/init
+54G     /var/lib/libvirt/images/live
+5.2G    /var/lib/libvirt/images/base
+60G     /var/lib/libvirt/images/
+--END--
+
+
+    sudo du -h /var/lib/libvirt/images/live
+
+--START--
+54G     /var/lib/libvirt/images/live
+--END--
+
+
+    df -h /var/
+
+--START--
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vda3        15G   14G  6.0M 100% /
+--END--
+
+
+    sudo du -h /var/ | sed -n '/^[0-9.]*G/p'
+
+--START--
+9.0G	/var/lib/docker/containers/33c335dc6028c9a400daa614385165ca17aa0e912d4c7772d58bcf7902f3e8c5
+9.0G	/var/lib/docker/containers
+1.5G	/var/lib/docker/btrfs/subvolumes/c20e98b6f2b555a6b6a14c7910c96f50cfb995df70ca22594b39ea54b01f0d9c
+4.3G	/var/lib/docker/btrfs/subvolumes
+4.3G	/var/lib/docker/btrfs
+14G	/var/lib/docker
+14G	/var/lib
+14G	/var/
+--END--
+
+
+# -----------------------------------------------------
+# Check the Docker containers.
+#[user@Angece]
+
+    docker ps -a
+
+--START--
+CONTAINER ID        IMAGE                         COMMAND                  CREATED             STATUS              PORTS                              NAMES
+33c335dc6028        confluentinc/cp-kafka:4.1.1   "/etc/confluent/dock…"   6 months ago        Up 6 months         0.0.0.0:9092-9093->9092-9093/tcp   stevedore_emily_1
+--END--
+
+
+    docker exec -it 33c335dc6028 bash
+
+--START--
+Error response from daemon: Container 33c335dc6028c9a400daa614385165ca17aa0e912d4c7772d58bcf7902f3e8c5 is not running
+--END--
+
+
+# -----------------------------------------------------
+# Shutdown the container.
+#[user@Angece]
+
+    docker stop 33c335dc6028
+
+--START--
+33c335dc6028
+--END--
+
+
+    docker ps -a
+
+--START--
+CONTAINER ID        IMAGE                         COMMAND                  CREATED             STATUS              PORTS                              NAMES
+33c335dc6028        confluentinc/cp-kafka:4.1.1   "/etc/confluent/dock…"   6 months ago        Up 6 months         0.0.0.0:9092-9093->9092-9093/tcp   stevedore_emily_1
+--END--
+
+    # Still listed as active.
+
+
+# -----------------------------------------------------
+# Shutdown the virtual machine.
+#[user@Angece]
+
+    sudo shutdown -h now
+
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+# List the disc space used by each VM.
+#[user@trop03]
+
+    ls -alh /var/lib/libvirt/images/live
+
+--START--
+drwxr-xr-x 2 root root 4.0K Sep  3  2019 .
+drwx--x--x 5 root root 4.0K Dec  9  2018 ..
+-rw------- 1 root root  14G Mar 20 02:12 Angece.qcow
+-rw------- 1 root root 3.2G Feb  7 13:46 Byflame.qcow
+-rw------- 1 root root  12G Feb  7 13:13 Edwalafia.qcow
+-rw------- 1 root root 3.3G Feb  7 13:26 Fosauri.qcow
+-rw------- 1 root root 3.7G Feb  7 16:07 Grerat.qcow
+-rw------- 1 root root 3.5G Feb  8 17:44 Jeralenia.qcow
+-rw------- 1 root root 3.2G Feb  7 13:42 Marpus.qcow
+-rw------- 1 root root 4.7G Feb  7 13:13 Onoza.qcow
+-rw------- 1 root root 4.9G Feb  7 13:14 Stedigo.qcow
+-rw------- 1 root root 2.5G Feb  8 12:33 Umiawyth.qcow
+--END--
+
+    #
+    # Two VMs using a lot of space.
+    #
+
+
+--START--
+....
+-rw------- 1 root root  14G Mar 20 02:12 Angece.qcow
+....
+-rw------- 1 root root  12G Feb  7 13:13 Edwalafia.qcow
+....
+--END--
+
+    #
+    # Both are Kafka nodes.
+    #
+
+    cat "${HOME}/nodenames" 
+
+        ....
+        # Kafka nodes.
+        unset kfnames
+        kfnames=(
+            Stedigo
+            Angece
+            Edwalafia
+            Onoza
+            )
+        ....
+
+    #
+    # In theory .. we could loose one of them and restart the others ?
+    #
+
+
+# -----------------------------------------------------
+# Delete one of the VMs.
+#[user@trop03]
+    
+    vmname=Angece
+    
+    source "${HOME}/libvirt.settings"
+    
+    virsh \
+        --connect "${libvirtcon:?}" \
+        undefine \
+            "${vmname}" \
+            --remove-all-storage    
+
+--START--
+Domain Angece has been undefined
+Volume 'vda'(/var/lib/libvirt/images/live/Angece.qcow) removed.
+Volume 'vdb'(/var/lib/libvirt/images/init/Angece.iso) removed.
+Volume 'vdc'(/data1/libvirt/Angece-data1-01.qcow) removed.
+Volume 'vdd'(/data2/libvirt/Angece-data2-01.qcow) removed.
+--END--
+
+
+# -----------------------------------------------------
+# Try styarting one of the VMs.
+#[user@trop03]
+
+    vmname=Edwalafia
+    
+    source "${HOME}/libvirt.settings"
+    
+    virsh \
+        --connect "${libvirtcon:?}" \
+        start \
+            "${vmname}"
+
+--START--
+Domain Edwalafia started
+--END--
+
+
+# -----------------------------------------------------
+# Login to the VM and see what is inside.
+#[user@trop03]
+
+    ssh Edwalafia
+
+
+# -----------------------------------------------------
+# Check the free disc space.
+#[user@Edwalafia]
+
+    df -h
+
+--START--
+Filesystem      Size  Used Avail Use% Mounted on
+devtmpfs        2.0G     0  2.0G   0% /dev
+tmpfs           2.0G     0  2.0G   0% /dev/shm
+tmpfs           2.0G  528K  2.0G   1% /run
+tmpfs           2.0G     0  2.0G   0% /sys/fs/cgroup
+/dev/vda3        15G   12G  1.7G  88% /
+tmpfs           2.0G  4.0K  2.0G   1% /tmp
+/dev/vda1       240M   92M  132M  41% /boot
+/dev/vdd        512G   17M  510G   1% /data2-01
+/dev/vdc        512G  307G  203G  61% /data1-01
+tmpfs           395M     0  395M   0% /run/user/1001
+--END--
+
+
+# -----------------------------------------------------
+# Check the disc use.
+#[user@Edwalafia]
+
+    sudo du -h /var | sed -n '/^[0-9.]*G/p'
+
+--START--
+7.3G	/var/lib/docker/containers/e7f81f6dceb599ded533ee39545428b01cced7e29816938faca4024bfa51974c
+7.3G	/var/lib/docker/containers
+1.5G	/var/lib/docker/btrfs/subvolumes/2c507aa8e3a0c0e2afc6b205d99ed7c2e619101f10a46729ea40e08c0abb923f
+4.3G	/var/lib/docker/btrfs/subvolumes
+4.3G	/var/lib/docker/btrfs
+12G	/var/lib/docker
+12G	/var/lib
+13G	/var
+--END--
+
+
+# -----------------------------------------------------
+# Check the Docker containers.
+#[user@Edwalafia]
+
+    docker ps -a
+
+--START--
+CONTAINER ID        IMAGE                         COMMAND                  CREATED             STATUS                       PORTS                              NAMES
+e7f81f6dceb5        confluentinc/cp-kafka:4.1.1   "/etc/confluent/dock…"   6 months ago        Exited (255) 5 minutes ago   0.0.0.0:9092-9093->9092-9093/tcp   stevedore_emily_1
+--END--
+
+
+# -----------------------------------------------------
+# Check the container logs.
+#[user@Edwalafia]
+
+    docker logs stevedore_emily_1
+
+--START--
+....
+....
+[2020-02-07 13:07:48,057] TRACE [Controller id=3] Leader imbalance ratio for broker 2 is 1.0 (kafka.controller.KafkaController)
+[2020-02-07 13:07:48,059] DEBUG [Controller id=3] Topics not in preferred replica for broker 4 Map() (kafka.controller.KafkaController)
+[2020-02-07 13:07:48,059] TRACE [Controller id=3] Leader imbalance ratio for broker 4 is 0.0 (kafka.controller.KafkaController)
+[2020-02-07 13:07:48,060] DEBUG [Controller id=3] Topics not in preferred replica for broker 1 Map() (kafka.controller.KafkaController)
+[2020-02-07 13:07:48,060] TRACE [Controller id=3] Leader imbalance ratio for broker 1 is 0.0 (kafka.controller.KafkaController)
+[2020-02-07 13:07:48,060] DEBUG [Controller id=3] Topics not in preferred replica for broker 3 Map() (kafka.controller.KafkaController)
+[2020-02-07 13:07:48,061] TRACE [Controller id=3] Leader imbalance ratio for broker 3 is 0.0 (kafka.controller.KafkaController)
+--END--
+
+
+# -----------------------------------------------------
+# Are the container logs the problem ?
+# https://stackoverflow.com/questions/42510002/how-to-clear-the-logs-properly-for-a-docker-container#comment88071443_42510002
+#[user@Edwalafia]
+
+    sudo du -ch /var/lib/docker/containers/*/*-json.log
+    
+--START--
+du: cannot access '/var/lib/docker/containers/*/*-json.log': No such file or directory
+--END--
+    
+
+    sudo du -ch /var/lib/docker/containers    
+
+--START--
+0	/var/lib/docker/containers/e7f81f6dceb599ded533ee39545428b01cced7e29816938faca4024bfa51974c/checkpoints
+0	/var/lib/docker/containers/e7f81f6dceb599ded533ee39545428b01cced7e29816938faca4024bfa51974c/mounts/shm
+0	/var/lib/docker/containers/e7f81f6dceb599ded533ee39545428b01cced7e29816938faca4024bfa51974c/mounts
+7.3G	/var/lib/docker/containers/e7f81f6dceb599ded533ee39545428b01cced7e29816938faca4024bfa51974c
+7.3G	/var/lib/docker/containers
+7.3G	total
+--END--
+
+
+    sudo ls -alh /var/lib/docker/containers/e7f81f6dceb599ded533ee39545428b01cced7e29816938faca4024bfa51974c
+
+--START--
+total 7.3G
+drwx------. 1 root root  318 Mar 20 03:27 .
+drwx------. 1 root root  128 Sep  3  2019 ..
+drwx------. 1 root root    0 Sep  3  2019 checkpoints
+-rw-------. 1 root root 5.8K Mar 20 03:27 config.v2.json
+-rw-r-----. 1 root root 7.3G Feb  7 13:07 e7f81f6dceb599ded533ee39545428b01cced7e29816938faca4024bfa51974c-json.log
+-rw-r--r--. 1 root root 1.8K Mar 20 03:27 hostconfig.json
+-rw-r--r--. 1 root root   13 Sep  3  2019 hostname
+-rw-r--r--. 1 root root  194 Sep  3  2019 hosts
+drwx------. 1 root root    6 Sep  3  2019 mounts
+-rw-r--r--. 1 root root   63 Sep  3  2019 resolv.conf
+-rw-r--r--. 1 root root   71 Sep  3  2019 resolv.conf.hash
+--END--
+
+    #
+    # Yes, the 7.3G log file is contriuting to the problem.
+    #
+
+
+# -----------------------------------------------------
+# Are the container logs the problem ?
+# https://stackoverflow.com/a/42510314
+#[user@Edwalafia]
+    
+    docker inspect --format='{{.LogPath}}' e7f81f6dceb5
+
+--START--
+/var/lib/docker/containers/e7f81f6dceb599ded533ee39545428b01cced7e29816938faca4024bfa51974c/e7f81f6dceb599ded533ee39545428b01cced7e29816938faca4024bfa51974c-json.log
+--END--
+
+
+    logpath=$(
+        docker inspect --format='{{.LogPath}}' e7f81f6dceb5
+        )
+
+    sudo rm    "${logpath:?}"
+    sudo touch "${logpath:?}"
+
+    sudo ls -l "${logpath:?}"
+
+--START--
+-rw-r--r--. 1 root root 0 Mar 20 04:06 /var/lib/docker/containers/e7f81f6dceb599ded533ee39545428b01cced7e29816938faca4024bfa51974c/e7f81f6dceb599ded533ee39545428b01cced7e29816938faca4024bfa51974c-json.log
+--END--
+
+
+# -----------------------------------------------------
+# Start the Kafka VMs.
+#[user@trop03]
+
+    source "${HOME}/nodenames"
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            virsh \
+                --connect "${libvirtcon:?}" \
+                start \
+                    "${vmname:?}"
+        done
+
+--START--
+---- ----
+Node [Stedigo]
+Domain Stedigo started
+
+---- ----
+Node [Angece]
+error: failed to get domain 'Angece'
+error: Domain not found: no domain with matching name 'Angece'
+
+---- ----
+Node [Edwalafia]
+error: Domain is already active
+
+---- ----
+Node [Onoza]
+Domain Onoza started
+--END--
+
+
+# -----------------------------------------------------
+# Clear the Docker logs.
+#[user@trop03]
+
+    unset kfnames
+    kfnames=(
+        Stedigo
+        Edwalafia
+        Onoza
+        )
+
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            ssh "${vmname:?}" \
+                '
+                logpath=$(
+                    docker inspect --format='{{.LogPath}}' 'stevedore_emily_1'
+                    )
+                echo "Log path [${logpath:?}]"
+                sudo ls -lh "${logpath:?}"
+                sudo rm     "${logpath:?}"
+                sudo touch  "${logpath:?}"
+                sudo ls -lh "${logpath:?}"
+                '
+        done
+
+--START--
+---- ----
+Node [Stedigo]
+Log path [/var/lib/docker/containers/d16a051975c06903e28152d3d9cb20d42341d3063a6ef3734348582f83645097/d16a051975c06903e28152d3d9cb20d42341d3063a6ef3734348582f83645097-json.log]
+-rw-r-----. 1 root root 88M Feb  7 13:13 /var/lib/docker/containers/d16a051975c06903e28152d3d9cb20d42341d3063a6ef3734348582f83645097/d16a051975c06903e28152d3d9cb20d42341d3063a6ef3734348582f83645097-json.log
+-rw-r--r--. 1 root root 0 Mar 20 04:23 /var/lib/docker/containers/d16a051975c06903e28152d3d9cb20d42341d3063a6ef3734348582f83645097/d16a051975c06903e28152d3d9cb20d42341d3063a6ef3734348582f83645097-json.log
+---- ----
+Node [Edwalafia]
+Log path [/var/lib/docker/containers/e7f81f6dceb599ded533ee39545428b01cced7e29816938faca4024bfa51974c/e7f81f6dceb599ded533ee39545428b01cced7e29816938faca4024bfa51974c-json.log]
+-rw-r--r--. 1 root root 0 Mar 20 04:06 /var/lib/docker/containers/e7f81f6dceb599ded533ee39545428b01cced7e29816938faca4024bfa51974c/e7f81f6dceb599ded533ee39545428b01cced7e29816938faca4024bfa51974c-json.log
+-rw-r--r--. 1 root root 0 Mar 20 04:23 /var/lib/docker/containers/e7f81f6dceb599ded533ee39545428b01cced7e29816938faca4024bfa51974c/e7f81f6dceb599ded533ee39545428b01cced7e29816938faca4024bfa51974c-json.log
+---- ----
+Node [Onoza]
+Log path [/var/lib/docker/containers/ee678ed8f55aa462e513b07db3ccf241a124055429c80c078e6494c86c04e848/ee678ed8f55aa462e513b07db3ccf241a124055429c80c078e6494c86c04e848-json.log]
+-rw-r-----. 1 root root 66M Feb  7 13:07 /var/lib/docker/containers/ee678ed8f55aa462e513b07db3ccf241a124055429c80c078e6494c86c04e848/ee678ed8f55aa462e513b07db3ccf241a124055429c80c078e6494c86c04e848-json.log
+-rw-r--r--. 1 root root 0 Mar 20 04:23 /var/lib/docker/containers/ee678ed8f55aa462e513b07db3ccf241a124055429c80c078e6494c86c04e848/ee678ed8f55aa462e513b07db3ccf241a124055429c80c078e6494c86c04e848-json.log
+--END--
+
+
+# -----------------------------------------------------
+# Start our Kafka containers,
+# (separate login on each node).
+#[user@Stedigo]
+#[user@Edwalafia]
+#[user@Onoza]
+
+    ssh Stedigo
+    ssh Edwalafia
+    ssh Onoza
+
+    docker-compose \
+        --file kafka.yml \
+        up \
+        -d
+
+    docker logs \
+        --follow \
+        'stevedore_emily_1'
+
+--START--
+....
+....
+[main-SendThread(Marpus:2181)] INFO org.apache.zookeeper.ClientCnxn - Opening socket connection to server Marpus/172.16.5.15:2181. Will not attempt to authenticate using SASL (unknown error)
+[main] ERROR io.confluent.admin.utils.ClusterStatus - Timed out waiting for connection to Zookeeper server [Fosauri,Marpus,Byflame].
+[main] INFO org.apache.zookeeper.ZooKeeper - Session: 0x0 closed
+[main-EventThread] INFO org.apache.zookeeper.ClientCnxn - EventThread shut down for session: 0x0
+--END--
+
+
+# -----------------------------------------------------
+# Check the Zookeeper VMs.
+#[user@trop03]
+
+    source "${HOME}/nodenames"
+
+    for vmname in ${zknames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            ssh "${vmname:?}" \
+                '
+                docker ps -a
+                '
+        done
+
+
+--START--
+---- ----
+Node [Fosauri]
+ssh: connect to host fosauri port 22: No route to host
+---- ----
+Node [Marpus]
+ssh: connect to host marpus port 22: No route to host
+---- ----
+Node [Byflame]
+ssh: connect to host byflame port 22: No route to host
+--END--
+
+
+# -----------------------------------------------------
+# Start the Zookeeper VMs.
+#[user@trop03]
+
+    source "${HOME}/nodenames"
+
+    for vmname in ${zknames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            virsh \
+                --connect "${libvirtcon:?}" \
+                start \
+                    "${vmname:?}"
+        done
+
+
+--START--
+---- ----
+Node [Fosauri]
+Domain Fosauri started
+
+---- ----
+Node [Marpus]
+Domain Marpus started
+
+---- ----
+Node [Byflame]
+Domain Byflame started
+--END--
+
+
+# -----------------------------------------------------
+# Start the Zookeeper containers,
+# (separate login on each node).
+#[user@Fosauri]
+#[user@Marpus]
+#[user@Byflame]
+
+    ssh Fosauri
+    ssh Marpus
+    ssh Byflame
+
+
+    docker-compose \
+        --file zookeeper.yml \
+        up \
+        -d
+
+    docker logs \
+        --follow \
+        'stevedore_courtney_1'
+
+
+--START--
+....
+[2020-03-20 04:47:55,584] INFO Getting a diff from the leader 0x10000c552 (org.apache.zookeeper.server.quorum.Learner)
+[2020-03-20 04:48:06,278] INFO Received connection request /172.16.5.16:55130 (org.apache.zookeeper.server.quorum.QuorumCnxManager)
+[2020-03-20 04:48:06,301] INFO Notification: 1 (message format version), 3 (n.leader), 0x10000c552 (n.zxid), 0x1 (n.round), LOOKING (n.state), 3 (n.sid), 0x1 (n.peerEpoch) FOLLOWING (my state) (org.apache.zookeeper.server.quorum.FastLeaderElection)
+--END--
+
+--START--
+....
+[2020-03-20 04:48:06,336] INFO Synchronizing with Follower sid: 3 maxCommittedLog=0x10000c552 minCommittedLog=0x10000c35e peerLastZxid=0x10000c552 (org.apache.zookeeper.server.quorum.LearnerHandler)
+[2020-03-20 04:48:06,337] INFO Sending DIFF (org.apache.zookeeper.server.quorum.LearnerHandler)
+[2020-03-20 04:48:06,357] INFO Received NEWLEADER-ACK message from 3 (org.apache.zookeeper.server.quorum.LearnerHandler)
+--END--
+
+--START--
+....
+[2020-03-20 04:48:06,319] INFO FOLLOWING - LEADER ELECTION TOOK - 50 (org.apache.zookeeper.server.quorum.Learner)
+[2020-03-20 04:48:06,321] INFO Resolved hostname: Marpus to address: Marpus/172.16.5.15 (org.apache.zookeeper.server.quorum.QuorumPeer)
+[2020-03-20 04:48:06,338] INFO Getting a diff from the leader 0x10000c552 (org.apache.zookeeper.server.quorum.Learner)
+--END--
+
+
+
+# -----------------------------------------------------
+# Start our Kafka containers,
+# (separate login on each node).
+#[user@Stedigo]
+#[user@Edwalafia]
+#[user@Onoza]
+
+    ssh Stedigo
+    ssh Edwalafia
+    ssh Onoza
+
+    docker-compose \
+        --file kafka.yml \
+        up \
+        -d
+
+    docker logs \
+        --follow \
+        'stevedore_emily_1'
+
+
+--START--
+....
+[2020-03-20 04:52:14,536] WARN [Log partition=ztf_20190802_programid1-9, dir=/data1-01] Found a corrupted index file corresponding to log file /data1-01/ztf_20190802_programid1-9/00000000000000000000.log due to Corrupt index found, index file (/data1-01/ztf_20190802_programid1-9/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
+[2020-03-20 04:52:42,253] INFO [ProducerStateManager partition=ztf_20190802_programid1-9] Writing producer snapshot at offset 8935 (kafka.log.ProducerStateManager)
+[2020-03-20 04:52:42,254] INFO [Log partition=ztf_20190802_programid1-9, dir=/data1-01] Recovering unflushed segment 0 (kafka.log.Log)
+[2020-03-20 04:52:43,270] INFO [ProducerStateManager partition=ztf_20190802_programid1-9] Writing producer snapshot at offset 8935 (kafka.log.ProducerStateManager)
+[2020-03-20 04:52:43,271] INFO [Log partition=ztf_20190802_programid1-9, dir=/data1-01] Loading producer state from offset 8935 with message format version 2 (kafka.log.Log)
+[2020-03-20 04:52:43,271] INFO [ProducerStateManager partition=ztf_20190802_programid1-9] Loading producer state from snapshot file '/data1-01/ztf_20190802_programid1-9/00000000000000008935.snapshot' (kafka.log.ProducerStateManager)
+[2020-03-20 04:52:43,272] INFO [Log partition=ztf_20190802_programid1-9, dir=/data1-01] Completed load of log with 1 segments, log start offset 0 and log end offset 8935 in 28739 ms (kafka.log.Log)
+....
+--END--
+
+
+--START--
+....
+[2020-03-20 04:52:57,095] WARN [Log partition=ztf_20190802_programid1-3, dir=/data1-01] Found a corrupted index file corresponding to log file /data1-01/ztf_20190802_programid1-3/00000000000000000000.log due to Corrupt index found, index file (/data1-01/ztf_20190802_programid1-3/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
+[2020-03-20 04:53:23,158] INFO [ProducerStateManager partition=ztf_20190802_programid1-3] Writing producer snapshot at offset 8935 (kafka.log.ProducerStateManager)
+[2020-03-20 04:53:23,159] INFO [Log partition=ztf_20190802_programid1-3, dir=/data1-01] Recovering unflushed segment 0 (kafka.log.Log)
+[2020-03-20 04:53:24,260] INFO [ProducerStateManager partition=ztf_20190802_programid1-3] Writing producer snapshot at offset 8935 (kafka.log.ProducerStateManager)
+[2020-03-20 04:53:24,261] INFO [Log partition=ztf_20190802_programid1-3, dir=/data1-01] Loading producer state from offset 8935 with message format version 2 (kafka.log.Log)
+[2020-03-20 04:53:24,261] INFO [ProducerStateManager partition=ztf_20190802_programid1-3] Loading producer state from snapshot file '/data1-01/ztf_20190802_programid1-3/00000000000000008935.snapshot' (kafka.log.ProducerStateManager)
+[2020-03-20 04:53:24,261] INFO [Log partition=ztf_20190802_programid1-3, dir=/data1-01] Completed load of log with 1 segments, log start offset 0 and log end offset 8935 in 27170 ms (kafka.log.Log)
+....
+--END--
+
+
+--START--
+....
+[2020-03-20 04:53:32,119] WARN [Log partition=ztf_20190802_programid1-13, dir=/data2-01] Found a corrupted index file corresponding to log file /data2-01/ztf_20190802_programid1-13/00000000000000000000.log due to Corrupt index found, index file (/data2-01/ztf_20190802_programid1-13/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
+[2020-03-20 04:53:43,419] INFO [ProducerStateManager partition=ztf_20190802_programid1-13] Writing producer snapshot at offset 8935 (kafka.log.ProducerStateManager)
+[2020-03-20 04:53:43,421] INFO [Log partition=ztf_20190802_programid1-13, dir=/data2-01] Recovering unflushed segment 0 (kafka.log.Log)
+[2020-03-20 04:53:44,674] INFO [ProducerStateManager partition=ztf_20190802_programid1-13] Writing producer snapshot at offset 8935 (kafka.log.ProducerStateManager)
+[2020-03-20 04:53:44,684] INFO [Log partition=ztf_20190802_programid1-13, dir=/data2-01] Loading producer state from offset 8935 with message format version 2 (kafka.log.Log)
+[2020-03-20 04:53:44,684] INFO [ProducerStateManager partition=ztf_20190802_programid1-13] Loading producer state from snapshot file '/data2-01/ztf_20190802_programid1-13/00000000000000008935.snapshot' (kafka.log.ProducerStateManager)
+[2020-03-20 04:53:44,684] INFO [Log partition=ztf_20190802_programid1-13, dir=/data2-01] Completed load of log with 1 segments, log start offset 0 and log end offset 8935 in 12568 ms (kafka.log.Log)
+....
+--END--
+
+
+--START--
+....
+[2020-03-20 06:14:45,140] TRACE [Broker id=4] Cached leader info PartitionState(controllerEpoch=7, leader=4, leaderEpoch=1, isr=[4], zkVersion=15, replicas=[4, 3, 1], offlineReplicas=[3, 1]) for partition ztf_20190904_programid1-76 in response to UpdateMetadata request sent by controller 2 epoch 7 with correlation id 7 (state.change.logger)
+[2020-03-20 06:14:45,140] TRACE [Broker id=4] Cached leader info PartitionState(controllerEpoch=7, leader=4, leaderEpoch=2, isr=[4], zkVersion=2, replicas=[2, 4, 1], offlineReplicas=[1]) for partition ztf_20190919_programid1-156 in response to UpdateMetadata request sent by controller 2 epoch 7 with correlation id 7 (state.change.logger)
+....
+--END--
+
+
+# -----------------------------------------------------
+# Re-create our missing node.
+#[user@trop03]
+
+    createvm
+
+--START--
+INFO : Node name [Angece]
+INFO : Base name [fedora-30-docker-base-20190903.qcow]
+INFO : Base path [/var/lib/libvirt/images/base/fedora-30-docker-base-20190903.qcow]
+INFO : Disc name [Angece.qcow]
+INFO : Disc size [16GiB]
+--END--
+
+
+# -----------------------------------------------------
+# Define a host lookup function.
+# https://askubuntu.com/questions/627906/why-is-my-etc-hosts-file-not-queried-when-nslookup-tries-to-resolve-an-address#comment1536517_627909
+#[user@trop03]
+
+    getipv4()
+        {
+        getent hosts "${1:?}" | cut -d ' ' -f 1
+        }
+
+
+#---------------------------------------------------------------------
+# Update the ssh keys for our new node.
+#[user@trop03]
+
+    vmname=Angece
+
+    ssh-keygen \
+        -q -R \
+            "${vmname:?}"
+
+    ssh-keyscan \
+        "${vmname:?}" \
+        >> "${HOME}/.ssh/known_hosts"
+
+    ssh-keyscan \
+        -t ecdsa $(getipv4 "${vmname:?}") \
+        >> "${HOME}/.ssh/known_hosts"
+
+
+# -----------------------------------------------------
+# Create the data volumes for our new node.
+#[user@trop03]
+
+    vmname=Angece
+    source "${HOME}/libvirt.settings"
+
+    grep "${vmname:?}" "${HOME}/nodevols" \
+    | while read -r vmname volpool volnum volsize voldev volmnt
+        do
+            volname=${vmname}-${volpool}-${volnum}.qcow
+            if [ "${vmname}" != '' ]
+                then
+                    echo "----"
+                    echo "Creating [${volname}][${volsize}]"
+
+                    virsh \
+                        --connect ${libvirtcon:?} \
+                        vol-create-as \
+                            "${volpool}" \
+                            "${volname}" \
+                            "${volsize}" \
+                            --allocation 0 \
+                            --format qcow2
+
+                    virsh \
+                        --connect ${libvirtcon:?} \
+                        vol-info \
+                            --pool "${volpool:?}" \
+                            "${volname:?}"
+
+                    volpath=$(
+                        virsh \
+                            --connect ${libvirtcon:?} \
+                            vol-path \
+                                --pool "${volpool:?}" \
+                                "${volname:?}"
+                        )
+
+                    echo "Adding [${volname}][${target}]"
+
+                    virsh \
+                        --connect ${libvirtcon:?} \
+                        attach-disk \
+                            "${vmname:?}"  \
+                            "${volpath:?}" \
+                            "${voldev:?}"  \
+                            --subdriver qcow2 \
+                            --driver qemu  \
+                            --config
+                fi
+            done
+
+--START--
+----
+Creating [Angece-data1-01.qcow][512G]
+Vol Angece-data1-01.qcow created
+
+Name:           Angece-data1-01.qcow
+Type:           file
+Capacity:       512.00 GiB
+Allocation:     200.00 KiB
+
+Adding [Angece-data1-01.qcow][]
+Disk attached successfully
+
+----
+Creating [Angece-data2-01.qcow][512G]
+Vol Angece-data2-01.qcow created
+
+Name:           Angece-data2-01.qcow
+Type:           file
+Capacity:       512.00 GiB
+Allocation:     200.00 KiB
+
+Adding [Angece-data2-01.qcow][]
+Disk attached successfully
+--END--
+
+
+# -----------------------------------------------------
+# Restart our new node.
+#[user@trop03]
+
+    vmname=Angece
+    source "${HOME}/libvirt.settings"
+
+    virsh \
+        --connect ${libvirtcon:?} \
+            shutdown \
+            ${vmname:?}
+
+--START--
+Domain Angece is being shutdown
+--END--
+
+
+    virsh \
+        --connect ${libvirtcon:?} \
+            start \
+            ${vmname:?}
+
+--START--
+Domain Angece started
+--END--
+
+
+# -----------------------------------------------------
+# List the volumes on each Kafka node.
+# http://xmlstar.sourceforge.net/doc/UG/ch04.html
+# https://sourceforge.net/p/xmlstar/discussion/226076/thread/d5eca10f/#56b4
+#[user@trop03]
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "$(printf '+ %56s +' '')" | sed 's/ /-/g'
+            echo "$(printf '| %-56s |' 'Node ['${vmname:?}']')"
+            virsh \
+                --connect "${libvirtcon:?}" \
+                dumpxml \
+                    "${vmname}" \
+            | xmlstarlet \
+                select \
+                    --text \
+                    --template \
+                        --match '//disk' \
+                        --sort  'A:T:-' 'target/@dev' \
+                        --value-of "concat('| ', target/@dev, ' | ', str:align(source/@file, str:padding(50, ' '), 'left'), ' |')" \
+                        --nl
+        done \
+    ; echo "$(printf '+ %56s +' '')" | sed 's/ /-/g'
+
+--START--
++----------------------------------------------------------+
+| Node [Stedigo]                                           |
+| vda | /var/lib/libvirt/images/live/Stedigo.qcow          |
+| vdb | /var/lib/libvirt/images/init/Stedigo.iso           |
+| vdc | /data1/libvirt/Stedigo-data1-01.qcow               |
+| vdd | /data2/libvirt/Stedigo-data2-01.qcow               |
++----------------------------------------------------------+
+| Node [Angece]                                            |
+| vda | /var/lib/libvirt/images/live/Angece.qcow           |
+| vdb | /var/lib/libvirt/images/init/Angece.iso            |
+| vdc | /data1/libvirt/Angece-data1-01.qcow                |
+| vdd | /data2/libvirt/Angece-data2-01.qcow                |
++----------------------------------------------------------+
+| Node [Edwalafia]                                         |
+| vda | /var/lib/libvirt/images/live/Edwalafia.qcow        |
+| vdb | /var/lib/libvirt/images/init/Edwalafia.iso         |
+| vdc | /data1/libvirt/Edwalafia-data1-01.qcow             |
+| vdd | /data2/libvirt/Edwalafia-data2-01.qcow             |
++----------------------------------------------------------+
+| Node [Onoza]                                             |
+| vda | /var/lib/libvirt/images/live/Onoza.qcow            |
+| vdb | /var/lib/libvirt/images/init/Onoza.iso             |
+| vdc | /data1/libvirt/Onoza-data1-01.qcow                 |
+| vdd | /data2/libvirt/Onoza-data2-01.qcow                 |
++----------------------------------------------------------+
+--END--
+
+
+#---------------------------------------------------------------------
+# Create a script to mount a volume.
+#[user@trop03]
+
+cat > '/tmp/volume-mount.sh' << 'EOSH'
+
+echo "---- ----"
+echo "hostname [$(hostname)]"
+echo "devpath  [${devpath:?}]"
+echo "mntpath  [${mntpath:?}]"
+echo "---- ----"
+
+#---------------------------------------------------------------------
+# Check if the new device has a filesystem.
+
+    sudo btrfs filesystem show "${devpath:?}" > /dev/null 2>&1
+    fscheck=$?
+
+#---------------------------------------------------------------------
+# Create a filesystem on the new device.
+
+    if [ ${fscheck} == 1 ]
+    then
+        echo "Creating btrfs filesystem [${devpath:?}]"
+        sudo \
+            mkfs.btrfs \
+                ${devpath:?}
+    else
+        echo "Found existing filesystem [${devpath:?}]"
+    fi
+
+#---------------------------------------------------------------------
+# Create our mount point.
+
+    echo "Creating mount point [${mntpath:?}]"
+    sudo mkdir -p "${mntpath:?}"
+    sudo touch "${mntpath:?}/mount-failed"
+
+#---------------------------------------------------------------------
+# Add the volume to our FileSystemTABle.
+# https://www.howtoforge.com/reducing-disk-io-by-mounting-partitions-with-noatime
+
+    devuuid=$(
+        lsblk --noheadings --output UUID "${devpath:?}"
+        )
+
+    echo "Registering filesystem [${mntpath:?}]"
+    sudo tee -a /etc/fstab << EOTAB
+UUID=${devuuid:?} ${mntpath:?}    btrfs    defaults,noatime    0  0
+EOTAB
+
+#---------------------------------------------------------------------
+# Mount the new volume.
+
+    sudo \
+        mount "${mntpath:?}"
+
+#---------------------------------------------------------------------
+# Check the new volume.
+
+    echo "Checking data space [${mntpath:?}]"
+    df -h "${mntpath:?}"
+
+EOSH
+
+
+# -----------------------------------------------------
+# Login and mount each of the data volumes.
+#[user@trop03]
+
+    vmname=Angece
+    source "${HOME}/ssh-options"
+
+    grep "${vmname:?}" "${HOME}/nodevols" > /tmp/nodevols
+    
+    while read -r -u 5 vmname volpool volnum volsize voldev volmnt
+        do
+            if [[ ("${vmname}" != '') && ("${vmname:0:1}" != '#') ]]
+                then
+                    if [[ ("${volmnt}" != '-') ]]
+                        then
+                            devpath=/dev/${voldev:?}
+                            mntpath=${volmnt}
+
+                            echo ""
+                            echo "---- ---- ---- ----"
+                            echo "Mounting [${vmname}][${devpath}][${mntpath}]"
+                            ssh ${sshopts[*]} \
+                                ${sshuser:?}@${vmname:?} \
+                                    "
+                                    export devpath=${devpath:?}
+                                    export mntpath=${mntpath:?}
+                                    date
+                                    hostname
+                                    echo "[\${devpath}][\${mntpath}]"
+
+                                    $(cat /tmp/volume-mount.sh)
+                                    "
+                        fi
+                fi
+        done 5< "/tmp/nodevols"
+
+--START--
+---- ---- ---- ----
+Mounting [Angece][/dev/vdc][/data1-01]
+Fri 20 Mar 05:26:48 GMT 2020
+Angece
+[/dev/vdc][/data1-01]
+---- ----
+hostname [Angece]
+devpath  [/dev/vdc]
+mntpath  [/data1-01]
+---- ----
+Creating btrfs filesystem [/dev/vdc]
+btrfs-progs v5.2.1 
+See http://btrfs.wiki.kernel.org for more information.
+
+Label:              (null)
+UUID:               271f2295-bbc9-45d0-bcb4-2e44ec0a6b15
+Node size:          16384
+Sector size:        4096
+Filesystem size:    512.00GiB
+Block group profiles:
+  Data:             single            8.00MiB
+  Metadata:         DUP               1.00GiB
+  System:           DUP               8.00MiB
+SSD detected:       no
+Incompat features:  extref, skinny-metadata
+Number of devices:  1
+Devices:
+   ID        SIZE  PATH
+    1   512.00GiB  /dev/vdc
+
+Creating mount point [/data1-01]
+Registering filesystem [/data1-01]
+UUID=271f2295-bbc9-45d0-bcb4-2e44ec0a6b15 /data1-01    btrfs    defaults,noatime    0  0
+Checking data space [/data1-01]
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vdc        512G   17M  510G   1% /data1-01
+
+---- ---- ---- ----
+Mounting [Angece][/dev/vdd][/data2-01]
+Fri 20 Mar 05:34:45 GMT 2020
+Angece
+[/dev/vdd][/data2-01]
+---- ----
+hostname [Angece]
+devpath  [/dev/vdd]
+mntpath  [/data2-01]
+---- ----
+Creating btrfs filesystem [/dev/vdd]
+btrfs-progs v5.2.1 
+See http://btrfs.wiki.kernel.org for more information.
+
+Label:              (null)
+UUID:               f3acbe00-9d58-4b20-b6c9-7fa1e90e09a7
+Node size:          16384
+Sector size:        4096
+Filesystem size:    512.00GiB
+Block group profiles:
+  Data:             single            8.00MiB
+  Metadata:         DUP               1.00GiB
+  System:           DUP               8.00MiB
+SSD detected:       no
+Incompat features:  extref, skinny-metadata
+Number of devices:  1
+Devices:
+   ID        SIZE  PATH
+    1   512.00GiB  /dev/vdd
+
+Creating mount point [/data2-01]
+Registering filesystem [/data2-01]
+UUID=f3acbe00-9d58-4b20-b6c9-7fa1e90e09a7 /data2-01    btrfs    defaults,noatime    0  0
+Checking data space [/data2-01]
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vdd        512G   17M  510G   1% /data2-01
+--END--
+
+
+# -----------------------------------------------------
+# Create our template compose file.
+#[user@trop03]
+
+cat > /tmp/kafka.yml << 'EOYML'
+
+version: "3.2"
+
+services:
+
+    emily:
+        image:
+            "confluentinc/cp-kafka:4.1.1"
+        restart:
+            "no"
+        ports:
+            - "9092:9092"
+            - "9093:9093"
+        extra_hosts:
+            - "${KAFKA_HOSTNAME}:127.0.0.2"
+        environment:
+            - "KAFKA_LISTENERS=jasminum://0.0.0.0:9092"
+            - "KAFKA_ADVERTISED_LISTENERS=jasminum://${KAFKA_HOSTNAME}:9092"
+            - "KAFKA_INTER_BROKER_LISTENER_NAME=jasminum"
+            - "KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=jasminum:PLAINTEXT"
+            - "KAFKA_LOG_DIRS=${KAFKA_LOG_DIRS}"
+            - "KAFKA_BROKER_ID=${KAFKA_BROKER_ID}"
+            - "KAFKA_BROKER_RACK=${KAFKA_BROKER_RACK}"
+            - "KAFKA_ZOOKEEPER_CONNECT=${KAFKA_ZOOKEEPER_CONNECT}"
+            - "KAFKA_NUM_PARTITIONS=16"
+            - "KAFKA_DEFAULT_REPLICATION_FACTOR=3"
+            - "KAFKA_LOG_RETENTION_MS=-1"
+            - "KAFKA_LOG_RETENTION_BYTES=-1"
+            - "KAFKA_AUTO_CREATE_TOPICS_ENABLE=true"
+            - "KAFKA_MESSAGE_MAX_BYTES=10485760"
+        volumes:
+EOYML
+
+
+# -----------------------------------------------------
+# Create a compose file for our new node.
+#[user@trop03]
+
+    vmname=Angece
+    cp /tmp/kafka.yml /tmp/${vmname:?}-kafka.yml
+
+
+# -----------------------------------------------------
+# Add the list of volumes to our compose file.
+#[user@trop03]
+
+    while read -r -u 5 vmname volpool volnum volsize voldev volmnt
+        do
+            if [[ ("${vmname}" != '') && ("${vmname:0:1}" != '#') ]]
+                then
+                    if [[ ("${volmnt}" != '-') ]]
+                        then
+cat >> /tmp/${vmname}-kafka.yml << EOF
+        - type:   "bind"
+          source: "${volmnt}"
+          target: "${volmnt}"
+EOF
+                        fi
+                fi
+        done 5< "/tmp/nodevols"
+
+
+# -----------------------------------------------------
+# Deploy our compose file.
+#[user@trop03]
+
+    vmname=Angece
+    source "${HOME}/ssh-options"
+
+    scp \
+        ${scpopts[*]} \
+        /tmp/${vmname:?}-kafka.yml \
+        ${sshuser:?}@${vmname:?}:kafka.yml
+
+--START--
+Angece-kafka.yml        100% 1235     1.2MB/s   00:00    
+--END--
+
+
+# -----------------------------------------------------
+# Make a list of our Zookeeper nodes.
+#[user@trop03]
+
+    zklist=${zknames[*]}
+    zklist=${zklist// /,}
+
+    echo "zklist [${zklist}]"
+
+--START--
+zklist [Fosauri,Marpus,Byflame]
+--END--
+
+
+# -----------------------------------------------------
+# Deploy a compose ENV file to our new node.
+#[user@trop03]
+
+    index=2
+    vmname=Angece
+    logdir=/data2-01
+
+    source "${HOME}/ssh-options"
+
+    ssh \
+        ${scpopts[*]} \
+        ${sshuser:?}@${vmname:?} \
+        "
+        hostname
+        date
+
+cat > kafka.env << EOF
+KAFKA_LOG_DIRS=${logdir:?}
+KAFKA_BROKER_ID=${index:?}
+KAFKA_BROKER_RACK=${index:?}
+KAFKA_ZOOKEEPER_CONNECT=${zklist:?}
+KAFKA_HOSTNAME=${vmname:?}
+EOF
+
+        ln -sf kafka.env .env
+        cat kafka.env
+        "
+
+--START--
+Angece
+Fri 20 Mar 05:46:55 GMT 2020
+KAFKA_LOG_DIRS=/data2-01
+KAFKA_BROKER_ID=2
+KAFKA_BROKER_RACK=2
+KAFKA_ZOOKEEPER_CONNECT=Fosauri,Marpus,Byflame
+KAFKA_HOSTNAME=Angece
+--END--
+
+# -----------------------------------------------------
+# Start Kafka on our new node.
+#[user@trop03]
+
+    vmname=Angece
+
+    source "${HOME}/ssh-options"
+
+    ssh \
+        ${scpopts[*]} \
+        ${sshuser:?}@${vmname:?} \
+        "
+        hostname
+        date
+        docker-compose \
+            --file kafka.yml \
+            up -d
+        "
+
+--START--
+Angece
+Fri 20 Mar 05:48:40 GMT 2020
+Creating network "stevedore_default" with the default driver
+Pulling emily (confluentinc/cp-kafka:4.1.1)...
+4.1.1: Pulling from confluentinc/cp-kafka
+....
+Digest: sha256:4f5d6f4ba368fc05c0d0f1390bf107ae45fab24ed4bd7aac75aed3086ae5ddab
+Status: Downloaded newer image for confluentinc/cp-kafka:4.1.1
+Creating stevedore_emily_1 ... done
+--END--
+
+
+# -----------------------------------------------------
+# Follow the Docker log on our new node.
+#[user@trop03]
+
+    vmname=Angece
+
+    source "${HOME}/ssh-options"
+
+    ssh \
+        ${scpopts[*]} \
+        ${sshuser:?}@${vmname:?} \
+        "
+        hostname
+        date
+        docker logs \
+            --follow \
+            'stevedore_emily_1'
+        "
+
+--START--
+....
+....
+--END--
+
+
+--START--
+....
+....
+--END--
+
+--START--
+....
+[2020-03-20 05:49:22,589] ERROR [Controller id=2 epoch=7] Controller 2 epoch 7 failed to change state for partition ztf_20190910_programid1-180 from OfflinePartition to OnlinePartition (state.change.logger)
+kafka.common.StateChangeFailedException: Failed to elect leader for partition ztf_20190910_programid1-180 under strategy OfflinePartitionLeaderElectionStrategy
+....
+--END--
+
+--START--
+....
+[2020-03-20 05:49:38,759] TRACE [Broker id=2] Cached leader info PartitionState(controllerEpoch=6, leader=1, leaderEpoch=1, isr=[1], zkVersion=2, replicas=[3, 1, 2], offlineReplicas=[3, 1]) for partition ztf_20190910_programid1-70 in response to UpdateMetadata request sent by controller 2 epoch 7 with correlation id 2 (state.change.logger)
+[2020-03-20 05:49:38,759] TRACE [Broker id=2] Cached leader info PartitionState(controllerEpoch=5, leader=4, leaderEpoch=1, isr=[4, 1], zkVersion=1, replicas=[2, 4, 1], offlineReplicas=[4, 1]) for partition ztf_20190919_programid1-156 in response to UpdateMetadata request sent by controller 2 epoch 7 with correlation id 2 (state.change.logger)
+[2020-03-20 05:49:38,762] TRACE [Controller id=2 epoch=7] Received response {error_code=0} for request UPDATE_METADATA with correlation id 2 sent to broker Angece:9092 (id: 2 rack: 2) (state.change.logger)
+....
+--END--
+
+
+--START--
+....
+[2020-03-20 06:17:13,755] WARN [ReplicaFetcher replicaId=2, leaderId=4, fetcherId=0] Reset fetch offset for partition ztf_20190916_programid1-211 from 0 to current leader's start offset 839 (kafka.server.ReplicaFetcherThread)
+[2020-03-20 06:17:13,755] INFO The cleaning for partition ztf_20190916_programid1-211 is aborted and paused (kafka.log.LogCleaner)
+[2020-03-20 06:17:13,755] INFO [Log partition=ztf_20190916_programid1-211, dir=/data2-01] Scheduling log segment [baseOffset 0, size 0] for deletion. (kafka.log.Log)
+[2020-03-20 06:17:13,866] INFO Compaction for partition ztf_20190916_programid1-211 is resumed (kafka.log.LogCleaner)
+[2020-03-20 06:17:14,334] INFO [Log partition=ztf_20190922_programid1-168, dir=/data2-01] Deleting segment 0 (kafka.log.Log)
+[2020-03-20 06:17:14,334] INFO Deleted log /data2-01/ztf_20190922_programid1-168/00000000000000000000.log.deleted. (kafka.log.LogSegment)
+[2020-03-20 06:17:14,337] INFO Deleted offset index /data2-01/ztf_20190922_programid1-168/00000000000000000000.index.deleted. (kafka.log.LogSegment)
+[2020-03-20 06:17:14,337] INFO Deleted time index /data2-01/ztf_20190922_programid1-168/00000000000000000000.timeindex.deleted. (kafka.log.LogSegment)
+[2020-03-20 06:17:14,348] INFO [ReplicaFetcher replicaId=2, leaderId=4, fetcherId=0] Current offset 0 for partition ztf_20190916_programid1-211 is out of range, which typically implies a leader change. Reset fetch offset to 839 (kafka.server.ReplicaFetcherThread)
+[2020-03-20 06:17:14,351] WARN [ReplicaFetcher replicaId=2, leaderId=4, fetcherId=0] Reset fetch offset for partition ztf_20190916_programid1-2 from 0 to current leader's start offset 839 (kafka.server.ReplicaFetcherThread)
+[2020-03-20 06:17:14,351] INFO The cleaning for partition ztf_20190916_programid1-2 is aborted and paused (kafka.log.LogCleaner)
+[2020-03-20 06:17:14,351] INFO [Log partition=ztf_20190916_programid1-2, dir=/data2-01] Scheduling log segment [baseOffset 0, size 0] for deletion. (kafka.log.Log)
+[2020-03-20 06:17:14,474] INFO Compaction for partition ztf_20190916_programid1-2 is resumed (kafka.log.LogCleaner)
+[2020-03-20 06:17:14,956] INFO [ReplicaFetcher replicaId=2, leaderId=4, fetcherId=0] Current offset 0 for partition ztf_20190916_programid1-2 is out of range, which typically implies a leader change. Reset fetch offset to 839 (kafka.server.ReplicaFetcherThread)
+....
+--END--
+
+    #
+    # 6+hrs later ...
+    #
+
+--START--
+....
+[2020-03-20 14:11:13,995] INFO [Partition ztf_20190916_programid1-16 broker=1] Shrinking ISR from 1,3,2 to 1,3 (kafka.cluster.Partition)
+[2020-03-20 14:11:14,030] INFO [Partition ztf_20190924_programid1-161 broker=1] Expanding ISR from 1,3 to 1,3,2 (kafka.cluster.Partition)
+[2020-03-20 14:11:14,030] INFO [Partition ztf_20190925_programid1-82 broker=1] Shrinking ISR from 1,3,2 to 1,3 (kafka.cluster.Partition)
+[2020-03-20 14:11:14,093] INFO [Partition ztf_20190922_programid1-13 broker=1] Shrinking ISR from 1,3,2 to 1,3 (kafka.cluster.Partition)
+[2020-03-20 14:11:14,094] INFO [Partition ztf_20190909_programid1-138 broker=1] Expanding ISR from 1,4 to 1,4,2 (kafka.cluster.Partition)
+[2020-03-20 14:11:14,128] INFO [Partition ztf_20190905_programid1-170 broker=1] Expanding ISR from 1,4 to 1,4,2 (kafka.cluster.Partition)
+[2020-03-20 14:11:14,129] INFO [Partition ztf_20190921_programid1-253 broker=1] Shrinking ISR from 1,3,2 to 1,3 (kafka.cluster.Partition)
+[2020-03-20 14:11:14,158] INFO [Partition ztf_20190902_programid1-4 broker=1] Expanding ISR from 1,3 to 1,3,2 (kafka.cluster.Partition)
+....
+--END--
+
+--START--
+....
+[2020-03-20 14:11:51,435] INFO [Partition ztf_20190908_programid1-30 broker=3] Expanding ISR from 1,3 to 1,3,2 (kafka.cluster.Partition)
+[2020-03-20 14:11:51,452] INFO [Partition ztf_20190905_programid1-72 broker=3] Shrinking ISR from 4,3,2 to 4,3 (kafka.cluster.Partition)
+[2020-03-20 14:11:51,459] INFO [Partition ztf_20190916_programid1-226 broker=3] Expanding ISR from 1,3 to 1,3,2 (kafka.cluster.Partition)
+[2020-03-20 14:11:51,474] INFO [Partition ztf_20190915_programid1-147 broker=3] Shrinking ISR from 4,3,2 to 4,3 (kafka.cluster.Partition)
+[2020-03-20 14:11:51,481] INFO [Partition ztf_20190904_programid1-207 broker=3] Expanding ISR from 1,3 to 1,3,2 (kafka.cluster.Partition)
+[2020-03-20 14:11:51,500] INFO [Partition ztf_20190918_programid1-172 broker=3] Shrinking ISR from 4,3,2 to 4,3 (kafka.cluster.Partition)
+....
+--END--
+
+--START--
+....
+[2020-03-20 14:12:02,882] INFO [Partition ztf_20190917_programid1-239 broker=4] Expanding ISR from 4,2 to 4,2,3 (kafka.cluster.Partition)
+[2020-03-20 14:12:02,891] INFO [Partition banana-10 broker=4] Shrinking ISR from 4,1,3 to 4,1 (kafka.cluster.Partition)
+[2020-03-20 14:12:02,911] INFO [Partition ztf_20190907_programid1-146 broker=4] Expanding ISR from 4,1 to 4,1,3 (kafka.cluster.Partition)
+[2020-03-20 14:12:02,922] INFO [Partition ztf_20190910_programid1-27 broker=4] Shrinking ISR from 4,1,3 to 4,1 (kafka.cluster.Partition)
+[2020-03-20 14:12:02,941] INFO [Partition ztf_20190919_programid1-21 broker=4] Expanding ISR from 4,1 to 4,1,3 (kafka.cluster.Partition)
+[2020-03-20 14:12:02,945] INFO [Partition ztf_20190812_programid1-5 broker=4] Shrinking ISR from 4,1,3 to 4,1 (kafka.cluster.Partition)
+[2020-03-20 14:12:02,972] INFO [Partition ztf_20190904_programid1-24 broker=4] Expanding ISR from 4,2 to 4,2,3 (kafka.cluster.Partition)
+....
+--END--
+
+--START--
+....
+[2020-03-20 14:12:10,069] TRACE [Broker id=2] Cached leader info PartitionState(controllerEpoch=7, leader=3, leaderEpoch=3, isr=[1, 3], zkVersion=1311, replicas=[3, 1, 2], offlineReplicas=[]) for partition ztf_20190910_programid1-70 in response to UpdateMetadata request sent by controller 2 epoch 7 with correlation id 7487 (state.change.logger)
+[2020-03-20 14:12:10,069] TRACE [Broker id=2] Cached leader info PartitionState(controllerEpoch=7, leader=3, leaderEpoch=3, isr=[4, 3, 2], zkVersion=1482, replicas=[3, 2, 4], offlineReplicas=[]) for partition ztf_20190921_programid1-251 in response to UpdateMetadata request sent by controller 2 epoch 7 with correlation id 7487 (state.change.logger)
+[2020-03-20 14:12:10,070] TRACE [Controller id=2 epoch=7] Received response {error_code=0} for request UPDATE_METADATA with correlation id 7487 sent to broker Angece:9092 (id: 2 rack: 2) (state.change.logger)
+[2020-03-20 14:12:10,092] TRACE [Controller id=2 epoch=7] Received response {error_code=0} for request UPDATE_METADATA with correlation id 5025 sent to broker Stedigo:9092 (id: 1 rack: 1) (state.change.logger)
+[2020-03-20 14:12:10,122] TRACE [Controller id=2 epoch=7] Received response {error_code=0} for request UPDATE_METADATA with correlation id 6786 sent to broker Onoza:9092 (id: 4 rack: 4) (state.change.logger)
+....
+....
+[2020-03-20 14:13:28,043] TRACE [Broker id=2] Cached leader info PartitionState(controllerEpoch=7, leader=4, leaderEpoch=1, isr=[4, 1], zkVersion=1470, replicas=[4, 3, 1], offlineReplicas=[]) for partition ztf_20190904_programid1-76 in response to UpdateMetadata request sent by controller 2 epoch 7 with correlation id 7491 (state.change.logger)
+[2020-03-20 14:13:28,043] TRACE [Broker id=2] Cached leader info PartitionState(controllerEpoch=7, leader=4, leaderEpoch=1, isr=[4, 1, 3], zkVersion=1455, replicas=[4, 3, 1], offlineReplicas=[]) for partition ztf_20190919_programid1-222 in response to UpdateMetadata request sent by controller 2 epoch 7 with correlation id 7491 (state.change.logger)
+[2020-03-20 14:13:28,043] TRACE [Broker id=2] Cached leader info PartitionState(controllerEpoch=7, leader=4, leaderEpoch=1, isr=[4, 1, 3], zkVersion=1289, replicas=[4, 3, 1], offlineReplicas=[]) for partition ztf_20190907_programid1-83 in response to UpdateMetadata request sent by controller 2 epoch 7 with correlation id 7491 (state.change.logger)
+[2020-03-20 14:13:28,043] TRACE [Broker id=2] Cached leader info PartitionState(controllerEpoch=7, leader=4, leaderEpoch=1, isr=[4, 1, 3], zkVersion=1447, replicas=[4, 3, 1], offlineReplicas=[]) for partition ztf_20190919_programid1-90 in response to UpdateMetadata request sent by controller 2 epoch 7 with correlation id 7491 (state.change.logger)
+[2020-03-20 14:13:28,043] TRACE [Controller id=2 epoch=7] Received response {error_code=0} for request UPDATE_METADATA with correlation id 7491 sent to broker Angece:9092 (id: 2 rack: 2) (state.change.logger)
+[2020-03-20 14:13:28,056] TRACE [Controller id=2 epoch=7] Received response {error_code=0} for request UPDATE_METADATA with correlation id 6790 sent to broker Onoza:9092 (id: 4 rack: 4) (state.change.logger)
+[2020-03-20 14:13:28,060] TRACE [Controller id=2 epoch=7] Received response {error_code=0} for request UPDATE_METADATA with correlation id 5591 sent to broker Edwalafia:9092 (id: 3 rack: 3) (state.change.logger)
+[2020-03-20 14:13:28,070] TRACE [Controller id=2 epoch=7] Received response {error_code=0} for request UPDATE_METADATA with correlation id 5029 sent to broker Stedigo:9092 (id: 1 rack: 1) (state.change.logger)
+....
+--END--
+
+
+# -----------------------------------------------------
+# List the VM states.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+    
+    virsh \
+        --connect "${libvirtcon:?}" \
+        list \
+            --all
+
+
+--START--
+ Id    Name                           State
+----------------------------------------------------
+ 57    Edwalafia                      running
+ 58    Stedigo                        running
+ 59    Onoza                          running
+ 60    Fosauri                        running
+ 61    Marpus                         running
+ 62    Byflame                        running
+ 64    Angece                         running
+ -     Grerat                         shut off
+ -     Jeralenia                      shut off
+ -     Umiawyth                       shut off
+--END--
+
+# -----------------------------------------------------
+# Start the MirrorMaker VMs.
+#[user@trop03]
+
+    source "${HOME}/nodenames"
+
+    for vmname in ${mmnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            virsh \
+                --connect "${libvirtcon:?}" \
+                start \
+                    "${vmname:?}"
+        done
+
+--START--
+---- ----
+Node [Grerat]
+Domain Grerat started
+
+---- ----
+Node [Jeralenia]
+Domain Jeralenia started
+--END--
+
+
+# -----------------------------------------------------
+# Check the crontab is not active on any of them.
+#[user@trop03]
+
+    source "${HOME}/ssh-options"
+    source "${HOME}/nodenames"
+
+    for vmname in ${mmnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            ssh \
+                ${scpopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                hostname
+                date
+                crontab -l
+                "
+        done
+
+--START--
+---- ----
+Node [Grerat]
+Grerat
+Fri 20 Mar 14:21:47 GMT 2020
+no crontab for Stevedore
+---- ----
+Node [Jeralenia]
+Jeralenia
+Fri 20 Mar 14:21:48 GMT 2020
+bash: line 3: crontab: command not found
+--END--
+
+
+# -----------------------------------------------------
+# See if we can get a list of available topics.
+#[user@trop03]
+
+    source "${HOME}/ssh-options"
+    source "${HOME}/nodenames"
+
+    ssh \
+        ${sshopts[*]} \
+        ${sshuser:?}@${mmnames[0]:?} \
+            "
+            docker run --rm \
+                phymatopus/kafka-core \
+                    bin/kafka-topics.sh \
+                        --zookeeper '${zknames[0]}' \
+                        --list \
+            | sort | tee /tmp/topiclist
+            "
+
+--START--
+banana
+__confluent.support.metrics
+__consumer_offsets
+ztf_20190724_programid1
+ztf_20190725_programid1
+ztf_20190726_programid1
+ztf_20190727_programid1
+ztf_20190728_programid1
+ztf_20190729_programid1
+ztf_20190730_programid1
+ztf_20190731_programid1
+ztf_20190801_programid1
+ztf_20190802_programid1
+ztf_20190803_programid1
+ztf_20190804_programid1
+ztf_20190805_programid1
+ztf_20190806_programid1
+ztf_20190807_programid1
+ztf_20190808_programid1
+ztf_20190809_programid1
+ztf_20190810_programid1
+ztf_20190811_programid1
+ztf_20190812_programid1
+ztf_20190813_programid1
+ztf_20190814_programid1
+ztf_20190815_programid1
+ztf_20190816_programid1
+ztf_20190817_programid1
+ztf_20190818_programid1
+ztf_20190819_programid1
+ztf_20190820_programid1
+ztf_20190821_programid1
+ztf_20190822_programid1
+ztf_20190823_programid1
+ztf_20190824_programid1
+ztf_20190825_programid1
+ztf_20190826_programid1
+ztf_20190827_programid1
+ztf_20190828_programid1
+ztf_20190829_programid1
+ztf_20190830_programid1
+ztf_20190831_programid1
+ztf_20190901_programid1
+ztf_20190902_programid1
+ztf_20190903_programid1
+ztf_20190904_programid1
+ztf_20190905_programid1
+ztf_20190906_programid1
+ztf_20190907_programid1
+ztf_20190908_programid1
+ztf_20190909_programid1
+ztf_20190910_programid1
+ztf_20190911_programid1
+ztf_20190912_programid1
+ztf_20190913_programid1
+ztf_20190914_programid1
+ztf_20190915_programid1
+ztf_20190916_programid1
+ztf_20190917_programid1
+ztf_20190918_programid1
+ztf_20190919_programid1
+ztf_20190920_programid1
+ztf_20190921_programid1
+ztf_20190922_programid1
+ztf_20190923_programid1
+ztf_20190924_programid1
+ztf_20190925_programid1
+ztf_20190930_programid1
+ztf_20191012_programid1
+ztf_20191126_programid1
+--END--
+
+
+# -----------------------------------------------------
+# Try to get the total count all our topics.
+#[user@trop03]
+
+    source "${HOME}/ssh-options"
+    source "${HOME}/nodenames"
+
+    ssh \
+        ${sshopts[*]} \
+        ${sshuser:?}@${mmnames[0]:?}
+
+            brokers=$(
+                sed -n '
+                    s/^bootstrap.servers=\(.*\)$/\1/p
+                    ' producer.config 
+                )
+
+            for topic in $(cat /tmp/topiclist)
+            do
+                echo "---- ----"
+                echo "Topic [${topic:?}]"
+                docker run -it --rm \
+                    phymatopus/kafka-core \
+                        bin/kafka-run-class.sh \
+                            kafka.tools.GetOffsetShell \
+                                --broker-list "${brokers:?}" \
+                                --topic "${topic:?}" \
+                | sed '
+                    s/\([^:]*\):\([^:]*\):\([^:]*\)/\3/
+                    ' \
+                | awk '
+                    {sum += $1} END {print sum}
+                    '
+            done
+
+--START--
+---- ----
+Topic [banana]
+0
+---- ----
+Topic [__confluent.support.metrics]
+0
+---- ----
+Topic [__consumer_offsets]
+1631848
+---- ----
+Topic [ztf_20190724_programid1]
+158021
+---- ----
+Topic [ztf_20190725_programid1]
+138401
+---- ----
+Topic [ztf_20190726_programid1]
+209502
+---- ----
+Topic [ztf_20190727_programid1]
+175742
+---- ----
+Topic [ztf_20190728_programid1]
+125586
+---- ----
+Topic [ztf_20190729_programid1]
+300320
+---- ----
+Topic [ztf_20190730_programid1]
+385590
+---- ----
+Topic [ztf_20190731_programid1]
+525648
+---- ----
+Topic [ztf_20190801_programid1]
+246044
+---- ----
+Topic [ztf_20190802_programid1]
+142952
+---- ----
+Topic [ztf_20190803_programid1]
+432503
+---- ----
+Topic [ztf_20190804_programid1]
+360773
+---- ----
+Topic [ztf_20190805_programid1]
+188259
+---- ----
+Topic [ztf_20190806_programid1]
+171045
+---- ----
+Topic [ztf_20190807_programid1]
+152045
+---- ----
+Topic [ztf_20190808_programid1]
+185032
+---- ----
+Topic [ztf_20190809_programid1]
+161631
+---- ----
+Topic [ztf_20190810_programid1]
+141310
+---- ----
+Topic [ztf_20190811_programid1]
+157253
+---- ----
+Topic [ztf_20190812_programid1]
+160219
+---- ----
+Topic [ztf_20190813_programid1]
+105297
+---- ----
+Topic [ztf_20190814_programid1]
+125047
+---- ----
+Topic [ztf_20190815_programid1]
+57374
+---- ----
+Topic [ztf_20190816_programid1]
+122321
+---- ----
+Topic [ztf_20190817_programid1]
+88370
+---- ----
+Topic [ztf_20190818_programid1]
+195882
+---- ----
+Topic [ztf_20190819_programid1]
+149580
+---- ----
+Topic [ztf_20190820_programid1]
+0
+---- ----
+Topic [ztf_20190821_programid1]
+125266
+---- ----
+Topic [ztf_20190822_programid1]
+138783
+---- ----
+Topic [ztf_20190823_programid1]
+179150
+---- ----
+Topic [ztf_20190824_programid1]
+130723
+---- ----
+Topic [ztf_20190825_programid1]
+184504
+---- ----
+Topic [ztf_20190826_programid1]
+1032500
+---- ----
+Topic [ztf_20190827_programid1]
+167450
+---- ----
+Topic [ztf_20190828_programid1]
+191143
+---- ----
+Topic [ztf_20190829_programid1]
+206362
+---- ----
+Topic [ztf_20190830_programid1]
+203625
+---- ----
+Topic [ztf_20190831_programid1]
+178229
+---- ----
+Topic [ztf_20190901_programid1]
+162662
+---- ----
+Topic [ztf_20190902_programid1]
+2521
+---- ----
+Topic [ztf_20190903_programid1]
+1321
+---- ----
+Topic [ztf_20190904_programid1]
+310593
+---- ----
+Topic [ztf_20190905_programid1]
+48408
+---- ----
+Topic [ztf_20190906_programid1]
+317153
+---- ----
+Topic [ztf_20190907_programid1]
+97183
+---- ----
+Topic [ztf_20190908_programid1]
+68360
+---- ----
+Topic [ztf_20190909_programid1]
+74470
+---- ----
+Topic [ztf_20190910_programid1]
+23726
+---- ----
+Topic [ztf_20190911_programid1]
+4708
+---- ----
+Topic [ztf_20190912_programid1]
+142672
+---- ----
+Topic [ztf_20190913_programid1]
+92449
+---- ----
+Topic [ztf_20190914_programid1]
+78329
+---- ----
+Topic [ztf_20190915_programid1]
+151226
+---- ----
+Topic [ztf_20190916_programid1]
+214991
+---- ----
+Topic [ztf_20190917_programid1]
+127069
+---- ----
+Topic [ztf_20190918_programid1]
+169324
+---- ----
+Topic [ztf_20190919_programid1]
+133721
+---- ----
+Topic [ztf_20190920_programid1]
+91832
+---- ----
+Topic [ztf_20190921_programid1]
+207217
+---- ----
+Topic [ztf_20190922_programid1]
+226788
+---- ----
+Topic [ztf_20190923_programid1]
+187690
+---- ----
+Topic [ztf_20190924_programid1]
+233422
+---- ----
+Topic [ztf_20190925_programid1]
+199858
+---- ----
+Topic [ztf_20190930_programid1]
+0
+---- ----
+Topic [ztf_20191012_programid1]
+0
+---- ----
+Topic [ztf_20191126_programid1]
+0
+--END--
+
+    
+# -----------------------------------------------------
+# Get the retention time for a topic.
+# (ztf_20190821_programid1 shuld be a long lasting one)
+#[user@trop03]
+
+    source "${HOME}/ssh-options"
+    source "${HOME}/nodenames"
+
+    ssh \
+        ${sshopts[*]} \
+        ${sshuser:?}@${mmnames[0]:?}
+
+            source "${HOME}/nodenames"
+
+            topic=ztf_20190821_programid1
+
+            docker run -it --rm \
+                phymatopus/kafka-core \
+                    bin/kafka-configs.sh \
+                        --zookeeper "${zknames[0]:?}" \
+                        --entity-type topics \
+                        --entity-name "${topic:?}" \
+                        --describe
+
+--START--
+Configs for topic 'ztf_20190821_programid1' are retention.ms=-1
+--END--
+
+
+# -----------------------------------------------------
+# Try to get all the retention times for all our topics.
+#[user@trop03]
+
+    source "${HOME}/ssh-options"
+    source "${HOME}/nodenames"
+
+    ssh \
+        ${sshopts[*]} \
+        ${sshuser:?}@${mmnames[0]:?}
+
+            source "${HOME}/nodenames"
+
+            for topic in $(cat /tmp/topiclist)
+            do
+                echo "---- ----"
+                echo "Topic [${topic:?}]"
+
+                docker run -it --rm \
+                    phymatopus/kafka-core \
+                        bin/kafka-configs.sh \
+                            --zookeeper "${zknames[0]:?}" \
+                            --entity-type topics \
+                            --entity-name "${topic:?}" \
+                            --describe
+        
+            done
+
+--START--
+---- ----
+Topic [banana]
+Configs for topic 'banana' are 
+---- ----
+Topic [__confluent.support.metrics]
+Configs for topic '__confluent.support.metrics' are retention.ms=31536000000
+---- ----
+Topic [__consumer_offsets]
+Configs for topic '__consumer_offsets' are segment.bytes=104857600,cleanup.policy=compact,compression.type=producer
+---- ----
+Topic [ztf_20190724_programid1]
+Configs for topic 'ztf_20190724_programid1' are 
+---- ----
+Topic [ztf_20190725_programid1]
+Configs for topic 'ztf_20190725_programid1' are 
+---- ----
+Topic [ztf_20190726_programid1]
+Configs for topic 'ztf_20190726_programid1' are 
+---- ----
+Topic [ztf_20190727_programid1]
+Configs for topic 'ztf_20190727_programid1' are 
+---- ----
+Topic [ztf_20190728_programid1]
+Configs for topic 'ztf_20190728_programid1' are 
+---- ----
+Topic [ztf_20190729_programid1]
+Configs for topic 'ztf_20190729_programid1' are 
+---- ----
+Topic [ztf_20190730_programid1]
+Configs for topic 'ztf_20190730_programid1' are 
+---- ----
+Topic [ztf_20190731_programid1]
+Configs for topic 'ztf_20190731_programid1' are 
+---- ----
+Topic [ztf_20190801_programid1]
+Configs for topic 'ztf_20190801_programid1' are retention.ms=-1
+---- ----
+Topic [ztf_20190802_programid1]
+Configs for topic 'ztf_20190802_programid1' are retention.ms=-1
+---- ----
+Topic [ztf_20190803_programid1]
+Configs for topic 'ztf_20190803_programid1' are retention.ms=-1
+---- ----
+Topic [ztf_20190804_programid1]
+Configs for topic 'ztf_20190804_programid1' are retention.ms=-1
+---- ----
+Topic [ztf_20190805_programid1]
+Configs for topic 'ztf_20190805_programid1' are retention.ms=-1
+---- ----
+Topic [ztf_20190806_programid1]
+Configs for topic 'ztf_20190806_programid1' are retention.ms=-1
+---- ----
+Topic [ztf_20190807_programid1]
+Configs for topic 'ztf_20190807_programid1' are retention.ms=-1
+---- ----
+Topic [ztf_20190808_programid1]
+Configs for topic 'ztf_20190808_programid1' are retention.ms=-1
+---- ----
+Topic [ztf_20190809_programid1]
+Configs for topic 'ztf_20190809_programid1' are retention.ms=-1
+---- ----
+Topic [ztf_20190810_programid1]
+Configs for topic 'ztf_20190810_programid1' are retention.ms=-1
+---- ----
+Topic [ztf_20190811_programid1]
+Configs for topic 'ztf_20190811_programid1' are retention.ms=-1
+---- ----
+Topic [ztf_20190812_programid1]
+Configs for topic 'ztf_20190812_programid1' are retention.ms=-1
+---- ----
+Topic [ztf_20190813_programid1]
+Configs for topic 'ztf_20190813_programid1' are retention.ms=-1
+---- ----
+Topic [ztf_20190814_programid1]
+Configs for topic 'ztf_20190814_programid1' are retention.ms=-1
+---- ----
+Topic [ztf_20190815_programid1]
+Configs for topic 'ztf_20190815_programid1' are retention.ms=-1
+---- ----
+Topic [ztf_20190816_programid1]
+Configs for topic 'ztf_20190816_programid1' are retention.ms=-1
+---- ----
+Topic [ztf_20190817_programid1]
+Configs for topic 'ztf_20190817_programid1' are retention.ms=-1
+---- ----
+Topic [ztf_20190818_programid1]
+Configs for topic 'ztf_20190818_programid1' are retention.ms=-1
+---- ----
+Topic [ztf_20190819_programid1]
+Configs for topic 'ztf_20190819_programid1' are retention.ms=-1
+---- ----
+Topic [ztf_20190820_programid1]
+Configs for topic 'ztf_20190820_programid1' are retention.ms=-1
+---- ----
+Topic [ztf_20190821_programid1]
+Configs for topic 'ztf_20190821_programid1' are retention.ms=-1
+---- ----
+Topic [ztf_20190822_programid1]
+Configs for topic 'ztf_20190822_programid1' are retention.ms=-1
+---- ----
+Topic [ztf_20190823_programid1]
+Configs for topic 'ztf_20190823_programid1' are retention.ms=-1
+---- ----
+Topic [ztf_20190824_programid1]
+Configs for topic 'ztf_20190824_programid1' are retention.ms=-1
+---- ----
+Topic [ztf_20190825_programid1]
+Configs for topic 'ztf_20190825_programid1' are retention.ms=-1
+---- ----
+Topic [ztf_20190826_programid1]
+Configs for topic 'ztf_20190826_programid1' are retention.ms=-1
+---- ----
+Topic [ztf_20190827_programid1]
+Configs for topic 'ztf_20190827_programid1' are retention.ms=-1
+---- ----
+Topic [ztf_20190828_programid1]
+Configs for topic 'ztf_20190828_programid1' are retention.ms=-1
+---- ----
+Topic [ztf_20190829_programid1]
+Configs for topic 'ztf_20190829_programid1' are retention.ms=-1
+---- ----
+Topic [ztf_20190830_programid1]
+Configs for topic 'ztf_20190830_programid1' are retention.ms=-1
+---- ----
+Topic [ztf_20190831_programid1]
+Configs for topic 'ztf_20190831_programid1' are retention.ms=-1
+---- ----
+Topic [ztf_20190901_programid1]
+Configs for topic 'ztf_20190901_programid1' are 
+---- ----
+Topic [ztf_20190902_programid1]
+Configs for topic 'ztf_20190902_programid1' are 
+---- ----
+Topic [ztf_20190903_programid1]
+Configs for topic 'ztf_20190903_programid1' are 
+---- ----
+Topic [ztf_20190904_programid1]
+Configs for topic 'ztf_20190904_programid1' are 
+---- ----
+Topic [ztf_20190905_programid1]
+Configs for topic 'ztf_20190905_programid1' are 
+---- ----
+Topic [ztf_20190906_programid1]
+Configs for topic 'ztf_20190906_programid1' are 
+---- ----
+Topic [ztf_20190907_programid1]
+Configs for topic 'ztf_20190907_programid1' are 
+---- ----
+Topic [ztf_20190908_programid1]
+Configs for topic 'ztf_20190908_programid1' are 
+---- ----
+Topic [ztf_20190909_programid1]
+Configs for topic 'ztf_20190909_programid1' are 
+---- ----
+Topic [ztf_20190910_programid1]
+Configs for topic 'ztf_20190910_programid1' are 
+---- ----
+Topic [ztf_20190911_programid1]
+Configs for topic 'ztf_20190911_programid1' are 
+---- ----
+Topic [ztf_20190912_programid1]
+Configs for topic 'ztf_20190912_programid1' are 
+---- ----
+Topic [ztf_20190913_programid1]
+Configs for topic 'ztf_20190913_programid1' are 
+---- ----
+Topic [ztf_20190914_programid1]
+Configs for topic 'ztf_20190914_programid1' are 
+---- ----
+Topic [ztf_20190915_programid1]
+Configs for topic 'ztf_20190915_programid1' are 
+---- ----
+Topic [ztf_20190916_programid1]
+Configs for topic 'ztf_20190916_programid1' are 
+---- ----
+Topic [ztf_20190917_programid1]
+Configs for topic 'ztf_20190917_programid1' are 
+---- ----
+Topic [ztf_20190918_programid1]
+Configs for topic 'ztf_20190918_programid1' are 
+---- ----
+Topic [ztf_20190919_programid1]
+Configs for topic 'ztf_20190919_programid1' are 
+---- ----
+Topic [ztf_20190920_programid1]
+Configs for topic 'ztf_20190920_programid1' are 
+---- ----
+Topic [ztf_20190921_programid1]
+Configs for topic 'ztf_20190921_programid1' are 
+---- ----
+Topic [ztf_20190922_programid1]
+Configs for topic 'ztf_20190922_programid1' are 
+---- ----
+Topic [ztf_20190923_programid1]
+Configs for topic 'ztf_20190923_programid1' are 
+---- ----
+Topic [ztf_20190924_programid1]
+Configs for topic 'ztf_20190924_programid1' are 
+---- ----
+Topic [ztf_20190925_programid1]
+Configs for topic 'ztf_20190925_programid1' are 
+---- ----
+Topic [ztf_20190930_programid1]
+Configs for topic 'ztf_20190930_programid1' are 
+---- ----
+Topic [ztf_20191012_programid1]
+Configs for topic 'ztf_20191012_programid1' are 
+---- ----
+Topic [ztf_20191126_programid1]
+Configs for topic 'ztf_20191126_programid1' are 
+--END--
+
+
+
+
+
+

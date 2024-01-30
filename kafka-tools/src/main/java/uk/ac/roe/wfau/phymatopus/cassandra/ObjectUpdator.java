@@ -23,8 +23,8 @@ import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
 import com.datastax.oss.driver.api.core.cql.PreparedStatement;
 
 import lombok.extern.slf4j.Slf4j;
-import uk.ac.roe.wfau.phymatopus.kafka.alert.BaseAlert;
-import uk.ac.roe.wfau.phymatopus.kafka.alert.BaseCandidate;
+import uk.ac.roe.wfau.phymatopus.alert.BaseAlert;
+import uk.ac.roe.wfau.phymatopus.alert.BaseCandidate;
 
 /**
  * Simple writer for the objects table.

@@ -1,0 +1,408 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+
+# -----------------------------------------------------
+# Create a VM on each physical host.
+#[user@desktop]
+
+    ssh work01
+    ssh work02
+    ssh work03
+    ssh work04
+
+        createvm
+
+    >   INFO : Node name [Onaukon]
+    >   INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Disc name [Onaukon.qcow]
+    >   INFO : Disc size [8GiB]
+    >   
+    >   INFO : MAC  [06:00:AC:10:00:01]
+    >   INFO : IPv4 [172.16.0.1]
+    >   INFO : IPv6 []
+
+    >   INFO : Node name [Nydiabaen]
+    >   INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Disc name [Nydiabaen.qcow]
+    >   INFO : Disc size [8GiB]
+    >   
+    >   INFO : MAC  [06:00:AC:10:02:01]
+    >   INFO : IPv4 [172.16.2.1]
+    >   INFO : IPv6 []
+
+    >   INFO : Node name [Umynd]
+    >   INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Disc name [Umynd.qcow]
+    >   INFO : Disc size [8GiB]
+    >   
+    >   INFO : MAC  [06:00:AC:10:03:01]
+    >   INFO : IPv4 [172.16.3.1]
+    >   INFO : IPv6 []
+
+    >   INFO : Node name [Rhaler]
+    >   INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Disc name [Rhaler.qcow]
+    >   INFO : Disc size [8GiB]
+    >   
+    >   INFO : MAC  [06:00:AC:10:04:01]
+    >   INFO : IPv4 [172.16.4.1]
+    >   INFO : IPv6 []
+
+
+# -----------------------------------------------------
+# Create a container to work with.
+#[user@virtual]
+
+    ssh Onaukon
+    ssh Nydiabaen
+    ssh Umynd
+    ssh Rhaler
+
+
+    #
+    # 'normal' user requires chmod in firethorn image.
+    # --user $(id -u) \
+
+    docker run \
+        --rm \
+        --tty \
+        --interactive \
+        --hostname builder \
+        --env SSH_AUTH_SOCK=/tmp/ssh_auth_sock \
+        --volume ${SSH_AUTH_SOCK}:/tmp/ssh_auth_sock \
+        firethorn/builder \
+        bash
+
+    >   ....
+    >   Digest: sha256:e668160c68cda1ce76ac7982b9dadf21bcbd6cbfb8427c3a3c26d8def3c3a49f
+    >   Status: Downloaded newer image for firethorn/builder:latest
+
+# -----------------------------------------------------
+# Checkout a copy of our source code.
+#[user@builder]
+
+    PHYMATOPUS_REPO=https://github.com/Zarquan/phymatopus
+    PHYMATOPUS_CODE=/var/local/build/phymatopus
+
+    if [ ! -e "${PHYMATOPUS_CODE:?}" ]
+    then
+        if [ ! -e "$(dirname ${PHYMATOPUS_CODE:?})" ]
+        then
+            mkdir -p "$(dirname ${PHYMATOPUS_CODE:?})"
+        fi
+        pushd "$(dirname ${PHYMATOPUS_CODE:?})"
+            git clone "${PHYMATOPUS_REPO:?}" "$(basename ${PHYMATOPUS_CODE:?})"
+
+        popd
+    else
+        pushd "${PHYMATOPUS_CODE:?}"
+            git pull
+        popd
+    fi
+
+# -----------------------------------------------------
+# Build and run our tests.
+#[user@builder]
+
+    pushd "${PHYMATOPUS_CODE:?}"
+        pushd kafka-tools
+
+            git pull
+
+            mvn clean compile
+
+            rewind=true
+            rewind=false
+
+            datetime=$(date +%Y%m%d%H%M%S)
+            echo "datetime [${datetime}]"
+
+            topic=ztf_20190731_programid1
+            looplimit=30000
+            threads=4
+
+            mvn test \
+                -D 'test=ZtfAlertReaderTest' \
+                -D "phymatopus.kafka.reader.rewind=${rewind}" \
+                -D "phymatopus.kafka.reader.threads=${threads}" \
+                -D "phymatopus.kafka.reader.looplimit=${looplimit}" \
+                -D "phymatopus.kafka.reader.topic=${topic}"
+
+
+    >   2019-08-28 01:10:41,161 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [4] threads read [120124] alerts from topic [ztf_20190731_programid1] in [79462.0]ms at [0.6614998]ms per alert
+    >   2019-08-28 01:10:44,197 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [4] threads read [120074] alerts from topic [ztf_20190731_programid1] in [79215.0]ms at [0.65971816]ms per alert
+    >   2019-08-28 01:10:47,790 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [4] threads read [120131] alerts from topic [ztf_20190731_programid1] in [79598.0]ms at [0.66259336]ms per alert
+    >   2019-08-28 01:10:51,232 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [4] threads read [120049] alerts from topic [ztf_20190731_programid1] in [78818.0]ms at [0.65654856]ms per alert
+
+
+            topic=ztf_20190826_programid1
+            looplimit=200000
+            threads=4
+
+            mvn test \
+                -D 'test=ZtfAlertReaderTest' \
+                -D "phymatopus.kafka.reader.rewind=${rewind}" \
+                -D "phymatopus.kafka.reader.threads=${threads}" \
+                -D "phymatopus.kafka.reader.topic=${topic}" \
+                -D "phymatopus.kafka.reader.looplimit=${looplimit}"
+
+
+
+    >   2019-08-28 01:54:12,027 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [4] threads read [261208] alerts from topic [ztf_20190826_programid1] in [160399.0]ms at [0.6140662]ms per alert
+    >   2019-08-28 01:54:13,219 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [4] threads read [257574] alerts from topic [ztf_20190826_programid1] in [158438.0]ms at [0.6151164]ms per alert
+    >   2019-08-28 01:54:14,929 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [4] threads read [258116] alerts from topic [ztf_20190826_programid1] in [157629.0]ms at [0.61069053]ms per alert
+    >   2019-08-28 01:54:14,573 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [4] threads read [255602] alerts from topic [ztf_20190826_programid1] in [154858.0]ms at [0.605856]ms per alert
+
+261208+257574+258116+255602=1032500
+1032500
+
+
+    >   2019-08-28 02:15:28,699 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [4] threads read [262316] alerts from topic [ztf_20190826_programid1] in [161060.0]ms at [0.6139923]ms per alert
+    >   2019-08-28 02:15:30,273 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [4] threads read [258248] alerts from topic [ztf_20190826_programid1] in [157659.0]ms at [0.61049455]ms per alert
+    >   2019-08-28 02:15:30,879 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [4] threads read [255849] alerts from topic [ztf_20190826_programid1] in [156423.0]ms at [0.61138797]ms per alert
+    >   2019-08-28 02:15:34,186 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [4] threads read [256087] alerts from topic [ztf_20190826_programid1] in [157865.0]ms at [0.61645067]ms per alert
+
+
+
+    >   NET | vnet3   9660% |               | pcki   58256 |  pcko   53659 |              |  sp   10 Mbps | si  966 Mbps | so 2899 Kbps  |              | coll       0  | mlti       0 | erri       0  | erro       0 | drpi       0  | drpo       0 |
+    >   NET | vnet4   9465% |               | pcki   58741 |  pcko   51457 |              |  sp   10 Mbps | si  946 Mbps | so 2802 Kbps  |              | coll       0  | mlti       0 | erri       0  | erro       0 | drpi       0  | drpo       0 |
+
+    >   NET | vnet0   9712% | pcki   53227  | pcko   81589 | sp   10 Mbps | si 2849 Kbps | so  971 Mbps  | mlti       0 | erri       0 | erro       0 |  drpi       0 | drpo       0 |
+    >   NET | eno1     10%  | pcki  846717  | pcko   53230 | sp   10 Gbps | si 1011 Mbps | so 2850 Kbps  | mlti      15 | erri       0 | erro       0 |  drpi       0 | drpo       0 |
+
+    >   NET | vnet3   9660% | pcki   58256 |  pcko   53659 |  sp   10 Mbps | si  966 Mbps | so 2899 Kbps
+    >   NET | vnet4   9465% | pcki   58741 |  pcko   51457 |  sp   10 Mbps | si  946 Mbps | so 2802 Kbps
+
+    >   NET | vnet0   9712% | pcki   53227  | pcko   81589 | sp   10 Mbps | si 2849 Kbps | so  971 Mbps
+    >   NET | eno1     10%  | pcki  846717  | pcko   53230 | sp   10 Gbps | si 1011 Mbps | so 2850 Kbps
+
+    >   DSK |          sdc  | busy    100%  | read    2499  | write     76  | KiB/r    205  | KiB/w     15  | MBr/s   50.1  | MBw/s    0.1  | avq    37.95  | avio 3.88 ms  |
+    >   DSK |          sdb  | busy    100%  | read    2813  | write     65  | KiB/r    194  | KiB/w     18  | MBr/s   53.4  | MBw/s    0.1  | avq    40.51  | avio 3.46 ms  |
+
+
+
+    #
+    # Increased the number of partitions for 'ztf_20190829_programid1'.
+    # @see doc/notes/zrq/20190828-01-partition-magic.txt
+    #
+
+            topic=ztf_20190829_programid1
+            threads=4
+            looplimit=5000
+            polltimeout=PT10S
+            looptimeout=PT1M
+
+            mvn test \
+                -D 'test=ZtfAlertReaderTest' \
+                -D "phymatopus.kafka.reader.topic=${topic}" \
+                -D "phymatopus.kafka.reader.rewind=${rewind}" \
+                -D "phymatopus.kafka.reader.threads=${threads}" \
+                -D "phymatopus.kafka.reader.looplimit=${looplimit}" \
+                -D "phymatopus.kafka.reader.looptimeout=${looptimeout}" \
+                -D "phymatopus.kafka.reader.polltimeout=${polltimeout}"
+
+
+    >   2019-08-29 11:32:44,938 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [4] threads read [20068] alerts from topic [ztf_20190829_programid1] in [31098.0]ms at [1.5496312]ms per alert
+    >   2019-08-29 11:32:51,079 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [4] threads read [20342] alerts from topic [ztf_20190829_programid1] in [33465.0]ms at [1.6451185]ms per alert
+    >   2019-08-29 11:33:01,740 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [4] threads read [20406] alerts from topic [ztf_20190829_programid1] in [40787.0]ms at [1.9987749]ms per alert
+    >   2019-08-29 11:32:55,929 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [4] threads read [20226] alerts from topic [ztf_20190829_programid1] in [32002.0]ms at [1.5822209]ms per alert
+
+    >   DSK |          sdb  | busy     87%  | read    2420  | write    319  | KiB/r    154  | KiB/w     83  | MBr/s   36.5  | MBw/s    2.6  | avq    15.40  | avio 3.16 ms  |
+    >   DSK |          sdc  | busy     83%  | read    2094  | write    158  | KiB/r    165  | KiB/w     66  | MBr/s   33.8  | MBw/s    1.0  | avq    11.58  | avio 3.67 ms  |
+    >   DSK |          sda  | busy      0%  | read       1  | write     20  | KiB/r      4  | KiB/w     74  | MBr/s    0.0  | MBw/s    0.1  | avq     8.00  | avio 0.19 ms  |
+
+    >   NET | vnet3   2130%  | pcki   16053  | pcko   11431  | sp   10 Mbps  | si  213 Mbps  | so 3748 Kbps  | erri       0  | erro       0  | drpi       0  | drpo       0
+    >   NET | vnet6   1734%  | pcki   13008  | pcko    8430  | sp   10 Mbps  | si  173 Mbps  | so 3032 Kbps  | erri       0  | erro       0  | drpi       0  | drpo       0
+    >   NET | vnet4   1253%  | pcki   11082  | pcko    7236  | sp   10 Mbps  | si  125 Mbps  | so 3003 Kbps  | erri       0  | erro       0  | drpi       0  | drpo       0
+    >   NET | vnet5   1104%  | pcki    9401  | pcko    6141  | sp   10 Mbps  | si  110 Mbps  | so 2901 Kbps  | erri       0  | erro       0  | drpi       0  | drpo       0
+    >   NET | vnet7     18%  | pcki     464  | pcko     828  | sp   10 Mbps  | si 1814 Kbps  | so 1325 Kbps  | erri       0  | erro       0  | drpi       0  | drpo       0  |
+    >   NET | vnet8     18%  | pcki     443  | pcko     818  | sp   10 Mbps  | si 1814 Kbps  | so 1300 Kbps  | erri       0  | erro       0  | drpi       0  | drpo       0  |
+    >   NET | eth1       6%  | pcki   31641  | pcko  538706  | sp   10 Gbps  | si 4289 Kbps  | so  640 Mbps  | erri       0  | erro       0  | drpi       0  | drpo       0  |
+    >   NET | vnet2      0%  | pcki      20  | pcko     188  | sp   10 Mbps  | si    1 Kbps  | so    9 Kbps  | erri       0  | erro       0  | drpi       0  | drpo       0  |
+    >   NET | vnet0      0%  | pcki      20  | pcko     188  | sp   10 Mbps  | si    1 Kbps  | so    9 Kbps  | erri       0  | erro       0  | drpi       0  | drpo       0  |
+    >   NET | vnet1      0%  | pcki      40  | pcko     168  | sp   10 Mbps  | si    2 Kbps  | so    9 Kbps  | erri       0  | erro       0  | drpi       0  | drpo       0  |
+
+
+
+            topic=ztf_20190829_programid1
+            threads=4
+            looplimit=4000
+            polltimeout=PT10S
+            looptimeout=PT1M
+
+            mvn test \
+                -D 'test=ZtfAlertReaderTest' \
+                -D "phymatopus.kafka.reader.topic=${topic}" \
+                -D "phymatopus.kafka.reader.rewind=${rewind}" \
+                -D "phymatopus.kafka.reader.threads=${threads}" \
+                -D "phymatopus.kafka.reader.looplimit=${looplimit}" \
+                -D "phymatopus.kafka.reader.looptimeout=${looptimeout}" \
+                -D "phymatopus.kafka.reader.polltimeout=${polltimeout}"
+
+
+    >   2019-08-29 11:47:37,790 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [4] threads read [16139] alerts from topic [ztf_20190829_programid1] in [15850.0]ms at [0.9820931]ms per alert
+    >   2019-08-29 11:47:44,132 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [4] threads read [16168] alerts from topic [ztf_20190829_programid1] in [14046.0]ms at [0.8687531]ms per alert
+    >   2019-08-29 11:47:46,914 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [4] threads read [16139] alerts from topic [ztf_20190829_programid1] in [13481.0]ms at [0.8353058]ms per alert
+    >   2019-08-29 11:47:50,534 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [4] threads read [16383] alerts from topic [ztf_20190829_programid1] in [13661.0]ms at [0.8338522]ms per alert
+
+
+    #
+    # Settings for atop
+    # https://linux.die.net/man/1/atop
+    # https://superuser.com/questions/568903/atop-how-to-show-all-disks-usage
+    # https://superuser.com/a/1073807
+    # -P <label>
+
+            topic=ztf_20190829_programid1
+            threads=4
+            looplimit=8000
+            polltimeout=PT10S
+            looptimeout=PT1M
+
+            mvn test \
+                -D 'test=ZtfAlertReaderTest' \
+                -D "phymatopus.kafka.reader.topic=${topic}" \
+                -D "phymatopus.kafka.reader.rewind=${rewind}" \
+                -D "phymatopus.kafka.reader.threads=${threads}" \
+                -D "phymatopus.kafka.reader.looplimit=${looplimit}" \
+                -D "phymatopus.kafka.reader.looptimeout=${looptimeout}" \
+                -D "phymatopus.kafka.reader.polltimeout=${polltimeout}"
+
+
+    atop -N -P NET 10
+
+    >   NET trop03 1567081521 2019/08/29 13:25:21 10 upper 6 6 0 0 33 6 7 0
+    >   NET trop03 1567081521 2019/08/29 13:25:21 10 vnet6 60691 705656529 29238 1969551 10 1
+    >   NET trop03 1567081521 2019/08/29 13:25:21 10 br1 21 1483 0 0 0 0
+    >   NET trop03 1567081521 2019/08/29 13:25:21 10 vnet2 20 1840 61 4737 10 1
+    >   NET trop03 1567081521 2019/08/29 13:25:21 10 lo 0 0 0 0 0 0
+    >   NET trop03 1567081521 2019/08/29 13:25:21 10 vnet5 61189 710849024 29168 2026000 10 1
+    >   NET trop03 1567081521 2019/08/29 13:25:21 10 eth1 118162 8072968 2030024 3016665943 10000 1
+    >   NET trop03 1567081521 2019/08/29 13:25:21 10 eth0 38 6879 6 2048 10000 1
+    >   NET trop03 1567081521 2019/08/29 13:25:21 10 vnet1 40 3040 41 3737 10 1
+    >   NET trop03 1567081521 2019/08/29 13:25:21 10 vnet8 161 16697 234 68403 10 1
+    >   NET trop03 1567081521 2019/08/29 13:25:21 10 br0 35 6174 6 2048 0 0
+    >   NET trop03 1567081521 2019/08/29 13:25:21 10 vnet4 63986 749840814 31408 2161588 10 1
+    >   NET trop03 1567081521 2019/08/29 13:25:21 10 vnet0 20 1840 61 4737 10 1
+    >   NET trop03 1567081521 2019/08/29 13:25:21 10 vnet7 158 16184 232 68249 10 1
+    >   NET trop03 1567081521 2019/08/29 13:25:21 10 vnet3 62286 732894705 30505 2114510 10 1
+
+
+    atop -P NET,DSK 10
+
+    >   DSK trop03 1567083217 2019/08/29 13:53:37 10 sdb 2300 1054 51312 342 35144
+    >   DSK trop03 1567083217 2019/08/29 13:53:37 10 sdc 260 0 0 100 3240
+    >   DSK trop03 1567083217 2019/08/29 13:53:37 10 sda 4 2 72 19 2568
+    >   NET trop03 1567083217 2019/08/29 13:53:37 10 upper 4 4 0 0 40 4 5 0
+    >   NET trop03 1567083217 2019/08/29 13:53:37 10 vnet6 26538 354742617 14034 963151 10 1
+    >   NET trop03 1567083217 2019/08/29 13:53:37 10 br1 27 1787 0 0 0 0
+    >   NET trop03 1567083217 2019/08/29 13:53:37 10 vnet2 22 1924 69 5245 10 1
+    >   NET trop03 1567083217 2019/08/29 13:53:37 10 lo 0 0 0 0 0 0
+    >   NET trop03 1567083217 2019/08/29 13:53:37 10 vnet5 33356 490155621 20434 1464996 10 1
+    >   NET trop03 1567083217 2019/08/29 13:53:37 10 eth1 71242 4885831 1252623 1858594222 10000 1
+    >   NET trop03 1567083217 2019/08/29 13:53:37 10 eth0 42 10179 4 1864 10000 1
+    >   NET trop03 1567083217 2019/08/29 13:53:37 10 vnet1 40 3040 47 4125 10 1
+    >   NET trop03 1567083217 2019/08/29 13:53:37 10 vnet8 147 15465 223 16627 10 1
+    >   NET trop03 1567083217 2019/08/29 13:53:37 10 br0 39 9276 4 1864 0 0
+    >   NET trop03 1567083217 2019/08/29 13:53:37 10 vnet4 25249 310307647 13203 975096 10 1
+    >   NET trop03 1567083217 2019/08/29 13:53:37 10 vnet0 20 1840 67 5125 10 1
+    >   NET trop03 1567083217 2019/08/29 13:53:37 10 vnet7 150 15777 227 16911 10 1
+    >   NET trop03 1567083217 2019/08/29 13:53:37 10 vnet3 40866 629093343 26349 1860771 10 1
+
+
+
+
+
+
+
+
+
+
+
+
+    >   DSK trop03 1567083217 2019/08/29 13:53:37 10 sda    4    2    72  19  2568
+    >   DSK trop03 1567083217 2019/08/29 13:53:37 10 sdb 2300 1054 51312 342 35144
+    >   DSK trop03 1567083217 2019/08/29 13:53:37 10 sdc  260    0     0 100  3240
+
+    >   NET trop03 1567083217 2019/08/29 13:53:37 10 upper 4 4 0 0 40 4 5 0
+
+    >   NET trop03 1567083217 2019/08/29 13:53:37 10 lo        0         0       0          0     0 0
+    >   NET trop03 1567083217 2019/08/29 13:53:37 10 br0      39      9276       4       1864     0 0
+    >   NET trop03 1567083217 2019/08/29 13:53:37 10 br1      27      1787       0          0     0 0
+    >   NET trop03 1567083217 2019/08/29 13:53:37 10 eth0     42     10179       4       1864 10000 1
+    >   NET trop03 1567083217 2019/08/29 13:53:37 10 eth1  71242   4885831 1252623 1858594222 10000 1
+    >   NET trop03 1567083217 2019/08/29 13:53:37 10 vnet0    20      1840      67       5125    10 1
+    >   NET trop03 1567083217 2019/08/29 13:53:37 10 vnet1    40      3040      47       4125    10 1
+    >   NET trop03 1567083217 2019/08/29 13:53:37 10 vnet2    22      1924      69       5245    10 1
+    >   NET trop03 1567083217 2019/08/29 13:53:37 10 vnet3 40866 629093343   26349    1860771    10 1
+    >   NET trop03 1567083217 2019/08/29 13:53:37 10 vnet4 25249 310307647   13203     975096    10 1
+    >   NET trop03 1567083217 2019/08/29 13:53:37 10 vnet5 33356 490155621   20434    1464996    10 1
+    >   NET trop03 1567083217 2019/08/29 13:53:37 10 vnet6 26538 354742617   14034     963151    10 1
+    >   NET trop03 1567083217 2019/08/29 13:53:37 10 vnet7   150     15777     227      16911    10 1
+    >   NET trop03 1567083217 2019/08/29 13:53:37 10 vnet8   147     15465     223      16627    10 1
+
+
+
+    # Formatted.
+    atop -N -P NET
+
+    >   NET trop03 1567083943 2019/08/29 14:05:43 10 br0    42 10266   2   828     0 0
+    >   NET trop03 1567083943 2019/08/29 14:05:43 10 br1    30  2009   0     0     0 0
+    >   NET trop03 1567083943 2019/08/29 14:05:43 10 eth0   45 11534   2   828 10000 1
+    >   NET trop03 1567083943 2019/08/29 14:05:43 10 eth1  429 31901 303 31845 10000 1
+    >   NET trop03 1567083943 2019/08/29 14:05:43 10 vnet0  20  1840  70  5389    10 1
+    >   NET trop03 1567083943 2019/08/29 14:05:43 10 vnet1  40  3040  50  4389    10 1
+    >   NET trop03 1567083943 2019/08/29 14:05:43 10 vnet2  20  1840  70  5389    10 1
+    >   NET trop03 1567083943 2019/08/29 14:05:43 10 vnet3 310 25740 335 27879    10 1
+    >   NET trop03 1567083943 2019/08/29 14:05:43 10 vnet4 307 25520 333 27682    10 1
+    >   NET trop03 1567083943 2019/08/29 14:05:43 10 vnet5 308 25543 332 27659    10 1
+    >   NET trop03 1567083943 2019/08/29 14:05:43 10 vnet6 310 25740 335 27879    10 1
+    >   NET trop03 1567083943 2019/08/29 14:05:43 10 vnet7 154 16179 232 17351    10 1
+    >   NET trop03 1567083943 2019/08/29 14:05:43 10 vnet8 149 15666 227 16979    10 1
+
+    # Interactive.
+    atop
+
+    >   NET | vnet5   1183%  | pcki    9004  | pcko    6198  | sp   10 Mbps  | si  118 Mbps  | so  385 Kbps  |
+    >   NET | vnet3   1182%  | pcki    9814  | pcko    6206  | sp   10 Mbps  | si  118 Mbps  | so  385 Kbps  |
+    >   NET | vnet6   1161%  | pcki    9248  | pcko    5754  | sp   10 Mbps  | si  116 Mbps  | so  316 Kbps  |
+    >   NET | vnet4    806%  | pcki    7317  | pcko    4482  | sp   10 Mbps  | si   80 Mbps  | so  273 Kbps  |
+    >   NET | eth1       4%  | pcki   21168  | pcko  379511  | sp   10 Gbps  | si 1171 Kbps  | so  451 Mbps  |
+    >   NET | vnet8      0%  | pcki     154  | pcko     224  | sp   10 Mbps  | si   13 Kbps  | so   13 Kbps  |
+    >   NET | vnet7      0%  | pcki     154  | pcko     224  | sp   10 Mbps  | si   13 Kbps  | so   13 Kbps  |
+    >   NET | vnet2      0%  | pcki      23  | pcko      67  | sp   10 Mbps  | si    1 Kbps  | so    4 Kbps  |
+    >   NET | vnet0      0%  | pcki      20  | pcko      64  | sp   10 Mbps  | si    1 Kbps  | so    3 Kbps  |
+    >   NET | vnet1      0%  | pcki      40  | pcko      44  | sp   10 Mbps  | si    2 Kbps  | so    3 Kbps  |
+    >   NET | eth0       0%  | pcki      37  | pcko       1  | sp   10 Gbps  | si    8 Kbps  | so    0 Kbps  |
+    >   NET | br0      ----  | pcki      35  | pcko       1  | sp    0 Mbps  | si    7 Kbps  | so    0 Kbps  |
+    >   NET | br1      ----  | pcki      24  | pcko       0  | sp    0 Mbps  | si    1 Kbps  | so    0 Kbps  |
+
+
+
+
+
+

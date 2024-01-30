@@ -24,7 +24,7 @@ import com.datastax.oss.driver.api.core.CqlSession;
 import com.datastax.oss.driver.api.core.CqlSessionBuilder;
 
 import lombok.extern.slf4j.Slf4j;
-import uk.ac.roe.wfau.phymatopus.kafka.alert.BaseAlert;
+import uk.ac.roe.wfau.phymatopus.alert.BaseAlert;
 
 /**
  * Simple writer for the candidates table.

@@ -1,0 +1,145 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+# -----------------------------------------------------
+# Check the topic is empty.
+#[user@trop03]
+
+    topicid=ztf_20190820_programid1
+
+    source "${HOME}/ssh-options"
+    source "${HOME}/nodenames"
+
+    source "${HOME}/nodenames"
+    ssh -q -t ${sshuser:?}@${mmnames[0]} \
+            "
+            docker run -it --rm \
+                phymatopus/kafka-core \
+                    bin/kafka-run-class.sh \
+                        kafka.tools.GetOffsetShell \
+                            --broker-list '${kfnames[0]}:9092' \
+                            --topic '${topicid:?}' \
+            | sed '
+                s/\([^:]*\):\([^:]*\):\([^:]*\)/\3/
+                ' \
+            | awk '
+                {sum += \$1} END {print sum}
+                '
+        "
+
+    >   0
+
+
+# -----------------------------------------------------
+# Update run MirrorMaker on that topic.
+#[user@trop03]
+
+    topicid=ztf_20190820_programid1
+
+    source "${HOME}/ssh-options"
+    source "${HOME}/nodenames"
+
+    for vmname in ${mmnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname}]"
+            ssh \
+                ${scpopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                docker-compose \
+                    --file mirror.yml \
+                    down
+                sed -i \"
+                    s/^ztftopicid=.*/ztftopicid=${topicid:?}/
+                    \" mirror.env
+                docker-compose \
+                    --file mirror.yml \
+                    up -d
+                "
+        done
+
+    >   ---- ----
+    >   Node [Grerat]
+    >   Stopping stevedore_tina_1 ... done
+    >   Removing stevedore_tina_1 ... done
+    >   Removing network stevedore_default
+    >   Creating network "stevedore_default" with the default driver
+    >   Creating stevedore_tina_1 ... done
+    >   ---- ----
+    >   Node [Jeralenia]
+    >   Stopping stevedore_tina_1 ... done
+    >   Removing stevedore_tina_1 ... done
+    >   Removing network stevedore_default
+    >   Creating network "stevedore_default" with the default driver
+    >   Creating stevedore_tina_1 ... done
+
+
+# -----------------------------------------------------
+# Check our client offsets in the ZTF broker.
+#[user@trop03]
+
+    source "${HOME}/ssh-options"
+    source "${HOME}/nodenames"
+
+    ztfconnect=public.alerts.ztf.uw.edu:9092
+    roegroupid=ztf-mirror.roe.ac.uk
+
+    offsetcheck()
+        {
+        date ; \
+        ssh \
+            ${sshopts[*]} \
+            ${sshuser:?}@${mmnames[0]:?} \
+            "
+            docker run --rm phymatopus/kafka-core \
+                bin/kafka-consumer-groups.sh \
+                    --bootstrap-server "${ztfconnect:?}" \
+                    --describe \
+                    --group "${roegroupid:?}"
+             " \
+        | sort \
+        ; date
+        }
+
+    offsetcheck
+
+    >   TOPIC                   PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG             CONSUMER-ID                                                 HOST            CLIENT-ID
+    >   ztf_20190820_programid1 0          -               0               -               ztf-mirror.roe.ac.uk-0-b94c9146-341e-4af8-ae56-8b0c851e1aba /192.41.108.44  ztf-mirror.roe.ac.uk-0
+    >   ztf_20190820_programid1 10         -               0               -               ztf-mirror.roe.ac.uk-1-21be7097-81ad-44d5-bf00-44946ad72b17 /192.41.108.44  ztf-mirror.roe.ac.uk-1
+    >   ztf_20190820_programid1 1          -               0               -               ztf-mirror.roe.ac.uk-0-ff0e773b-249d-4d31-b4c9-2af45bc9cace /192.41.108.44  ztf-mirror.roe.ac.uk-0
+    >   ztf_20190820_programid1 11         -               0               -               ztf-mirror.roe.ac.uk-1-8da635a0-ddb4-4845-a996-41f8e7c451c0 /192.41.108.44  ztf-mirror.roe.ac.uk-1
+    >   ztf_20190820_programid1 12         -               0               -               ztf-mirror.roe.ac.uk-2-08b959d1-36d1-4666-b36d-c937aad88947 /192.41.108.44  ztf-mirror.roe.ac.uk-2
+    >   ztf_20190820_programid1 13         -               0               -               ztf-mirror.roe.ac.uk-2-67b6783a-82ab-4143-9226-cfc4581ba171 /192.41.108.44  ztf-mirror.roe.ac.uk-2
+    >   ztf_20190820_programid1 2          -               0               -               ztf-mirror.roe.ac.uk-1-21be7097-81ad-44d5-bf00-44946ad72b17 /192.41.108.44  ztf-mirror.roe.ac.uk-1
+    >   ztf_20190820_programid1 3          -               0               -               ztf-mirror.roe.ac.uk-1-8da635a0-ddb4-4845-a996-41f8e7c451c0 /192.41.108.44  ztf-mirror.roe.ac.uk-1
+    >   ztf_20190820_programid1 4          -               0               -               ztf-mirror.roe.ac.uk-2-08b959d1-36d1-4666-b36d-c937aad88947 /192.41.108.44  ztf-mirror.roe.ac.uk-2
+    >   ztf_20190820_programid1 5          -               0               -               ztf-mirror.roe.ac.uk-2-67b6783a-82ab-4143-9226-cfc4581ba171 /192.41.108.44  ztf-mirror.roe.ac.uk-2
+    >   ztf_20190820_programid1 6          -               0               -               ztf-mirror.roe.ac.uk-3-3495dadc-6ded-47ec-9fc0-a5b3057a2bee /192.41.108.44  ztf-mirror.roe.ac.uk-3
+    >   ztf_20190820_programid1 7          -               0               -               ztf-mirror.roe.ac.uk-3-9c8f978d-1f01-4929-87b8-838e523ff4a2 /192.41.108.44  ztf-mirror.roe.ac.uk-3
+    >   ztf_20190820_programid1 8          -               0               -               ztf-mirror.roe.ac.uk-0-b94c9146-341e-4af8-ae56-8b0c851e1aba /192.41.108.44  ztf-mirror.roe.ac.uk-0
+    >   ztf_20190820_programid1 9          -               0               -               ztf-mirror.roe.ac.uk-0-ff0e773b-249d-4d31-b4c9-2af45bc9cace /192.41.108.44  ztf-mirror.roe.ac.uk-0
+
+    # Too late to re-process the data :-(
+
+
+

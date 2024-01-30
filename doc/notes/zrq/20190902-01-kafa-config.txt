@@ -1,0 +1,2030 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+    #
+    # Stop Kafka service gracefully.
+    # https://github.com/wurstmeister/kafka-docker/pull/58/files#diff-e2a953e782fd60dfe21d9861547e54ebR38
+
+
+# -----------------------------------------------------
+# Login to the first mirror node.
+#[user@trop03]
+
+    source "${HOME}/nodenames"
+    ssh "${mmnames[0]}"
+
+
+# -----------------------------------------------------
+# Get a list of ZTF topics.
+#[user@Grerat]
+
+        source "${HOME}/nodenames"
+        zookeeper=${zknames[0]}
+
+        docker run --rm \
+            phymatopus/kafka-core \
+                bin/kafka-topics.sh \
+                    --zookeeper "${zookeeper:?}" \
+                    --list \
+        | sed '/^ztf.*/!{d}' | sort | tee /tmp/ztftopics
+
+    >   ztf_20190724_programid1
+    >   ztf_20190725_programid1
+    >   ztf_20190726_programid1
+    >   ztf_20190727_programid1
+    >   ztf_20190728_programid1
+    >   ztf_20190729_programid1
+    >   ztf_20190730_programid1
+    >   ztf_20190731_programid1
+    >   ztf_20190801_programid1
+    >   ztf_20190802_programid1
+    >   ztf_20190803_programid1
+    >   ztf_20190804_programid1
+    >   ztf_20190805_programid1
+    >   ztf_20190806_programid1
+    >   ztf_20190807_programid1
+    >   ztf_20190808_programid1
+    >   ztf_20190809_programid1
+    >   ztf_20190810_programid1
+    >   ztf_20190811_programid1
+    >   ztf_20190812_programid1
+    >   ztf_20190813_programid1
+    >   ztf_20190814_programid1
+    >   ztf_20190815_programid1
+    >   ztf_20190816_programid1
+    >   ztf_20190817_programid1
+    >   ztf_20190818_programid1
+    >   ztf_20190819_programid1
+    >   ztf_20190820_programid1
+    >   ztf_20190821_programid1
+    >   ztf_20190822_programid1
+    >   ztf_20190823_programid1
+    >   ztf_20190824_programid1
+    >   ztf_20190825_programid1
+    >   ztf_20190826_programid1
+    >   ztf_20190827_programid1
+    >   ztf_20190828_programid1
+    >   ztf_20190829_programid1
+    >   ztf_20190830_programid1
+    >   ztf_20190831_programid1
+    >   ztf_20190901_programid1
+    >   ztf_20190902_programid1
+    >   ztf_20190903_programid1
+
+
+# -----------------------------------------------------
+# Get the specific config for a topic.
+#[user@Grerat]
+
+        source "${HOME}/nodenames"
+        zookeeper=${zknames[0]}
+
+        topic=ztf_20190821_programid1
+
+        docker run -it --rm \
+            phymatopus/kafka-core \
+                bin/kafka-configs.sh \
+                    --zookeeper "${zookeeper:?}" \
+                    --entity-type topics \
+                    --entity-name "${topic:?}" \
+                    --describe
+
+    >   Configs for topic 'ztf_20190821_programid1' are
+
+
+# -----------------------------------------------------
+# Set the retention time for the August topics.
+#[user@Grerat]
+
+        retention=$((-1))
+
+        for topic in $(grep '201908' '/tmp/ztftopics')
+            do
+                echo "---- ----"
+                echo "Topic [${topic:?}]"
+                docker run -it --rm \
+                    phymatopus/kafka-core \
+                        bin/kafka-configs.sh \
+                            --zookeeper "${zookeeper:?}" \
+                            --entity-type topics \
+                            --entity-name "${topic:?}" \
+                            --alter \
+                            --add-config "retention.ms=${retention:?}"
+
+            done
+
+    >   Topic [ztf_20190801_programid1]
+    >   Completed Updating config for entity: topic 'ztf_20190801_programid1'.
+    >   ---- ----
+    >   Topic [ztf_20190802_programid1]
+    >   Completed Updating config for entity: topic 'ztf_20190802_programid1'.
+    >   ....
+    >   ....
+    >   Topic [ztf_20190830_programid1]
+    >   Completed Updating config for entity: topic 'ztf_20190830_programid1'.
+    >   ---- ----
+    >   Topic [ztf_20190831_programid1]
+    >   Completed Updating config for entity: topic 'ztf_20190831_programid1'.
+
+
+# -----------------------------------------------------
+# Get the specific config for a topic.
+#[user@Grerat]
+
+        source "${HOME}/nodenames"
+        zookeeper=${zknames[0]}
+
+        topic=ztf_20190821_programid1
+
+        docker run -it --rm \
+            phymatopus/kafka-core \
+                bin/kafka-configs.sh \
+                    --zookeeper "${zookeeper:?}" \
+                    --entity-type topics \
+                    --entity-name "${topic:?}" \
+                    --describe
+
+    >   Configs for topic 'ztf_20190821_programid1' are retention.ms=-1
+
+
+# -----------------------------------------------------
+# Login to each of the Kafka nodes and update the config.
+#[user@trop03]
+
+    #   1000    1ms  => 1sec
+    #   *60     1sec => 1min
+    #   *60     1min => 1hr
+    #   *24     1hr  => 1day
+    #   *7      1day => 7days
+
+    retention=$((1000*60*60*24*7))
+
+    #  4 physical
+    # 16 virtual
+    #  4 threads
+
+    partitions=$((4*16*4))
+
+    source "${HOME}/nodenames"
+    source "${HOME}/ssh-options"
+
+    for vmname in "${kfnames[@]}"
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            ssh ${sshopts[@]} \
+                "${sshuser:?}@${vmname:?}" \
+                    "
+                    date
+                    hostname
+                    sed -i '
+                        /KAFKA_LOG_RETENTION_MS/ {
+                            s/=.*\$/=${retention}\"/
+                            }
+                        /KAFKA_NUM_PARTITIONS/ {
+                            s/=.*\$/=${partitions}\"/
+                            }
+                        ' \${HOME}/kafka.yml
+                    "
+        done
+
+    >   ---- ----
+    >   Node [Stedigo]
+    >   Tue  3 Sep 15:34:38 BST 2019
+    >   Stedigo
+    >   ---- ----
+    >   Node [Angece]
+    >   Tue  3 Sep 15:34:39 BST 2019
+    >   Angece
+    >   ---- ----
+    >   Node [Edwalafia]
+    >   Tue  3 Sep 15:34:39 BST 2019
+    >   Edwalafia
+    >   ---- ----
+    >   Node [Onoza]
+    >   Tue  3 Sep 15:34:40 BST 2019
+    >   Onoza
+
+# -----------------------------------------------------
+# Login to each of the Kafka nodes and check the config.
+#[user@trop03]
+
+    source "${HOME}/nodenames"
+    source "${HOME}/ssh-options"
+
+    for vmname in "${kfnames[@]}"
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            ssh ${sshopts[@]} \
+                "${sshuser:?}@${vmname:?}" \
+                    "
+                    date
+                    hostname
+                    sed -n '
+                        /KAFKA_LOG_RETENTION_MS/ {
+                            p
+                            }
+                        /KAFKA_NUM_PARTITIONS/ {
+                            p
+                            }
+                        ' \${HOME}/kafka.yml
+                    "
+        done
+
+    >   ---- ----
+    >   Node [Stedigo]
+    >   Tue  3 Sep 15:34:56 BST 2019
+    >   Stedigo
+    >               - "KAFKA_NUM_PARTITIONS=256"
+    >               - "KAFKA_LOG_RETENTION_MS=604800000"
+    >   ---- ----
+    >   Node [Angece]
+    >   Tue  3 Sep 15:34:57 BST 2019
+    >   Angece
+    >               - "KAFKA_NUM_PARTITIONS=256"
+    >               - "KAFKA_LOG_RETENTION_MS=604800000"
+    >   ---- ----
+    >   Node [Edwalafia]
+    >   Tue  3 Sep 15:34:58 BST 2019
+    >   Edwalafia
+    >               - "KAFKA_NUM_PARTITIONS=256"
+    >               - "KAFKA_LOG_RETENTION_MS=604800000"
+    >   ---- ----
+    >   Node [Onoza]
+    >   Tue  3 Sep 15:34:58 BST 2019
+    >   Onoza
+    >               - "KAFKA_NUM_PARTITIONS=256"
+    >               - "KAFKA_LOG_RETENTION_MS=604800000"
+
+
+# -----------------------------------------------------
+# Tail the logs on the Kafka nodes.
+#[user@desktop]
+
+    ssh Stedigo
+
+        docker logs \
+            --follow \
+            --since "$(date +%Y-%m-%dT%H:%M:%S -d  '1 hour ago')" \
+                stevedore_emily_1
+
+    >   [2019-09-03 15:15:43,493] DEBUG [Controller id=1] Topics not in preferred replica for broker 2 Map() (kafka.controller.KafkaController)
+    >   [2019-09-03 15:15:43,493] TRACE [Controller id=1] Leader imbalance ratio for broker 2 is 0.0 (kafka.controller.KafkaController)
+    >   [2019-09-03 15:15:43,494] DEBUG [Controller id=1] Topics not in preferred replica for broker 4 Map() (kafka.controller.KafkaController)
+    >   [2019-09-03 15:15:43,494] TRACE [Controller id=1] Leader imbalance ratio for broker 4 is 0.0 (kafka.controller.KafkaController)
+    >   [2019-09-03 15:15:43,494] DEBUG [Controller id=1] Topics not in preferred replica for broker 1 Map() (kafka.controller.KafkaController)
+    >   [2019-09-03 15:15:43,494] TRACE [Controller id=1] Leader imbalance ratio for broker 1 is 0.0 (kafka.controller.KafkaController)
+    >   [2019-09-03 15:15:43,494] DEBUG [Controller id=1] Topics not in preferred replica for broker 3 Map() (kafka.controller.KafkaController)
+    >   [2019-09-03 15:15:43,494] TRACE [Controller id=1] Leader imbalance ratio for broker 3 is 0.0 (kafka.controller.KafkaController)
+    >   ....
+    >   ....
+    >   [2019-09-03 15:18:47,009] TRACE [Controller id=1 epoch=1] Received response {error_code=0} for request UPDATE_METADATA with correlation id 95 sent to broker Edwalafia:9092 (id: 3 rack: 3) (state.change.logger)
+    >   [2019-09-03 15:18:47,011] INFO [SocketServer brokerId=1] Stopped socket server request processors (kafka.network.SocketServer)
+    >   [2019-09-03 15:18:47,012] TRACE [Controller id=1 epoch=1] Received response {error_code=0} for request UPDATE_METADATA with correlation id 96 sent to broker Angece:9092 (id: 2 rack: 2) (state.change.logger)
+    >   [2019-09-03 15:18:47,014] INFO [Kafka Request Handler on Broker 1], shutting down (kafka.server.KafkaRequestHandlerPool)
+    >   [2019-09-03 15:18:47,017] INFO [Kafka Request Handler on Broker 1], shut down completely (kafka.server.KafkaRequestHandlerPool)
+    >   [2019-09-03 15:18:47,023] INFO [KafkaApi-1] Shutdown complete. (kafka.server.KafkaApis)
+    >   [2019-09-03 15:18:47,027] INFO [ExpirationReaper-1-topic]: Shutting down (kafka.server.DelayedOperationPurgatory$ExpiredOperationReaper)
+    >   [2019-09-03 15:18:47,033] TRACE [Controller id=1 epoch=1] Received response {error_code=0} for request UPDATE_METADATA with correlation id 94 sent to broker Onoza:9092 (id: 4 rack: 4) (state.change.logger)
+    >   [2019-09-03 15:18:47,041] INFO [ExpirationReaper-1-topic]: Stopped (kafka.server.DelayedOperationPurgatory$ExpiredOperationReaper)
+    >   [2019-09-03 15:18:47,041] INFO [ExpirationReaper-1-topic]: Shutdown completed (kafka.server.DelayedOperationPurgatory$ExpiredOperationReaper)
+    >   [2019-09-03 15:18:47,046] INFO [TransactionCoordinator id=1] Shutting down. (kafka.coordinator.transaction.TransactionCoordinator)
+    >   [2019-09-03 15:18:47,047] INFO [ProducerId Manager 1]: Shutdown complete: last producerId assigned 0 (kafka.coordinator.transaction.ProducerIdManager)
+    >   [2019-09-03 15:18:47,048] INFO [Transaction State Manager 1]: Shutdown complete (kafka.coordinator.transaction.TransactionStateManager)
+    >   [2019-09-03 15:18:47,048] INFO [Transaction Marker Channel Manager 1]: Shutting down (kafka.coordinator.transaction.TransactionMarkerChannelManager)
+    >   [2019-09-03 15:18:47,048] INFO [Transaction Marker Channel Manager 1]: Stopped (kafka.coordinator.transaction.TransactionMarkerChannelManager)
+    >   [2019-09-03 15:18:47,048] INFO [Transaction Marker Channel Manager 1]: Shutdown completed (kafka.coordinator.transaction.TransactionMarkerChannelManager)
+    >   [2019-09-03 15:18:47,050] INFO [TransactionCoordinator id=1] Shutdown complete. (kafka.coordinator.transaction.TransactionCoordinator)
+    >   [2019-09-03 15:18:47,051] INFO [GroupCoordinator 1]: Shutting down. (kafka.coordinator.group.GroupCoordinator)
+    >   ....
+    >   ....
+    >   [2019-09-03 15:19:30,002] INFO Shutdown complete. (kafka.log.LogManager)
+    >   [2019-09-03 15:19:30,004] INFO [ControllerEventThread controllerId=1] Shutting down (kafka.controller.ControllerEventManager$ControllerEventThread)
+    >   [2019-09-03 15:19:30,004] INFO [ControllerEventThread controllerId=1] Stopped (kafka.controller.ControllerEventManager$ControllerEventThread)
+    >   [2019-09-03 15:19:30,005] INFO [ControllerEventThread controllerId=1] Shutdown completed (kafka.controller.ControllerEventManager$ControllerEventThread)
+    >   [2019-09-03 15:19:30,006] DEBUG [Controller id=1] Resigning (kafka.controller.KafkaController)
+    >   [2019-09-03 15:19:30,007] DEBUG [Controller id=1] Unregister BrokerModifications handler for Set(2, 4, 1, 3) (kafka.controller.KafkaController)
+    >   [2019-09-03 15:19:30,010] INFO [PartitionStateMachine controllerId=1] Stopped partition state machine (kafka.controller.PartitionStateMachine)
+    >   [2019-09-03 15:19:30,012] INFO [ReplicaStateMachine controllerId=1] Stopped replica state machine (kafka.controller.ReplicaStateMachine)
+    >   [2019-09-03 15:19:30,013] INFO [RequestSendThread controllerId=1] Shutting down (kafka.controller.RequestSendThread)
+    >   [2019-09-03 15:19:30,013] INFO [RequestSendThread controllerId=1] Stopped (kafka.controller.RequestSendThread)
+    >   [2019-09-03 15:19:30,013] INFO [RequestSendThread controllerId=1] Shutdown completed (kafka.controller.RequestSendThread)
+    >   [2019-09-03 15:19:30,015] INFO [RequestSendThread controllerId=1] Shutting down (kafka.controller.RequestSendThread)
+    >   [2019-09-03 15:19:30,016] INFO [RequestSendThread controllerId=1] Stopped (kafka.controller.RequestSendThread)
+    >   [2019-09-03 15:19:30,016] INFO [RequestSendThread controllerId=1] Shutdown completed (kafka.controller.RequestSendThread)
+    >   [2019-09-03 15:19:30,018] INFO [RequestSendThread controllerId=1] Shutting down (kafka.controller.RequestSendThread)
+    >   [2019-09-03 15:19:30,018] TRACE [RequestSendThread controllerId=1] shutdownInitiated latch count reached zero. Shutdown called. (kafka.controller.RequestSendThread)
+    >   [2019-09-03 15:19:30,018] INFO [RequestSendThread controllerId=1] Stopped (kafka.controller.RequestSendThread)
+    >   [2019-09-03 15:19:30,019] INFO [RequestSendThread controllerId=1] Shutdown completed (kafka.controller.RequestSendThread)
+    >   [2019-09-03 15:19:30,019] INFO [RequestSendThread controllerId=1] Shutting down (kafka.controller.RequestSendThread)
+    >   [2019-09-03 15:19:30,020] INFO [RequestSendThread controllerId=1] Stopped (kafka.controller.RequestSendThread)
+    >   [2019-09-03 15:19:30,020] INFO [RequestSendThread controllerId=1] Shutdown completed (kafka.controller.RequestSendThread)
+    >   [2019-09-03 15:19:30,031] INFO [Controller id=1] Resigned (kafka.controller.KafkaController)
+    >   [2019-09-03 15:19:30,041] INFO [ZooKeeperClient] Closing. (kafka.zookeeper.ZooKeeperClient)
+    >   [2019-09-03 15:19:30,050] INFO Session: 0x16c465c448b0000 closed (org.apache.zookeeper.ZooKeeper)
+    >   [2019-09-03 15:19:30,052] INFO EventThread shut down for session: 0x16c465c448b0000 (org.apache.zookeeper.ClientCnxn)
+    >   [2019-09-03 15:19:30,055] INFO [ZooKeeperClient] Closed. (kafka.zookeeper.ZooKeeperClient)
+    >   [2019-09-03 15:19:30,056] INFO [ThrottledRequestReaper-Fetch]: Shutting down (kafka.server.ClientQuotaManager$ThrottledRequestReaper)
+    >   [2019-09-03 15:19:30,246] INFO [ThrottledRequestReaper-Fetch]: Stopped (kafka.server.ClientQuotaManager$ThrottledRequestReaper)
+    >   [2019-09-03 15:19:30,246] INFO [ThrottledRequestReaper-Fetch]: Shutdown completed (kafka.server.ClientQuotaManager$ThrottledRequestReaper)
+    >   [2019-09-03 15:19:30,247] INFO [ThrottledRequestReaper-Produce]: Shutting down (kafka.server.ClientQuotaManager$ThrottledRequestReaper)
+    >   [2019-09-03 15:19:30,640] INFO [ThrottledRequestReaper-Produce]: Stopped (kafka.server.ClientQuotaManager$ThrottledRequestReaper)
+    >   [2019-09-03 15:19:30,640] INFO [ThrottledRequestReaper-Produce]: Shutdown completed (kafka.server.ClientQuotaManager$ThrottledRequestReaper)
+    >   [2019-09-03 15:19:30,641] INFO [ThrottledRequestReaper-Request]: Shutting down (kafka.server.ClientQuotaManager$ThrottledRequestReaper)
+    >   [2019-09-03 15:19:31,639] INFO [ThrottledRequestReaper-Request]: Stopped (kafka.server.ClientQuotaManager$ThrottledRequestReaper)
+    >   [2019-09-03 15:19:31,640] INFO [ThrottledRequestReaper-Request]: Shutdown completed (kafka.server.ClientQuotaManager$ThrottledRequestReaper)
+    >   [2019-09-03 15:19:31,642] INFO [SocketServer brokerId=1] Shutting down socket server (kafka.network.SocketServer)
+    >   [2019-09-03 15:19:31,677] INFO [SocketServer brokerId=1] Shutdown completed (kafka.network.SocketServer)
+    >   [2019-09-03 15:19:31,700] INFO [KafkaServer id=1] shut down completed (kafka.server.KafkaServer)
+    >   ...
+    >   ... ...
+    >   ... ...
+    >   ...
+    >   [2019-09-03 15:33:31,492] TRACE [Broker id=1] Completed LeaderAndIsr request correlationId 1 from controller 3 epoch 2 for the become-follower transition for partition ztf_20190825_programid1-3 (state.change.logger)
+    >   [2019-09-03 15:33:31,492] TRACE [Broker id=1] Completed LeaderAndIsr request correlationId 1 from controller 3 epoch 2 for the become-follower transition for partition ztf_20190818_programid1-0 (state.change.logger)
+    >   [2019-09-03 15:33:31,492] TRACE [Broker id=1] Completed LeaderAndIsr request correlationId 1 from controller 3 epoch 2 for the become-follower transition for partition ztf_20190823_programid1-7 (state.change.logger)
+    >   [2019-09-03 15:33:31,492] TRACE [Broker id=1] Completed LeaderAndIsr request correlationId 1 from controller 3 epoch 2 for the become-follower transition for partition ztf_20190802_programid1-14 (state.change.logger)
+    >   [2019-09-03 15:33:31,492] TRACE [Broker id=1] Completed LeaderAndIsr request correlationId 1 from controller 3 epoch 2 for the become-follower transition for partition ztf_20190829_programid1-52 (state.change.logger)
+    >   ...
+    >   ...
+    >   [2019-09-03 15:33:31,506] INFO [Log partition=ztf_20190726_programid1-14, dir=/data1-01] Truncating to 13094 has no effect as the largest offset in the log is 13093 (kafka.log.Log)
+    >   [2019-09-03 15:33:31,506] INFO [ReplicaFetcher replicaId=1, leaderId=3, fetcherId=0] Based on follower's leader epoch, leader replied with an offset 10102 >= the follower's log end offset 10102 in ztf_20190809_programid1-14. No truncation needed. (kafka.server.ReplicaFetcherThread)
+    >   [2019-09-03 15:33:31,506] INFO [ReplicaFetcher replicaId=1, leaderId=4, fetcherId=0] Based on follower's leader epoch, leader replied with an offset 7645 >= the follower's log end offset 7645 in ztf_20190816_programid1-13. No truncation needed. (kafka.server.ReplicaFetcherThread)
+    >   [2019-09-03 15:33:31,506] INFO [Log partition=ztf_20190809_programid1-14, dir=/data1-01] Truncating to 10102 has no effect as the largest offset in the log is 10101 (kafka.log.Log)
+    >   [2019-09-03 15:33:31,506] INFO [ReplicaFetcher replicaId=1, leaderId=3, fetcherId=0] Based on follower's leader epoch, leader replied with an offset 10166 >= the follower's log end offset 10166 in ztf_20190901_programid1-5. No truncation needed. (kafka.server.ReplicaFetcherThread)
+    >   ...
+    >   ...
+    >   [2019-09-03 15:33:31,535] TRACE [Broker id=1] Completed LeaderAndIsr request correlationId 1 from controller 3 epoch 2 for the become-follower transition for partition ztf_20190903_programid1-15 (state.change.logger)
+    >   [2019-09-03 15:33:31,535] TRACE [Broker id=1] Completed LeaderAndIsr request correlationId 1 from controller 3 epoch 2 for the become-follower transition for partition ztf_20190803_programid1-5 (state.change.logger)
+    >   [2019-09-03 15:33:31,535] TRACE [Broker id=1] Completed LeaderAndIsr request correlationId 1 from controller 3 epoch 2 for the become-follower transition for partition ztf_20190831_programid1-10 (state.change.logger)
+    >   [2019-09-03 15:33:31,535] TRACE [Broker id=1] Completed LeaderAndIsr request correlationId 1 from controller 3 epoch 2 for the become-follower transition for partition ztf_20190828_programid1-9 (state.change.logger)
+    >   [2019-09-03 15:33:31,535] TRACE [Broker id=1] Completed LeaderAndIsr request correlationId 1 from controller 3 epoch 2 for the become-follower transition for partition ztf_20190725_programid1-14 (state.change.logger)
+    >   [2019-09-03 15:33:31,535] TRACE [Broker id=1] Completed LeaderAndIsr request correlationId 1 from controller 3 epoch 2 for the become-follower transition for partition ztf_20190819_programid1-0 (state.change.logger)
+    >   [2019-09-03 15:33:31,535] TRACE [Broker id=1] Completed LeaderAndIsr request correlationId 1 from controller 3 epoch 2 for the become-follower transition for partition ztf_20190820_programid1-15 (state.change.logger)
+    >   ...
+    >   ...
+    >   [2019-09-03 15:33:32,368] INFO [Log partition=ztf_20190831_programid1-4, dir=/data1-01] Truncating to 11140 has no effect as the largest offset in the log is 11139 (kafka.log.Log)
+    >   [2019-09-03 15:33:32,368] WARN [ReplicaFetcher replicaId=1, leaderId=2, fetcherId=0] Based on follower's leader epoch, leader replied with an unknown offset in banana-3. The initial fetch offset 0 will be used for truncation. (kafka.server.ReplicaFetcherThread)
+    >   [2019-09-03 15:33:32,368] INFO [Log partition=banana-3, dir=/data1-01] Truncating to 0 has no effect as the largest offset in the log is -1 (kafka.log.Log)
+    >   [2019-09-03 15:33:32,368] INFO [ReplicaFetcher replicaId=1, leaderId=2, fetcherId=0] Based on follower's leader epoch, leader replied with an offset 11198 >= the follower's log end offset 11198 in ztf_20190823_programid1-9. No truncation needed. (kafka.server.ReplicaFetcherThread)
+    >   [2019-09-03 15:33:32,369] INFO [Log partition=ztf_20190823_programid1-9, dir=/data1-01] Truncating to 11198 has no effect as the largest offset in the log is 11197 (kafka.log.Log)
+    >   [2019-09-03 15:33:32,369] INFO [ReplicaFetcher replicaId=1, leaderId=2, fetcherId=0] Based on follower's leader epoch, leader replied with an offset 10166 >= the follower's log end offset 10166 in ztf_20190901_programid1-6. No truncation needed. (kafka.server.ReplicaFetcherThread)
+    >   [2019-09-03 15:33:32,369] INFO [Log partition=ztf_20190901_programid1-6, dir=/data1-01] Truncating to 10166 has no effect as the largest offset in the log is 10165 (kafka.log.Log)
+    >   [2019-09-03 15:33:32,369] INFO [ReplicaFetcher replicaId=1, leaderId=2, fetcherId=0] Based on follower's leader epoch, leader replied with an offset 9503 >= the follower's log end offset 9503 in ztf_20190807_programid1-7. No truncation needed. (kafka.server.ReplicaFetcherThread)
+    >   ...
+    >   ...
+    >   [2019-09-03 15:33:41,332] TRACE [Broker id=1] Cached leader info PartitionState(controllerEpoch=1, leader=2, leaderEpoch=1, isr=[2, 3, 1], zkVersion=2, replicas=[2, 1, 3], offlineReplicas=[]) for partition ztf_20190724_programid1-11 in response to UpdateMetadata request sent by controller 3 epoch 2 with correlation id 10 (state.change.logger)
+    >   [2019-09-03 15:33:41,332] TRACE [Broker id=1] Cached leader info PartitionState(controllerEpoch=1, leader=2, leaderEpoch=1, isr=[2, 3, 1], zkVersion=2, replicas=[1, 2, 3], offlineReplicas=[]) for partition ztf_20190821_programid1-13 in response to UpdateMetadata request sent by controller 3 epoch 2 with correlation id 10 (state.change.logger)
+    >   [2019-09-03 15:33:41,332] TRACE [Broker id=1] Cached leader info PartitionState(controllerEpoch=1, leader=2, leaderEpoch=1, isr=[2, 3, 1], zkVersion=2, replicas=[1, 2, 3], offlineReplicas=[]) for partition ztf_20190903_programid1-4 in response to UpdateMetadata request sent by controller 3 epoch 2 with correlation id 10 (state.change.logger)
+    >   [2019-09-03 15:33:41,332] TRACE [Broker id=1] Cached leader info PartitionState(controllerEpoch=1, leader=2, leaderEpoch=1, isr=[2, 4, 1], zkVersion=2, replicas=[2, 4, 1], offlineReplicas=[]) for partition ztf_20190902_programid1-9 in response to UpdateMetadata request sent by controller 3 epoch 2 with correlation id 10 (state.change.logger)
+    >   [2019-09-03 15:33:41,332] TRACE [Broker id=1] Cached leader info PartitionState(controllerEpoch=1, leader=2, leaderEpoch=1, isr=[2, 4, 1], zkVersion=2, replicas=[2, 4, 1], offlineReplicas=[]) for partition ztf_20190827_programid1-6 in response to UpdateMetadata request sent by controller 3 epoch 2 with correlation id 10 (state.change.logger)
+    >   ...
+    >   ...
+    >   [2019-09-03 15:34:02,287] INFO Cleared earliest 0 entries from epoch cache based on passed offset 18770 leaving 1 in EpochFile for partition ztf_20190729_programid1-11 (kafka.server.epoch.LeaderEpochFileCache)
+    >   [2019-09-03 15:34:02,288] INFO [Log partition=ztf_20190731_programid1-7, dir=/data1-01] Found deletable segments with base offsets [0,15465,30177] due to retention time 604800000ms breach (kafka.log.Log)
+    >   [2019-09-03 15:34:02,289] INFO [Log partition=ztf_20190731_programid1-7, dir=/data1-01] Rolled new log segment at offset 32854 in 1 ms. (kafka.log.Log)
+    >   [2019-09-03 15:34:02,289] INFO [Log partition=ztf_20190731_programid1-7, dir=/data1-01] Scheduling log segment [baseOffset 0, size 1073698141] for deletion. (kafka.log.Log)
+    >   [2019-09-03 15:34:02,290] INFO [Log partition=ztf_20190731_programid1-7, dir=/data1-01] Scheduling log segment [baseOffset 15465, size 1073685418] for deletion. (kafka.log.Log)
+    >   [2019-09-03 15:34:02,291] INFO [Log partition=ztf_20190731_programid1-7, dir=/data1-01] Scheduling log segment [baseOffset 30177, size 187318495] for deletion. (kafka.log.Log)
+    >   [2019-09-03 15:34:02,292] INFO [Log partition=ztf_20190731_programid1-7, dir=/data1-01] Incrementing log start offset to 32854 (kafka.log.Log)
+    >   [2019-09-03 15:34:02,329] INFO Cleared earliest 0 entries from epoch cache based on passed offset 32854 leaving 1 in EpochFile for partition ztf_20190731_programid1-7 (kafka.server.epoch.LeaderEpochFileCache)
+    >   [2019-09-03 15:34:02,330] INFO [Log partition=ztf_20190725_programid1-10, dir=/data1-01] Found deletable segments with base offsets [0] due to retention time 604800000ms breach (kafka.log.Log)
+    >   [2019-09-03 15:34:02,331] INFO [Log partition=ztf_20190725_programid1-10, dir=/data1-01] Rolled new log segment at offset 8650 in 1 ms. (kafka.log.Log)
+    >   [2019-09-03 15:34:02,331] INFO [Log partition=ztf_20190725_programid1-10, dir=/data1-01] Scheduling log segment [baseOffset 0, size 590295687] for deletion. (kafka.log.Log)
+    >   [2019-09-03 15:34:02,332] INFO [Log partition=ztf_20190725_programid1-10, dir=/data1-01] Incrementing log start offset to 8650 (kafka.log.Log)
+    >   [2019-09-03 15:34:02,379] INFO Cleared earliest 0 entries from epoch cache based on passed offset 8650 leaving 1 in EpochFile for partition ztf_20190725_programid1-10 (kafka.server.epoch.LeaderEpochFileCache)
+    >   [2019-09-03 15:34:02,380] INFO [Log partition=ztf_20190729_programid1-4, dir=/data1-01] Found deletable segments with base offsets [0,15042] due to retention time 604800000ms breach (kafka.log.Log)
+    >   ...
+    >   ...
+    >   [2019-09-03 15:34:03,087] INFO [Log partition=ztf_20190730_programid1-12, dir=/data1-01] Scheduling log segment [baseOffset 15134, size 603516867] for deletion. (kafka.log.Log)
+    >   [2019-09-03 15:34:03,088] INFO [Log partition=ztf_20190730_programid1-12, dir=/data1-01] Incrementing log start offset to 24100 (kafka.log.Log)
+    >   [2019-09-03 15:34:03,596] INFO Cleared earliest 0 entries from epoch cache based on passed offset 24100 leaving 1 in EpochFile for partition ztf_20190730_programid1-12 (kafka.server.epoch.LeaderEpochFileCache)
+    >   [2019-09-03 15:34:03,597] INFO [Log partition=ztf_20190729_programid1-7, dir=/data1-01] Found deletable segments with base offsets [0,15041] due to retention time 604800000ms breach (kafka.log.Log)
+    >   [2019-09-03 15:34:03,599] INFO [Log partition=ztf_20190729_programid1-7, dir=/data1-01] Rolled new log segment at offset 18770 in 2 ms. (kafka.log.Log)
+    >   [2019-09-03 15:34:03,599] INFO [Log partition=ztf_20190729_programid1-7, dir=/data1-01] Scheduling log segment [baseOffset 0, size 1073678278] for deletion. (kafka.log.Log)
+    >   [2019-09-03 15:34:03,600] INFO [Log partition=ztf_20190729_programid1-7, dir=/data1-01] Scheduling log segment [baseOffset 15041, size 253628386] for deletion. (kafka.log.Log)
+    >   [2019-09-03 15:34:03,600] INFO [Log partition=ztf_20190729_programid1-7, dir=/data1-01] Incrementing log start offset to 18770 (kafka.log.Log)
+    >   [2019-09-03 15:34:03,637] INFO Cleared earliest 0 entries from epoch cache based on passed offset 18770 leaving 1 in EpochFile for partition ztf_20190729_programid1-7 (kafka.server.epoch.LeaderEpochFileCache)
+    >   ...
+    >   ...
+
+
+    ssh Angece
+
+        docker logs \
+            --follow \
+            --since "$(date +%Y-%m-%dT%H:%M:%S -d  '1 hour ago')" \
+                stevedore_emily_1
+
+    >   [2019-09-03 14:20:19,037] INFO [GroupMetadataManager brokerId=2] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   [2019-09-03 14:30:19,037] INFO [GroupMetadataManager brokerId=2] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   [2019-09-03 14:40:19,037] INFO [GroupMetadataManager brokerId=2] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   [2019-09-03 14:50:19,037] INFO [GroupMetadataManager brokerId=2] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   [2019-09-03 15:00:19,037] INFO [GroupMetadataManager brokerId=2] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   [2019-09-03 15:10:19,037] INFO [GroupMetadataManager brokerId=2] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   ....
+    >   ....
+    >   [2019-09-03 15:19:30,969] TRACE [Broker id=2] Cached leader info PartitionState(controllerEpoch=1, leader=3, leaderEpoch=1, isr=[3, 4], zkVersion=1, replicas=[3, 4, 1], offlineReplicas=[1]) for partition ztf_20190901_programid1-3 in response to UpdateMetadata request sent by controller 3 epoch 2 with correlation id 2 (state.change.logger)
+    >   [2019-09-03 15:19:30,969] TRACE [Broker id=2] Cached leader info PartitionState(controllerEpoch=1, leader=3, leaderEpoch=1, isr=[3, 4], zkVersion=1, replicas=[1, 3, 4], offlineReplicas=[1]) for partition ztf_20190725_programid1-9 in response to UpdateMetadata request sent by controller 3 epoch 2 with correlation id 2 (state.change.logger)
+    >   [2019-09-03 15:19:30,969] TRACE [Broker id=2] Cached leader info PartitionState(controllerEpoch=1, leader=4, leaderEpoch=1, isr=[4, 2], zkVersion=1, replicas=[1, 4, 2], offlineReplicas=[1]) for partition ztf_20190817_programid1-4 in response to UpdateMetadata request sent by controller 3 epoch 2 with correlation id 2 (state.change.logger)
+    >   [2019-09-03 15:19:30,969] TRACE [Broker id=2] Cached leader info PartitionState(controllerEpoch=1, leader=2, leaderEpoch=1, isr=[2, 3], zkVersion=1, replicas=[1, 2, 3], offlineReplicas=[1]) for partition ztf_20190803_programid1-15 in response to UpdateMetadata request sent by controller 3 epoch 2 with correlation id 2 (state.change.logger)
+    >   [2019-09-03 15:19:30,969] TRACE [Broker id=2] Cached leader info PartitionState(controllerEpoch=1, leader=2, leaderEpoch=1, isr=[2, 4], zkVersion=1, replicas=[2, 4, 1], offlineReplicas=[1]) for partition ztf_20190812_programid1-15 in response to UpdateMetadata request sent by controller 3 epoch 2 with correlation id 2 (state.change.logger)
+    >   [2019-09-03 15:20:19,037] INFO [GroupMetadataManager brokerId=2] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   ...
+    >   ... ...
+    >   ... ...
+    >   ...
+    >   [2019-09-03 15:34:38,599] TRACE [Broker id=2] Handling LeaderAndIsr request correlationId 328 from controller 3 epoch 2 starting the become-follower transition for partition ztf_20190902_programid1-12 (state.change.logger)
+    >   [2019-09-03 15:34:38,599] INFO [ReplicaFetcherManager on broker 2] Removed fetcher for partitions ztf_20190902_programid1-12 (kafka.server.ReplicaFetcherManager)
+    >   [2019-09-03 15:34:38,599] TRACE [Broker id=2] Stopped fetchers as part of become-follower request from controller 3 epoch 2 with correlation id 328 for partition ztf_20190902_programid1-12 (state.change.logger)
+    >   [2019-09-03 15:34:38,600] TRACE [Broker id=2] Truncated logs and checkpointed recovery boundaries for partition ztf_20190902_programid1-12 as part of become-follower request with correlation id 328 from controller 3 epoch 2 (state.change.logger)
+    >   ....
+    >   ....
+    >   [2019-09-03 15:34:39,521] INFO [Log partition=ztf_20190830_programid1-14, dir=/data2-01] Truncating to 12726 has no effect as the largest offset in the log is 12725 (kafka.log.Log)
+    >   [2019-09-03 15:34:39,521] WARN [ReplicaFetcher replicaId=2, leaderId=1, fetcherId=0] Based on follower's leader epoch, leader replied with an unknown offset in __consumer_offsets-6. The initial fetch offset 0 will be used for truncation. (kafka.server.ReplicaFetcherThread)
+    >   [2019-09-03 15:34:39,521] INFO [Log partition=__consumer_offsets-6, dir=/data2-01] Truncating to 0 has no effect as the largest offset in the log is -1 (kafka.log.Log)
+    >   [2019-09-03 15:34:39,521] INFO [ReplicaFetcher replicaId=2, leaderId=1, fetcherId=0] Based on follower's leader epoch, leader replied with an offset 8934 >= the follower's log end offset 8934 in ztf_20190802_programid1-5. No truncation needed. (kafka.server.ReplicaFetcherThread)
+    >   [2019-09-03 15:34:39,521] INFO [Log partition=ztf_20190802_programid1-5, dir=/data2-01] Truncating to 8934 has no effect as the largest offset in the log is 8933 (kafka.log.Log)
+    >   [2019-09-03 15:34:39,521] INFO [ReplicaFetcher replicaId=2, leaderId=1, fetcherId=0] Based on follower's leader epoch, leader replied with an offset 11531 >= the follower's log end offset 11531 in ztf_20190825_programid1-1. No truncation needed. (kafka.server.ReplicaFetcherThread)
+    >   ....
+    >   ....
+
+
+    ssh Edwalafia
+
+        docker logs \
+            --follow \
+            --since "$(date +%Y-%m-%dT%H:%M:%S -d  '1 hour ago')" \
+                stevedore_emily_1
+
+    >   [2019-09-03 14:20:42,520] INFO [GroupMetadataManager brokerId=3] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   [2019-09-03 14:30:42,520] INFO [GroupMetadataManager brokerId=3] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   [2019-09-03 14:40:42,520] INFO [GroupMetadataManager brokerId=3] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   [2019-09-03 14:50:42,520] INFO [GroupMetadataManager brokerId=3] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   [2019-09-03 15:00:42,520] INFO [GroupMetadataManager brokerId=3] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   [2019-09-03 15:10:42,520] INFO [GroupMetadataManager brokerId=3] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   ....
+    >   ....
+    >   [2019-09-03 15:19:36,031] TRACE [Controller id=3] Leader imbalance ratio for broker 1 is 0.9949238578680203 (kafka.controller.KafkaController)
+    >   [2019-09-03 15:19:36,032] DEBUG [Controller id=3] Topics not in preferred replica for broker 3 Map() (kafka.controller.KafkaController)
+    >   [2019-09-03 15:19:36,032] TRACE [Controller id=3] Leader imbalance ratio for broker 3 is 0.0 (kafka.controller.KafkaController)
+    >   [2019-09-03 15:20:42,520] INFO [GroupMetadataManager brokerId=3] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataMa
+    >   ...
+    >   ... ...
+    >   ... ...
+    >   ...
+    >   [2019-09-03 15:34:39,134] INFO [Log partition=ztf_20190726_programid1-0, dir=/data1-01] Truncating to 13093 has no effect as the largest offset in the log is 13092 (kafka.log.Log)
+    >   [2019-09-03 15:34:39,135] INFO [ReplicaFetcher replicaId=3, leaderId=1, fetcherId=0] Based on follower's leader epoch, leader replied with an offset 586 >= the follower's log end offset 586 in __consumer_offsets-22. No truncation needed. (kafka.server.ReplicaFetcherThread)
+    >   [2019-09-03 15:34:39,135] INFO [Log partition=__consumer_offsets-22, dir=/data1-01] Truncating to 586 has no effect as the largest offset in the log is 585 (kafka.log.Log)
+    >   [2019-09-03 15:34:39,135] INFO [ReplicaFetcher replicaId=3, leaderId=1, fetcherId=0] Based on follower's leader epoch, leader replied with an offset 11766 >= the follower's log end offset 11766 in ztf_20190805_programid1-7. No truncation needed. (kafka.server.ReplicaFetcherThread)
+    >   [2019-09-03 15:34:39,135] INFO [Log partition=ztf_20190805_programid1-7, dir=/data1-01] Truncating to 11766 has no effect as the largest offset in the log is 11765 (kafka.log.Log)
+    >   [2019-09-03 15:34:39,135] INFO [ReplicaFetcher replicaId=3, leaderId=1, fetcherId=0] Based on follower's leader epoch, leader replied with an offset 7829 >= the follower's log end offset 7829 in ztf_20190821_programid1-13. No truncation needed. (kafka.server.ReplicaFetcherThread)
+    >   ....
+    >   ....
+    >   [2019-09-03 15:37:23,187] INFO Deleted offset index /data1-01/ztf_20190731_programid1-15/00000000000000000000.index.deleted. (kafka.log.LogSegment)
+    >   [2019-09-03 15:37:23,189] INFO Deleted time index /data1-01/ztf_20190730_programid1-2/00000000000000000000.timeindex.deleted. (kafka.log.LogSegment)
+    >   [2019-09-03 15:37:23,189] INFO Deleted offset index /data1-01/ztf_20190731_programid1-15/00000000000000015454.index.deleted. (kafka.log.LogSegment)
+    >   [2019-09-03 15:37:23,190] INFO Deleted time index /data1-01/ztf_20190731_programid1-15/00000000000000000000.timeindex.deleted. (kafka.log.LogSegment)
+    >   [2019-09-03 15:37:23,190] INFO Deleted time index /data1-01/ztf_20190731_programid1-15/00000000000000015454.timeindex.deleted. (kafka.log.LogSegment)
+    >   ....
+    >   ....
+
+
+    ssh Onoza
+
+        docker logs \
+            --follow \
+            --since "$(date +%Y-%m-%dT%H:%M:%S -d  '1 hour ago')" \
+                stevedore_emily_1
+
+    >   [2019-09-03 14:21:03,322] INFO [GroupMetadataManager brokerId=4] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   [2019-09-03 14:31:03,322] INFO [GroupMetadataManager brokerId=4] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   [2019-09-03 14:41:03,322] INFO [GroupMetadataManager brokerId=4] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   [2019-09-03 14:51:03,322] INFO [GroupMetadataManager brokerId=4] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   [2019-09-03 15:01:03,322] INFO [GroupMetadataManager brokerId=4] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   [2019-09-03 15:11:03,322] INFO [GroupMetadataManager brokerId=4] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   ....
+    >   ....
+    >   [2019-09-03 15:19:30,939] TRACE [Broker id=4] Cached leader info PartitionState(controllerEpoch=1, leader=3, leaderEpoch=1, isr=[3, 4], zkVersion=1, replicas=[1, 3, 4], offlineReplicas=[1]) for partition ztf_20190725_programid1-9 in response to UpdateMetadata request sent by controller 3 epoch 2 with correlation id 2 (state.change.logger)
+    >   [2019-09-03 15:19:30,939] TRACE [Broker id=4] Cached leader info PartitionState(controllerEpoch=1, leader=4, leaderEpoch=1, isr=[4, 2], zkVersion=1, replicas=[1, 4, 2], offlineReplicas=[1]) for partition ztf_20190817_programid1-4 in response to UpdateMetadata request sent by controller 3 epoch 2 with correlation id 2 (state.change.logger)
+    >   [2019-09-03 15:19:30,939] TRACE [Broker id=4] Cached leader info PartitionState(controllerEpoch=1, leader=2, leaderEpoch=1, isr=[2, 3], zkVersion=1, replicas=[1, 2, 3], offlineReplicas=[1]) for partition ztf_20190803_programid1-15 in response to UpdateMetadata request sent by controller 3 epoch 2 with correlation id 2 (state.change.logger)
+    >   [2019-09-03 15:19:30,939] TRACE [Broker id=4] Cached leader info PartitionState(controllerEpoch=1, leader=2, leaderEpoch=1, isr=[2, 4], zkVersion=1, replicas=[2, 4, 1], offlineReplicas=[1]) for partition ztf_20190812_programid1-15 in response to UpdateMetadata request sent by controller 3 epoch 2 with correlation id 2 (state.change.logger)
+    >   [2019-09-03 15:21:03,322] INFO [GroupMetadataManager brokerId=4] Removed 0 expired offsets in 0 milliseconds. (kafka.coordinator.group.GroupMetadataManager)
+    >   ...
+    >   ... ...
+    >   ... ...
+    >   ...
+    >   [2019-09-03 15:34:38,542] TRACE [Broker id=4] Handling LeaderAndIsr request correlationId 298 from controller 3 epoch 2 starting the become-follower transition for partition ztf_20190809_programid1-8 (state.change.logger)
+    >   [2019-09-03 15:34:38,543] INFO [ReplicaFetcherManager on broker 4] Removed fetcher for partitions ztf_20190809_programid1-8 (kafka.server.ReplicaFetcherManager)
+    >   [2019-09-03 15:34:38,543] TRACE [Broker id=4] Stopped fetchers as part of become-follower request from controller 3 epoch 2 with correlation id 298 for partition ztf_20190809_programid1-8 (state.change.logger)
+    >   [2019-09-03 15:34:38,543] TRACE [Broker id=4] Truncated logs and checkpointed recovery boundaries for partition ztf_20190809_programid1-8 as part of become-follower request with correlation id 298 from controller 3 epoch 2 (state.change.logger)
+    >   ....
+    >   ....
+    >   [2019-09-03 15:37:42,849] INFO Deleted offset index /data2-01/ztf_20190730_programid1-14/00000000000000000000.index.deleted. (kafka.log.LogSegment)
+    >   [2019-09-03 15:37:42,850] INFO Deleted time index /data2-01/ztf_20190729_programid1-15/00000000000000000000.timeindex.deleted. (kafka.log.LogSegment)
+    >   [2019-09-03 15:37:42,850] INFO Deleted time index /data2-01/ztf_20190730_programid1-14/00000000000000000000.timeindex.deleted. (kafka.log.LogSegment)
+    >   [2019-09-03 15:37:42,850] INFO Deleted offset index /data2-01/ztf_20190729_programid1-7/00000000000000000000.index.deleted. (kafka.log.LogSegment)
+    >   [2019-09-03 15:37:42,857] INFO Deleted time index /data2-01/ztf_20190731_programid1-7/00000000000000015465.timeindex.deleted. (kafka.log.LogSegment)
+    >   [2019-09-03 15:37:42,857] INFO Deleted time index /data2-01/ztf_20190729_programid1-7/00000000000000000000.timeindex.deleted. (kafka.log.LogSegment)
+    >   ....
+    >   ....
+
+# -----------------------------------------------------
+# Stop the first Kafka service manually.
+# https://github.com/wurstmeister/kafka-docker/pull/58/files#diff-e2a953e782fd60dfe21d9861547e54ebR38
+#[user@desktop]
+
+    ssh Stedigo
+
+        docker exec \
+            -it \
+            stevedore_emily_1 \
+                /usr/bin/kafka-server-stop
+
+
+# -----------------------------------------------------
+# Re-start the first Kafka service manually.
+#[user@desktop]
+
+    ssh Stedigo
+
+        docker-compose \
+            --file kafka.yml \
+            up -d
+
+
+
+# -----------------------------------------------------
+# Stop and re-start the other Kafka services manually.
+# https://github.com/wurstmeister/kafka-docker/pull/58/files#diff-e2a953e782fd60dfe21d9861547e54ebR38
+#[user@desktop]
+
+    ssh Angece
+    ssh Edwalafia
+    ssh Onoza
+
+        docker exec \
+            -it \
+            stevedore_emily_1 \
+                /usr/bin/kafka-server-stop
+
+        docker-compose \
+            --file kafka.yml \
+            up -d
+
+
+# -----------------------------------------------------
+# Get a list of ZTF topics.
+#[user@trop03]
+
+    source "${HOME}/nodenames"
+    zookeeper=${zknames[0]}
+
+    source "${HOME}/nodenames"
+    ssh "${mmnames[0]}" \
+        "
+        docker run --rm \
+            phymatopus/kafka-core \
+                bin/kafka-topics.sh \
+                    --zookeeper '${zookeeper:?}' \
+                    --list
+        " \
+    | sed '/^ztf.*/!{d}' | sort | tee /tmp/ztftopics
+
+    >   ztf_20190724_programid1
+    >   ztf_20190725_programid1
+    >   ztf_20190726_programid1
+    >   ztf_20190727_programid1
+    >   ....
+    >   ztf_20190831_programid1
+    >   ztf_20190901_programid1
+    >   ztf_20190902_programid1
+    >   ztf_20190903_programid1
+
+# -----------------------------------------------------
+# Check the specific config for three topics.
+#[user@Grerat]
+
+    source "${HOME}/nodenames"
+    zookeeper=${zknames[0]}
+
+    topic=ztf_20190725_programid1
+
+    ssh -q -t "${mmnames[0]}" \
+        "
+        docker run -it --rm \
+            phymatopus/kafka-core \
+                bin/kafka-configs.sh \
+                    --zookeeper '${zookeeper:?}' \
+                    --entity-type topics \
+                    --entity-name '${topic:?}' \
+                    --describe
+        "
+
+    >   Configs for topic 'ztf_20190725_programid1' are
+
+    topic=ztf_20190821_programid1
+
+    ssh -q -t "${mmnames[0]}" \
+        "
+        docker run -it --rm \
+            phymatopus/kafka-core \
+                bin/kafka-configs.sh \
+                    --zookeeper '${zookeeper:?}' \
+                    --entity-type topics \
+                    --entity-name '${topic:?}' \
+                    --describe
+        "
+
+    >   Configs for topic 'ztf_20190821_programid1' are retention.ms=-1
+
+    topic=ztf_20190902_programid1
+
+    ssh -q -t "${mmnames[0]}" \
+        "
+        docker run -it --rm \
+            phymatopus/kafka-core \
+                bin/kafka-configs.sh \
+                    --zookeeper '${zookeeper:?}' \
+                    --entity-type topics \
+                    --entity-name '${topic:?}' \
+                    --describe
+        "
+
+    >   Configs for topic 'ztf_20190902_programid1' are
+
+
+# -----------------------------------------------------
+# Check the disc space on each node.
+#[user@trop03]
+
+    source "${HOME}/nodenames"
+    source "${HOME}/ssh-options"
+
+    spacecheck()
+        {
+        for vmname in ${kfnames[@]}
+            do
+                echo "---- ----"
+                ssh \
+                    ${sshopts[*]} \
+                    ${sshuser:?}@${vmname:?} \
+                        "
+                        hostname
+                        date
+                        df -h /data*
+                        "
+            done
+        }
+
+    spacecheck
+
+    >   Stedigo
+    >   Tue  3 Sep 19:17:21 BST 2019
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdc        512G  315G  197G  62% /data1-01
+    >   /dev/vdd        512G   17M  510G   1% /data2-01
+    >   ---- ----
+    >   Angece
+    >   Tue  3 Sep 19:17:21 BST 2019
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdc        512G   17M  510G   1% /data1-01
+    >   /dev/vdd        512G  315G  197G  62% /data2-01
+    >   ---- ----
+    >   Edwalafia
+    >   Tue  3 Sep 19:17:22 BST 2019
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdc        512G  315G  197G  62% /data1-01
+    >   /dev/vdd        512G   17M  510G   1% /data2-01
+    >   ---- ----
+    >   Onoza
+    >   Tue  3 Sep 19:17:22 BST 2019
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdc        512G   17M  510G   1% /data1-01
+    >   /dev/vdd        512G  315G  197G  62% /data2-01
+
+    #
+    # This is using less space that it was a few days ago.
+    # Hopefully, this is because it has deleted the out of date topics.
+    #
+
+    >   Stedigo
+    >   Fri 30 Aug 14:47:57 BST 2019
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdc        512G  398G  115G  78% /data1-01
+    >   /dev/vdd        512G   17M  510G   1% /data2-01
+    >   ---- ----
+    >   Angece
+    >   Fri 30 Aug 14:47:58 BST 2019
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdc        512G   17M  510G   1% /data1-01
+    >   /dev/vdd        512G  398G  115G  78% /data2-01
+    >   ---- ----
+    >   Edwalafia
+    >   Fri 30 Aug 14:47:59 BST 2019
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdc        512G  398G  115G  78% /data1-01
+    >   /dev/vdd        512G   17M  510G   1% /data2-01
+    >   ---- ----
+    >   Onoza
+    >   Fri 30 Aug 14:48:00 BST 2019
+    >   Filesystem      Size  Used Avail Use% Mounted on
+    >   /dev/vdc        512G   17M  510G   1% /data1-01
+    >   /dev/vdd        512G  398G  115G  78% /data2-01
+
+
+# -----------------------------------------------------
+# Get a list of ZTF topics.
+#[user@trop03]
+
+    source "${HOME}/nodenames"
+    zookeeper=${zknames[0]}
+
+    source "${HOME}/nodenames"
+    ssh "${mmnames[0]}" \
+        "
+        docker run --rm \
+            phymatopus/kafka-core \
+                bin/kafka-topics.sh \
+                    --zookeeper '${zookeeper:?}' \
+                    --list
+        " \
+    | sed '/^ztf.*/!{d}' | sort | tee /tmp/ztftopics
+
+    >   ztf_20190724_programid1
+    >   ztf_20190725_programid1
+    >   ztf_20190726_programid1
+    >   ztf_20190727_programid1
+    >   ztf_20190728_programid1
+    >   ztf_20190729_programid1
+    >   ztf_20190730_programid1
+    >   ztf_20190731_programid1
+    >   ztf_20190801_programid1
+    >   ztf_20190802_programid1
+    >   ztf_20190803_programid1
+    >   ztf_20190804_programid1
+    >   ztf_20190805_programid1
+    >   ztf_20190806_programid1
+    >   ztf_20190807_programid1
+    >   ztf_20190808_programid1
+    >   ztf_20190809_programid1
+    >   ztf_20190810_programid1
+    >   ztf_20190811_programid1
+    >   ztf_20190812_programid1
+    >   ztf_20190813_programid1
+    >   ztf_20190814_programid1
+    >   ztf_20190815_programid1
+    >   ztf_20190816_programid1
+    >   ztf_20190817_programid1
+    >   ztf_20190818_programid1
+    >   ztf_20190819_programid1
+    >   ztf_20190820_programid1
+    >   ztf_20190821_programid1
+    >   ztf_20190822_programid1
+    >   ztf_20190823_programid1
+    >   ztf_20190824_programid1
+    >   ztf_20190825_programid1
+    >   ztf_20190826_programid1
+    >   ztf_20190827_programid1
+    >   ztf_20190828_programid1
+    >   ztf_20190829_programid1
+    >   ztf_20190830_programid1
+    >   ztf_20190831_programid1
+    >   ztf_20190901_programid1
+    >   ztf_20190902_programid1
+    >   ztf_20190903_programid1
+
+
+# -----------------------------------------------------
+# Get the total rows in each topic.
+#[user@trop03]
+
+    for topic in $(cat /tmp/ztftopics)
+    do
+        echo "---- ----"
+        echo "Topic [${topic}]"
+        ssh -q -t "${mmnames[0]}" \
+            "
+            docker run -it --rm \
+                phymatopus/kafka-core \
+                    bin/kafka-run-class.sh \
+                        kafka.tools.GetOffsetShell \
+                            --broker-list 'Stedigo:9092' \
+                            --topic "${topic:?}" \
+            | sed '
+                s/\([^:]*\):\([^:]*\):\([^:]*\)/\3/
+                ' \
+            | awk '
+                {sum += \$1} END {print sum}
+                '
+            "
+    done
+
+    >   ---- ----
+    >   Topic [ztf_20190724_programid1]
+    >   158021
+    >   ---- ----
+    >   Topic [ztf_20190725_programid1]
+    >   138401
+    >   ---- ----
+    >   Topic [ztf_20190726_programid1]
+    >   209502
+    >   ---- ----
+    >   Topic [ztf_20190727_programid1]
+    >   175742
+    >   ---- ----
+    >   Topic [ztf_20190728_programid1]
+    >   125586
+    >   ---- ----
+    >   Topic [ztf_20190729_programid1]
+    >   300320
+    >   ---- ----
+    >   Topic [ztf_20190730_programid1]
+    >   385590
+    >   ---- ----
+    >   Topic [ztf_20190731_programid1]
+    >   525648
+    >   ---- ----
+    >   Topic [ztf_20190801_programid1]
+    >   246044
+    >   ---- ----
+    >   Topic [ztf_20190802_programid1]
+    >   142952
+    >   ---- ----
+    >   Topic [ztf_20190803_programid1]
+    >   432503
+    >   ---- ----
+    >   Topic [ztf_20190804_programid1]
+    >   360773
+    >   ---- ----
+    >   Topic [ztf_20190805_programid1]
+    >   188259
+    >   ---- ----
+    >   Topic [ztf_20190806_programid1]
+    >   171045
+    >   ---- ----
+    >   Topic [ztf_20190807_programid1]
+    >   152045
+    >   ---- ----
+    >   Topic [ztf_20190808_programid1]
+    >   185032
+    >   ---- ----
+    >   Topic [ztf_20190809_programid1]
+    >   161631
+    >   ---- ----
+    >   Topic [ztf_20190810_programid1]
+    >   141310
+    >   ---- ----
+    >   Topic [ztf_20190811_programid1]
+    >   157253
+    >   ---- ----
+    >   Topic [ztf_20190812_programid1]
+    >   160219
+    >   ---- ----
+    >   Topic [ztf_20190813_programid1]
+    >   105297
+    >   ---- ----
+    >   Topic [ztf_20190814_programid1]
+    >   125047
+    >   ---- ----
+    >   Topic [ztf_20190815_programid1]
+    >   57374
+    >   ---- ----
+    >   Topic [ztf_20190816_programid1]
+    >   122321
+    >   ---- ----
+    >   Topic [ztf_20190817_programid1]
+    >   88370
+    >   ---- ----
+    >   Topic [ztf_20190818_programid1]
+    >   195882
+    >   ---- ----
+    >   Topic [ztf_20190819_programid1]
+    >   149580
+    >   ---- ----
+    >   Topic [ztf_20190820_programid1]
+    >   0
+    >   ---- ----
+    >   Topic [ztf_20190821_programid1]
+    >   125266
+    >   ---- ----
+    >   Topic [ztf_20190822_programid1]
+    >   138783
+    >   ---- ----
+    >   Topic [ztf_20190823_programid1]
+    >   179150
+    >   ---- ----
+    >   Topic [ztf_20190824_programid1]
+    >   130723
+    >   ---- ----
+    >   Topic [ztf_20190825_programid1]
+    >   184504
+    >   ---- ----
+    >   Topic [ztf_20190826_programid1]
+    >   1032500
+    >   ---- ----
+    >   Topic [ztf_20190827_programid1]
+    >   167450
+    >   ---- ----
+    >   Topic [ztf_20190828_programid1]
+    >   191143
+    >   ---- ----
+    >   Topic [ztf_20190829_programid1]
+    >   206362
+    >   ---- ----
+    >   Topic [ztf_20190830_programid1]
+    >   203625
+    >   ---- ----
+    >   Topic [ztf_20190831_programid1]
+    >   178229
+    >   ---- ----
+    >   Topic [ztf_20190901_programid1]
+    >   162662
+    >   ---- ----
+    >   Topic [ztf_20190902_programid1]
+    >   2521
+    >   ---- ----
+    >   Topic [ztf_20190903_programid1]
+    >   1321
+
+# -----------------------------------------------------
+# Check the disc space on each node.
+#[user@trop03]
+
+    source "${HOME}/nodenames"
+    source "${HOME}/ssh-options"
+
+    rm /tmp/diskuse
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    hostname
+                    date
+                    du -h /data*
+                    " \
+            | tee -a /tmp/diskuse
+        done
+
+    >   Stedigo
+    >   Tue  3 Sep 19:56:15 BST 2019
+    >   0	/data1-01/__confluent.support.metrics-0
+    >   8.0K    /data1-01/ztf_20190724_programid1-14
+    >   8.0K    /data1-01/ztf_20190724_programid1-2
+    >   8.0K    /data1-01/ztf_20190724_programid1-6
+    >   8.0K    /data1-01/ztf_20190724_programid1-10
+    >   8.0K    /data1-01/ztf_20190724_programid1-4
+    >   8.0K    /data1-01/ztf_20190724_programid1-1
+    >   8.0K    /data1-01/ztf_20190724_programid1-11
+    >   ....
+    >   ....
+    >   5.4M	/data2-01/ztf_20190903_programid1-3
+    >   5.4M	/data2-01/ztf_20190903_programid1-14
+    >   5.4M	/data2-01/ztf_20190903_programid1-8
+    >   5.4M	/data2-01/ztf_20190903_programid1-5
+    >   5.4M	/data2-01/ztf_20190903_programid1-2
+    >   5.4M	/data2-01/ztf_20190903_programid1-6
+    >   5.3M	/data2-01/ztf_20190903_programid1-12
+    >   5.4M	/data2-01/ztf_20190903_programid1-9
+    >   5.3M	/data2-01/ztf_20190903_programid1-0
+    >   313G	/data2-01
+
+
+# -----------------------------------------------------
+# Check the disc space for each month.
+#[user@trop03]
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    hostname
+                    date
+                    du -h /data*/ztf_201907*
+                    " \
+            | tee -a /tmp/diskuse
+        done
+
+    >   ---- ----
+    >   Stedigo
+    >   Tue  3 Sep 19:59:58 BST 2019
+    >   8.0K    /data1-01/ztf_20190724_programid1-0
+    >   8.0K    /data1-01/ztf_20190724_programid1-1
+    >   8.0K    /data1-01/ztf_20190724_programid1-10
+    >   8.0K    /data1-01/ztf_20190724_programid1-11
+    >   ....
+    >   ....
+    >   8.0K    /data1-01/ztf_20190731_programid1-4
+    >   8.0K    /data1-01/ztf_20190731_programid1-5
+    >   8.0K    /data1-01/ztf_20190731_programid1-7
+    >   8.0K    /data1-01/ztf_20190731_programid1-8
+    >   ---- ----
+    >   Angece
+    >   Tue  3 Sep 19:59:58 BST 2019
+    >   8.0K    /data2-01/ztf_20190724_programid1-1
+    >   8.0K    /data2-01/ztf_20190724_programid1-10
+    >   8.0K    /data2-01/ztf_20190724_programid1-11
+    >   8.0K    /data2-01/ztf_20190724_programid1-13
+    >   ....
+    >   ....
+    >   8.0K    /data2-01/ztf_20190731_programid1-5
+    >   8.0K    /data2-01/ztf_20190731_programid1-6
+    >   8.0K    /data2-01/ztf_20190731_programid1-8
+    >   8.0K    /data2-01/ztf_20190731_programid1-9
+    >   ---- ----
+    >   Edwalafia
+    >   Tue  3 Sep 19:59:59 BST 2019
+    >   8.0K    /data1-01/ztf_20190724_programid1-0
+    >   8.0K    /data1-01/ztf_20190724_programid1-11
+    >   8.0K    /data1-01/ztf_20190724_programid1-12
+    >   8.0K    /data1-01/ztf_20190724_programid1-14
+    >   ....
+    >   ....
+    >   8.0K    /data1-01/ztf_20190731_programid1-6
+    >   8.0K    /data1-01/ztf_20190731_programid1-7
+    >   8.0K    /data1-01/ztf_20190731_programid1-8
+    >   8.0K    /data1-01/ztf_20190731_programid1-9
+    >   ---- ----
+    >   Onoza
+    >   Tue  3 Sep 19:59:59 BST 2019
+    >   8.0K    /data2-01/ztf_20190724_programid1-0
+    >   8.0K    /data2-01/ztf_20190724_programid1-1
+    >   8.0K    /data2-01/ztf_20190724_programid1-10
+    >   8.0K    /data2-01/ztf_20190724_programid1-12
+    >   ....
+    >   ....
+    >   8.0K    /data2-01/ztf_20190731_programid1-4
+    >   8.0K    /data2-01/ztf_20190731_programid1-6
+    >   8.0K    /data2-01/ztf_20190731_programid1-7
+    >   8.0K    /data2-01/ztf_20190731_programid1-9
+    >   dmr@trop03:~$
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    hostname
+                    date
+                    du -h /data*/ztf_201908*
+                    " \
+            | tee -a /tmp/diskuse
+        done
+
+    >   ---- ----
+    >   Stedigo
+    >   Tue  3 Sep 20:01:58 BST 2019
+    >   1.1G    /data1-01/ztf_20190801_programid1-0
+    >   1.1G    /data1-01/ztf_20190801_programid1-1
+    >   1.1G    /data1-01/ztf_20190801_programid1-10
+    >   1.1G    /data1-01/ztf_20190801_programid1-11
+    >   ....
+    >   ....
+    >   766M    /data1-01/ztf_20190831_programid1-4
+    >   766M    /data1-01/ztf_20190831_programid1-6
+    >   766M    /data1-01/ztf_20190831_programid1-7
+    >   766M    /data1-01/ztf_20190831_programid1-9
+    >   ---- ----
+    >   Angece
+    >   Tue  3 Sep 20:01:59 BST 2019
+    >   1.1G    /data2-01/ztf_20190801_programid1-1
+    >   1.1G    /data2-01/ztf_20190801_programid1-10
+    >   1.1G    /data2-01/ztf_20190801_programid1-11
+    >   1.1G    /data2-01/ztf_20190801_programid1-13
+    >   ....
+    >   ....
+    >   766M    /data2-01/ztf_20190831_programid1-4
+    >   767M    /data2-01/ztf_20190831_programid1-5
+    >   766M    /data2-01/ztf_20190831_programid1-7
+    >   766M    /data2-01/ztf_20190831_programid1-8
+    >   ---- ----
+    >   Edwalafia
+    >   Tue  3 Sep 20:01:59 BST 2019
+    >   1.1G    /data1-01/ztf_20190801_programid1-0
+    >   1.1G    /data1-01/ztf_20190801_programid1-11
+    >   1.1G    /data1-01/ztf_20190801_programid1-12
+    >   1.1G    /data1-01/ztf_20190801_programid1-14
+    >   ....
+    >   ....
+    >   767M    /data1-01/ztf_20190831_programid1-5
+    >   766M    /data1-01/ztf_20190831_programid1-6
+    >   766M    /data1-01/ztf_20190831_programid1-8
+    >   766M    /data1-01/ztf_20190831_programid1-9
+    >   ---- ----
+    >   Onoza
+    >   Tue  3 Sep 20:01:59 BST 2019
+    >   1.1G    /data2-01/ztf_20190801_programid1-0
+    >   1.1G    /data2-01/ztf_20190801_programid1-1
+    >   1.1G    /data2-01/ztf_20190801_programid1-10
+    >   1.1G    /data2-01/ztf_20190801_programid1-12
+    >   ....
+    >   ....
+    >   766M    /data2-01/ztf_20190831_programid1-6
+    >   766M    /data2-01/ztf_20190831_programid1-7
+    >   766M    /data2-01/ztf_20190831_programid1-8
+    >   766M    /data2-01/ztf_20190831_programid1-9
+
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    hostname
+                    date
+                    du -h /data*/ztf_201909*
+                    " \
+            | tee -a /tmp/diskuse
+        done
+
+    >   Stedigo
+    >   Tue  3 Sep 20:06:03 BST 2019
+    >   702M    /data1-01/ztf_20190901_programid1-0
+    >   703M    /data1-01/ztf_20190901_programid1-1
+    >   703M    /data1-01/ztf_20190901_programid1-10
+    >   703M    /data1-01/ztf_20190901_programid1-12
+    >   ....
+    >   ....
+    >   5.4M    /data1-01/ztf_20190903_programid1-6
+    >   5.4M    /data1-01/ztf_20190903_programid1-7
+    >   5.4M    /data1-01/ztf_20190903_programid1-8
+    >   5.4M    /data1-01/ztf_20190903_programid1-9
+    >   ---- ----
+    >   Angece
+    >   Tue  3 Sep 20:06:03 BST 2019
+    >   702M    /data2-01/ztf_20190901_programid1-0
+    >   703M    /data2-01/ztf_20190901_programid1-1
+    >   703M    /data2-01/ztf_20190901_programid1-10
+    >   703M    /data2-01/ztf_20190901_programid1-11
+    >   ....
+    >   ....
+    >   5.3M    /data2-01/ztf_20190903_programid1-4
+    >   5.4M    /data2-01/ztf_20190903_programid1-5
+    >   5.4M    /data2-01/ztf_20190903_programid1-7
+    >   5.4M    /data2-01/ztf_20190903_programid1-9
+    >   ---- ----
+    >   Edwalafia
+    >   Tue  3 Sep 20:06:03 BST 2019
+    >   703M    /data1-01/ztf_20190901_programid1-1
+    >   703M    /data1-01/ztf_20190901_programid1-10
+    >   703M    /data1-01/ztf_20190901_programid1-11
+    >   ....
+    >   ....
+    >   5.3M    /data1-01/ztf_20190903_programid1-4
+    >   5.4M    /data1-01/ztf_20190903_programid1-5
+    >   5.4M    /data1-01/ztf_20190903_programid1-6
+    >   5.4M    /data1-01/ztf_20190903_programid1-8
+    >   ---- ----
+    >   Onoza
+    >   Tue  3 Sep 20:06:04 BST 2019
+    >   702M    /data2-01/ztf_20190901_programid1-0
+    >   703M    /data2-01/ztf_20190901_programid1-11
+    >   703M    /data2-01/ztf_20190901_programid1-12
+    >   703M    /data2-01/ztf_20190901_programid1-14
+    >   ....
+    >   ....
+    >   5.4M    /data2-01/ztf_20190903_programid1-6
+    >   5.4M    /data2-01/ztf_20190903_programid1-7
+    >   5.4M    /data2-01/ztf_20190903_programid1-8
+    >   5.4M    /data2-01/ztf_20190903_programid1-9
+
+    #
+    # All of the out of date topics have been truncated to 8.0K.
+    #
+
+# -----------------------------------------------------
+# Check the disc space for today.
+#[user@trop03]
+
+    spacecheck()
+        {
+        for vmname in ${kfnames[@]}
+            do
+                echo "---- ----"
+                ssh \
+                    ${sshopts[*]} \
+                    ${sshuser:?}@${vmname:?} \
+                        "
+                        hostname
+                        date
+                        du -h /data*/ztf_20190904*
+                        " \
+                | tee -a /tmp/diskuse
+            done
+        }
+
+    spacecheck
+
+    >   ---- ----
+    >   Stedigo
+    >   Wed  4 Sep 10:41:12 BST 2019
+    >   73M	/data1-01/ztf_20190904_programid1-1
+    >   73M	/data1-01/ztf_20190904_programid1-100
+    >   73M	/data1-01/ztf_20190904_programid1-101
+    >   73M	/data1-01/ztf_20190904_programid1-102
+    >   73M	/data1-01/ztf_20190904_programid1-104
+    >   73M	/data1-01/ztf_20190904_programid1-105
+    >   73M	/data1-01/ztf_20190904_programid1-107
+    >   73M	/data1-01/ztf_20190904_programid1-109
+    >   73M	/data1-01/ztf_20190904_programid1-11
+    >   73M	/data1-01/ztf_20190904_programid1-110
+    >   73M	/data1-01/ztf_20190904_programid1-111
+    >   73M	/data1-01/ztf_20190904_programid1-112
+    >   73M	/data1-01/ztf_20190904_programid1-113
+    >   73M	/data1-01/ztf_20190904_programid1-114
+    >   73M	/data1-01/ztf_20190904_programid1-116
+    >   73M	/data1-01/ztf_20190904_programid1-117
+    >   73M	/data1-01/ztf_20190904_programid1-119
+    >   73M	/data1-01/ztf_20190904_programid1-121
+    >   73M	/data1-01/ztf_20190904_programid1-122
+    >   73M	/data1-01/ztf_20190904_programid1-123
+    >   73M	/data1-01/ztf_20190904_programid1-124
+    >   73M	/data1-01/ztf_20190904_programid1-125
+    >   73M	/data1-01/ztf_20190904_programid1-126
+    >   73M	/data1-01/ztf_20190904_programid1-128
+    >   73M	/data1-01/ztf_20190904_programid1-129
+    >   73M	/data1-01/ztf_20190904_programid1-13
+    >   72M	/data1-01/ztf_20190904_programid1-131
+    >   73M	/data1-01/ztf_20190904_programid1-133
+    >   73M	/data1-01/ztf_20190904_programid1-134
+    >   73M	/data1-01/ztf_20190904_programid1-135
+    >   73M	/data1-01/ztf_20190904_programid1-136
+    >   73M	/data1-01/ztf_20190904_programid1-137
+    >   73M	/data1-01/ztf_20190904_programid1-138
+    >   73M	/data1-01/ztf_20190904_programid1-14
+    >   73M	/data1-01/ztf_20190904_programid1-140
+    >   73M	/data1-01/ztf_20190904_programid1-141
+    >   73M	/data1-01/ztf_20190904_programid1-143
+    >   73M	/data1-01/ztf_20190904_programid1-145
+    >   73M	/data1-01/ztf_20190904_programid1-146
+    >   73M	/data1-01/ztf_20190904_programid1-147
+    >   73M	/data1-01/ztf_20190904_programid1-148
+    >   73M	/data1-01/ztf_20190904_programid1-149
+    >   73M	/data1-01/ztf_20190904_programid1-15
+    >   73M	/data1-01/ztf_20190904_programid1-150
+    >   73M	/data1-01/ztf_20190904_programid1-152
+    >   73M	/data1-01/ztf_20190904_programid1-153
+    >   73M	/data1-01/ztf_20190904_programid1-155
+    >   73M	/data1-01/ztf_20190904_programid1-157
+    >   73M	/data1-01/ztf_20190904_programid1-158
+    >   73M	/data1-01/ztf_20190904_programid1-159
+    >   73M	/data1-01/ztf_20190904_programid1-16
+    >   73M	/data1-01/ztf_20190904_programid1-160
+    >   73M	/data1-01/ztf_20190904_programid1-161
+    >   73M	/data1-01/ztf_20190904_programid1-162
+    >   73M	/data1-01/ztf_20190904_programid1-164
+    >   73M	/data1-01/ztf_20190904_programid1-165
+    >   73M	/data1-01/ztf_20190904_programid1-167
+    >   73M	/data1-01/ztf_20190904_programid1-169
+    >   73M	/data1-01/ztf_20190904_programid1-17
+    >   73M	/data1-01/ztf_20190904_programid1-170
+    >   73M	/data1-01/ztf_20190904_programid1-171
+    >   72M	/data1-01/ztf_20190904_programid1-172
+    >   73M	/data1-01/ztf_20190904_programid1-173
+    >   73M	/data1-01/ztf_20190904_programid1-174
+    >   73M	/data1-01/ztf_20190904_programid1-176
+    >   73M	/data1-01/ztf_20190904_programid1-177
+    >   73M	/data1-01/ztf_20190904_programid1-179
+    >   73M	/data1-01/ztf_20190904_programid1-18
+    >   73M	/data1-01/ztf_20190904_programid1-181
+    >   73M	/data1-01/ztf_20190904_programid1-182
+    >   73M	/data1-01/ztf_20190904_programid1-183
+    >   73M	/data1-01/ztf_20190904_programid1-184
+    >   73M	/data1-01/ztf_20190904_programid1-185
+    >   73M	/data1-01/ztf_20190904_programid1-186
+    >   73M	/data1-01/ztf_20190904_programid1-188
+    >   73M	/data1-01/ztf_20190904_programid1-189
+    >   73M	/data1-01/ztf_20190904_programid1-191
+    >   73M	/data1-01/ztf_20190904_programid1-193
+    >   73M	/data1-01/ztf_20190904_programid1-194
+    >   73M	/data1-01/ztf_20190904_programid1-195
+    >   73M	/data1-01/ztf_20190904_programid1-196
+    >   73M	/data1-01/ztf_20190904_programid1-197
+    >   73M	/data1-01/ztf_20190904_programid1-198
+    >   73M	/data1-01/ztf_20190904_programid1-2
+    >   73M	/data1-01/ztf_20190904_programid1-20
+    >   73M	/data1-01/ztf_20190904_programid1-200
+    >   73M	/data1-01/ztf_20190904_programid1-201
+    >   73M	/data1-01/ztf_20190904_programid1-203
+    >   73M	/data1-01/ztf_20190904_programid1-205
+    >   73M	/data1-01/ztf_20190904_programid1-206
+    >   73M	/data1-01/ztf_20190904_programid1-207
+    >   73M	/data1-01/ztf_20190904_programid1-208
+    >   73M	/data1-01/ztf_20190904_programid1-209
+    >   73M	/data1-01/ztf_20190904_programid1-21
+    >   73M	/data1-01/ztf_20190904_programid1-210
+    >   73M	/data1-01/ztf_20190904_programid1-212
+    >   73M	/data1-01/ztf_20190904_programid1-213
+    >   72M	/data1-01/ztf_20190904_programid1-215
+    >   73M	/data1-01/ztf_20190904_programid1-217
+    >   73M	/data1-01/ztf_20190904_programid1-218
+    >   73M	/data1-01/ztf_20190904_programid1-219
+    >   73M	/data1-01/ztf_20190904_programid1-220
+    >   73M	/data1-01/ztf_20190904_programid1-221
+    >   73M	/data1-01/ztf_20190904_programid1-222
+    >   73M	/data1-01/ztf_20190904_programid1-224
+    >   73M	/data1-01/ztf_20190904_programid1-225
+    >   73M	/data1-01/ztf_20190904_programid1-227
+    >   73M	/data1-01/ztf_20190904_programid1-229
+    >   73M	/data1-01/ztf_20190904_programid1-23
+    >   73M	/data1-01/ztf_20190904_programid1-230
+    >   73M	/data1-01/ztf_20190904_programid1-231
+    >   73M	/data1-01/ztf_20190904_programid1-232
+    >   73M	/data1-01/ztf_20190904_programid1-233
+    >   73M	/data1-01/ztf_20190904_programid1-234
+    >   73M	/data1-01/ztf_20190904_programid1-236
+    >   73M	/data1-01/ztf_20190904_programid1-237
+    >   73M	/data1-01/ztf_20190904_programid1-239
+    >   73M	/data1-01/ztf_20190904_programid1-241
+    >   73M	/data1-01/ztf_20190904_programid1-242
+    >   73M	/data1-01/ztf_20190904_programid1-243
+    >   73M	/data1-01/ztf_20190904_programid1-244
+    >   73M	/data1-01/ztf_20190904_programid1-245
+    >   73M	/data1-01/ztf_20190904_programid1-246
+    >   73M	/data1-01/ztf_20190904_programid1-248
+    >   73M	/data1-01/ztf_20190904_programid1-249
+    >   73M	/data1-01/ztf_20190904_programid1-25
+    >   73M	/data1-01/ztf_20190904_programid1-251
+    >   73M	/data1-01/ztf_20190904_programid1-253
+    >   73M	/data1-01/ztf_20190904_programid1-254
+    >   73M	/data1-01/ztf_20190904_programid1-255
+    >   73M	/data1-01/ztf_20190904_programid1-26
+    >   73M	/data1-01/ztf_20190904_programid1-27
+    >   73M	/data1-01/ztf_20190904_programid1-28
+    >   73M	/data1-01/ztf_20190904_programid1-29
+    >   73M	/data1-01/ztf_20190904_programid1-3
+    >   73M	/data1-01/ztf_20190904_programid1-30
+    >   73M	/data1-01/ztf_20190904_programid1-32
+    >   73M	/data1-01/ztf_20190904_programid1-33
+    >   73M	/data1-01/ztf_20190904_programid1-35
+    >   73M	/data1-01/ztf_20190904_programid1-37
+    >   73M	/data1-01/ztf_20190904_programid1-38
+    >   73M	/data1-01/ztf_20190904_programid1-39
+    >   73M	/data1-01/ztf_20190904_programid1-4
+    >   73M	/data1-01/ztf_20190904_programid1-40
+    >   73M	/data1-01/ztf_20190904_programid1-41
+    >   73M	/data1-01/ztf_20190904_programid1-42
+    >   73M	/data1-01/ztf_20190904_programid1-44
+    >   72M	/data1-01/ztf_20190904_programid1-45
+    >   73M	/data1-01/ztf_20190904_programid1-47
+    >   73M	/data1-01/ztf_20190904_programid1-49
+    >   73M	/data1-01/ztf_20190904_programid1-5
+    >   73M	/data1-01/ztf_20190904_programid1-50
+    >   73M	/data1-01/ztf_20190904_programid1-51
+    >   73M	/data1-01/ztf_20190904_programid1-52
+    >   73M	/data1-01/ztf_20190904_programid1-53
+    >   73M	/data1-01/ztf_20190904_programid1-54
+    >   73M	/data1-01/ztf_20190904_programid1-56
+    >   73M	/data1-01/ztf_20190904_programid1-57
+    >   73M	/data1-01/ztf_20190904_programid1-59
+    >   73M	/data1-01/ztf_20190904_programid1-6
+    >   73M	/data1-01/ztf_20190904_programid1-61
+    >   73M	/data1-01/ztf_20190904_programid1-62
+    >   73M	/data1-01/ztf_20190904_programid1-63
+    >   73M	/data1-01/ztf_20190904_programid1-64
+    >   73M	/data1-01/ztf_20190904_programid1-65
+    >   73M	/data1-01/ztf_20190904_programid1-66
+    >   73M	/data1-01/ztf_20190904_programid1-68
+    >   73M	/data1-01/ztf_20190904_programid1-69
+    >   73M	/data1-01/ztf_20190904_programid1-71
+    >   73M	/data1-01/ztf_20190904_programid1-73
+    >   73M	/data1-01/ztf_20190904_programid1-74
+    >   73M	/data1-01/ztf_20190904_programid1-75
+    >   73M	/data1-01/ztf_20190904_programid1-76
+    >   73M	/data1-01/ztf_20190904_programid1-77
+    >   73M	/data1-01/ztf_20190904_programid1-78
+    >   73M	/data1-01/ztf_20190904_programid1-8
+    >   73M	/data1-01/ztf_20190904_programid1-80
+    >   73M	/data1-01/ztf_20190904_programid1-81
+    >   73M	/data1-01/ztf_20190904_programid1-83
+    >   73M	/data1-01/ztf_20190904_programid1-85
+    >   73M	/data1-01/ztf_20190904_programid1-86
+    >   73M	/data1-01/ztf_20190904_programid1-87
+    >   73M	/data1-01/ztf_20190904_programid1-88
+    >   73M	/data1-01/ztf_20190904_programid1-89
+    >   73M	/data1-01/ztf_20190904_programid1-9
+    >   73M	/data1-01/ztf_20190904_programid1-90
+    >   73M	/data1-01/ztf_20190904_programid1-92
+    >   73M	/data1-01/ztf_20190904_programid1-93
+    >   73M	/data1-01/ztf_20190904_programid1-95
+    >   73M	/data1-01/ztf_20190904_programid1-97
+    >   73M	/data1-01/ztf_20190904_programid1-98
+    >   73M	/data1-01/ztf_20190904_programid1-99
+    >   ---- ----
+    >   Angece
+    >   Wed  4 Sep 10:41:12 BST 2019
+    >   73M	/data2-01/ztf_20190904_programid1-0
+    >   72M	/data2-01/ztf_20190904_programid1-10
+    >   73M	/data2-01/ztf_20190904_programid1-101
+    >   73M	/data2-01/ztf_20190904_programid1-102
+    >   73M	/data2-01/ztf_20190904_programid1-103
+    >   73M	/data2-01/ztf_20190904_programid1-104
+    >   73M	/data2-01/ztf_20190904_programid1-105
+    >   73M	/data2-01/ztf_20190904_programid1-106
+    >   73M	/data2-01/ztf_20190904_programid1-108
+    >   73M	/data2-01/ztf_20190904_programid1-110
+    >   73M	/data2-01/ztf_20190904_programid1-111
+    >   73M	/data2-01/ztf_20190904_programid1-113
+    >   73M	/data2-01/ztf_20190904_programid1-114
+    >   73M	/data2-01/ztf_20190904_programid1-115
+    >   73M	/data2-01/ztf_20190904_programid1-116
+    >   73M	/data2-01/ztf_20190904_programid1-117
+    >   73M	/data2-01/ztf_20190904_programid1-118
+    >   73M	/data2-01/ztf_20190904_programid1-12
+    >   73M	/data2-01/ztf_20190904_programid1-120
+    >   73M	/data2-01/ztf_20190904_programid1-122
+    >   73M	/data2-01/ztf_20190904_programid1-123
+    >   73M	/data2-01/ztf_20190904_programid1-125
+    >   73M	/data2-01/ztf_20190904_programid1-126
+    >   73M	/data2-01/ztf_20190904_programid1-127
+    >   73M	/data2-01/ztf_20190904_programid1-128
+    >   73M	/data2-01/ztf_20190904_programid1-129
+    >   73M	/data2-01/ztf_20190904_programid1-130
+    >   73M	/data2-01/ztf_20190904_programid1-132
+    >   73M	/data2-01/ztf_20190904_programid1-134
+    >   73M	/data2-01/ztf_20190904_programid1-135
+    >   73M	/data2-01/ztf_20190904_programid1-137
+    >   73M	/data2-01/ztf_20190904_programid1-138
+    >   73M	/data2-01/ztf_20190904_programid1-139
+    >   73M	/data2-01/ztf_20190904_programid1-14
+    >   73M	/data2-01/ztf_20190904_programid1-140
+    >   73M	/data2-01/ztf_20190904_programid1-141
+    >   73M	/data2-01/ztf_20190904_programid1-142
+    >   73M	/data2-01/ztf_20190904_programid1-144
+    >   73M	/data2-01/ztf_20190904_programid1-146
+    >   73M	/data2-01/ztf_20190904_programid1-147
+    >   73M	/data2-01/ztf_20190904_programid1-149
+    >   73M	/data2-01/ztf_20190904_programid1-15
+    >   73M	/data2-01/ztf_20190904_programid1-150
+    >   73M	/data2-01/ztf_20190904_programid1-151
+    >   73M	/data2-01/ztf_20190904_programid1-152
+    >   73M	/data2-01/ztf_20190904_programid1-153
+    >   73M	/data2-01/ztf_20190904_programid1-154
+    >   73M	/data2-01/ztf_20190904_programid1-156
+    >   73M	/data2-01/ztf_20190904_programid1-158
+    >   73M	/data2-01/ztf_20190904_programid1-159
+    >   73M	/data2-01/ztf_20190904_programid1-161
+    >   73M	/data2-01/ztf_20190904_programid1-162
+    >   73M	/data2-01/ztf_20190904_programid1-163
+    >   73M	/data2-01/ztf_20190904_programid1-164
+    >   73M	/data2-01/ztf_20190904_programid1-165
+    >   73M	/data2-01/ztf_20190904_programid1-166
+    >   73M	/data2-01/ztf_20190904_programid1-168
+    >   73M	/data2-01/ztf_20190904_programid1-17
+    >   73M	/data2-01/ztf_20190904_programid1-170
+    >   73M	/data2-01/ztf_20190904_programid1-171
+    >   73M	/data2-01/ztf_20190904_programid1-173
+    >   73M	/data2-01/ztf_20190904_programid1-174
+    >   73M	/data2-01/ztf_20190904_programid1-175
+    >   73M	/data2-01/ztf_20190904_programid1-176
+    >   73M	/data2-01/ztf_20190904_programid1-177
+    >   73M	/data2-01/ztf_20190904_programid1-178
+    >   73M	/data2-01/ztf_20190904_programid1-18
+    >   73M	/data2-01/ztf_20190904_programid1-180
+    >   73M	/data2-01/ztf_20190904_programid1-182
+    >   73M	/data2-01/ztf_20190904_programid1-183
+    >   73M	/data2-01/ztf_20190904_programid1-185
+    >   73M	/data2-01/ztf_20190904_programid1-186
+    >   73M	/data2-01/ztf_20190904_programid1-187
+    >   73M	/data2-01/ztf_20190904_programid1-188
+    >   73M	/data2-01/ztf_20190904_programid1-189
+    >   73M	/data2-01/ztf_20190904_programid1-19
+    >   73M	/data2-01/ztf_20190904_programid1-190
+    >   73M	/data2-01/ztf_20190904_programid1-192
+    >   73M	/data2-01/ztf_20190904_programid1-194
+    >   73M	/data2-01/ztf_20190904_programid1-195
+    >   73M	/data2-01/ztf_20190904_programid1-197
+    >   73M	/data2-01/ztf_20190904_programid1-198
+    >   73M	/data2-01/ztf_20190904_programid1-199
+    >   73M	/data2-01/ztf_20190904_programid1-2
+    >   73M	/data2-01/ztf_20190904_programid1-20
+    >   73M	/data2-01/ztf_20190904_programid1-200
+    >   73M	/data2-01/ztf_20190904_programid1-201
+    >   73M	/data2-01/ztf_20190904_programid1-202
+    >   73M	/data2-01/ztf_20190904_programid1-204
+    >   73M	/data2-01/ztf_20190904_programid1-206
+    >   73M	/data2-01/ztf_20190904_programid1-207
+    >   73M	/data2-01/ztf_20190904_programid1-209
+    >   73M	/data2-01/ztf_20190904_programid1-21
+    >   73M	/data2-01/ztf_20190904_programid1-210
+    >   73M	/data2-01/ztf_20190904_programid1-211
+    >   73M	/data2-01/ztf_20190904_programid1-212
+    >   73M	/data2-01/ztf_20190904_programid1-213
+    >   73M	/data2-01/ztf_20190904_programid1-214
+    >   73M	/data2-01/ztf_20190904_programid1-216
+    >   73M	/data2-01/ztf_20190904_programid1-218
+    >   73M	/data2-01/ztf_20190904_programid1-219
+    >   73M	/data2-01/ztf_20190904_programid1-22
+    >   73M	/data2-01/ztf_20190904_programid1-221
+    >   73M	/data2-01/ztf_20190904_programid1-222
+    >   73M	/data2-01/ztf_20190904_programid1-223
+    >   73M	/data2-01/ztf_20190904_programid1-224
+    >   73M	/data2-01/ztf_20190904_programid1-225
+    >   73M	/data2-01/ztf_20190904_programid1-226
+    >   73M	/data2-01/ztf_20190904_programid1-228
+    >   73M	/data2-01/ztf_20190904_programid1-230
+    >   73M	/data2-01/ztf_20190904_programid1-231
+    >   73M	/data2-01/ztf_20190904_programid1-233
+    >   73M	/data2-01/ztf_20190904_programid1-234
+    >   73M	/data2-01/ztf_20190904_programid1-235
+    >   73M	/data2-01/ztf_20190904_programid1-236
+    >   73M	/data2-01/ztf_20190904_programid1-237
+    >   73M	/data2-01/ztf_20190904_programid1-238
+    >   73M	/data2-01/ztf_20190904_programid1-24
+    >   72M	/data2-01/ztf_20190904_programid1-240
+    >   73M	/data2-01/ztf_20190904_programid1-242
+    >   73M	/data2-01/ztf_20190904_programid1-243
+    >   73M	/data2-01/ztf_20190904_programid1-245
+    >   73M	/data2-01/ztf_20190904_programid1-246
+    >   73M	/data2-01/ztf_20190904_programid1-247
+    >   73M	/data2-01/ztf_20190904_programid1-248
+    >   73M	/data2-01/ztf_20190904_programid1-249
+    >   73M	/data2-01/ztf_20190904_programid1-250
+    >   73M	/data2-01/ztf_20190904_programid1-252
+    >   73M	/data2-01/ztf_20190904_programid1-254
+    >   73M	/data2-01/ztf_20190904_programid1-255
+    >   73M	/data2-01/ztf_20190904_programid1-26
+    >   73M	/data2-01/ztf_20190904_programid1-27
+    >   73M	/data2-01/ztf_20190904_programid1-29
+    >   73M	/data2-01/ztf_20190904_programid1-3
+    >   73M	/data2-01/ztf_20190904_programid1-30
+    >   73M	/data2-01/ztf_20190904_programid1-31
+    >   73M	/data2-01/ztf_20190904_programid1-32
+    >   73M	/data2-01/ztf_20190904_programid1-33
+    >   73M	/data2-01/ztf_20190904_programid1-34
+    >   73M	/data2-01/ztf_20190904_programid1-36
+    >   73M	/data2-01/ztf_20190904_programid1-38
+    >   73M	/data2-01/ztf_20190904_programid1-39
+    >   73M	/data2-01/ztf_20190904_programid1-41
+    >   73M	/data2-01/ztf_20190904_programid1-42
+    >   73M	/data2-01/ztf_20190904_programid1-43
+    >   73M	/data2-01/ztf_20190904_programid1-44
+    >   72M	/data2-01/ztf_20190904_programid1-45
+    >   73M	/data2-01/ztf_20190904_programid1-46
+    >   73M	/data2-01/ztf_20190904_programid1-48
+    >   73M	/data2-01/ztf_20190904_programid1-5
+    >   73M	/data2-01/ztf_20190904_programid1-50
+    >   73M	/data2-01/ztf_20190904_programid1-51
+    >   73M	/data2-01/ztf_20190904_programid1-53
+    >   73M	/data2-01/ztf_20190904_programid1-54
+    >   73M	/data2-01/ztf_20190904_programid1-55
+    >   73M	/data2-01/ztf_20190904_programid1-56
+    >   73M	/data2-01/ztf_20190904_programid1-57
+    >   73M	/data2-01/ztf_20190904_programid1-58
+    >   73M	/data2-01/ztf_20190904_programid1-6
+    >   73M	/data2-01/ztf_20190904_programid1-60
+    >   73M	/data2-01/ztf_20190904_programid1-62
+    >   73M	/data2-01/ztf_20190904_programid1-63
+    >   73M	/data2-01/ztf_20190904_programid1-65
+    >   73M	/data2-01/ztf_20190904_programid1-66
+    >   72M	/data2-01/ztf_20190904_programid1-67
+    >   73M	/data2-01/ztf_20190904_programid1-68
+    >   73M	/data2-01/ztf_20190904_programid1-69
+    >   73M	/data2-01/ztf_20190904_programid1-7
+    >   73M	/data2-01/ztf_20190904_programid1-70
+    >   73M	/data2-01/ztf_20190904_programid1-72
+    >   73M	/data2-01/ztf_20190904_programid1-74
+    >   73M	/data2-01/ztf_20190904_programid1-75
+    >   73M	/data2-01/ztf_20190904_programid1-77
+    >   73M	/data2-01/ztf_20190904_programid1-78
+    >   73M	/data2-01/ztf_20190904_programid1-79
+    >   73M	/data2-01/ztf_20190904_programid1-8
+    >   73M	/data2-01/ztf_20190904_programid1-80
+    >   73M	/data2-01/ztf_20190904_programid1-81
+    >   73M	/data2-01/ztf_20190904_programid1-82
+    >   73M	/data2-01/ztf_20190904_programid1-84
+    >   73M	/data2-01/ztf_20190904_programid1-86
+    >   73M	/data2-01/ztf_20190904_programid1-87
+    >   73M	/data2-01/ztf_20190904_programid1-89
+    >   73M	/data2-01/ztf_20190904_programid1-9
+    >   73M	/data2-01/ztf_20190904_programid1-90
+    >   73M	/data2-01/ztf_20190904_programid1-91
+    >   73M	/data2-01/ztf_20190904_programid1-92
+    >   73M	/data2-01/ztf_20190904_programid1-93
+    >   73M	/data2-01/ztf_20190904_programid1-94
+    >   73M	/data2-01/ztf_20190904_programid1-96
+    >   73M	/data2-01/ztf_20190904_programid1-98
+    >   73M	/data2-01/ztf_20190904_programid1-99
+    >   ---- ----
+    >   Edwalafia
+    >   Wed  4 Sep 10:41:13 BST 2019
+    >   73M	/data1-01/ztf_20190904_programid1-0
+    >   73M	/data1-01/ztf_20190904_programid1-1
+    >   72M	/data1-01/ztf_20190904_programid1-10
+    >   73M	/data1-01/ztf_20190904_programid1-100
+    >   73M	/data1-01/ztf_20190904_programid1-102
+    >   73M	/data1-01/ztf_20190904_programid1-103
+    >   73M	/data1-01/ztf_20190904_programid1-105
+    >   73M	/data1-01/ztf_20190904_programid1-106
+    >   73M	/data1-01/ztf_20190904_programid1-107
+    >   73M	/data1-01/ztf_20190904_programid1-108
+    >   73M	/data1-01/ztf_20190904_programid1-109
+    >   73M	/data1-01/ztf_20190904_programid1-11
+    >   73M	/data1-01/ztf_20190904_programid1-111
+    >   73M	/data1-01/ztf_20190904_programid1-112
+    >   73M	/data1-01/ztf_20190904_programid1-114
+    >   73M	/data1-01/ztf_20190904_programid1-115
+    >   73M	/data1-01/ztf_20190904_programid1-117
+    >   73M	/data1-01/ztf_20190904_programid1-118
+    >   73M	/data1-01/ztf_20190904_programid1-119
+    >   73M	/data1-01/ztf_20190904_programid1-12
+    >   73M	/data1-01/ztf_20190904_programid1-120
+    >   73M	/data1-01/ztf_20190904_programid1-121
+    >   73M	/data1-01/ztf_20190904_programid1-123
+    >   73M	/data1-01/ztf_20190904_programid1-124
+    >   73M	/data1-01/ztf_20190904_programid1-126
+    >   73M	/data1-01/ztf_20190904_programid1-127
+    >   73M	/data1-01/ztf_20190904_programid1-129
+    >   73M	/data1-01/ztf_20190904_programid1-13
+    >   73M	/data1-01/ztf_20190904_programid1-130
+    >   72M	/data1-01/ztf_20190904_programid1-131
+    >   73M	/data1-01/ztf_20190904_programid1-132
+    >   73M	/data1-01/ztf_20190904_programid1-133
+    >   73M	/data1-01/ztf_20190904_programid1-135
+    >   73M	/data1-01/ztf_20190904_programid1-136
+    >   73M	/data1-01/ztf_20190904_programid1-138
+    >   73M	/data1-01/ztf_20190904_programid1-139
+    >   73M	/data1-01/ztf_20190904_programid1-141
+    >   73M	/data1-01/ztf_20190904_programid1-142
+    >   73M	/data1-01/ztf_20190904_programid1-143
+    >   73M	/data1-01/ztf_20190904_programid1-144
+    >   73M	/data1-01/ztf_20190904_programid1-145
+    >   73M	/data1-01/ztf_20190904_programid1-147
+    >   73M	/data1-01/ztf_20190904_programid1-148
+    >   73M	/data1-01/ztf_20190904_programid1-15
+    >   73M	/data1-01/ztf_20190904_programid1-150
+    >   73M	/data1-01/ztf_20190904_programid1-151
+    >   73M	/data1-01/ztf_20190904_programid1-153
+    >   73M	/data1-01/ztf_20190904_programid1-154
+    >   73M	/data1-01/ztf_20190904_programid1-155
+    >   73M	/data1-01/ztf_20190904_programid1-156
+    >   73M	/data1-01/ztf_20190904_programid1-157
+    >   73M	/data1-01/ztf_20190904_programid1-159
+    >   73M	/data1-01/ztf_20190904_programid1-16
+    >   73M	/data1-01/ztf_20190904_programid1-160
+    >   73M	/data1-01/ztf_20190904_programid1-162
+    >   73M	/data1-01/ztf_20190904_programid1-163
+    >   73M	/data1-01/ztf_20190904_programid1-165
+    >   73M	/data1-01/ztf_20190904_programid1-166
+    >   73M	/data1-01/ztf_20190904_programid1-167
+    >   73M	/data1-01/ztf_20190904_programid1-168
+    >   73M	/data1-01/ztf_20190904_programid1-169
+    >   73M	/data1-01/ztf_20190904_programid1-171
+    >   72M	/data1-01/ztf_20190904_programid1-172
+    >   73M	/data1-01/ztf_20190904_programid1-174
+    >   73M	/data1-01/ztf_20190904_programid1-175
+    >   73M	/data1-01/ztf_20190904_programid1-177
+    >   73M	/data1-01/ztf_20190904_programid1-178
+    >   73M	/data1-01/ztf_20190904_programid1-179
+    >   73M	/data1-01/ztf_20190904_programid1-18
+    >   73M	/data1-01/ztf_20190904_programid1-180
+    >   73M	/data1-01/ztf_20190904_programid1-181
+    >   73M	/data1-01/ztf_20190904_programid1-183
+    >   73M	/data1-01/ztf_20190904_programid1-184
+    >   73M	/data1-01/ztf_20190904_programid1-186
+    >   73M	/data1-01/ztf_20190904_programid1-187
+    >   73M	/data1-01/ztf_20190904_programid1-189
+    >   73M	/data1-01/ztf_20190904_programid1-19
+    >   73M	/data1-01/ztf_20190904_programid1-190
+    >   73M	/data1-01/ztf_20190904_programid1-191
+    >   73M	/data1-01/ztf_20190904_programid1-192
+    >   73M	/data1-01/ztf_20190904_programid1-193
+    >   73M	/data1-01/ztf_20190904_programid1-195
+    >   73M	/data1-01/ztf_20190904_programid1-196
+    >   73M	/data1-01/ztf_20190904_programid1-198
+    >   73M	/data1-01/ztf_20190904_programid1-199
+    >   73M	/data1-01/ztf_20190904_programid1-201
+    >   73M	/data1-01/ztf_20190904_programid1-202
+    >   73M	/data1-01/ztf_20190904_programid1-203
+    >   73M	/data1-01/ztf_20190904_programid1-204
+    >   73M	/data1-01/ztf_20190904_programid1-205
+    >   73M	/data1-01/ztf_20190904_programid1-207
+    >   73M	/data1-01/ztf_20190904_programid1-208
+    >   73M	/data1-01/ztf_20190904_programid1-21
+    >   73M	/data1-01/ztf_20190904_programid1-210
+    >   73M	/data1-01/ztf_20190904_programid1-211
+    >   73M	/data1-01/ztf_20190904_programid1-213
+    >   73M	/data1-01/ztf_20190904_programid1-214
+    >   72M	/data1-01/ztf_20190904_programid1-215
+    >   73M	/data1-01/ztf_20190904_programid1-216
+    >   73M	/data1-01/ztf_20190904_programid1-217
+    >   73M	/data1-01/ztf_20190904_programid1-219
+    >   73M	/data1-01/ztf_20190904_programid1-22
+    >   73M	/data1-01/ztf_20190904_programid1-220
+    >   73M	/data1-01/ztf_20190904_programid1-222
+    >   73M	/data1-01/ztf_20190904_programid1-223
+    >   73M	/data1-01/ztf_20190904_programid1-225
+    >   73M	/data1-01/ztf_20190904_programid1-226
+    >   73M	/data1-01/ztf_20190904_programid1-227
+    >   73M	/data1-01/ztf_20190904_programid1-228
+    >   73M	/data1-01/ztf_20190904_programid1-229
+    >   73M	/data1-01/ztf_20190904_programid1-23
+    >   73M	/data1-01/ztf_20190904_programid1-231
+    >   73M	/data1-01/ztf_20190904_programid1-232
+    >   73M	/data1-01/ztf_20190904_programid1-234
+    >   73M	/data1-01/ztf_20190904_programid1-235
+    >   73M	/data1-01/ztf_20190904_programid1-237
+    >   73M	/data1-01/ztf_20190904_programid1-238
+    >   73M	/data1-01/ztf_20190904_programid1-239
+    >   73M	/data1-01/ztf_20190904_programid1-24
+    >   72M	/data1-01/ztf_20190904_programid1-240
+    >   73M	/data1-01/ztf_20190904_programid1-241
+    >   73M	/data1-01/ztf_20190904_programid1-243
+    >   73M	/data1-01/ztf_20190904_programid1-244
+    >   73M	/data1-01/ztf_20190904_programid1-246
+    >   73M	/data1-01/ztf_20190904_programid1-247
+    >   73M	/data1-01/ztf_20190904_programid1-249
+    >   73M	/data1-01/ztf_20190904_programid1-25
+    >   73M	/data1-01/ztf_20190904_programid1-250
+    >   73M	/data1-01/ztf_20190904_programid1-251
+    >   73M	/data1-01/ztf_20190904_programid1-252
+    >   73M	/data1-01/ztf_20190904_programid1-253
+    >   73M	/data1-01/ztf_20190904_programid1-255
+    >   73M	/data1-01/ztf_20190904_programid1-27
+    >   73M	/data1-01/ztf_20190904_programid1-28
+    >   73M	/data1-01/ztf_20190904_programid1-3
+    >   73M	/data1-01/ztf_20190904_programid1-30
+    >   73M	/data1-01/ztf_20190904_programid1-31
+    >   73M	/data1-01/ztf_20190904_programid1-33
+    >   73M	/data1-01/ztf_20190904_programid1-34
+    >   73M	/data1-01/ztf_20190904_programid1-35
+    >   73M	/data1-01/ztf_20190904_programid1-36
+    >   73M	/data1-01/ztf_20190904_programid1-37
+    >   73M	/data1-01/ztf_20190904_programid1-39
+    >   73M	/data1-01/ztf_20190904_programid1-4
+    >   73M	/data1-01/ztf_20190904_programid1-40
+    >   73M	/data1-01/ztf_20190904_programid1-42
+    >   73M	/data1-01/ztf_20190904_programid1-43
+    >   72M	/data1-01/ztf_20190904_programid1-45
+    >   73M	/data1-01/ztf_20190904_programid1-46
+    >   73M	/data1-01/ztf_20190904_programid1-47
+    >   73M	/data1-01/ztf_20190904_programid1-48
+    >   73M	/data1-01/ztf_20190904_programid1-49
+    >   73M	/data1-01/ztf_20190904_programid1-51
+    >   73M	/data1-01/ztf_20190904_programid1-52
+    >   73M	/data1-01/ztf_20190904_programid1-54
+    >   73M	/data1-01/ztf_20190904_programid1-55
+    >   73M	/data1-01/ztf_20190904_programid1-57
+    >   73M	/data1-01/ztf_20190904_programid1-58
+    >   73M	/data1-01/ztf_20190904_programid1-59
+    >   73M	/data1-01/ztf_20190904_programid1-6
+    >   73M	/data1-01/ztf_20190904_programid1-60
+    >   73M	/data1-01/ztf_20190904_programid1-61
+    >   73M	/data1-01/ztf_20190904_programid1-63
+    >   73M	/data1-01/ztf_20190904_programid1-64
+    >   73M	/data1-01/ztf_20190904_programid1-66
+    >   72M	/data1-01/ztf_20190904_programid1-67
+    >   73M	/data1-01/ztf_20190904_programid1-69
+    >   73M	/data1-01/ztf_20190904_programid1-7
+    >   73M	/data1-01/ztf_20190904_programid1-70
+    >   73M	/data1-01/ztf_20190904_programid1-71
+    >   73M	/data1-01/ztf_20190904_programid1-72
+    >   73M	/data1-01/ztf_20190904_programid1-73
+    >   73M	/data1-01/ztf_20190904_programid1-75
+    >   73M	/data1-01/ztf_20190904_programid1-76
+    >   73M	/data1-01/ztf_20190904_programid1-78
+    >   73M	/data1-01/ztf_20190904_programid1-79
+    >   73M	/data1-01/ztf_20190904_programid1-81
+    >   73M	/data1-01/ztf_20190904_programid1-82
+    >   73M	/data1-01/ztf_20190904_programid1-83
+    >   73M	/data1-01/ztf_20190904_programid1-84
+    >   73M	/data1-01/ztf_20190904_programid1-85
+    >   73M	/data1-01/ztf_20190904_programid1-87
+    >   73M	/data1-01/ztf_20190904_programid1-88
+    >   73M	/data1-01/ztf_20190904_programid1-9
+    >   73M	/data1-01/ztf_20190904_programid1-90
+    >   73M	/data1-01/ztf_20190904_programid1-91
+    >   73M	/data1-01/ztf_20190904_programid1-93
+    >   73M	/data1-01/ztf_20190904_programid1-94
+    >   73M	/data1-01/ztf_20190904_programid1-95
+    >   73M	/data1-01/ztf_20190904_programid1-96
+    >   73M	/data1-01/ztf_20190904_programid1-97
+    >   73M	/data1-01/ztf_20190904_programid1-99
+    >   ---- ----
+    >   Onoza
+    >   Wed  4 Sep 10:41:14 BST 2019
+    >   73M	/data2-01/ztf_20190904_programid1-0
+    >   73M	/data2-01/ztf_20190904_programid1-1
+    >   72M	/data2-01/ztf_20190904_programid1-10
+    >   73M	/data2-01/ztf_20190904_programid1-100
+    >   73M	/data2-01/ztf_20190904_programid1-101
+    >   73M	/data2-01/ztf_20190904_programid1-103
+    >   73M	/data2-01/ztf_20190904_programid1-104
+    >   73M	/data2-01/ztf_20190904_programid1-106
+    >   73M	/data2-01/ztf_20190904_programid1-107
+    >   73M	/data2-01/ztf_20190904_programid1-108
+    >   73M	/data2-01/ztf_20190904_programid1-109
+    >   73M	/data2-01/ztf_20190904_programid1-11
+    >   73M	/data2-01/ztf_20190904_programid1-110
+    >   73M	/data2-01/ztf_20190904_programid1-112
+    >   73M	/data2-01/ztf_20190904_programid1-113
+    >   73M	/data2-01/ztf_20190904_programid1-115
+    >   73M	/data2-01/ztf_20190904_programid1-116
+    >   73M	/data2-01/ztf_20190904_programid1-118
+    >   73M	/data2-01/ztf_20190904_programid1-119
+    >   73M	/data2-01/ztf_20190904_programid1-12
+    >   73M	/data2-01/ztf_20190904_programid1-120
+    >   73M	/data2-01/ztf_20190904_programid1-121
+    >   73M	/data2-01/ztf_20190904_programid1-122
+    >   73M	/data2-01/ztf_20190904_programid1-124
+    >   73M	/data2-01/ztf_20190904_programid1-125
+    >   73M	/data2-01/ztf_20190904_programid1-127
+    >   73M	/data2-01/ztf_20190904_programid1-128
+    >   73M	/data2-01/ztf_20190904_programid1-13
+    >   73M	/data2-01/ztf_20190904_programid1-130
+    >   72M	/data2-01/ztf_20190904_programid1-131
+    >   73M	/data2-01/ztf_20190904_programid1-132
+    >   73M	/data2-01/ztf_20190904_programid1-133
+    >   73M	/data2-01/ztf_20190904_programid1-134
+    >   73M	/data2-01/ztf_20190904_programid1-136
+    >   73M	/data2-01/ztf_20190904_programid1-137
+    >   73M	/data2-01/ztf_20190904_programid1-139
+    >   73M	/data2-01/ztf_20190904_programid1-14
+    >   73M	/data2-01/ztf_20190904_programid1-140
+    >   73M	/data2-01/ztf_20190904_programid1-142
+    >   73M	/data2-01/ztf_20190904_programid1-143
+    >   73M	/data2-01/ztf_20190904_programid1-144
+    >   73M	/data2-01/ztf_20190904_programid1-145
+    >   73M	/data2-01/ztf_20190904_programid1-146
+    >   73M	/data2-01/ztf_20190904_programid1-148
+    >   73M	/data2-01/ztf_20190904_programid1-149
+    >   73M	/data2-01/ztf_20190904_programid1-151
+    >   73M	/data2-01/ztf_20190904_programid1-152
+    >   73M	/data2-01/ztf_20190904_programid1-154
+    >   73M	/data2-01/ztf_20190904_programid1-155
+    >   73M	/data2-01/ztf_20190904_programid1-156
+    >   73M	/data2-01/ztf_20190904_programid1-157
+    >   73M	/data2-01/ztf_20190904_programid1-158
+    >   73M	/data2-01/ztf_20190904_programid1-16
+    >   73M	/data2-01/ztf_20190904_programid1-160
+    >   73M	/data2-01/ztf_20190904_programid1-161
+    >   73M	/data2-01/ztf_20190904_programid1-163
+    >   73M	/data2-01/ztf_20190904_programid1-164
+    >   73M	/data2-01/ztf_20190904_programid1-166
+    >   73M	/data2-01/ztf_20190904_programid1-167
+    >   73M	/data2-01/ztf_20190904_programid1-168
+    >   73M	/data2-01/ztf_20190904_programid1-169
+    >   73M	/data2-01/ztf_20190904_programid1-17
+    >   73M	/data2-01/ztf_20190904_programid1-170
+    >   72M	/data2-01/ztf_20190904_programid1-172
+    >   73M	/data2-01/ztf_20190904_programid1-173
+    >   73M	/data2-01/ztf_20190904_programid1-175
+    >   73M	/data2-01/ztf_20190904_programid1-176
+    >   73M	/data2-01/ztf_20190904_programid1-178
+    >   73M	/data2-01/ztf_20190904_programid1-179
+    >   73M	/data2-01/ztf_20190904_programid1-180
+    >   73M	/data2-01/ztf_20190904_programid1-181
+    >   73M	/data2-01/ztf_20190904_programid1-182
+    >   73M	/data2-01/ztf_20190904_programid1-184
+    >   73M	/data2-01/ztf_20190904_programid1-185
+    >   73M	/data2-01/ztf_20190904_programid1-187
+    >   73M	/data2-01/ztf_20190904_programid1-188
+    >   73M	/data2-01/ztf_20190904_programid1-19
+    >   73M	/data2-01/ztf_20190904_programid1-190
+    >   73M	/data2-01/ztf_20190904_programid1-191
+    >   73M	/data2-01/ztf_20190904_programid1-192
+    >   73M	/data2-01/ztf_20190904_programid1-193
+    >   73M	/data2-01/ztf_20190904_programid1-194
+    >   73M	/data2-01/ztf_20190904_programid1-196
+    >   73M	/data2-01/ztf_20190904_programid1-197
+    >   73M	/data2-01/ztf_20190904_programid1-199
+    >   73M	/data2-01/ztf_20190904_programid1-2
+    >   73M	/data2-01/ztf_20190904_programid1-20
+    >   73M	/data2-01/ztf_20190904_programid1-200
+    >   73M	/data2-01/ztf_20190904_programid1-202
+    >   73M	/data2-01/ztf_20190904_programid1-203
+    >   73M	/data2-01/ztf_20190904_programid1-204
+    >   73M	/data2-01/ztf_20190904_programid1-205
+    >   73M	/data2-01/ztf_20190904_programid1-206
+    >   73M	/data2-01/ztf_20190904_programid1-208
+    >   73M	/data2-01/ztf_20190904_programid1-209
+    >   73M	/data2-01/ztf_20190904_programid1-211
+    >   73M	/data2-01/ztf_20190904_programid1-212
+    >   73M	/data2-01/ztf_20190904_programid1-214
+    >   72M	/data2-01/ztf_20190904_programid1-215
+    >   73M	/data2-01/ztf_20190904_programid1-216
+    >   73M	/data2-01/ztf_20190904_programid1-217
+    >   73M	/data2-01/ztf_20190904_programid1-218
+    >   73M	/data2-01/ztf_20190904_programid1-22
+    >   73M	/data2-01/ztf_20190904_programid1-220
+    >   73M	/data2-01/ztf_20190904_programid1-221
+    >   73M	/data2-01/ztf_20190904_programid1-223
+    >   73M	/data2-01/ztf_20190904_programid1-224
+    >   73M	/data2-01/ztf_20190904_programid1-226
+    >   73M	/data2-01/ztf_20190904_programid1-227
+    >   73M	/data2-01/ztf_20190904_programid1-228
+    >   73M	/data2-01/ztf_20190904_programid1-229
+    >   73M	/data2-01/ztf_20190904_programid1-23
+    >   73M	/data2-01/ztf_20190904_programid1-230
+    >   73M	/data2-01/ztf_20190904_programid1-232
+    >   73M	/data2-01/ztf_20190904_programid1-233
+    >   73M	/data2-01/ztf_20190904_programid1-235
+    >   73M	/data2-01/ztf_20190904_programid1-236
+    >   73M	/data2-01/ztf_20190904_programid1-238
+    >   73M	/data2-01/ztf_20190904_programid1-239
+    >   73M	/data2-01/ztf_20190904_programid1-24
+    >   72M	/data2-01/ztf_20190904_programid1-240
+    >   73M	/data2-01/ztf_20190904_programid1-241
+    >   73M	/data2-01/ztf_20190904_programid1-242
+    >   73M	/data2-01/ztf_20190904_programid1-244
+    >   73M	/data2-01/ztf_20190904_programid1-245
+    >   73M	/data2-01/ztf_20190904_programid1-247
+    >   73M	/data2-01/ztf_20190904_programid1-248
+    >   73M	/data2-01/ztf_20190904_programid1-25
+    >   73M	/data2-01/ztf_20190904_programid1-250
+    >   73M	/data2-01/ztf_20190904_programid1-251
+    >   73M	/data2-01/ztf_20190904_programid1-252
+    >   73M	/data2-01/ztf_20190904_programid1-253
+    >   73M	/data2-01/ztf_20190904_programid1-254
+    >   73M	/data2-01/ztf_20190904_programid1-26
+    >   73M	/data2-01/ztf_20190904_programid1-28
+    >   73M	/data2-01/ztf_20190904_programid1-29
+    >   73M	/data2-01/ztf_20190904_programid1-31
+    >   73M	/data2-01/ztf_20190904_programid1-32
+    >   73M	/data2-01/ztf_20190904_programid1-34
+    >   73M	/data2-01/ztf_20190904_programid1-35
+    >   73M	/data2-01/ztf_20190904_programid1-36
+    >   73M	/data2-01/ztf_20190904_programid1-37
+    >   73M	/data2-01/ztf_20190904_programid1-38
+    >   73M	/data2-01/ztf_20190904_programid1-4
+    >   73M	/data2-01/ztf_20190904_programid1-40
+    >   73M	/data2-01/ztf_20190904_programid1-41
+    >   73M	/data2-01/ztf_20190904_programid1-43
+    >   73M	/data2-01/ztf_20190904_programid1-44
+    >   73M	/data2-01/ztf_20190904_programid1-46
+    >   73M	/data2-01/ztf_20190904_programid1-47
+    >   73M	/data2-01/ztf_20190904_programid1-48
+    >   73M	/data2-01/ztf_20190904_programid1-49
+    >   73M	/data2-01/ztf_20190904_programid1-5
+    >   73M	/data2-01/ztf_20190904_programid1-50
+    >   73M	/data2-01/ztf_20190904_programid1-52
+    >   73M	/data2-01/ztf_20190904_programid1-53
+    >   73M	/data2-01/ztf_20190904_programid1-55
+    >   73M	/data2-01/ztf_20190904_programid1-56
+    >   73M	/data2-01/ztf_20190904_programid1-58
+    >   73M	/data2-01/ztf_20190904_programid1-59
+    >   73M	/data2-01/ztf_20190904_programid1-60
+    >   73M	/data2-01/ztf_20190904_programid1-61
+    >   73M	/data2-01/ztf_20190904_programid1-62
+    >   73M	/data2-01/ztf_20190904_programid1-64
+    >   73M	/data2-01/ztf_20190904_programid1-65
+    >   72M	/data2-01/ztf_20190904_programid1-67
+    >   73M	/data2-01/ztf_20190904_programid1-68
+    >   73M	/data2-01/ztf_20190904_programid1-7
+    >   73M	/data2-01/ztf_20190904_programid1-70
+    >   73M	/data2-01/ztf_20190904_programid1-71
+    >   73M	/data2-01/ztf_20190904_programid1-72
+    >   73M	/data2-01/ztf_20190904_programid1-73
+    >   73M	/data2-01/ztf_20190904_programid1-74
+    >   73M	/data2-01/ztf_20190904_programid1-76
+    >   73M	/data2-01/ztf_20190904_programid1-77
+    >   73M	/data2-01/ztf_20190904_programid1-79
+    >   73M	/data2-01/ztf_20190904_programid1-8
+    >   73M	/data2-01/ztf_20190904_programid1-80
+    >   73M	/data2-01/ztf_20190904_programid1-82
+    >   73M	/data2-01/ztf_20190904_programid1-83
+    >   73M	/data2-01/ztf_20190904_programid1-84
+    >   73M	/data2-01/ztf_20190904_programid1-85
+    >   73M	/data2-01/ztf_20190904_programid1-86
+    >   73M	/data2-01/ztf_20190904_programid1-88
+    >   73M	/data2-01/ztf_20190904_programid1-89
+    >   73M	/data2-01/ztf_20190904_programid1-91
+    >   73M	/data2-01/ztf_20190904_programid1-92
+    >   73M	/data2-01/ztf_20190904_programid1-94
+    >   73M	/data2-01/ztf_20190904_programid1-95
+    >   73M	/data2-01/ztf_20190904_programid1-96
+    >   73M	/data2-01/ztf_20190904_programid1-97
+    >   73M	/data2-01/ztf_20190904_programid1-98
+
+

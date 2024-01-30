@@ -1,0 +1,75 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2020, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#zrq-notes-time
+#zrq-notes-indent
+#zrq-notes-crypto
+#zrq-notes-ansible
+#zrq-notes-osformat
+#
+
+
+    +phymatopus.kafka.reader.topic=ztf_20190916_programid1
+
+
+    topic=ztf_20190904_programid1
+
+    #
+    # Write data into Kafka ..
+
+    avrofile=/var/local/cache/data/ztf_public_20200125.tar.gz
+
+    topic=test-topic-003
+    looplimit=10000
+    threads=4
+
+    mvn test \
+        -D 'test=ZtfTarGzipToKafkaTestCase' \
+        -D "phymatopus.kafka.writer.topic=${topic:?}" \
+        -D "phymatopus.kafka.loader.avrofile=${avrofile:?}"
+        
+    #
+    # Read data back fropm Kafka
+
+    topic=test-topic-003
+    looplimit=10000
+    threads=4
+    #rewind=true
+    rewind=false
+
+    # Reading data with registered schema - works    
+    mvn test    \
+        -D 'test=LsstAlertReaderTest' \
+        -D "phymatopus.kafka.reader.rewind=${rewind}" \
+        -D "phymatopus.kafka.reader.threads=${threads}" \
+        -D "phymatopus.kafka.reader.looplimit=${looplimit}" \
+        -D "phymatopus.kafka.reader.topic=${topic}"
+
+    # Reading data with inline schema - fails    
+    mvn test    \
+        -D 'test=ZtfAlertReaderTest' \
+        -D "phymatopus.kafka.reader.rewind=${rewind}" \
+        -D "phymatopus.kafka.reader.threads=${threads}" \
+        -D "phymatopus.kafka.reader.looplimit=${looplimit}" \
+        -D "phymatopus.kafka.reader.topic=${topic}"
+
+
+
+

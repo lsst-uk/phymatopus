@@ -1,0 +1,1004 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2020, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#zrq-notes-time
+#zrq-notes-indent
+#zrq-notes-crypto
+#zrq-notes-ansible
+#zrq-notes-osformat
+#
+
+
+# -----------------------------------------------------
+# Try building our Docker images.
+#[user@desktop]
+
+    source "${HOME}/phymatopus.settings"
+    pushd "${PHYMATOPUS_CODE:?}"
+        pushd 'htm-indexer'
+
+            mvn clean install
+            mvn docker:package
+
+        popd
+    popd
+
+--START--
+....
+[ERROR] Failed to execute goal on project htm-indexer: Could not resolve dependencies for project uk.ac.roe.wfau.phymatopus:htm-indexer:war:1.0: Could not find artifact edu.jhu.htm:htmid:jar:3.0.1 in firethorn-cache (http://data.metagrid.co.uk/wfau/maven/firethorn) -> [Help 1]
+....
+--END--
+
+
+# -----------------------------------------------------
+# Try building the the JHU library.
+#[user@desktop]
+
+    source "${HOME}/phymatopus.settings"
+    pushd "${PHYMATOPUS_CODE:?}"
+
+        pushd ../external/htmid/jhu-htmid
+
+            mvn clean install
+
+        popd
+    popd
+
+
+--START--
+....
+[ERROR] COMPILATION ERROR : 
+[INFO] -------------------------------------------------------------
+[ERROR] /var/local/projects/LSST:UK/phymatopus/external/htmid/jhu-htmid/src/test/java/edu/jhu/htm/core/TestHTMrange.java:[13,19] cannot find symbol
+  symbol:   class HTMrange
+  location: class edu.jhu.htm.core.TestHTMrange
+[ERROR] /var/local/projects/LSST:UK/phymatopus/external/htmid/jhu-htmid/src/test/java/edu/jhu/htm/core/TestHTMrangeIterator.java:[9,19] cannot find symbol
+  symbol:   class HTMrange
+  location: class edu.jhu.htm.core.TestHTMrangeIterator
+[ERROR] /var/local/projects/LSST:UK/phymatopus/external/htmid/jhu-htmid/src/test/java/edu/jhu/htm/core/TestHTMindexImp.java:[7,1] package edu.jhu.htm.geometry does not exist
+....
+--END--
+
+
+# -----------------------------------------------------
+# Build the JHU library (skipping the tests).
+#[user@desktop]
+
+    source "${HOME}/phymatopus.settings"
+    pushd "${PHYMATOPUS_CODE:?}"
+
+        pushd ../external/htmid/jhu-htmid
+
+            mvn clean install -D 'maven.test.skip=true'
+
+        popd
+    popd
+
+
+# -----------------------------------------------------
+# Try building the original webapp.
+#[user@desktop]
+
+    # Copied from original notes ..
+    #   20180215-01-indexer-service.txt
+    #   20180216-01-indexer-service.txt
+    
+    source "${HOME}/phymatopus.settings"
+    pushd "${PHYMATOPUS_CODE:?}"
+        pushd 'htm-indexer'
+
+            mvn clean install
+
+        popd
+    popd
+
+--START--
+....
+[ERROR] /var/local/projects/LSST:UK/phymatopus/github-zrq/htm-indexer/src/test/java/uk/ac/roe/wfau/phymatopus/htmsql/index/IndexerTest.java:[24,46] cannot find symbol
+  symbol:   class Indexer
+  location: package uk.ac.roe.wfau.phymatopus.htmsql.index
+....
+--END--
+
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+#
+# Both errors are caused by us having a ':' in our project directory path.
+#
+#   /var/local/projects/LSST:UK/phymatopus/github-zrq/htm-indexer/....
+#
+# This ends up embedding a ':' in the Maven source path, which splits the path into two fragments.
+#
+#
+
+--START--
+....
+[DEBUG] Source roots:
+[DEBUG]  /var/local/projects/LSST:UK/phymatopus/github-zrq/htm-indexer/src/test/java
+[DEBUG]  /var/local/projects/LSST:UK/phymatopus/github-zrq/htm-indexer/target/generated-test-sources/test-annotations
+[DEBUG] Command line options:
+[DEBUG] -d /var/local/projects/LSST:UK/phymatopus/github-zrq/htm-indexer/target/test-classes
+        -classpath /var/local/projects/LSST:UK/phymatopus/github-zrq/htm-indexer/target/test-classes:/var/local/projects/LSST:UK/phymatopus/github-zrq/htm-indexer/target/classes: .......
+....
+--END--
+
+    Classpath :
+
+        -classpath /var/local/projects/LSST:UK/phymatopus/github-zrq/htm-indexer/target/test-classes:/var/local/projects/LSST:UK/phymatopus/github-zrq/htm-indexer/target/classes: .......
+
+    Split at ':'
+    
+        -classpath /var/local/projects/LSST:
+                   UK/phymatopus/github-zrq/htm-indexer/target/test-classes:
+                   /var/local/projects/LSST:
+                   UK/phymatopus/github-zrq/htm-indexer/target/classes:
+                   .......
+
+
+# -----------------------------------------------------
+# Fix the project location and try again.
+#[user@desktop]
+
+    source "${HOME}/projects.settings"
+    pushd  "${PROJECTS_ROOT:?}"
+
+        mv LSST:UK LSST-UK
+
+    popd        
+
+
+    vi "${HOME}/phymatopus.settings"
+
+        source "${HOME:?}/projects.settings"
+        PHYMATOPUS_REPO='git@github.com:Zarquan/phymatopus.git'
+    -   PHYMATOPUS_HOME="${PROJECTS_ROOT}/LSST:UK/phymatopus"
+    +   PHYMATOPUS_HOME="${PROJECTS_ROOT}/LSST-UK/phymatopus"
+        PHYMATOPUS_CODE="${PHYMATOPUS_HOME:?}/github-zrq"
+
+# -----------------------------------------------------
+# Build the the JHU library.
+#[user@desktop]
+
+    source "${HOME}/phymatopus.settings"
+    pushd "${PHYMATOPUS_CODE:?}"
+
+        pushd ../external/htmid/jhu-htmid
+
+            mvn clean install
+
+        popd
+    popd
+
+
+--START--
+....
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time: 8.889 s
+[INFO] Finished at: 2020-03-06T13:38:49Z
+[INFO] ------------------------------------------------------------------------
+--END--
+
+
+# -----------------------------------------------------
+# Build our Docker images.
+#[user@desktop]
+
+    source "${HOME}/phymatopus.settings"
+    pushd "${PHYMATOPUS_CODE:?}"
+        pushd 'htm-indexer'
+
+            mvn clean install
+            mvn docker:package
+
+        popd
+    popd
+
+--START--
+....
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time: 9.640 s
+[INFO] Finished at: 2020-03-06T13:40:50Z
+[INFO] ------------------------------------------------------------------------
+--END--
+
+--START--
+....
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD FAILURE
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time: 4.088 s
+[INFO] Finished at: 2020-03-06T13:40:56Z
+[INFO] ------------------------------------------------------------------------
+[ERROR] Failed to execute goal com.alexecollins.docker:docker-maven-plugin:2.11.24:package (default-cli) on project htm-indexer: Failed to parse dockerCfgFile: /home/Zarquan/.docker/config.json: Invalid Auth config file -....
+--END--
+
+    #
+    # Possibly an old auth file from another application.
+    # (*) Desktop is running a recent Fedora, which uses Podman et al rather than Docker.
+    #
+
+
+    mv /home/Zarquan/.docker/config.json \
+       /home/Zarquan/.docker/config.back
+
+
+# -----------------------------------------------------
+# Build our Docker images.
+#[user@desktop]
+
+    source "${HOME}/phymatopus.settings"
+    pushd "${PHYMATOPUS_CODE:?}"
+        pushd 'htm-indexer'
+
+            mvn clean install
+            mvn docker:package
+
+        popd
+    popd
+
+--START--
+....
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time: 8.644 s
+[INFO] Finished at: 2020-03-06T13:45:26Z
+[INFO] ------------------------------------------------------------------------
+--END--
+
+--START--
+....
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time: 04:58 min
+[INFO] Finished at: 2020-03-06T13:50:43Z
+[INFO] ------------------------------------------------------------------------
+--END--
+
+
+# -----------------------------------------------------
+# Try running the webapp.
+#[user@desktop]
+
+    source "${HOME}/phymatopus.settings"
+    pushd "${PHYMATOPUS_CODE:?}"
+        pushd 'htm-indexer'
+
+            docker-compose \
+                --file "docker/compose/tests/caffralis/docker-compose.yml" \
+                run \
+                    tester
+
+        popd
+    popd
+
+--START--
+....
+ERROR: for nikolina  Cannot start service nikolina: cgroups: cgroup mountpoint does not exist: unknown
+ERROR: Encountered errors while bringing up the project.
+--END--
+
+
+# -----------------------------------------------------
+# Try podman-compose instead of docker-compose.
+# https://github.com/containers/podman-compose
+#[user@desktop]
+
+    sudo dnf install podman-compose
+
+--START--
+....
+Installed:
+  podman-compose-0.1.5-2.git20191107.fc31.noarch                                                                                                                                                                                             
+--END--
+
+
+# -----------------------------------------------------
+# Try podman-compose instead of docker-compose.
+#[user@desktop]
+
+    source "${HOME}/phymatopus.settings"
+    pushd "${PHYMATOPUS_CODE:?}"
+        pushd 'htm-indexer'
+
+            podman-compose \
+                --file "docker/compose/tests/caffralis/docker-compose.yml" \
+                run \
+                    tester
+
+        popd
+    popd
+
+
+--START--
+....
+Error: No command specified on command line or as CMD or ENTRYPOINT in this image
+125
+--END--
+
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+#
+#   Might be easier to build and run the tests in a virtual machine ..
+#
+
+# -----------------------------------------------------
+# Login to one of the trop machines and run a virtual machine.
+#[user@desktop]
+
+    ssh trop04
+
+        createvm
+
+--START--
+....
+INFO : Node name [Wumar]
+INFO : Base name [fedora-28-docker-base-20180708.qcow]
+INFO : Base path [/var/lib/libvirt/images/base/fedora-28-docker-base-20180708.qcow]
+INFO : Disc name [Wumar.qcow]
+INFO : Disc size [16GiB]
+....
+--END--
+        
+    ssh Wumar
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+# Install the development tools we need.
+# Instructions copied from firethorn/builder Dockerfile.
+#[user@virtual]
+
+    # Install admin tools.
+    sudo dnf -y install \
+        rsync \
+        iputils \
+        bind-utils
+
+    # Install Mercurial and Git
+    sudo dnf -y install \
+        git \
+        mercurial
+
+    #
+    # Update SELinux library.
+    # https://bugzilla.redhat.com/show_bug.cgi?id=1596409 
+    # https://bugzilla.redhat.com/show_bug.cgi?id=1595316
+    sudo dnf -y update \
+        libsemanage
+
+    #
+    # Install Docker CE from the Docker repository.
+    sudo dnf -y install \
+        dnf-plugins-core
+
+    sudo dnf -y config-manager \
+        --add-repo \
+        'https://download.docker.com/linux/fedora/docker-ce.repo'
+
+    sudo dnf -y \
+        makecache
+
+    sudo dnf -y \
+        install docker-ce
+
+    #
+    # Install Docker compose from GitHub.
+    sudo curl -L -s "https://github.com/docker/compose/releases/download/1.21.2/docker-compose-$(uname -s)-$(uname -m)" -o "/usr/bin/docker-compose"
+    sudo chmod 'a+x' "/usr/bin/docker-compose"
+
+    # Install Java
+    sudo dnf -y install \
+        java-openjdk-headless
+
+    #
+    # Install Maven
+    sudo dnf -y install \
+        maven
+
+    # Create our cache directory.
+    sudo mkdir /var/local/cache
+    sudo chgrp 'users' /var/local/cache
+    sudo chmod 'g+rwx' /var/local/cache
+
+    # Create our build directory.
+    sudo mkdir -p /var/local/build
+    sudo chgrp 'users' /var/local/build
+    sudo chmod 'g+rwx' /var/local/build
+
+    # Set the Maven cache location.
+    sudo sed -i '
+        /^[[:space:]]*<!-- localRepository/,/^[[:space:]]*-->/{
+            /^[[:space:]]*-->/{
+                a\
+  <localRepository>/var/local/cache/maven</localRepository>
+                }
+            }
+        ' /etc/maven/settings.xml
+
+
+# -----------------------------------------------------
+# Check our Docker service.
+#[user@virtual]
+
+    docker version
+
+--START--
+Client:
+ Version:      18.03.1-ce
+ API version:  1.37
+ Go version:   go1.9.5
+ Git commit:   9ee9f40
+ Built:        Wed Jun 20 21:38:58 2018
+ OS/Arch:      linux/amd64
+ Experimental: false
+ Orchestrator: swarm
+
+Server:
+ Engine:
+  Version:      18.03.1-ce
+  API version:  1.37 (minimum version 1.12)
+  Go version:   go1.9.5
+  Git commit:   9ee9f40
+  Built:        Wed Jun 20 21:42:40 2018
+  OS/Arch:      linux/amd64
+  Experimental: false
+--END--
+
+
+    docker info
+
+--START--
+Containers: 0
+ Running: 0
+ Paused: 0
+ Stopped: 0
+Images: 0
+Server Version: 18.03.1-ce
+Storage Driver: btrfs
+ Build Version: Btrfs v4.15.1
+ Library Version: 102
+Logging Driver: json-file
+Cgroup Driver: cgroupfs
+Plugins:
+ Volume: local
+ Network: bridge host macvlan null overlay
+ Log: awslogs fluentd gcplogs gelf journald json-file logentries splunk syslog
+Swarm: inactive
+Runtimes: runc
+Default Runtime: runc
+Init Binary: docker-init
+containerd version: 773c489c9c1b21a6d78b5c538cd395416ec50f88
+runc version: 4fc53a81fb7c994640722ac585fa9ca548971871
+init version: 949e6fa
+Security Options:
+ seccomp
+  Profile: default
+Kernel Version: 4.17.3-200.fc28.x86_64
+Operating System: Fedora 28 (Twenty Eight)
+OSType: linux
+Architecture: x86_64
+CPUs: 4
+Total Memory: 3.851GiB
+Name: Wumar
+ID: CQQD:M3C5:4PKG:SVW4:RPET:LSJC:SHMG:BCUQ:AMQS:FPPW:HBEW:V2BS
+Docker Root Dir: /var/lib/docker
+Debug Mode (client): false
+Debug Mode (server): false
+Registry: https://index.docker.io/v1/
+Labels:
+Experimental: false
+Insecure Registries:
+ 127.0.0.0/8
+Live Restore Enabled: false
+--END--
+
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+# Transfer (push) a copy of the JHU source code.
+#[user@desktop]
+
+    source "${HOME}/phymatopus.settings"
+    pushd "${PHYMATOPUS_CODE:?}"
+
+        scp -r "../external/htmid/jhu-htmid" \
+            Wumar:/var/local/build/jhu-htmid
+
+        popd
+    popd
+
+
+--START--
+TestHTMfunc.java                                100% 7921   282.1KB/s   00:00    
+TestHTMindexImp.java                            100% 5411   185.6KB/s   00:00    
+TestHTMrange.java                               100% 1840    73.3KB/s   00:00    
+TestVector3d.java                               100%  825    32.7KB/s   00:00    
+....
+....
+TEST-edu.jhu.skiplist.TestSkipList.xml          100% 6174   240.2KB/s   00:00    
+pom.properties                                  100%   82     3.4KB/s   00:00    
+htmid-3.0.1.jar                                 100%   83KB 107.3KB/s   00:00    
+duplicate-finder-result.xml                     100% 5627   183.1KB/s   00:00    
+--END--
+
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+# Build the JHU library.
+#[user@virtual]
+
+    pushd /var/local/build/jhu-htmid
+
+        mvn clean install
+
+    popd
+
+
+--START--
+....
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time: 20.158 s
+[INFO] Finished at: 2020-03-06T15:09:23Z
+[INFO] Final Memory: 24M/244M
+[INFO] ------------------------------------------------------------------------
+--END--
+
+
+# -----------------------------------------------------
+# Create our settings file.
+#[user@virtual]
+
+    cat > "${HOME}/phymatopus.settings" << 'EOF'
+PHYMATOPUS_REPO='git@github.com:Zarquan/phymatopus.git'
+PHYMATOPUS_CODE='/var/local/build/phymatopus'
+EOF
+
+
+# -----------------------------------------------------
+# Checkout our source code.
+#[user@virtual]
+
+    source "${HOME}/phymatopus.settings"
+
+    echo "Checking [${PHYMATOPUS_CODE}]"
+    if [ ! -e "${PHYMATOPUS_CODE:?}" ]
+    then
+        echo "Creating [${PHYMATOPUS_CODE}]"
+        mkdir "$(dirname ${PHYMATOPUS_CODE:?})"
+        pushd "$(dirname ${PHYMATOPUS_CODE:?})"
+            git clone "${PHYMATOPUS_REPO:?}" "$(basename ${PHYMATOPUS_CODE:?})"
+        popd
+    else
+        echo "Updating [${PHYMATOPUS_CODE}]"
+        pushd "${PHYMATOPUS_CODE:?}"
+            git pull
+        popd
+    fi
+
+--START--
+....
+remote: Enumerating objects: 135, done.
+remote: Counting objects: 100% (135/135), done.
+remote: Compressing objects: 100% (66/66), done.
+remote: Total 5658 (delta 60), reused 111 (delta 44), pack-reused 5523
+Receiving objects: 100% (5658/5658), 14.15 MiB | 6.15 MiB/s, done.
+Resolving deltas: 100% (2309/2309), done.
+--END--
+
+
+# -----------------------------------------------------
+# Build our Docker images.
+#[user@virtual]
+
+    source "${HOME}/phymatopus.settings"
+    pushd "${PHYMATOPUS_CODE:?}"
+        pushd 'htm-indexer'
+
+            mvn clean install
+            mvn docker:package
+
+        popd
+    popd
+
+
+--START--
+....
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time: 23.677 s
+[INFO] Finished at: 2020-03-06T15:19:19Z
+[INFO] Final Memory: 34M/305M
+[INFO] ------------------------------------------------------------------------
+--END--
+
+--START--
+....
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time: 57.230 s
+[INFO] Finished at: 2020-03-06T15:20:18Z
+[INFO] Final Memory: 30M/177M
+[INFO] ------------------------------------------------------------------------
+--END--
+
+
+# -----------------------------------------------------
+# Run the test webapp.
+#[user@virtual]
+
+    source "${HOME}/phymatopus.settings"
+    pushd "${PHYMATOPUS_CODE:?}"
+        pushd 'htm-indexer'
+
+            docker-compose \
+                --file "docker/compose/tests/caffralis/docker-compose.yml" \
+                run \
+                    tester
+
+# -----------------------------------------------------
+# Run some tests.
+#[root@tester]
+
+    curl \
+        --head \
+        --silent \
+        "${endpointurl:?}/system/info"
+
+--START--
+HTTP/1.1 200 
+Content-Type: application/json;charset=ISO-8859-1
+Content-Language: en-US
+Content-Length: 732
+Date: Fri, 06 Mar 2020 15:22:23 GMT
+--END--
+
+
+    curl \
+        --silent \
+        "${endpointurl:?}/system/info"
+
+--START--
+{
+"java": {
+    "name" : "OpenJDK 64-Bit Server VM",
+    "build" : "25.161-b14",
+    "version" : "1.8.0_161",
+    "memory" : {
+        "total" : 372244480,
+        "free" : 281042848,
+        "max" : 919076864
+        }
+    },
+"build": {
+    "name" : "htm-indexer",
+    "version" : "1.0",
+    "timestamp" : "1583507952106",
+    "changeset" : "035cc06ec9d45c96f0079ae5fb4f80b1fb2f48a4"
+    },
+"system": {
+    "time" : "2020-03-06T15:22:38.114Z",
+    "name" : "Linux",
+    "arch" : "amd64",
+    "version"  : "4.17.3-200.fc28.x86_64",
+    "platform" : "Fedora release 27 (Twenty Seven)"
+    },
+"servlet": {
+    "server" : "Apache Tomcat/8.5.24",
+    "context" : "/htm-sql"
+    },
+"jdbc": {
+    "drivers": [
+        
+        ]
+    }
+}
+--END--
+
+
+    curl \
+        --silent \
+        --data   "phymatopus.ra=123.0" \
+        --data   "phymatopus.dec=8.5" \
+        "${endpointurl:?}/index"
+
+--START--
+16076381049119
+--END--
+
+
+    curl \
+        --silent \
+        --data   "phymatopus.ra=123.0" \
+        --data   "phymatopus.dec=8.5" \
+        --data   "phymatopus.radius=0.0025" \
+        "${endpointurl:?}/index"
+
+
+--START--
+[16076381049109,16076381049110,16076381049111,16076381049116,16076381049118,16076381049119]
+--END--
+
+
+    curl \
+        --verbose \
+        --trace-time \
+        --data   "phymatopus.ra=123.0" \
+        --data   "phymatopus.dec=8.5" \
+        --data   "phymatopus.radius=0.0025" \
+        "${endpointurl:?}/index" \
+        "${endpointurl:?}/index" \
+        "${endpointurl:?}/index" \
+        "${endpointurl:?}/index" \
+        "${endpointurl:?}/index" \
+        "${endpointurl:?}/index" \
+        "${endpointurl:?}/index" \
+        "${endpointurl:?}/index" \
+        "${endpointurl:?}/index" \
+        "${endpointurl:?}/index"
+
+
+--START--
+15:25:09.571568 *   Trying 172.18.0.2...
+15:25:09.572069 * TCP_NODELAY set
+15:25:09.573362 * Connected to nikolina (172.18.0.2) port 8080 (#0)
+15:25:09.573837 > POST /htm-sql/index HTTP/1.1
+15:25:09.573837 > Host: nikolina:8080
+15:25:09.573837 > User-Agent: curl/7.55.1
+15:25:09.573837 > Accept: */*
+15:25:09.573837 > Content-Length: 63
+15:25:09.573837 > Content-Type: application/x-www-form-urlencoded
+15:25:09.573837 > 
+15:25:09.574434 * upload completely sent off: 63 out of 63 bytes
+15:25:09.584985 < HTTP/1.1 200 
+15:25:09.585114 < Content-Type: application/json;charset=UTF-8
+15:25:09.585300 < Transfer-Encoding: chunked
+15:25:09.585502 < Date: Fri, 06 Mar 2020 15:25:09 GMT
+15:25:09.585764 < 
+15:25:09.586145 * Connection #0 to host nikolina left intact
+[16076381049109,16076381049110,16076381049111,16076381049116,16076381049118,16076381049119]
+
+15:25:09.586481 * Found bundle for host nikolina: 0x5609dd6062f0 [can pipeline]
+15:25:09.586633 * Re-using existing connection! (#0) with host nikolina
+15:25:09.586896 * Connected to nikolina (172.18.0.2) port 8080 (#0)
+15:25:09.587350 > POST /htm-sql/index HTTP/1.1
+15:25:09.587350 > Host: nikolina:8080
+15:25:09.587350 > User-Agent: curl/7.55.1
+15:25:09.587350 > Accept: */*
+15:25:09.587350 > Content-Length: 63
+15:25:09.587350 > Content-Type: application/x-www-form-urlencoded
+15:25:09.587350 > 
+15:25:09.588427 * upload completely sent off: 63 out of 63 bytes
+15:25:09.594731 < HTTP/1.1 200 
+15:25:09.594842 < Content-Type: application/json;charset=UTF-8
+15:25:09.594939 < Transfer-Encoding: chunked
+15:25:09.595062 < Date: Fri, 06 Mar 2020 15:25:09 GMT
+15:25:09.595164 < 
+15:25:09.595463 * Connection #0 to host nikolina left intact
+[16076381049109,16076381049110,16076381049111,16076381049116,16076381049118,16076381049119]
+
+15:25:09.595621 * Found bundle for host nikolina: 0x5609dd6062f0 [can pipeline]
+15:25:09.595727 * Re-using existing connection! (#0) with host nikolina
+15:25:09.595872 * Connected to nikolina (172.18.0.2) port 8080 (#0)
+15:25:09.596032 > POST /htm-sql/index HTTP/1.1
+15:25:09.596032 > Host: nikolina:8080
+15:25:09.596032 > User-Agent: curl/7.55.1
+15:25:09.596032 > Accept: */*
+15:25:09.596032 > Content-Length: 63
+15:25:09.596032 > Content-Type: application/x-www-form-urlencoded
+15:25:09.596032 > 
+15:25:09.596609 * upload completely sent off: 63 out of 63 bytes
+15:25:09.602809 < HTTP/1.1 200 
+15:25:09.602932 < Content-Type: application/json;charset=UTF-8
+15:25:09.603071 < Transfer-Encoding: chunked
+15:25:09.603166 < Date: Fri, 06 Mar 2020 15:25:09 GMT
+15:25:09.603230 < 
+15:25:09.604037 * Connection #0 to host nikolina left intact
+[16076381049109,16076381049110,16076381049111,16076381049116,16076381049118,16076381049119]
+
+15:25:09.604220 * Found bundle for host nikolina: 0x5609dd6062f0 [can pipeline]
+15:25:09.604330 * Re-using existing connection! (#0) with host nikolina
+15:25:09.604397 * Connected to nikolina (172.18.0.2) port 8080 (#0)
+15:25:09.604507 > POST /htm-sql/index HTTP/1.1
+15:25:09.604507 > Host: nikolina:8080
+15:25:09.604507 > User-Agent: curl/7.55.1
+15:25:09.604507 > Accept: */*
+15:25:09.604507 > Content-Length: 63
+15:25:09.604507 > Content-Type: application/x-www-form-urlencoded
+15:25:09.604507 > 
+15:25:09.604922 * upload completely sent off: 63 out of 63 bytes
+15:25:09.610737 < HTTP/1.1 200 
+15:25:09.610875 < Content-Type: application/json;charset=UTF-8
+15:25:09.611256 < Transfer-Encoding: chunked
+15:25:09.611369 < Date: Fri, 06 Mar 2020 15:25:09 GMT
+15:25:09.611652 < 
+15:25:09.612126 * Connection #0 to host nikolina left intact
+[16076381049109,16076381049110,16076381049111,16076381049116,16076381049118,16076381049119]
+
+15:25:09.612290 * Found bundle for host nikolina: 0x5609dd6062f0 [can pipeline]
+15:25:09.612580 * Re-using existing connection! (#0) with host nikolina
+15:25:09.612676 * Connected to nikolina (172.18.0.2) port 8080 (#0)
+15:25:09.613053 > POST /htm-sql/index HTTP/1.1
+15:25:09.613053 > Host: nikolina:8080
+15:25:09.613053 > User-Agent: curl/7.55.1
+15:25:09.613053 > Accept: */*
+15:25:09.613053 > Content-Length: 63
+15:25:09.613053 > Content-Type: application/x-www-form-urlencoded
+15:25:09.613053 > 
+15:25:09.614193 * upload completely sent off: 63 out of 63 bytes
+15:25:09.618980 < HTTP/1.1 200 
+15:25:09.619146 < Content-Type: application/json;charset=UTF-8
+15:25:09.619465 < Transfer-Encoding: chunked
+15:25:09.619594 < Date: Fri, 06 Mar 2020 15:25:09 GMT
+15:25:09.619889 < 
+15:25:09.620348 * Connection #0 to host nikolina left intact
+[16076381049109,16076381049110,16076381049111,16076381049116,16076381049118,16076381049119]
+
+15:25:09.620734 * Found bundle for host nikolina: 0x5609dd6062f0 [can pipeline]
+15:25:09.620837 * Re-using existing connection! (#0) with host nikolina
+15:25:09.621148 * Connected to nikolina (172.18.0.2) port 8080 (#0)
+15:25:09.621500 > POST /htm-sql/index HTTP/1.1
+15:25:09.621500 > Host: nikolina:8080
+15:25:09.621500 > User-Agent: curl/7.55.1
+15:25:09.621500 > Accept: */*
+15:25:09.621500 > Content-Length: 63
+15:25:09.621500 > Content-Type: application/x-www-form-urlencoded
+15:25:09.621500 > 
+15:25:09.623082 * upload completely sent off: 63 out of 63 bytes
+15:25:09.627098 < HTTP/1.1 200 
+15:25:09.627188 < Content-Type: application/json;charset=UTF-8
+15:25:09.627284 < Transfer-Encoding: chunked
+15:25:09.627622 < Date: Fri, 06 Mar 2020 15:25:09 GMT
+15:25:09.627708 < 
+15:25:09.628127 * Connection #0 to host nikolina left intact
+[16076381049109,16076381049110,16076381049111,16076381049116,16076381049118,16076381049119]
+
+15:25:09.628510 * Found bundle for host nikolina: 0x5609dd6062f0 [can pipeline]
+15:25:09.628608 * Re-using existing connection! (#0) with host nikolina
+15:25:09.628893 * Connected to nikolina (172.18.0.2) port 8080 (#0)
+15:25:09.629237 > POST /htm-sql/index HTTP/1.1
+15:25:09.629237 > Host: nikolina:8080
+15:25:09.629237 > User-Agent: curl/7.55.1
+15:25:09.629237 > Accept: */*
+15:25:09.629237 > Content-Length: 63
+15:25:09.629237 > Content-Type: application/x-www-form-urlencoded
+15:25:09.629237 > 
+15:25:09.630214 * upload completely sent off: 63 out of 63 bytes
+15:25:09.634276 < HTTP/1.1 200 
+15:25:09.634407 < Content-Type: application/json;charset=UTF-8
+15:25:09.634506 < Transfer-Encoding: chunked
+15:25:09.634830 < Date: Fri, 06 Mar 2020 15:25:09 GMT
+15:25:09.634951 < 
+15:25:09.635342 * Connection #0 to host nikolina left intact
+[16076381049109,16076381049110,16076381049111,16076381049116,16076381049118,16076381049119]
+
+15:25:09.635725 * Found bundle for host nikolina: 0x5609dd6062f0 [can pipeline]
+15:25:09.636040 * Re-using existing connection! (#0) with host nikolina
+15:25:09.636129 * Connected to nikolina (172.18.0.2) port 8080 (#0)
+15:25:09.636476 > POST /htm-sql/index HTTP/1.1
+15:25:09.636476 > Host: nikolina:8080
+15:25:09.636476 > User-Agent: curl/7.55.1
+15:25:09.636476 > Accept: */*
+15:25:09.636476 > Content-Length: 63
+15:25:09.636476 > Content-Type: application/x-www-form-urlencoded
+15:25:09.636476 > 
+15:25:09.637849 * upload completely sent off: 63 out of 63 bytes
+15:25:09.641235 < HTTP/1.1 200 
+15:25:09.641361 < Content-Type: application/json;charset=UTF-8
+15:25:09.641643 < Transfer-Encoding: chunked
+15:25:09.641744 < Date: Fri, 06 Mar 2020 15:25:09 GMT
+15:25:09.642041 < 
+15:25:09.642433 * Connection #0 to host nikolina left intact
+[16076381049109,16076381049110,16076381049111,16076381049116,16076381049118,16076381049119]
+
+15:25:09.642824 * Found bundle for host nikolina: 0x5609dd6062f0 [can pipeline]
+15:25:09.642912 * Re-using existing connection! (#0) with host nikolina
+15:25:09.643163 * Connected to nikolina (172.18.0.2) port 8080 (#0)
+15:25:09.643334 > POST /htm-sql/index HTTP/1.1
+15:25:09.643334 > Host: nikolina:8080
+15:25:09.643334 > User-Agent: curl/7.55.1
+15:25:09.643334 > Accept: */*
+15:25:09.643334 > Content-Length: 63
+15:25:09.643334 > Content-Type: application/x-www-form-urlencoded
+15:25:09.643334 > 
+15:25:09.644893 * upload completely sent off: 63 out of 63 bytes
+15:25:09.647517 < HTTP/1.1 200 
+15:25:09.647627 < Content-Type: application/json;charset=UTF-8
+15:25:09.647948 < Transfer-Encoding: chunked
+15:25:09.648071 < Date: Fri, 06 Mar 2020 15:25:09 GMT
+15:25:09.648350 < 
+15:25:09.648725 * Connection #0 to host nikolina left intact
+[16076381049109,16076381049110,16076381049111,16076381049116,16076381049118,16076381049119]
+
+15:25:09.649049 * Found bundle for host nikolina: 0x5609dd6062f0 [can pipeline]
+15:25:09.649135 * Re-using existing connection! (#0) with host nikolina
+15:25:09.649360 * Connected to nikolina (172.18.0.2) port 8080 (#0)
+15:25:09.649519 > POST /htm-sql/index HTTP/1.1
+15:25:09.649519 > Host: nikolina:8080
+15:25:09.649519 > User-Agent: curl/7.55.1
+15:25:09.649519 > Accept: */*
+15:25:09.649519 > Content-Length: 63
+15:25:09.649519 > Content-Type: application/x-www-form-urlencoded
+15:25:09.649519 > 
+15:25:09.650807 * upload completely sent off: 63 out of 63 bytes
+15:25:09.653840 < HTTP/1.1 200 
+15:25:09.653920 < Content-Type: application/json;charset=UTF-8
+15:25:09.653987 < Transfer-Encoding: chunked
+15:25:09.654306 < Date: Fri, 06 Mar 2020 15:25:09 GMT
+15:25:09.654372 < 
+15:25:09.654723 * Connection #0 to host nikolina left intact
+[16076381049109,16076381049110,16076381049111,16076381049116,16076381049118,16076381049119]
+--END--
+
+
+# ---- ----
+
+    (9.573362 - 9.586145) * -1 = 0.012783
+
+    (9.586896 - 9.595463) * -1 = 0.008567
+
+    (9.595872 - 9.604037) * -1 = 0.008165
+
+    (9.604397 - 9.612126) * -1 = 0.007729
+
+    (9.612676 - 9.620348) * -1 = 0.007672
+
+    (9.621148 - 9.628127) * -1 = 0.006979
+
+    (9.628893 - 9.635342) * -1 = 0.006449
+
+    (9.636129 - 9.642433) * -1 = 0.006304
+
+    (9.643163 - 9.648725) * -1 = 0.005562
+
+    (9.649360 - 9.654723) * -1 = 0.005363
+
+# ---- ----
+        
+    (
+        (9.586896 - 9.595463) + 
+        (9.595872 - 9.604037) +
+        (9.604397 - 9.612126) +
+        (9.612676 - 9.620348) +
+        (9.621148 - 9.628127) +
+        (9.628893 - 9.635342) +
+        (9.636129 - 9.642433) +
+        (9.643163 - 9.648725) +
+        (9.649360 - 9.654723)
+    ) * (-1/9) = 0.006976667
+
+        0.006976667
+
+      ~= 7ms
+
+# ---- ----
+
+
+

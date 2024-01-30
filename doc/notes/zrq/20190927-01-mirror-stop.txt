@@ -1,0 +1,87 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+# -----------------------------------------------------
+# Shutdown our MirrorMaker services.
+#[user@trop03]
+
+    source "${HOME}/ssh-options"
+    source "${HOME}/nodenames"
+
+    for vmname in ${mmnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname}]"
+            ssh \
+                ${scpopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                docker-compose \
+                    --file mirror.yml \
+                    down
+                "
+        done
+
+--START--
+---- ----
+Node [Grerat]
+Stopping stevedore_tina_1 ... done
+Removing stevedore_tina_1 ... done
+Removing network stevedore_default
+---- ----
+Node [Jeralenia]
+Stopping stevedore_tina_1 ... done
+Removing stevedore_tina_1 ... done
+Removing network stevedore_default
+--END--
+
+
+# -----------------------------------------------------
+# Shutdown our cron trigger.
+#[user@trop03]
+
+    source "${HOME}/ssh-options"
+    source "${HOME}/nodenames"
+
+    controller=${mmnames[0]:?}
+
+    ssh \
+        ${sshopts[*]} \
+        "${sshuser:?}@${controller:?}"
+
+        crontab -l
+--START--
+2 1 * * * /home/Stevedore/bin/update-topic.sh
+--END--
+
+        crontab -r
+
+        crontab -l
+
+--START--
+no crontab for Stevedore
+--END--
+
+
+
+
+

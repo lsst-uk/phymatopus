@@ -1,0 +1,391 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2020, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#zrq-notes-time
+#zrq-notes-indent
+#zrq-notes-crypto
+#zrq-notes-ansible
+#zrq-notes-osformat
+#
+
+
+# -----------------------------------------------------
+# List the VMs on work01.
+#[user@work01]
+
+    source "${HOME}/libvirt.settings"
+    virsh -c $libvirtcon list --all
+
+--START--
+ Id    Name                           State
+----------------------------------------------------
+ 42    Ocelisean                      running
+ 43    Araeri                         running
+ 44    Nyderrad                       running
+ 50    Glaubard                       running
+ 51    Legendamwen                    running
+ 52    Rhoawien                       running
+ 53    Gwirabard                      running
+ 54    Boasien                        running
+ 55    Falidon                        running
+ 56    Brawia                         running
+ 57    Iberigan                       running
+--END--
+
+
+# -----------------------------------------------------
+# Check what is running on each VM.
+#[user@work01]
+    
+    source "${HOME}/ssh-options"
+    source "${HOME}/libvirt.settings"
+
+    for vmname in $(
+        virsh -c $libvirtcon list --name --all
+        )
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                '
+                hostname
+                date
+                docker ps -a
+                '
+        done
+
+
+--START--
+---- ----
+Node [Ocelisean]
+Ocelisean
+Sat 21 Mar 14:29:44 GMT 2020
+CONTAINER ID        IMAGE                             COMMAND                  CREATED             STATUS              PORTS                                                                    NAMES
+34d30a0505b9        confluentinc/cp-zookeeper:4.1.1   "/etc/confluent/dock…"   5 months ago        Up 5 months         0.0.0.0:2181->2181/tcp, 0.0.0.0:2888->2888/tcp, 0.0.0.0:3888->3888/tcp   stevedore_courtney_1
+---- ----
+Node [Araeri]
+Araeri
+Sat 21 Mar 14:29:45 GMT 2020
+CONTAINER ID        IMAGE                             COMMAND                  CREATED             STATUS              PORTS                                                                    NAMES
+21eefac60b95        confluentinc/cp-zookeeper:4.1.1   "/etc/confluent/dock…"   5 months ago        Up 5 months         0.0.0.0:2181->2181/tcp, 0.0.0.0:2888->2888/tcp, 0.0.0.0:3888->3888/tcp   stevedore_courtney_1
+---- ----
+Node [Nyderrad]
+Nyderrad
+Sat 21 Mar 14:29:46 GMT 2020
+CONTAINER ID        IMAGE                             COMMAND                  CREATED             STATUS              PORTS                                                                    NAMES
+5b7027e114d8        confluentinc/cp-zookeeper:4.1.1   "/etc/confluent/dock…"   5 months ago        Up 5 months         0.0.0.0:2181->2181/tcp, 0.0.0.0:2888->2888/tcp, 0.0.0.0:3888->3888/tcp   stevedore_courtney_1
+---- ----
+Node [Glaubard]
+Glaubard
+Sat 21 Mar 14:29:46 GMT 2020
+CONTAINER ID        IMAGE                   COMMAND                  CREATED             STATUS              PORTS               NAMES
+2763e6fa7384        atolmis/kafka           "bin/kafka-mirror-ma…"   12 hours ago        Up 12 hours                             stevedore_tina_1
+e10c619ddc2f        phymatopus/kafka-core   "bin/kafka-run-class…"   2 months ago        Created                                 magical_bassi
+d085c83e728d        phymatopus/kafka-core   "bin/kafka-run-class…"   2 months ago        Created                                 vibrant_banach
+---- ----
+Node [Legendamwen]
+Legendamwen
+Sat 21 Mar 14:29:47 GMT 2020
+CONTAINER ID        IMAGE               COMMAND                  CREATED             STATUS              PORTS               NAMES
+8dd788a4cdbe        atolmis/kafka       "bin/kafka-mirror-ma…"   12 hours ago        Up 12 hours                             stevedore_tina_1
+---- ----
+Node [Rhoawien]
+Rhoawien
+Sat 21 Mar 14:29:48 GMT 2020
+CONTAINER ID        IMAGE                         COMMAND                  CREATED             STATUS              PORTS                              NAMES
+abb0be14bd6a        confluentinc/cp-kafka:4.1.1   "/etc/confluent/dock…"   5 months ago        Up 5 months         0.0.0.0:9092-9093->9092-9093/tcp   stevedore_emily_1
+---- ----
+Node [Gwirabard]
+Gwirabard
+Sat 21 Mar 14:29:49 GMT 2020
+CONTAINER ID        IMAGE                         COMMAND                  CREATED             STATUS                    PORTS               NAMES
+97f5fc50ac2e        confluentinc/cp-kafka:4.1.1   "/etc/confluent/dock…"   5 months ago        Exited (1) 2 months ago                       stevedore_emily_1
+---- ----
+Node [Boasien]
+Boasien
+Sat 21 Mar 14:29:49 GMT 2020
+CONTAINER ID        IMAGE                         COMMAND                  CREATED             STATUS                      PORTS               NAMES
+79ff4df4d2d3        confluentinc/cp-kafka:4.1.1   "/etc/confluent/dock…"   5 months ago        Exited (139) 2 months ago                       stevedore_emily_1
+---- ----
+Node [Falidon]
+Falidon
+Sat 21 Mar 14:29:50 GMT 2020
+CONTAINER ID        IMAGE                         COMMAND                  CREATED             STATUS              PORTS                              NAMES
+7e130408b046        confluentinc/cp-kafka:4.1.1   "/etc/confluent/dock…"   5 months ago        Up 5 months         0.0.0.0:9092-9093->9092-9093/tcp   stevedore_emily_1
+---- ----
+Node [Brawia]
+Brawia
+Sat 21 Mar 14:29:51 GMT 2020
+CONTAINER ID        IMAGE                         COMMAND                  CREATED             STATUS                      PORTS               NAMES
+4ceafaf50756        confluentinc/cp-kafka:4.1.1   "/etc/confluent/dock…"   5 months ago        Exited (139) 3 months ago                       stevedore_emily_1
+---- ----
+Node [Iberigan]
+Iberigan
+Sat 21 Mar 14:29:52 GMT 2020
+CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS               NAMES
+--END--
+
+
+# -----------------------------------------------------
+# Delete the lot.
+#[user@work01]
+    
+    source "${HOME}/ssh-options"
+    source "${HOME}/libvirt.settings"
+
+    for vmname in $(
+        virsh -c $libvirtcon list --name --all
+        )
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            virsh \
+                --connect ${libvirtcon:?} \
+                destroy \
+                    "${vmname:?}"
+
+            virsh \
+                --connect ${libvirtcon:?} \
+                undefine \
+                    "${vmname:?}"
+        done
+
+--START--
+---- ----
+Node [Ocelisean]
+Domain Ocelisean destroyed
+
+Domain Ocelisean has been undefined
+
+---- ----
+Node [Araeri]
+Domain Araeri destroyed
+
+Domain Araeri has been undefined
+
+---- ----
+Node [Nyderrad]
+Domain Nyderrad destroyed
+
+Domain Nyderrad has been undefined
+
+---- ----
+Node [Glaubard]
+Domain Glaubard destroyed
+
+Domain Glaubard has been undefined
+
+---- ----
+Node [Legendamwen]
+Domain Legendamwen destroyed
+
+Domain Legendamwen has been undefined
+
+---- ----
+Node [Rhoawien]
+Domain Rhoawien destroyed
+
+Domain Rhoawien has been undefined
+
+---- ----
+Node [Gwirabard]
+Domain Gwirabard destroyed
+
+Domain Gwirabard has been undefined
+
+---- ----
+Node [Boasien]
+Domain Boasien destroyed
+
+Domain Boasien has been undefined
+
+---- ----
+Node [Falidon]
+Domain Falidon destroyed
+
+Domain Falidon has been undefined
+
+---- ----
+Node [Brawia]
+Domain Brawia destroyed
+
+Domain Brawia has been undefined
+
+---- ----
+Node [Iberigan]
+Domain Iberigan destroyed
+
+Domain Iberigan has been undefined
+--END--
+
+    #
+    # Forgot to delete the storage at the same time ..
+    # Deleted the storage manually via the GUI :-(
+    #
+
+# -----------------------------------------------------
+# Create a new VM for testing.
+#[user@work01]
+
+    createvm
+        
+--START--
+INFO : Node name [Onaukon]
+INFO : Base name [fedora-30-docker-base-20190903.qcow]
+INFO : Base path [/var/lib/libvirt/images/base/fedora-30-docker-base-20190903.qcow]
+INFO : Disc name [Onaukon.qcow]
+INFO : Disc size [16GiB]
+--END--
+
+
+# -----------------------------------------------------
+# Update our ssh kety.
+#[user@work01]
+
+    vmname=Onaukon
+
+    ssh-keygen \
+        -q -R \
+            "${vmname,,}"
+
+    ssh-keyscan \
+        "${vmname:?}" \
+        >> "${HOME}/.ssh/known_hosts"
+
+    ssh-keygen \
+        -q -R \
+            "$(getent hosts "${vmname:?}" | cut -d ' ' -f 1)"
+
+    ssh-keyscan \
+        -t ecdsa $(getent hosts "${vmname:?}" | cut -d ' ' -f 1) \
+        >> "${HOME}/.ssh/known_hosts"
+
+--START--
+/home/dmr/.ssh/known_hosts updated.
+Original contents retained as /home/dmr/.ssh/known_hosts.old
+
+# Onaukon:22 SSH-2.0-OpenSSH_8.0
+# Onaukon:22 SSH-2.0-OpenSSH_8.0
+# Onaukon:22 SSH-2.0-OpenSSH_8.0
+
+# 172.16.0.1:22 SSH-2.0-OpenSSH_8.0
+--END--
+
+
+# -----------------------------------------------------
+# Login to the new VM.
+#[user@work01]
+
+    ssh Onaukon
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+# Create our build directories.
+#[user@Onaukon]
+
+    cat > "${HOME}/project.env" << EOF
+BUILD_ROOT=/var/local/build    
+CACHE_ROOT=/var/local/cache
+EOF
+
+    source "${HOME}/project.env"
+
+    if [ ! -e "${BUILD_ROOT:?}" ]
+    then
+        sudo mkdir "${BUILD_ROOT:?}"
+        sudo chgrp users "${BUILD_ROOT:?}"
+        sudo chmod g+rwx "${BUILD_ROOT:?}"
+    fi
+
+    if [ ! -e "${CACHE_ROOT:?}" ]
+    then
+        sudo mkdir "${CACHE_ROOT:?}"
+        sudo chgrp users "${CACHE_ROOT:?}"
+        sudo chmod g+rwx "${CACHE_ROOT:?}"
+    fi
+
+
+# -----------------------------------------------------
+# Checkout our project source code.
+#[user@Onaukon]
+
+    cat > "${HOME}/phymatopus.env" << EOF
+source "${HOME}/project.env"
+PHYMATOPUS_REPO=git@github.com:Zarquan/phymatopus.git
+PHYMATOPUS_CODE=${BUILD_ROOT}/phymatopus
+EOF
+
+    source "${HOME}/phymatopus.env"
+
+    if [ ! -e "${PHYMATOPUS_CODE:?}" ]    
+    then
+        pushd "$(dirname ${PHYMATOPUS_CODE:?})"
+            git clone "${PHYMATOPUS_REPO:?}" "$(basename ${PHYMATOPUS_CODE:?})"
+        popd
+    else
+        pushd "${PHYMATOPUS_CODE:?}"
+            git pull
+        popd
+    fi
+
+
+# -----------------------------------------------------
+# Run an instance of firethorn builder container.
+#[user@virtual]
+
+    docker run \
+        --rm \
+        --tty \
+        --interactive \
+        --user "$(id -u):users" \
+        --volume "/var/local/cache:/var/local/cache" \
+        --volume "/var/local/build:/var/local/build" \
+        --volume "${SSH_AUTH_SOCK}:/tmp/ssh_auth_sock" \
+        --volume "/var/run/docker.sock:/var/run/docker.sock" \
+        --volume "${secretsh}:/bin/secret" \
+        "firethorn/builder:latest" \
+        'bash'
+
+
+# -----------------------------------------------------
+# Run our tests.
+#[user@builder]
+
+    PHYMATOPUS_CODE=/var/local/build/phymatopus
+    PHYMATOPUS_LOGS=/var/local/cache/logs
+
+    pushd "${PHYMATOPUS_CODE:?}"
+        pushd kafka-tools
+
+            mvn clean compile
+
+        popd
+    popd
+
+
+
+
+
+
+
+
+

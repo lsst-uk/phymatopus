@@ -1,0 +1,1014 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+
+
+# -----------------------------------------------------
+# Get a list of ZTF topics.
+#[user@trop03]
+
+    source "${HOME}/nodenames"
+    zookeeper=${zknames[0]}
+
+    source "${HOME}/nodenames"
+    ssh "${mmnames[0]}" \
+        "
+        docker run --rm \
+            phymatopus/kafka-core \
+                bin/kafka-topics.sh \
+                    --zookeeper '${zookeeper:?}' \
+                    --list
+        " \
+    | sed '/^ztf.*/!{d}' | sort | tee /tmp/ztftopics
+
+    >   ztf_20190724_programid1
+    >   ztf_20190725_programid1
+    >   ztf_20190726_programid1
+    >   ztf_20190727_programid1
+    >   ztf_20190728_programid1
+    >   ztf_20190729_programid1
+    >   ztf_20190730_programid1
+    >   ztf_20190731_programid1
+    >   ztf_20190801_programid1
+    >   ztf_20190802_programid1
+    >   ztf_20190803_programid1
+    >   ztf_20190804_programid1
+    >   ztf_20190805_programid1
+    >   ztf_20190806_programid1
+    >   ztf_20190807_programid1
+    >   ztf_20190808_programid1
+    >   ztf_20190809_programid1
+    >   ztf_20190810_programid1
+    >   ztf_20190811_programid1
+    >   ztf_20190812_programid1
+    >   ztf_20190813_programid1
+    >   ztf_20190814_programid1
+    >   ztf_20190815_programid1
+    >   ztf_20190816_programid1
+    >   ztf_20190817_programid1
+    >   ztf_20190818_programid1
+    >   ztf_20190819_programid1
+    >   ztf_20190820_programid1
+    >   ztf_20190821_programid1
+    >   ztf_20190822_programid1
+    >   ztf_20190823_programid1
+    >   ztf_20190824_programid1
+    >   ztf_20190825_programid1
+    >   ztf_20190826_programid1
+    >   ztf_20190827_programid1
+    >   ztf_20190828_programid1
+    >   ztf_20190829_programid1
+    >   ztf_20190830_programid1
+    >   ztf_20190831_programid1
+    >   ztf_20190901_programid1
+    >   ztf_20190902_programid1
+    >   ztf_20190903_programid1
+    >   ztf_20190904_programid1
+    >   ztf_20190905_programid1
+
+
+# -----------------------------------------------------
+# Get the total rows in each topic.
+#[user@trop03]
+
+    for topic in $(cat /tmp/ztftopics)
+    do
+        echo "---- ----"
+        echo "Topic [${topic}]"
+        ssh -q -t "${mmnames[0]}" \
+            "
+            docker run -it --rm \
+                phymatopus/kafka-core \
+                    bin/kafka-run-class.sh \
+                        kafka.tools.GetOffsetShell \
+                            --broker-list 'Stedigo:9092' \
+                            --topic "${topic:?}" \
+            | sed '
+                s/\([^:]*\):\([^:]*\):\([^:]*\)/\3/
+                ' \
+            | awk '
+                {sum += \$1} END {print sum}
+                '
+            "
+    done
+
+    >   ---- ----
+    >   Topic [ztf_20190724_programid1]
+    >   158021
+    >   ---- ----
+    >   Topic [ztf_20190725_programid1]
+    >   138401
+    >   ---- ----
+    >   Topic [ztf_20190726_programid1]
+    >   209502
+    >   ---- ----
+    >   Topic [ztf_20190727_programid1]
+    >   175742
+    >   ---- ----
+    >   Topic [ztf_20190728_programid1]
+    >   125586
+    >   ---- ----
+    >   Topic [ztf_20190729_programid1]
+    >   300320
+    >   ---- ----
+    >   Topic [ztf_20190730_programid1]
+    >   385590
+    >   ---- ----
+    >   Topic [ztf_20190731_programid1]
+    >   525648
+    >   ---- ----
+    >   Topic [ztf_20190801_programid1]
+    >   246044
+    >   ---- ----
+    >   Topic [ztf_20190802_programid1]
+    >   142952
+    >   ---- ----
+    >   Topic [ztf_20190803_programid1]
+    >   432503
+    >   ---- ----
+    >   Topic [ztf_20190804_programid1]
+    >   360773
+    >   ---- ----
+    >   Topic [ztf_20190805_programid1]
+    >   188259
+    >   ---- ----
+    >   Topic [ztf_20190806_programid1]
+    >   171045
+    >   ---- ----
+    >   Topic [ztf_20190807_programid1]
+    >   152045
+    >   ---- ----
+    >   Topic [ztf_20190808_programid1]
+    >   185032
+    >   ---- ----
+    >   Topic [ztf_20190809_programid1]
+    >   161631
+    >   ---- ----
+    >   Topic [ztf_20190810_programid1]
+    >   141310
+    >   ---- ----
+    >   Topic [ztf_20190811_programid1]
+    >   157253
+    >   ---- ----
+    >   Topic [ztf_20190812_programid1]
+    >   160219
+    >   ---- ----
+    >   Topic [ztf_20190813_programid1]
+    >   105297
+    >   ---- ----
+    >   Topic [ztf_20190814_programid1]
+    >   125047
+    >   ---- ----
+    >   Topic [ztf_20190815_programid1]
+    >   57374
+    >   ---- ----
+    >   Topic [ztf_20190816_programid1]
+    >   122321
+    >   ---- ----
+    >   Topic [ztf_20190817_programid1]
+    >   88370
+    >   ---- ----
+    >   Topic [ztf_20190818_programid1]
+    >   195882
+    >   ---- ----
+    >   Topic [ztf_20190819_programid1]
+    >   149580
+    >   ---- ----
+    >   Topic [ztf_20190820_programid1]
+    >   0
+    >   ---- ----
+    >   Topic [ztf_20190821_programid1]
+    >   125266
+    >   ---- ----
+    >   Topic [ztf_20190822_programid1]
+    >   138783
+    >   ---- ----
+    >   Topic [ztf_20190823_programid1]
+    >   179150
+    >   ---- ----
+    >   Topic [ztf_20190824_programid1]
+    >   130723
+    >   ---- ----
+    >   Topic [ztf_20190825_programid1]
+    >   184504
+    >   ---- ----
+    >   Topic [ztf_20190826_programid1]
+    >   1032500
+    >   ---- ----
+    >   Topic [ztf_20190827_programid1]
+    >   167450
+    >   ---- ----
+    >   Topic [ztf_20190828_programid1]
+    >   191143
+    >   ---- ----
+    >   Topic [ztf_20190829_programid1]
+    >   206362
+    >   ---- ----
+    >   Topic [ztf_20190830_programid1]
+    >   203625
+    >   ---- ----
+    >   Topic [ztf_20190831_programid1]
+    >   178229
+    >   ---- ----
+    >   Topic [ztf_20190901_programid1]
+    >   162662
+    >   ---- ----
+    >   Topic [ztf_20190902_programid1]
+    >   2521
+    >   ---- ----
+    >   Topic [ztf_20190903_programid1]
+    >   1321
+    >   ---- ----
+    >   Topic [ztf_20190904_programid1]
+    >   310593
+    >   ---- ----
+    >   Topic [ztf_20190905_programid1]
+    >   48408
+
+
+# -----------------------------------------------------
+# Check the disc space on each node.
+#[user@trop03]
+
+    source "${HOME}/nodenames"
+    source "${HOME}/ssh-options"
+
+    rm /tmp/diskuse
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    hostname
+                    date
+                    du -h /data*
+                    " \
+            | tee -a /tmp/diskuse
+        done
+
+
+    >   Stedigo
+    >   Thu  5 Sep 11:37:09 BST 2019
+    >   0       /data1-01/__confluent.support.metrics-0
+    >   8.0K    /data1-01/ztf_20190724_programid1-14
+    >   8.0K    /data1-01/ztf_20190724_programid1-2
+    >   8.0K    /data1-01/ztf_20190724_programid1-6
+    >   8.0K    /data1-01/ztf_20190724_programid1-10
+    >   8.0K    /data1-01/ztf_20190724_programid1-4
+    >   8.0K    /data1-01/ztf_20190724_programid1-1
+    >   8.0K    /data1-01/ztf_20190724_programid1-11
+    >   ....
+    >   ....
+    >   13M     /data2-01/ztf_20190905_programid1-148
+    >   13M     /data2-01/ztf_20190905_programid1-91
+    >   13M     /data2-01/ztf_20190905_programid1-50
+    >   13M     /data2-01/ztf_20190905_programid1-107
+    >   13M     /data2-01/ztf_20190905_programid1-31
+    >   13M     /data2-01/ztf_20190905_programid1-12
+    >   13M     /data2-01/ztf_20190905_programid1-88
+    >   13M     /data2-01/ztf_20190905_programid1-202
+    >   13M     /data2-01/ztf_20190905_programid1-240
+    >   332G    /data2-01
+
+
+# -----------------------------------------------------
+# Check the disc space on each node (head topics).
+#[user@trop03]
+
+    source "${HOME}/nodenames"
+    source "${HOME}/ssh-options"
+
+    for topic in $(head /tmp/ztftopics)
+        do
+        for vmname in ${kfnames[@]}
+            do
+                echo "---- ----"
+                ssh \
+                    ${sshopts[*]} \
+                    ${sshuser:?}@${vmname:?} \
+                        "
+                        hostname
+                        date
+                        du -h /*/${topic}*
+                        "
+            done
+        done
+
+    >   ---- ----
+    >   Stedigo
+    >   Thu  5 Sep 12:12:41 BST 2019
+    >   8.0K    /data1-01/ztf_20190724_programid1-0
+    >   8.0K    /data1-01/ztf_20190724_programid1-1
+    >   ....
+    >   8.0K    /data1-01/ztf_20190724_programid1-7
+    >   8.0K    /data1-01/ztf_20190724_programid1-9
+    >   ---- ----
+    >   Angece
+    >   Thu  5 Sep 12:12:42 BST 2019
+    >   8.0K    /data2-01/ztf_20190724_programid1-1
+    >   8.0K    /data2-01/ztf_20190724_programid1-10
+    >   ....
+    >   8.0K    /data2-01/ztf_20190724_programid1-7
+    >   8.0K    /data2-01/ztf_20190724_programid1-8
+    >   ---- ----
+    >   Edwalafia
+    >   Thu  5 Sep 12:12:43 BST 2019
+    >   8.0K    /data1-01/ztf_20190724_programid1-0
+    >   8.0K    /data1-01/ztf_20190724_programid1-11
+    >   ....
+    >   8.0K    /data1-01/ztf_20190724_programid1-8
+    >   8.0K    /data1-01/ztf_20190724_programid1-9
+    >   ---- ----
+    >   Onoza
+    >   Thu  5 Sep 12:12:44 BST 2019
+    >   8.0K    /data2-01/ztf_20190724_programid1-0
+    >   8.0K    /data2-01/ztf_20190724_programid1-1
+    >   ....
+    >   8.0K    /data2-01/ztf_20190724_programid1-8
+    >   8.0K    /data2-01/ztf_20190724_programid1-9
+    >   ---- ----
+    >   Stedigo
+    >   Thu  5 Sep 12:12:44 BST 2019
+    >   8.0K    /data1-01/ztf_20190725_programid1-0
+    >   8.0K    /data1-01/ztf_20190725_programid1-1
+    >   ....
+    >   8.0K    /data1-01/ztf_20190725_programid1-7
+    >   8.0K    /data1-01/ztf_20190725_programid1-9
+    >   ---- ----
+    >   Angece
+    >   Thu  5 Sep 12:12:44 BST 2019
+    >   8.0K    /data2-01/ztf_20190725_programid1-1
+    >   8.0K    /data2-01/ztf_20190725_programid1-10
+    >   ....
+    >   8.0K    /data2-01/ztf_20190725_programid1-6
+    >   8.0K    /data2-01/ztf_20190725_programid1-8
+    >   ---- ----
+    >   Edwalafia
+    >   Thu  5 Sep 12:12:45 BST 2019
+    >   8.0K    /data1-01/ztf_20190725_programid1-0
+    >   8.0K    /data1-01/ztf_20190725_programid1-11
+    >   ....
+    >   8.0K    /data1-01/ztf_20190725_programid1-8
+    >   8.0K    /data1-01/ztf_20190725_programid1-9
+    >   ---- ----
+    >   Onoza
+    >   Thu  5 Sep 12:12:45 BST 2019
+    >   8.0K    /data2-01/ztf_20190725_programid1-0
+    >   8.0K    /data2-01/ztf_20190725_programid1-1
+    >   ....
+    >   8.0K    /data2-01/ztf_20190725_programid1-8
+    >   8.0K    /data2-01/ztf_20190725_programid1-9
+    >   ---- ----
+    >   Stedigo
+    >   Thu  5 Sep 12:12:45 BST 2019
+    >   8.0K    /data1-01/ztf_20190726_programid1-0
+    >   8.0K    /data1-01/ztf_20190726_programid1-1
+    >   ....
+    >   8.0K    /data1-01/ztf_20190726_programid1-7
+    >   8.0K    /data1-01/ztf_20190726_programid1-8
+    >   ---- ----
+    >   Angece
+    >   Thu  5 Sep 12:12:46 BST 2019
+    >   8.0K    /data2-01/ztf_20190726_programid1-1
+    >   8.0K    /data2-01/ztf_20190726_programid1-11
+    >   ....
+    >   8.0K    /data2-01/ztf_20190726_programid1-8
+    >   8.0K    /data2-01/ztf_20190726_programid1-9
+    >   ---- ----
+    >   Edwalafia
+    >   Thu  5 Sep 12:12:46 BST 2019
+    >   8.0K    /data1-01/ztf_20190726_programid1-0
+    >   8.0K    /data1-01/ztf_20190726_programid1-10
+    >   ....
+    >   8.0K    /data1-01/ztf_20190726_programid1-8
+    >   8.0K    /data1-01/ztf_20190726_programid1-9
+    >   ---- ----
+    >   Onoza
+    >   Thu  5 Sep 12:12:46 BST 2019
+    >   8.0K    /data2-01/ztf_20190726_programid1-0
+    >   8.0K    /data2-01/ztf_20190726_programid1-1
+    >   ....
+    >   8.0K    /data2-01/ztf_20190726_programid1-7
+    >   8.0K    /data2-01/ztf_20190726_programid1-9
+    >   ---- ----
+    >   Stedigo
+    >   Thu  5 Sep 12:12:47 BST 2019
+    >   8.0K    /data1-01/ztf_20190727_programid1-0
+    >   8.0K    /data1-01/ztf_20190727_programid1-11
+    >   ....
+    >   8.0K    /data1-01/ztf_20190727_programid1-8
+    >   8.0K    /data1-01/ztf_20190727_programid1-9
+    >   ---- ----
+    >   Angece
+    >   Thu  5 Sep 12:12:47 BST 2019
+    >   8.0K    /data2-01/ztf_20190727_programid1-0
+    >   8.0K    /data2-01/ztf_20190727_programid1-1
+    >   ....
+    >   8.0K    /data2-01/ztf_20190727_programid1-8
+    >   8.0K    /data2-01/ztf_20190727_programid1-9
+    >   ---- ----
+    >   Edwalafia
+    >   Thu  5 Sep 12:12:48 BST 2019
+    >   8.0K    /data1-01/ztf_20190727_programid1-0
+    >   8.0K    /data1-01/ztf_20190727_programid1-1
+    >   ....
+    >   8.0K    /data1-01/ztf_20190727_programid1-7
+    >   8.0K    /data1-01/ztf_20190727_programid1-9
+    >   ---- ----
+    >   Onoza
+    >   Thu  5 Sep 12:12:48 BST 2019
+    >   8.0K    /data2-01/ztf_20190727_programid1-1
+    >   8.0K    /data2-01/ztf_20190727_programid1-10
+    >   ....
+    >   8.0K    /data2-01/ztf_20190727_programid1-7
+    >   8.0K    /data2-01/ztf_20190727_programid1-8
+    >   ---- ----
+    >   Stedigo
+    >   Thu  5 Sep 12:12:48 BST 2019
+    >   8.0K    /data1-01/ztf_20190728_programid1-0
+    >   8.0K    /data1-01/ztf_20190728_programid1-11
+    >   ....
+    >   8.0K    /data1-01/ztf_20190728_programid1-8
+    >   8.0K    /data1-01/ztf_20190728_programid1-9
+    >   ---- ----
+    >   Angece
+    >   Thu  5 Sep 12:12:49 BST 2019
+    >   8.0K    /data2-01/ztf_20190728_programid1-0
+    >   8.0K    /data2-01/ztf_20190728_programid1-1
+    >   ....
+    >   8.0K    /data2-01/ztf_20190728_programid1-8
+    >   8.0K    /data2-01/ztf_20190728_programid1-9
+    >   ---- ----
+    >   Edwalafia
+    >   Thu  5 Sep 12:12:49 BST 2019
+    >   8.0K    /data1-01/ztf_20190728_programid1-0
+    >   8.0K    /data1-01/ztf_20190728_programid1-1
+    >   ....
+    >   8.0K    /data1-01/ztf_20190728_programid1-7
+    >   8.0K    /data1-01/ztf_20190728_programid1-9
+    >   ---- ----
+    >   Onoza
+    >   Thu  5 Sep 12:12:49 BST 2019
+    >   8.0K    /data2-01/ztf_20190728_programid1-1
+    >   8.0K    /data2-01/ztf_20190728_programid1-10
+    >   ....
+    >   8.0K    /data2-01/ztf_20190728_programid1-7
+    >   8.0K    /data2-01/ztf_20190728_programid1-8
+    >   ---- ----
+    >   Stedigo
+    >   Thu  5 Sep 12:12:50 BST 2019
+    >   8.0K    /data1-01/ztf_20190729_programid1-0
+    >   8.0K    /data1-01/ztf_20190729_programid1-1
+    >   ....
+    >   8.0K    /data1-01/ztf_20190729_programid1-7
+    >   8.0K    /data1-01/ztf_20190729_programid1-9
+    >   ---- ----
+    >   Angece
+    >   Thu  5 Sep 12:12:50 BST 2019
+    >   8.0K    /data2-01/ztf_20190729_programid1-0
+    >   8.0K    /data2-01/ztf_20190729_programid1-1
+    >   ....
+    >   8.0K    /data2-01/ztf_20190729_programid1-7
+    >   8.0K    /data2-01/ztf_20190729_programid1-8
+    >   ---- ----
+    >   Edwalafia
+    >   Thu  5 Sep 12:12:50 BST 2019
+    >   8.0K    /data1-01/ztf_20190729_programid1-1
+    >   8.0K    /data1-01/ztf_20190729_programid1-11
+    >   ....
+    >   8.0K    /data1-01/ztf_20190729_programid1-8
+    >   8.0K    /data1-01/ztf_20190729_programid1-9
+    >   ---- ----
+    >   Onoza
+    >   Thu  5 Sep 12:12:51 BST 2019
+    >   8.0K    /data2-01/ztf_20190729_programid1-0
+    >   8.0K    /data2-01/ztf_20190729_programid1-10
+    >   ....
+    >   8.0K    /data2-01/ztf_20190729_programid1-8
+    >   8.0K    /data2-01/ztf_20190729_programid1-9
+    >   ---- ----
+    >   Stedigo
+    >   Thu  5 Sep 12:12:51 BST 2019
+    >   8.0K    /data1-01/ztf_20190730_programid1-0
+    >   8.0K    /data1-01/ztf_20190730_programid1-10
+    >   ....
+    >   8.0K    /data1-01/ztf_20190730_programid1-8
+    >   8.0K    /data1-01/ztf_20190730_programid1-9
+    >   ---- ----
+    >   Angece
+    >   Thu  5 Sep 12:12:51 BST 2019
+    >   8.0K    /data2-01/ztf_20190730_programid1-0
+    >   8.0K    /data2-01/ztf_20190730_programid1-1
+    >   ....
+    >   8.0K    /data2-01/ztf_20190730_programid1-7
+    >   8.0K    /data2-01/ztf_20190730_programid1-9
+    >   ---- ----
+    >   Edwalafia
+    >   Thu  5 Sep 12:12:52 BST 2019
+    >   8.0K    /data1-01/ztf_20190730_programid1-0
+    >   8.0K    /data1-01/ztf_20190730_programid1-1
+    >   ....
+    >   8.0K    /data1-01/ztf_20190730_programid1-7
+    >   8.0K    /data1-01/ztf_20190730_programid1-8
+    >   ---- ----
+    >   Onoza
+    >   Thu  5 Sep 12:12:52 BST 2019
+    >   8.0K    /data2-01/ztf_20190730_programid1-1
+    >   8.0K    /data2-01/ztf_20190730_programid1-11
+    >   ....
+    >   8.0K    /data2-01/ztf_20190730_programid1-8
+    >   8.0K    /data2-01/ztf_20190730_programid1-9
+    >   ---- ----
+    >   Stedigo
+    >   Thu  5 Sep 12:12:53 BST 2019
+    >   8.0K    /data1-01/ztf_20190731_programid1-1
+    >   8.0K    /data1-01/ztf_20190731_programid1-10
+    >   ....
+    >   8.0K    /data1-01/ztf_20190731_programid1-7
+    >   8.0K    /data1-01/ztf_20190731_programid1-8
+    >   ---- ----
+    >   Angece
+    >   Thu  5 Sep 12:12:53 BST 2019
+    >   8.0K    /data2-01/ztf_20190731_programid1-0
+    >   8.0K    /data2-01/ztf_20190731_programid1-11
+    >   ....
+    >   8.0K    /data2-01/ztf_20190731_programid1-8
+    >   8.0K    /data2-01/ztf_20190731_programid1-9
+    >   ---- ----
+    >   Edwalafia
+    >   Thu  5 Sep 12:12:53 BST 2019
+    >   8.0K    /data1-01/ztf_20190731_programid1-0
+    >   8.0K    /data1-01/ztf_20190731_programid1-1
+    >   ....
+    >   8.0K    /data1-01/ztf_20190731_programid1-8
+    >   8.0K    /data1-01/ztf_20190731_programid1-9
+    >   ---- ----
+    >   Onoza
+    >   Thu  5 Sep 12:12:54 BST 2019
+    >   8.0K    /data2-01/ztf_20190731_programid1-0
+    >   8.0K    /data2-01/ztf_20190731_programid1-1
+    >   ....
+    >   8.0K    /data2-01/ztf_20190731_programid1-7
+    >   8.0K    /data2-01/ztf_20190731_programid1-9
+    >   ---- ----
+    >   Stedigo
+    >   Thu  5 Sep 12:12:54 BST 2019
+    >   1.1G    /data1-01/ztf_20190801_programid1-0
+    >   1.1G    /data1-01/ztf_20190801_programid1-1
+    >   ....
+    >   1.1G    /data1-01/ztf_20190801_programid1-7
+    >   1.1G    /data1-01/ztf_20190801_programid1-9
+    >   ---- ----
+    >   Angece
+    >   Thu  5 Sep 12:12:54 BST 2019
+    >   1.1G    /data2-01/ztf_20190801_programid1-1
+    >   1.1G    /data2-01/ztf_20190801_programid1-10
+    >   ....
+    >   1.1G    /data2-01/ztf_20190801_programid1-7
+    >   1.1G    /data2-01/ztf_20190801_programid1-8
+    >   ---- ----
+    >   Edwalafia
+    >   Thu  5 Sep 12:12:55 BST 2019
+    >   1.1G    /data1-01/ztf_20190801_programid1-0
+    >   1.1G    /data1-01/ztf_20190801_programid1-11
+    >   ....
+    >   1.1G    /data1-01/ztf_20190801_programid1-8
+    >   1.1G    /data1-01/ztf_20190801_programid1-9
+    >   ---- ----
+    >   Onoza
+    >   Thu  5 Sep 12:12:55 BST 2019
+    >   1.1G    /data2-01/ztf_20190801_programid1-0
+    >   1.1G    /data2-01/ztf_20190801_programid1-1
+    >   ....
+    >   1.1G    /data2-01/ztf_20190801_programid1-8
+    >   1.1G    /data2-01/ztf_20190801_programid1-9
+    >   ---- ----
+    >   Stedigo
+    >   Thu  5 Sep 12:12:55 BST 2019
+    >   611M    /data1-01/ztf_20190802_programid1-1
+    >   610M    /data1-01/ztf_20190802_programid1-11
+    >   ....
+    >   611M    /data1-01/ztf_20190802_programid1-8
+    >   611M    /data1-01/ztf_20190802_programid1-9
+    >   ---- ----
+    >   Angece
+    >   Thu  5 Sep 12:12:56 BST 2019
+    >   611M    /data2-01/ztf_20190802_programid1-0
+    >   612M    /data2-01/ztf_20190802_programid1-10
+    >   ....
+    >   611M    /data2-01/ztf_20190802_programid1-8
+    >   611M    /data2-01/ztf_20190802_programid1-9
+    >   ---- ----
+    >   Edwalafia
+    >   Thu  5 Sep 12:12:56 BST 2019
+    >   611M    /data1-01/ztf_20190802_programid1-0
+    >   611M    /data1-01/ztf_20190802_programid1-1
+    >   ....
+    >   611M    /data1-01/ztf_20190802_programid1-7
+    >   611M    /data1-01/ztf_20190802_programid1-9
+    >   ---- ----
+    >   Onoza
+    >   Thu  5 Sep 12:12:56 BST 2019
+    >   611M    /data2-01/ztf_20190802_programid1-0
+    >   611M    /data2-01/ztf_20190802_programid1-1
+    >   ....
+    >   611M    /data2-01/ztf_20190802_programid1-7
+    >   611M    /data2-01/ztf_20190802_programid1-8
+    >   dmr@trop03:~$
+
+
+# -----------------------------------------------------
+# Check the disc space on each node (tail topics)..
+#[user@trop03]
+
+    source "${HOME}/nodenames"
+    source "${HOME}/ssh-options"
+
+    for topic in $(tail /tmp/ztftopics)
+        do
+        for vmname in ${kfnames[@]}
+            do
+                echo "---- ----"
+                ssh \
+                    ${sshopts[*]} \
+                    ${sshuser:?}@${vmname:?} \
+                        "
+                        hostname
+                        date
+                        du -h /*/${topic}*
+                        "
+            done
+        done
+
+
+    >   ---- ----
+    >   Stedigo
+    >   Thu  5 Sep 11:56:30 BST 2019
+    >   722M    /data1-01/ztf_20190827_programid1-0
+    >   722M    /data1-01/ztf_20190827_programid1-1
+    >   ....
+    >   722M    /data1-01/ztf_20190827_programid1-8
+    >   720M    /data1-01/ztf_20190827_programid1-9
+    >   ---- ----
+    >   Angece
+    >   Thu  5 Sep 11:56:31 BST 2019
+    >   722M    /data2-01/ztf_20190827_programid1-0
+    >   722M    /data2-01/ztf_20190827_programid1-1
+    >   ....
+    >   722M    /data2-01/ztf_20190827_programid1-7
+    >   720M    /data2-01/ztf_20190827_programid1-9
+    >   ---- ----
+    >   Edwalafia
+    >   Thu  5 Sep 11:56:31 BST 2019
+    >   722M    /data1-01/ztf_20190827_programid1-1
+    >   722M    /data1-01/ztf_20190827_programid1-10
+    >   ....
+    >   722M    /data1-01/ztf_20190827_programid1-7
+    >   722M    /data1-01/ztf_20190827_programid1-8
+    >   ---- ----
+    >   Onoza
+    >   Thu  5 Sep 11:56:32 BST 2019
+    >   722M    /data2-01/ztf_20190827_programid1-0
+    >   722M    /data2-01/ztf_20190827_programid1-11
+    >   ....
+    >   722M    /data2-01/ztf_20190827_programid1-8
+    >   720M    /data2-01/ztf_20190827_programid1-9
+    >   ---- ----
+    >   Stedigo
+    >   Thu  5 Sep 11:56:32 BST 2019
+    >   813M    /data1-01/ztf_20190828_programid1-0
+    >   813M    /data1-01/ztf_20190828_programid1-11
+    >   ....
+    >   813M    /data1-01/ztf_20190828_programid1-8
+    >   814M    /data1-01/ztf_20190828_programid1-9
+    >   ---- ----
+    >   Angece
+    >   Thu  5 Sep 11:56:33 BST 2019
+    >   813M    /data2-01/ztf_20190828_programid1-0
+    >   814M    /data2-01/ztf_20190828_programid1-1
+    >   ....
+    >   813M    /data2-01/ztf_20190828_programid1-8
+    >   814M    /data2-01/ztf_20190828_programid1-9
+    >   ---- ----
+    >   Edwalafia
+    >   Thu  5 Sep 11:56:33 BST 2019
+    >   813M    /data1-01/ztf_20190828_programid1-0
+    >   814M    /data1-01/ztf_20190828_programid1-1
+    >   ....
+    >   814M    /data1-01/ztf_20190828_programid1-7
+    >   814M    /data1-01/ztf_20190828_programid1-9
+    >   ---- ----
+    >   Onoza
+    >   Thu  5 Sep 11:56:33 BST 2019
+    >   814M    /data2-01/ztf_20190828_programid1-1
+    >   814M    /data2-01/ztf_20190828_programid1-10
+    >   ....
+    >   814M    /data2-01/ztf_20190828_programid1-6
+    >   813M    /data2-01/ztf_20190828_programid1-8
+    >   ---- ----
+    >   Stedigo
+    >   Thu  5 Sep 11:56:34 BST 2019
+    >   590M    /data1-01/ztf_20190829_programid1-0
+    >   590M    /data1-01/ztf_20190829_programid1-11
+    >   ....
+    >   590M    /data1-01/ztf_20190829_programid1-8
+    >   590M    /data1-01/ztf_20190829_programid1-9
+    >   ---- ----
+    >   Angece
+    >   Thu  5 Sep 11:56:34 BST 2019
+    >   590M    /data2-01/ztf_20190829_programid1-0
+    >   590M    /data2-01/ztf_20190829_programid1-1
+    >   ....
+    >   96M     /data2-01/ztf_20190829_programid1-16
+    >   96M     /data2-01/ztf_20190829_programid1-17
+    >   ....
+    >   590M    /data2-01/ztf_20190829_programid1-8
+    >   590M    /data2-01/ztf_20190829_programid1-9
+    >   ---- ----
+    >   Edwalafia
+    >   Thu  5 Sep 11:56:34 BST 2019
+    >   590M    /data1-01/ztf_20190829_programid1-0
+    >   590M    /data1-01/ztf_20190829_programid1-1
+    >   ....
+    >   96M     /data1-01/ztf_20190829_programid1-16
+    >   96M     /data1-01/ztf_20190829_programid1-17
+    >   ....
+    >   590M    /data1-01/ztf_20190829_programid1-7
+    >   590M    /data1-01/ztf_20190829_programid1-9
+    >   ---- ----
+    >   Onoza
+    >   Thu  5 Sep 11:56:35 BST 2019
+    >   590M    /data2-01/ztf_20190829_programid1-1
+    >   590M    /data2-01/ztf_20190829_programid1-10
+    >   ....
+    >   96M     /data2-01/ztf_20190829_programid1-17
+    >   96M     /data2-01/ztf_20190829_programid1-18
+    >   ....
+    >   96M     /data2-01/ztf_20190829_programid1-63
+    >   590M    /data2-01/ztf_20190829_programid1-8
+    >   ---- ----
+    >   Stedigo
+    >   Thu  5 Sep 11:56:35 BST 2019
+    >   873M    /data1-01/ztf_20190830_programid1-1
+    >   874M    /data1-01/ztf_20190830_programid1-10
+    >   ....
+    >   873M    /data1-01/ztf_20190830_programid1-6
+    >   873M    /data1-01/ztf_20190830_programid1-8
+    >   ---- ----
+    >   Angece
+    >   Thu  5 Sep 11:56:36 BST 2019
+    >   874M    /data2-01/ztf_20190830_programid1-0
+    >   874M    /data2-01/ztf_20190830_programid1-11
+    >   ....
+    >   873M    /data2-01/ztf_20190830_programid1-8
+    >   873M    /data2-01/ztf_20190830_programid1-9
+    >   ---- ----
+    >   Edwalafia
+    >   Thu  5 Sep 11:56:36 BST 2019
+    >   874M    /data1-01/ztf_20190830_programid1-0
+    >   873M    /data1-01/ztf_20190830_programid1-1
+    >   ....
+    >   873M    /data1-01/ztf_20190830_programid1-8
+    >   873M    /data1-01/ztf_20190830_programid1-9
+    >   ---- ----
+    >   Onoza
+    >   Thu  5 Sep 11:56:36 BST 2019
+    >   874M    /data2-01/ztf_20190830_programid1-0
+    >   873M    /data2-01/ztf_20190830_programid1-1
+    >   ....
+    >   873M    /data2-01/ztf_20190830_programid1-7
+    >   873M    /data2-01/ztf_20190830_programid1-9
+    >   ---- ----
+    >   Stedigo
+    >   Thu  5 Sep 11:56:37 BST 2019
+    >   767M    /data1-01/ztf_20190831_programid1-0
+    >   766M    /data1-01/ztf_20190831_programid1-1
+    >   ....
+    >   766M    /data1-01/ztf_20190831_programid1-7
+    >   766M    /data1-01/ztf_20190831_programid1-9
+    >   ---- ----
+    >   Angece
+    >   Thu  5 Sep 11:56:37 BST 2019
+    >   767M    /data2-01/ztf_20190831_programid1-0
+    >   766M    /data2-01/ztf_20190831_programid1-1
+    >   ....
+    >   766M    /data2-01/ztf_20190831_programid1-7
+    >   766M    /data2-01/ztf_20190831_programid1-8
+    >   ---- ----
+    >   Edwalafia
+    >   Thu  5 Sep 11:56:37 BST 2019
+    >   766M    /data1-01/ztf_20190831_programid1-1
+    >   766M    /data1-01/ztf_20190831_programid1-11
+    >   ....
+    >   766M    /data1-01/ztf_20190831_programid1-8
+    >   766M    /data1-01/ztf_20190831_programid1-9
+    >   ---- ----
+    >   Onoza
+    >   Thu  5 Sep 11:56:38 BST 2019
+    >   767M    /data2-01/ztf_20190831_programid1-0
+    >   766M    /data2-01/ztf_20190831_programid1-10
+    >   ....
+    >   766M    /data2-01/ztf_20190831_programid1-8
+    >   766M    /data2-01/ztf_20190831_programid1-9
+    >   ---- ----
+    >   Stedigo
+    >   Thu  5 Sep 11:56:38 BST 2019
+    >   702M    /data1-01/ztf_20190901_programid1-0
+    >   703M    /data1-01/ztf_20190901_programid1-1
+    >   ....
+    >   703M    /data1-01/ztf_20190901_programid1-8
+    >   703M    /data1-01/ztf_20190901_programid1-9
+    >   ---- ----
+    >   Angece
+    >   Thu  5 Sep 11:56:38 BST 2019
+    >   702M    /data2-01/ztf_20190901_programid1-0
+    >   703M    /data2-01/ztf_20190901_programid1-1
+    >   ....
+    >   703M    /data2-01/ztf_20190901_programid1-7
+    >   703M    /data2-01/ztf_20190901_programid1-9
+    >   ---- ----
+    >   Edwalafia
+    >   Thu  5 Sep 11:56:39 BST 2019
+    >   703M    /data1-01/ztf_20190901_programid1-1
+    >   703M    /data1-01/ztf_20190901_programid1-10
+    >   ....
+    >   703M    /data1-01/ztf_20190901_programid1-7
+    >   703M    /data1-01/ztf_20190901_programid1-8
+    >   ---- ----
+    >   Onoza
+    >   Thu  5 Sep 11:56:39 BST 2019
+    >   702M    /data2-01/ztf_20190901_programid1-0
+    >   703M    /data2-01/ztf_20190901_programid1-11
+    >   ....
+    >   703M    /data2-01/ztf_20190901_programid1-8
+    >   703M    /data2-01/ztf_20190901_programid1-9
+    >   ---- ----
+    >   Stedigo
+    >   Thu  5 Sep 11:56:39 BST 2019
+    >   11M     /data1-01/ztf_20190902_programid1-0
+    >   11M     /data1-01/ztf_20190902_programid1-1
+    >   ....
+    >   11M     /data1-01/ztf_20190902_programid1-8
+    >   11M     /data1-01/ztf_20190902_programid1-9
+    >   ---- ----
+    >   Angece
+    >   Thu  5 Sep 11:56:40 BST 2019
+    >   11M     /data2-01/ztf_20190902_programid1-0
+    >   11M     /data2-01/ztf_20190902_programid1-1
+    >   ....
+    >   11M     /data2-01/ztf_20190902_programid1-7
+    >   11M     /data2-01/ztf_20190902_programid1-9
+    >   ---- ----
+    >   Edwalafia
+    >   Thu  5 Sep 11:56:40 BST 2019
+    >   11M     /data1-01/ztf_20190902_programid1-1
+    >   11M     /data1-01/ztf_20190902_programid1-10
+    >   ....
+    >   11M     /data1-01/ztf_20190902_programid1-6
+    >   11M     /data1-01/ztf_20190902_programid1-8
+    >   ---- ----
+    >   Onoza
+    >   Thu  5 Sep 11:56:40 BST 2019
+    >   11M     /data2-01/ztf_20190902_programid1-0
+    >   11M     /data2-01/ztf_20190902_programid1-11
+    >   ....
+    >   11M     /data2-01/ztf_20190902_programid1-8
+    >   11M     /data2-01/ztf_20190902_programid1-9
+    >   ---- ----
+    >   Stedigo
+    >   Thu  5 Sep 11:56:41 BST 2019
+    >   5.3M    /data1-01/ztf_20190903_programid1-0
+    >   5.4M    /data1-01/ztf_20190903_programid1-1
+    >   ....
+    >   5.4M    /data1-01/ztf_20190903_programid1-8
+    >   5.4M    /data1-01/ztf_20190903_programid1-9
+    >   ---- ----
+    >   Angece
+    >   Thu  5 Sep 11:56:41 BST 2019
+    >   5.3M    /data2-01/ztf_20190903_programid1-0
+    >   5.4M    /data2-01/ztf_20190903_programid1-1
+    >   ....
+    >   5.4M    /data2-01/ztf_20190903_programid1-7
+    >   5.4M    /data2-01/ztf_20190903_programid1-9
+    >   ---- ----
+    >   Edwalafia
+    >   Thu  5 Sep 11:56:41 BST 2019
+    >   5.4M    /data1-01/ztf_20190903_programid1-1
+    >   5.4M    /data1-01/ztf_20190903_programid1-10
+    >   ....
+    >   5.4M    /data1-01/ztf_20190903_programid1-6
+    >   5.4M    /data1-01/ztf_20190903_programid1-8
+    >   ---- ----
+    >   Onoza
+    >   Thu  5 Sep 11:56:42 BST 2019
+    >   5.3M    /data2-01/ztf_20190903_programid1-0
+    >   5.4M    /data2-01/ztf_20190903_programid1-11
+    >   ....
+    >   5.4M    /data2-01/ztf_20190903_programid1-8
+    >   5.4M    /data2-01/ztf_20190903_programid1-9
+    >   ---- ----
+    >   Stedigo
+    >   Thu  5 Sep 11:56:42 BST 2019
+    >   86M     /data1-01/ztf_20190904_programid1-1
+    >   85M     /data1-01/ztf_20190904_programid1-100
+    >   ....
+    >   85M     /data1-01/ztf_20190904_programid1-98
+    >   85M     /data1-01/ztf_20190904_programid1-99
+    >   ---- ----
+    >   Angece
+    >   Thu  5 Sep 11:56:42 BST 2019
+    >   86M     /data2-01/ztf_20190904_programid1-0
+    >   85M     /data2-01/ztf_20190904_programid1-10
+    >   ....
+    >   85M     /data2-01/ztf_20190904_programid1-98
+    >   85M     /data2-01/ztf_20190904_programid1-99
+    >   ---- ----
+    >   Edwalafia
+    >   Thu  5 Sep 11:56:43 BST 2019
+    >   86M     /data1-01/ztf_20190904_programid1-0
+    >   86M     /data1-01/ztf_20190904_programid1-1
+    >   ....
+    >   86M     /data1-01/ztf_20190904_programid1-97
+    >   85M     /data1-01/ztf_20190904_programid1-99
+    >   ---- ----
+    >   Onoza
+    >   Thu  5 Sep 11:56:43 BST 2019
+    >   86M     /data2-01/ztf_20190904_programid1-0
+    >   86M     /data2-01/ztf_20190904_programid1-1
+    >   ....
+    >   86M     /data2-01/ztf_20190904_programid1-97
+    >   85M     /data2-01/ztf_20190904_programid1-98
+    >   ---- ----
+    >   Stedigo
+    >   Thu  5 Sep 11:56:44 BST 2019
+    >   13M     /data1-01/ztf_20190905_programid1-1
+    >   13M     /data1-01/ztf_20190905_programid1-10
+    >   ....
+    >   13M     /data1-01/ztf_20190905_programid1-98
+    >   13M     /data1-01/ztf_20190905_programid1-99
+    >   ---- ----
+    >   Angece
+    >   Thu  5 Sep 11:56:44 BST 2019
+    >   13M     /data2-01/ztf_20190905_programid1-0
+    >   13M     /data2-01/ztf_20190905_programid1-101
+    >   ....
+    >   13M     /data2-01/ztf_20190905_programid1-98
+    >   13M     /data2-01/ztf_20190905_programid1-99
+    >   ---- ----
+    >   Edwalafia
+    >   Thu  5 Sep 11:56:44 BST 2019
+    >   13M     /data1-01/ztf_20190905_programid1-0
+    >   13M     /data1-01/ztf_20190905_programid1-1
+    >   ....
+    >   13M     /data1-01/ztf_20190905_programid1-97
+    >   13M     /data1-01/ztf_20190905_programid1-99
+    >   ---- ----
+    >   Onoza
+    >   Thu  5 Sep 11:56:45 BST 2019
+    >   13M     /data2-01/ztf_20190905_programid1-0
+    >   13M     /data2-01/ztf_20190905_programid1-1
+    >   ....
+    >   13M     /data2-01/ztf_20190905_programid1-97
+    >   13M     /data2-01/ztf_20190905_programid1-98
+
+
+    #
+    # Looks like it is working as intended.
+    # Data in old topics is being deleted (8.0K left).
+    # Data in pinned topics is being kept (2019-09-**)
+    #
+    # Do we need to delete the old topics completely ?
+    # Nothing in Kafka itself to do this.
+    # We would need to explicitly delete the topics.
+    # If we don't do this we will end up with 100's of empty (8.0K) topics.
+    # Possibly do this as part of the daily mirror maker task ?
+    #
+
+
+
+
+
+
+

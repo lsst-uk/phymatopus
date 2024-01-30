@@ -20,8 +20,8 @@ package uk.ac.roe.wfau.phymatopus.cassandra;
 
 import com.datastax.oss.driver.api.core.cql.PreparedStatement;
 
-import uk.ac.roe.wfau.phymatopus.kafka.alert.BaseAlert;
-import uk.ac.roe.wfau.phymatopus.kafka.alert.AlertCandidate;
+import uk.ac.roe.wfau.phymatopus.alert.AlertCandidate;
+import uk.ac.roe.wfau.phymatopus.alert.BaseAlert;
 
 /**
  * Simple writer for the candidates table.

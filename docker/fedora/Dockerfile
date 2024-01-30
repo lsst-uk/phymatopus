@@ -15,9 +15,9 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-# FROM fedora:28
-# https://github.com/docker-library/repo-info/blob/master/repos/fedora/tag-details.md#fedora28
-FROM fedora@sha256:7ae08e5637170eb47c01e315b6e64e0d48c6200d2942c695d0bee61b38c65b39
+# FROM fedora:30
+# https://github.com/docker-library/repo-info/blob/master/repos/fedora/tag-details.md#fedora30
+FROM fedora@sha256:d8d53450cae00985f9dad54a3520944c59e64aa8f01d3be61988404e11c15973
 
 MAINTAINER [Dave Morris <docker-admin@metagrid.co.uk>]
 
@@ -46,10 +46,11 @@ RUN dnf install -y \
 #
 # Set the terminal type for exec.
 # https://github.com/docker/docker/issues/9299
-ENV TERM xterm
+# Looks like this is fixed in Fedora-30
+#ENV TERM xterm
 
 #
-# Add our install scripts. 
+# Add our install scripts.
 COPY bin /usr/local/bin/
 RUN chmod a+x /usr/local/bin/*.sh
 

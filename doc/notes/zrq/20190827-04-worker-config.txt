@@ -1,0 +1,232 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+#---------------------------------------------------------------------
+# Download a copy of the base image.
+#[user@work01]
+#[user@work03]
+#[user@work04]
+#[user@gaia01]
+#[user@gaia02] <- TODO
+
+    basefile=fedora-28-8G-docker-base-20181016.qcow
+
+    pushd /tmp
+        wget "http://data.metagrid.co.uk/ischnura/base/${basefile:?}"
+    popd
+
+
+#---------------------------------------------------------------------
+# Check the image details.
+#[user@work01]
+#[user@work03]
+#[user@work04]
+#[user@gaia01]
+
+    qemu-img \
+        info \
+            "/tmp/${basefile:?}"
+
+    >   image: /tmp/fedora-28-8G-docker-base-20181016.qcow
+    >   file format: qcow2
+    >   virtual size: 8.0G (8589934592 bytes)
+    >   disk size: 1.0G
+    >   cluster_size: 65536
+    >   Format specific information:
+    >       compat: 1.1
+    >       lazy refcounts: false
+    >       refcount bits: 16
+    >       corrupt: false
+
+#---------------------------------------------------------------------
+# Get the fully allocated size.
+#[user@work01]
+#[user@work03]
+#[user@work04]
+#[user@gaia01]
+
+    basesize=$(
+        qemu-img \
+            measure \
+                "/tmp/${basefile:?}" \
+        | sed -n '
+            2 s/^[^:]*:[[:space:]]*\([^[:space:]]*\)/\1/p
+            '
+        )
+
+    echo "Size [${basesize}]"
+
+    >   Size [8589934592]
+
+
+#---------------------------------------------------------------------
+# Delete any existing volume.
+#[user@work01]
+#[user@work03]
+#[user@work04]
+#[user@gaia01]
+
+    source "${HOME}/ischnura.settings"
+
+    virsh \
+        --connect "${libvirtcon:?}" \
+        vol-delete \
+            --pool "${basepool}" \
+            "${basefile:?}"
+
+    >   error: failed to get vol 'fedora-28-8G-docker-base-20181016.qcow'
+    >   error: Storage volume not found: no storage vol with matching path 'fedora-28-8G-docker-base-20181016.qcow'
+
+
+#---------------------------------------------------------------------
+# Create a new (empty) volume.
+#[user@work01]
+#[user@work03]
+#[user@work04]
+#[user@gaia01]
+
+    virsh \
+        --connect "${libvirtcon:?}" \
+        vol-create-as \
+            "${basepool:?}" \
+            "${basefile:?}" \
+            "${basesize:?}" \
+            --format qcow2
+
+    >   Vol fedora-28-8G-docker-base-20181016.qcow created
+
+
+#---------------------------------------------------------------------
+# Upload the image into the new volume.
+#[user@work01]
+#[user@work03]
+#[user@work04]
+#[user@gaia01]
+
+    virsh \
+        --connect "${libvirtcon:?}" \
+        vol-upload \
+            --pool "${basepool:?}" \
+            "${basefile:?}" \
+            "/tmp/${basefile:?}"
+
+
+#---------------------------------------------------------------------
+# Try creating a virtual machine.
+#[user@work01]
+#[user@work03]
+#[user@work04]
+#[user@gaia01]
+
+    createvm
+
+    >   INFO : Node name [Onaukon]
+    >   INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Disc name [Onaukon.qcow]
+    >   INFO : Disc size [8GiB]
+    >   
+    >   INFO : MAC  [06:00:AC:10:00:01]
+    >   INFO : IPv4 [172.16.0.1]
+    >   INFO : IPv6 []
+
+    >   INFO : Node name [Umynd]
+    >   INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Disc name [Umynd.qcow]
+    >   INFO : Disc size [8GiB]
+    >   
+    >   INFO : MAC  [06:00:AC:10:03:01]
+    >   INFO : IPv4 [172.16.3.1]
+    >   INFO : IPv6 []
+
+    >   INFO : Node name [Rhaler]
+    >   INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Disc name [Rhaler.qcow]
+    >   INFO : Disc size [8GiB]
+    >   
+    >   INFO : MAC  [06:00:AC:10:04:01]
+    >   INFO : IPv4 [172.16.4.1]
+    >   INFO : IPv6 []
+
+    >   INFO : Node name [Cinna]
+    >   INFO : Base name [fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Base path [/var/lib/libvirt/images/base/fedora-28-8G-docker-base-20181016.qcow]
+    >   INFO : Disc name [Cinna.qcow]
+    >   INFO : Disc size [8GiB]
+    >   
+    >   INFO : MAC  [06:00:AC:10:09:01]
+    >   INFO : IPv4 [172.16.9.1]
+    >   INFO : IPv6 []
+
+
+
+#---------------------------------------------------------------------
+# Try login to the virtual machine.
+#[user@work01]
+#[user@work03]
+#[user@work04]
+#[user@gaia01]
+
+    ssh -A Onaukon
+
+    ssh -A Umynd
+
+    ssh -A Rhaler
+
+    ssh -A Cinna
+
+#---------------------------------------------------------------------
+# Try access an external resource.
+#[user@Onaukon]
+#[user@Umynd]
+#[user@Rhaler]
+#[user@Cinna]
+
+    curl --head 'http://data.metagrid.co.uk/temp/'
+
+    >   HTTP/1.1 200 OK
+    >   Date: Tue, 27 Aug 2019 17:34:47 GMT
+    >   Server: Apache/2.2.15 (CentOS)
+    >   Connection: close
+    >   Content-Type: text/html;charset=UTF-8
+
+
+#---------------------------------------------------------------------
+# Try access a local VM on another host.
+#[user@Onaukon]
+#[user@Umynd]
+#[user@Rhaler]
+#[user@Cinna]
+
+    ssh -A Stevedore@Fosauri \
+        '
+        date
+        hostname
+        '
+
+    >   Tue 27 Aug 18:37:17 BST 2019
+    >   Fosauri
+
+
+

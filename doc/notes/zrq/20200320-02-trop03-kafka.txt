@@ -1,0 +1,1532 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2020, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#zrq-notes-time
+#zrq-notes-indent
+#zrq-notes-crypto
+#zrq-notes-ansible
+#zrq-notes-osformat
+#
+
+
+# -----------------------------------------------------
+# Annnd back to where we started.
+#[user@trop03]
+
+    ssh Stedigo
+
+--START--
+ssh: connect to host stedigo port 22: No route to host
+--END--
+
+
+    source "${HOME}/libvirt.settings"
+    virsh -c $libvirtcon list
+
+--START--
+ Id    Name                           State
+----------------------------------------------------
+ 57    Edwalafia                      paused
+ 58    Stedigo                        paused
+ 59    Onoza                          paused
+ 60    Fosauri                        paused
+ 61    Marpus                         paused
+ 62    Byflame                        paused
+ 64    Angece                         paused
+ 65    Grerat                         paused
+ 66    Jeralenia                      running
+--END--
+
+
+    df -h
+
+--START--
+Filesystem      Size  Used Avail Use% Mounted on
+udev             63G     0   63G   0% /dev
+tmpfs            13G  851M   12G   7% /run
+/dev/sda2        92G  1.7G   86G   2% /
+tmpfs            63G     0   63G   0% /dev/shm
+tmpfs           5.0M     0  5.0M   0% /run/lock
+tmpfs            63G     0   63G   0% /sys/fs/cgroup
+/dev/sda1       511M  132K  511M   1% /boot/efi
+/dev/sda4       9.1G  3.2G  5.4G  38% /tmp
+/dev/sda5        65G   61G     0 100% /var
+/dev/sda6        53G  4.2G   46G   9% /home
+/dev/sdc1       3.6T  581G  2.9T  17% /data2
+/dev/sdb1       3.6T  833G  2.6T  24% /data1
+tmpfs            13G     0   13G   0% /run/user/1005
+--END--
+
+
+    sudo du -h /var | sed -n '/^[0-9.]*G/p'
+
+--START--
+1.3G	/var/cache/apt/archives
+1.4G	/var/cache/apt
+1.4G	/var/cache
+54G	/var/lib/libvirt/images/live
+5.2G	/var/lib/libvirt/images/base
+60G	/var/lib/libvirt/images
+60G	/var/lib/libvirt
+60G	/var/lib
+61G	/var
+--END--
+
+
+# -----------------------------------------------------
+# Stop all the VMs.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+    for vmname in $(
+        virsh \
+            --connect "${libvirtcon:?}" \
+            list \
+                --name
+        )
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            virsh \
+                --connect "${libvirtcon:?}" \
+                    destroy \
+                        "${vmname:?}"
+        done
+
+--START--
+---- ----
+Node [Edwalafia]
+Domain Edwalafia destroyed
+
+---- ----
+Node [Stedigo]
+Domain Stedigo destroyed
+
+---- ----
+Node [Onoza]
+Domain Onoza destroyed
+
+---- ----
+Node [Fosauri]
+Domain Fosauri destroyed
+
+---- ----
+Node [Marpus]
+Domain Marpus destroyed
+
+---- ----
+Node [Byflame]
+Domain Byflame destroyed
+
+---- ----
+Node [Angece]
+Domain Angece destroyed
+
+---- ----
+Node [Grerat]
+Domain Grerat destroyed
+
+---- ----
+Node [Jeralenia]
+Domain Jeralenia destroyed
+--END--
+
+
+# -----------------------------------------------------
+# Delete the MirrorMaker VMs.
+#[user@trop03]
+
+    source "${HOME}/nodenames"
+    source "${HOME}/libvirt.settings"
+    for vmname in ${mmnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            virsh \
+                --connect "${libvirtcon:?}" \
+                undefine \
+                    "${vmname}" \
+                    --remove-all-storage    
+        done
+
+--START--
+---- ----
+Node [Grerat]
+Domain Grerat has been undefined
+Volume 'vda'(/var/lib/libvirt/images/live/Grerat.qcow) removed.
+Volume 'vdb'(/var/lib/libvirt/images/init/Grerat.iso) removed.
+
+---- ----
+Node [Jeralenia]
+Domain Jeralenia has been undefined
+Volume 'vda'(/var/lib/libvirt/images/live/Jeralenia.qcow) removed.
+Volume 'vdb'(/var/lib/libvirt/images/init/Jeralenia.iso) removed.
+--END--
+
+
+# -----------------------------------------------------
+# Check the available space.
+#[user@trop03]
+
+    df -h /var
+
+--START--
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/sda5        65G   54G  7.1G  89% /var
+--END--
+
+
+# -----------------------------------------------------
+# Start the Zookeeper nodes.
+#[user@trop03]
+
+    source "${HOME}/nodenames"
+    source "${HOME}/libvirt.settings"
+
+    for vmname in ${zknames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            virsh \
+                --connect "${libvirtcon:?}" \
+                    start \
+                        "${vmname:?}"
+
+        done
+
+--START--
+---- ----
+Node [Fosauri]
+Domain Fosauri started
+
+---- ----
+Node [Marpus]
+Domain Marpus started
+
+---- ----
+Node [Byflame]
+Domain Byflame started
+--END--
+
+# -----------------------------------------------------
+# Clear the Docker logs from the Zookeeper nodes.
+#[user@trop03]
+
+    source "${HOME}/nodenames"
+    source "${HOME}/ssh-options"
+    source "${HOME}/libvirt.settings"
+
+    for vmname in ${zknames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                '
+                logpath=$(
+                    docker inspect --format='{{.LogPath}}' 'stevedore_courtney_1'
+                    )
+                echo "Log path [${logpath:?}]"
+                sudo ls -lh "${logpath:?}"
+                sudo rm     "${logpath:?}"
+                sudo touch  "${logpath:?}"
+                sudo ls -lh "${logpath:?}"
+                '
+        done
+
+--START--
+---- ----
+Node [Fosauri]
+Log path [/var/lib/docker/containers/b32817cb4465779fea8e31bb729a97d359af20a913f893ac0b9712a126a8dc51/b32817cb4465779fea8e31bb729a97d359af20a913f893ac0b9712a126a8dc51-json.log]
+-rw-r-----. 1 root root 314K Mar 20 15:29 /var/lib/docker/containers/b32817cb4465779fea8e31bb729a97d359af20a913f893ac0b9712a126a8dc51/b32817cb4465779fea8e31bb729a97d359af20a913f893ac0b9712a126a8dc51-json.log
+-rw-r--r--. 1 root root 0 Mar 20 19:53 /var/lib/docker/containers/b32817cb4465779fea8e31bb729a97d359af20a913f893ac0b9712a126a8dc51/b32817cb4465779fea8e31bb729a97d359af20a913f893ac0b9712a126a8dc51-json.log
+---- ----
+Node [Marpus]
+Log path [/var/lib/docker/containers/765f868419991fb2710849c2648afacb8c401023e5ebe0c9a40af22e11251367/765f868419991fb2710849c2648afacb8c401023e5ebe0c9a40af22e11251367-json.log]
+-rw-r-----. 1 root root 4.1M Mar 20 15:30 /var/lib/docker/containers/765f868419991fb2710849c2648afacb8c401023e5ebe0c9a40af22e11251367/765f868419991fb2710849c2648afacb8c401023e5ebe0c9a40af22e11251367-json.log
+-rw-r--r--. 1 root root 0 Mar 20 19:53 /var/lib/docker/containers/765f868419991fb2710849c2648afacb8c401023e5ebe0c9a40af22e11251367/765f868419991fb2710849c2648afacb8c401023e5ebe0c9a40af22e11251367-json.log
+---- ----
+Node [Byflame]
+Log path [/var/lib/docker/containers/24130d517f1d36da07eabefe8a861a7dafc7784116664c0c7c201be85dcafbb1/24130d517f1d36da07eabefe8a861a7dafc7784116664c0c7c201be85dcafbb1-json.log]
+-rw-r-----. 1 root root 109K Mar 20 15:31 /var/lib/docker/containers/24130d517f1d36da07eabefe8a861a7dafc7784116664c0c7c201be85dcafbb1/24130d517f1d36da07eabefe8a861a7dafc7784116664c0c7c201be85dcafbb1-json.log
+-rw-r--r--. 1 root root 0 Mar 20 19:53 /var/lib/docker/containers/24130d517f1d36da07eabefe8a861a7dafc7784116664c0c7c201be85dcafbb1/24130d517f1d36da07eabefe8a861a7dafc7784116664c0c7c201be85dcafbb1-json.log
+--END--
+
+
+# -----------------------------------------------------
+# Limit the Docker log size on the Zookeeper nodes.
+#[user@trop03]
+
+    source "${HOME}/nodenames"
+    source "${HOME}/ssh-options"
+    source "${HOME}/libvirt.settings"
+
+    for vmname in ${zknames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                '
+cat > /tmp/daemon.json << EOF
+{
+  "log-driver": "json-file",
+  "log-opts": {"max-size": "10m", "max-file": "3"}
+}
+EOF
+                sudo mv /tmp/daemon.json /etc/docker/daemon.json
+                '
+        done
+
+--START--
+---- ----
+Node [Fosauri]
+---- ----
+Node [Marpus]
+---- ----
+Node [Byflame]
+--END--
+
+
+# -----------------------------------------------------
+# Restart the Docker daemon on the Zookeeper nodes.
+#[user@trop03]
+
+    source "${HOME}/nodenames"
+    source "${HOME}/ssh-options"
+    source "${HOME}/libvirt.settings"
+
+    for vmname in ${zknames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                '
+                sudo systemctl restart docker.service
+                '
+        done
+
+--START--
+---- ----
+Node [Fosauri]
+---- ----
+Node [Marpus]
+---- ----
+Node [Byflame]
+--END--
+
+
+# -----------------------------------------------------
+# Start our Zookeeper containers,
+# (separate login on each node).
+#[user@desktop]
+
+    ssh Fosauri
+    ssh Marpus
+    ssh Byflame
+
+    docker-compose \
+        --file zookeeper.yml \
+        up \
+        -d
+
+    docker logs \
+        --follow \
+        'stevedore_courtney_1'
+
+
+--START--
+....
+....
+[2020-03-20 19:59:56,862] INFO Getting a diff from the leader 0x400000004 (org.apache.zookeeper.server.quorum.Learner)
+[2020-03-20 19:59:59,759] INFO Received connection request /172.16.5.16:58320 (org.apache.zookeeper.server.quorum.QuorumCnxManager)
+[2020-03-20 19:59:59,766] INFO Notification: 1 (message format version), 3 (n.leader), 0x400000004 (n.zxid), 0x1 (n.round), LOOKING (n.state), 3 (n.sid), 0x5 (n.peerEpoch) FOLLOWING (my state) (org.apache.zookeeper.server.quorum.FastLeaderElection)
+--END--
+
+--START--
+....
+....
+[2020-03-20 19:59:59,809] INFO Synchronizing with Follower sid: 3 maxCommittedLog=0x400000004 minCommittedLog=0x2005f0433 peerLastZxid=0x400000004 (org.apache.zookeeper.server.quorum.LearnerHandler)
+[2020-03-20 19:59:59,811] INFO Sending DIFF (org.apache.zookeeper.server.quorum.LearnerHandler)
+[2020-03-20 19:59:59,819] INFO Received NEWLEADER-ACK message from 3 (org.apache.zookeeper.server.quorum.LearnerHandler)
+--END--
+
+--START--
+....
+....
+[2020-03-20 19:59:59,799] INFO FOLLOWING - LEADER ELECTION TOOK - 45 (org.apache.zookeeper.server.quorum.Learner)
+[2020-03-20 19:59:59,801] INFO Resolved hostname: Marpus to address: Marpus/172.16.5.15 (org.apache.zookeeper.server.quorum.QuorumPeer)
+[2020-03-20 19:59:59,812] INFO Getting a diff from the leader 0x400000004 (org.apache.zookeeper.server.quorum.Learner)
+--END--
+
+
+# -----------------------------------------------------
+# Start the Kafka nodes.
+#[user@trop03]
+
+    source "${HOME}/nodenames"
+    source "${HOME}/libvirt.settings"
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            virsh \
+                --connect "${libvirtcon:?}" \
+                    start \
+                        "${vmname:?}"
+
+        done
+
+--START--
+---- ----
+Node [Stedigo]
+Domain Stedigo started
+
+---- ----
+Node [Angece]
+Domain Angece started
+
+---- ----
+Node [Edwalafia]
+Domain Edwalafia started
+
+---- ----
+Node [Onoza]
+Domain Onoza started
+--END--
+
+
+# -----------------------------------------------------
+# Clear the Docker logs from the Kafka nodes.
+#[user@trop03]
+
+    source "${HOME}/nodenames"
+    source "${HOME}/ssh-options"
+    source "${HOME}/libvirt.settings"
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                '
+                logpath=$(
+                    docker inspect --format='{{.LogPath}}' 'stevedore_emily_1'
+                    )
+                echo "Log path [${logpath:?}]"
+                sudo ls -lh "${logpath:?}"
+                sudo rm     "${logpath:?}"
+                sudo touch  "${logpath:?}"
+                sudo ls -lh "${logpath:?}"
+                '
+        done
+
+
+--START--
+---- ----
+Node [Stedigo]
+Log path [/var/lib/docker/containers/d16a051975c06903e28152d3d9cb20d42341d3063a6ef3734348582f83645097/d16a051975c06903e28152d3d9cb20d42341d3063a6ef3734348582f83645097-json.log]
+-rw-r--r--. 1 root root 1.1G Mar 20 15:32 /var/lib/docker/containers/d16a051975c06903e28152d3d9cb20d42341d3063a6ef3734348582f83645097/d16a051975c06903e28152d3d9cb20d42341d3063a6ef3734348582f83645097-json.log
+-rw-r--r--. 1 root root 0 Mar 20 19:42 /var/lib/docker/containers/d16a051975c06903e28152d3d9cb20d42341d3063a6ef3734348582f83645097/d16a051975c06903e28152d3d9cb20d42341d3063a6ef3734348582f83645097-json.log
+---- ----
+Node [Angece]
+Log path [/var/lib/docker/containers/54af20eec4e413c023121f554198d29e5dfa1c948a90114d9e1062e56fdbab0b/54af20eec4e413c023121f554198d29e5dfa1c948a90114d9e1062e56fdbab0b-json.log]
+-rw-r-----. 1 root root 2.1G Mar 20 15:31 /var/lib/docker/containers/54af20eec4e413c023121f554198d29e5dfa1c948a90114d9e1062e56fdbab0b/54af20eec4e413c023121f554198d29e5dfa1c948a90114d9e1062e56fdbab0b-json.log
+-rw-r--r--. 1 root root 0 Mar 20 19:42 /var/lib/docker/containers/54af20eec4e413c023121f554198d29e5dfa1c948a90114d9e1062e56fdbab0b/54af20eec4e413c023121f554198d29e5dfa1c948a90114d9e1062e56fdbab0b-json.log
+---- ----
+Node [Edwalafia]
+Log path [/var/lib/docker/containers/e7f81f6dceb599ded533ee39545428b01cced7e29816938faca4024bfa51974c/e7f81f6dceb599ded533ee39545428b01cced7e29816938faca4024bfa51974c-json.log]
+-rw-r--r--. 1 root root 2.0G Mar 20 18:08 /var/lib/docker/containers/e7f81f6dceb599ded533ee39545428b01cced7e29816938faca4024bfa51974c/e7f81f6dceb599ded533ee39545428b01cced7e29816938faca4024bfa51974c-json.log
+-rw-r--r--. 1 root root 0 Mar 20 19:42 /var/lib/docker/containers/e7f81f6dceb599ded533ee39545428b01cced7e29816938faca4024bfa51974c/e7f81f6dceb599ded533ee39545428b01cced7e29816938faca4024bfa51974c-json.log
+---- ----
+Node [Onoza]
+Log path [/var/lib/docker/containers/ee678ed8f55aa462e513b07db3ccf241a124055429c80c078e6494c86c04e848/ee678ed8f55aa462e513b07db3ccf241a124055429c80c078e6494c86c04e848-json.log]
+-rw-r--r--. 1 root root 1.2G Mar 20 15:31 /var/lib/docker/containers/ee678ed8f55aa462e513b07db3ccf241a124055429c80c078e6494c86c04e848/ee678ed8f55aa462e513b07db3ccf241a124055429c80c078e6494c86c04e848-json.log
+-rw-r--r--. 1 root root 0 Mar 20 19:42 /var/lib/docker/containers/ee678ed8f55aa462e513b07db3ccf241a124055429c80c078e6494c86c04e848/ee678ed8f55aa462e513b07db3ccf241a124055429c80c078e6494c86c04e848-json.log
+--END--
+
+
+# -----------------------------------------------------
+# Limit the Docker log size on the Kafka nodes.
+#[user@trop03]
+
+    source "${HOME}/nodenames"
+    source "${HOME}/ssh-options"
+    source "${HOME}/libvirt.settings"
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                '
+cat > /tmp/daemon.json << EOF
+{
+  "log-driver": "json-file",
+  "log-opts": {"max-size": "10m", "max-file": "3"}
+}
+EOF
+                sudo mv /tmp/daemon.json /etc/docker/daemon.json
+                '
+        done
+
+--START--
+---- ----
+Node [Stedigo]
+---- ----
+Node [Angece]
+---- ----
+Node [Edwalafia]
+---- ----
+Node [Onoza]
+--END--
+
+
+# -----------------------------------------------------
+# Start our Kafka containers,
+# (separate login on each node).
+#[user@desktop]
+
+    ssh Stedigo
+    ssh Angece
+    ssh Edwalafia
+    ssh Onoza
+
+    docker-compose \
+        --file kafka.yml \
+        up \
+        -d
+
+    docker logs \
+        --follow \
+        'stevedore_emily_1'
+
+
+--START--
+....
+[2020-03-20 20:04:36,469] INFO [Log partition=ztf_20190801_programid1-0, dir=/data1-01] Loading producer state from offset 15377 with message format version 2 (kafka.log.Log)
+[2020-03-20 20:04:36,470] INFO [ProducerStateManager partition=ztf_20190801_programid1-0] Loading producer state from snapshot file '/data1-01/ztf_20190801_programid1-0/00000000000000015377.snapshot' (kafka.log.ProducerStateManager)
+[2020-03-20 20:04:36,471] INFO [Log partition=ztf_20190801_programid1-0, dir=/data1-01] Completed load of log with 2 segments, log start offset 0 and log end offset 15377 in 1290 ms (kafka.log.Log)
+[2020-03-20 20:04:36,476] WARN [Log partition=ztf_20190802_programid1-5, dir=/data1-01] Found a corrupted index file corresponding to log file /data1-01/ztf_20190802_programid1-5/00000000000000000000.log due to Corrupt index found, index file (/data1-01/ztf_20190802_programid1-5/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
+....
+--END--
+
+--START--
+....
+[2020-03-20 20:05:01,527] INFO [ProducerStateManager partition=ztf_20190920_programid1-165] Loading producer state from snapshot file '/data2-01/ztf_20190920_programid1-165/00000000000000000358.snapshot' (kafka.log.ProducerStateManager)
+[2020-03-20 20:05:01,529] INFO [Log partition=ztf_20190920_programid1-165, dir=/data2-01] Loading producer state from offset 358 with message format version 2 (kafka.log.Log)
+[2020-03-20 20:05:01,529] INFO [Log partition=ztf_20190920_programid1-165, dir=/data2-01] Completed load of log with 1 segments, log start offset 358 and log end offset 358 in 72 ms (kafka.log.Log)
+[2020-03-20 20:05:01,536] WARN [Log partition=ztf_20190808_programid1-12, dir=/data2-01] Found a corrupted index file corresponding to log file /data2-01/ztf_20190808_programid1-12/00000000000000000000.log due to Corrupt index found, index file (/data2-01/ztf_20190808_programid1-12/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
+....
+--END--
+
+--START--
+....
+[2020-03-20 20:04:52,129] INFO [Log partition=ztf_20190801_programid1-3, dir=/data1-01] Loading producer state from offset 15378 with message format version 2 (kafka.log.Log)
+[2020-03-20 20:04:52,130] INFO [ProducerStateManager partition=ztf_20190801_programid1-3] Loading producer state from snapshot file '/data1-01/ztf_20190801_programid1-3/00000000000000015378.snapshot' (kafka.log.ProducerStateManager)
+[2020-03-20 20:04:52,130] INFO [Log partition=ztf_20190801_programid1-3, dir=/data1-01] Completed load of log with 2 segments, log start offset 0 and log end offset 15378 in 1064 ms (kafka.log.Log)
+[2020-03-20 20:04:52,136] WARN [Log partition=ztf_20190802_programid1-11, dir=/data1-01] Found a corrupted index file corresponding to log file /data1-01/ztf_20190802_programid1-11/00000000000000000000.log due to Corrupt index found, index file (/data1-01/ztf_20190802_programid1-11/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
+....
+--END--
+
+--START--
+....
+[2020-03-20 20:04:57,511] INFO [Log partition=ztf_20190801_programid1-0, dir=/data2-01] Loading producer state from offset 15377 with message format version 2 (kafka.log.Log)
+[2020-03-20 20:04:57,512] INFO [ProducerStateManager partition=ztf_20190801_programid1-0] Loading producer state from snapshot file '/data2-01/ztf_20190801_programid1-0/00000000000000015377.snapshot' (kafka.log.ProducerStateManager)
+[2020-03-20 20:04:57,513] INFO [Log partition=ztf_20190801_programid1-0, dir=/data2-01] Completed load of log with 2 segments, log start offset 0 and log end offset 15377 in 852 ms (kafka.log.Log)
+[2020-03-20 20:04:57,518] WARN [Log partition=ztf_20190802_programid1-8, dir=/data2-01] Found a corrupted index file corresponding to log file /data2-01/ztf_20190802_programid1-8/00000000000000000000.log due to Corrupt index found, index file (/data2-01/ztf_20190802_programid1-8/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
+....
+--END--
+
+
+# -----------------------------------------------------
+# Monitor the host machine load.
+#[user@desktop]
+
+    atop
+
+--START--
+ATOP - trop03                 2020/03/20  20:07:04                 -------------                   10s elapsed
+PRC | sys    2.20s | user   8.58s | #proc    421 | #tslpi   668 | #tslpu    14 | #zombie    0 | #exit      0 |
+CPU | sys      20% | user     84% | irq       1% | idle   2113% | wait    984% | curf 1.24GHz | curscal  38% |
+CPL | avg1   20.11 | avg5    8.63 | avg15   3.44 | csw    53636 | intr   26752 |              | numcpu    32 |
+MEM | tot   125.8G | free  586.9M | cache 102.5G | buff  199.6M | slab    1.5G | vmbal   0.0M | hptot   0.0M |
+SWP | tot     1.9G | free    1.1G |              |              |              | vmcom  32.6G | vmlim  64.8G |
+PAG | scan  183089 | steal 183027 | stall      0 |              |              | swin       0 | swout      8 |
+DSK |          sdc | busy    100% | read    2190 | write      4 | MBr/s   33.9 | MBw/s    0.0 | avio 4.55 ms |
+DSK |          sdb | busy    100% | read    2966 | write     58 | MBr/s   48.8 | MBw/s    0.3 | avio 3.30 ms |
+DSK |          sda | busy      0% | read       0 | write     79 | MBr/s    0.0 | MBw/s    0.9 | avio 0.35 ms |
+NET | transport    | tcpi       7 | tcpo       7 | udpi       0 | udpo       0 | tcpao      0 | tcppo      0 |
+NET | network      | ipi       44 | ipo        7 | ipfrw      0 | deliv     21 | icmpi     14 | icmpo      0 |
+NET | vnet5     0% | pcki      50 | pcko      65 | sp   10 Mbps | si    3 Kbps | so    4 Kbps | erro       0 |
+NET | vnet6     0% | pcki      20 | pcko      65 | sp   10 Mbps | si    1 Kbps | so    4 Kbps | erro       0 |
+--END--
+
+    #
+    # Both hard drives are maxed out.
+    #
+
+--START--
+DSK |          sdc | busy    100% | read    2190 | write      4 | MBr/s   33.9 | MBw/s    0.0 | avio 4.55 ms |
+DSK |          sdb | busy    100% | read    2966 | write     58 | MBr/s   48.8 | MBw/s    0.3 | avio 3.30 ms |
+--END--
+
+
+
+# -----------------------------------------------------
+# List the VM states.
+#[user@trop03]
+
+    source "${HOME}/libvirt.settings"
+    
+    virsh \
+        --connect "${libvirtcon:?}" \
+        list \
+            --all
+
+--START--
+ Id    Name                           State
+----------------------------------------------------
+ 67    Stedigo                        running
+ 68    Angece                         running
+ 69    Edwalafia                      running
+ 70    Onoza                          running
+ 71    Fosauri                        running
+ 72    Marpus                         running
+ 73    Byflame                        running
+ -     Umiawyth                       shut off
+--END--
+
+
+# -----------------------------------------------------
+# Create our MirrorMaker nodes.
+#[user@trop03]
+
+    createvm
+
+--START--
+INFO : Node name [Grerat]
+INFO : Base name [fedora-30-docker-base-20190903.qcow]
+INFO : Base path [/var/lib/libvirt/images/base/fedora-30-docker-base-20190903.qcow]
+INFO : Disc name [Grerat.qcow]
+INFO : Disc size [16GiB]
+--END--
+
+    
+    createvm
+
+--START--
+INFO : Node name [Jeralenia]
+INFO : Base name [fedora-30-docker-base-20190903.qcow]
+INFO : Base path [/var/lib/libvirt/images/base/fedora-30-docker-base-20190903.qcow]
+INFO : Disc name [Jeralenia.qcow]
+INFO : Disc size [16GiB]
+--END--
+
+# -----------------------------------------------------
+# Define a host lookup function.
+# https://askubuntu.com/questions/627906/why-is-my-etc-hosts-file-not-queried-when-nslookup-tries-to-resolve-an-address#comment1536517_627909
+# TODO Add this to a toolit script.
+#[user@trop03]
+
+    getipv4()
+        {
+        getent hosts "${1:?}" | cut -d ' ' -f 1
+        }
+
+
+#---------------------------------------------------------------------
+# Update our SSH keys for each node.
+#[user@trop03]
+
+    source "${HOME}/nodenames.txt"
+
+    for vmname in ${mmnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+
+            ssh-keygen \
+                -q -R \
+                    "${vmname:?}"
+
+            ssh-keyscan \
+                "${vmname:?}" \
+                >> "${HOME}/.ssh/known_hosts"
+
+            ssh-keyscan \
+                -t ecdsa $(getipv4 "${vmname:?}") \
+                >> "${HOME}/.ssh/known_hosts"
+
+        done
+
+
+--START--
+---- ----
+Node [Grerat]
+Host Grerat not found in /home/dmr/.ssh/known_hosts
+# Grerat:22 SSH-2.0-OpenSSH_8.0
+# Grerat:22 SSH-2.0-OpenSSH_8.0
+# Grerat:22 SSH-2.0-OpenSSH_8.0
+# 172.16.5.17:22 SSH-2.0-OpenSSH_8.0
+---- ----
+Node [Jeralenia]
+Host Jeralenia not found in /home/dmr/.ssh/known_hosts
+# Jeralenia:22 SSH-2.0-OpenSSH_8.0
+# Jeralenia:22 SSH-2.0-OpenSSH_8.0
+# Jeralenia:22 SSH-2.0-OpenSSH_8.0
+# 172.16.5.18:22 SSH-2.0-OpenSSH_8.0
+--END--
+
+
+# -----------------------------------------------------
+# Update the number of cores on our MirrorMaker nodes.
+#[user@trop03]
+
+    source "${HOME}/nodenames"
+    source "${HOME}/libvirt.settings"
+
+    for vmname in ${mmnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname}]"
+            virsh \
+                --connect ${libvirtcon:?} \
+                    setvcpus \
+                    ${vmname:?} \
+                    2 \
+                    --maximum \
+                    --config
+        done
+
+--START--
+---- ----
+Node [Grerat]
+
+---- ----
+Node [Jeralenia]
+--END--
+
+
+# -----------------------------------------------------
+# Restart each of our MirrorMaker nodes.
+#[user@trop03]
+
+    source "${HOME}/nodenames"
+    source "${HOME}/libvirt.settings"
+
+    for vmname in ${mmnames[@]}
+        do
+            virsh \
+                --connect ${libvirtcon:?} \
+                    shutdown \
+                    ${vmname:?}
+        done
+
+--START--
+Domain Grerat is being shutdown
+
+Domain Jeralenia is being shutdown
+--END--
+
+
+    sleep 30
+    for vmname in ${mmnames[@]}
+        do
+            virsh \
+                --connect ${libvirtcon:?} \
+                    start \
+                    ${vmname:?}
+        done
+
+--START--
+....
+....
+--END--
+
+
+# -----------------------------------------------------
+# Create our broker connection lists.
+#[user@trop03]
+
+    source "${HOME}/nodenames"
+
+    ztftopicid=ztf_$(date +%Y%m%d)_programid1
+    ztfconnect=public.alerts.ztf.uw.edu:9092
+
+    kafkanames=${kfnames[*]}
+    roeconnect=${kafkanames// /:9092,}:9092
+    roegroupid=ztf-mirror.roe.ac.uk
+
+    cat > "${HOME}/connections" << EOF
+ztftopicid=${ztftopicid:?}
+ztfconnect=${ztfconnect:?}
+roeconnect=${roeconnect:?}]
+roegroupid=${roegroupid:?}]
+EOF
+
+    cat "${HOME}/connections"
+
+--START--
+ztftopicid=ztf_20200321_programid1
+ztfconnect=public.alerts.ztf.uw.edu:9092
+roeconnect=Stedigo:9092,Angece:9092,Edwalafia:9092,Onoza:9092]
+roegroupid=ztf-mirror.roe.ac.uk]
+--END--
+
+
+# -----------------------------------------------------
+# Transfer a copy of our connection list and node names.
+#[user@trop03]
+
+    source "${HOME}/nodenames"
+    source "${HOME}/ssh-options"
+
+    for vmname in ${mmnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname}]"
+
+            scp \
+                ${scpopts[*]} \
+                "${HOME}/nodenames" \
+                "${sshuser:?}@${vmname:?}:nodenames"
+
+            scp \
+                ${scpopts[*]} \
+                "${HOME}/connections" \
+                "${sshuser:?}@${vmname:?}:connections"
+        done
+
+--START--
+---- ----
+Node [Grerat]
+nodenames       100%  465   481.5KB/s   00:00    
+connections     100%  172   431.8KB/s   00:00    
+---- ----
+Node [Jeralenia]
+nodenames       100%  465   550.4KB/s   00:00    
+connections     100%  172   208.5KB/s   00:00    
+dmr@trop03:~$ 
+--END--
+
+
+    #
+    # Install and configure MirrorMaker .. later 
+    #
+
+
+# -----------------------------------------------------
+# See if we can get a list of available topics.
+#[user@trop03]
+
+    source "${HOME}/nodenames"
+    source "${HOME}/ssh-options"
+
+    ssh \
+        ${sshopts[*]} \
+        ${sshuser:?}@${mmnames[0]:?} \
+            '
+            source "${HOME}/nodenames"
+            docker run --rm \
+                phymatopus/kafka-core \
+                    bin/kafka-topics.sh \
+                        --zookeeper "${zknames[0]}" \
+                        --list \
+            | sort | tee /tmp/topiclist
+            '
+
+--START--
+Unable to find image 'phymatopus/kafka-core:latest' locally
+latest: Pulling from phymatopus/kafka-core
+....
+....
+906d0ec5db14: Pull complete
+57d9f5cfa5f7: Pull complete
+Digest: sha256:998482164d8991aa867730ec2b0d7b0c062311687964d53d255c7857621f28f1
+Status: Downloaded newer image for phymatopus/kafka-core:latest
+--END--
+
+--START--
+banana
+__confluent.support.metrics
+__consumer_offsets
+ztf_20190724_programid1
+ztf_20190725_programid1
+ztf_20190726_programid1
+ztf_20190727_programid1
+ztf_20190728_programid1
+ztf_20190729_programid1
+ztf_20190730_programid1
+ztf_20190731_programid1
+ztf_20190801_programid1
+ztf_20190802_programid1
+ztf_20190803_programid1
+ztf_20190804_programid1
+ztf_20190805_programid1
+ztf_20190806_programid1
+ztf_20190807_programid1
+ztf_20190808_programid1
+ztf_20190809_programid1
+ztf_20190810_programid1
+ztf_20190811_programid1
+ztf_20190812_programid1
+ztf_20190813_programid1
+ztf_20190814_programid1
+ztf_20190815_programid1
+ztf_20190816_programid1
+ztf_20190817_programid1
+ztf_20190818_programid1
+ztf_20190819_programid1
+ztf_20190820_programid1
+ztf_20190821_programid1
+ztf_20190822_programid1
+ztf_20190823_programid1
+ztf_20190824_programid1
+ztf_20190825_programid1
+ztf_20190826_programid1
+ztf_20190827_programid1
+ztf_20190828_programid1
+ztf_20190829_programid1
+ztf_20190830_programid1
+ztf_20190831_programid1
+ztf_20190901_programid1
+ztf_20190902_programid1
+ztf_20190903_programid1
+ztf_20190904_programid1
+ztf_20190905_programid1
+ztf_20190906_programid1
+ztf_20190907_programid1
+ztf_20190908_programid1
+ztf_20190909_programid1
+ztf_20190910_programid1
+ztf_20190911_programid1
+ztf_20190912_programid1
+ztf_20190913_programid1
+ztf_20190914_programid1
+ztf_20190915_programid1
+ztf_20190916_programid1
+ztf_20190917_programid1
+ztf_20190918_programid1
+ztf_20190919_programid1
+ztf_20190920_programid1
+ztf_20190921_programid1
+ztf_20190922_programid1
+ztf_20190923_programid1
+ztf_20190924_programid1
+ztf_20190925_programid1
+ztf_20190930_programid1
+ztf_20191012_programid1
+ztf_20191126_programid1
+--END--
+
+
+# -----------------------------------------------------
+# Try to get the row count all our topics.
+#[user@trop03]
+
+    source "${HOME}/nodenames"
+    source "${HOME}/connections"
+    source "${HOME}/ssh-options"
+
+    ssh \
+        ${sshopts[*]} \
+        ${sshuser:?}@${mmnames[0]:?} \
+        << EOF
+    for topic in \$(cat /tmp/topiclist)
+    do
+        echo "---- ----"
+        echo "Topic [\${topic:?}]"
+        docker run -t --rm \\
+            phymatopus/kafka-core \\
+                bin/kafka-run-class.sh \\
+                    kafka.tools.GetOffsetShell \\
+                        --broker-list '${roeconnect:?}' \\
+                        --topic "\${topic:?}" \\
+        | sed '
+            s/\([^:]*\):\([^:]*\):\([^:]*\)/\3/
+            ' \
+        | awk '
+            {sum += \$1} END {print sum}
+            '
+    done
+EOF
+
+--START--
+....
+....
+--END--
+
+
+
+
+# -----------------------------------------------------
+# Annnd back to where we started.
+#[user@trop03]
+
+    df -h /var/
+
+--START--
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/sda5        65G   61G     0 100% /var
+--END--
+
+
+# -----------------------------------------------------
+# Destroy the MirrorMaker VMs.
+#[user@trop03]
+
+    source "${HOME}/nodenames"
+    source "${HOME}/libvirt.settings"
+
+    for vmname in ${mmnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            virsh \
+                --connect ${libvirtcon:?} \
+                    destroy \
+                    ${vmname:?}
+        done
+
+--START--
+---- ----
+Node [Grerat]
+Domain Grerat destroyed
+
+---- ----
+Node [Jeralenia]
+Domain Jeralenia destroyed
+--END--
+
+
+    source "${HOME}/nodenames"
+    source "${HOME}/libvirt.settings"
+    for vmname in ${mmnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            virsh \
+                --connect "${libvirtcon:?}" \
+                undefine \
+                    "${vmname}" \
+                    --remove-all-storage    
+        done
+
+
+--START--
+---- ----
+Node [Grerat]
+Domain Grerat has been undefined
+Volume 'vda'(/var/lib/libvirt/images/live/Grerat.qcow) removed.
+Volume 'vdb'(/var/lib/libvirt/images/init/Grerat.iso) removed.
+
+---- ----
+Node [Jeralenia]
+Domain Jeralenia has been undefined
+Volume 'vda'(/var/lib/libvirt/images/live/Jeralenia.qcow) removed.
+Volume 'vdb'(/var/lib/libvirt/images/init/Jeralenia.iso) removed.
+--END--
+
+
+# -----------------------------------------------------
+# Check the disc space.
+#[user@trop03]
+
+    df -h /var/
+
+--START--
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/sda5        65G   59G  2.1G  97% /var
+--END--
+    
+    
+# -----------------------------------------------------
+# List the remaining VMs.
+#[user@trop03]
+    
+    source "${HOME}/libvirt.settings"
+    virsh -c $libvirtcon list --all
+
+
+--START--
+ Id    Name                           State
+----------------------------------------------------
+ 67    Stedigo                        running
+ 68    Angece                         paused
+ 69    Edwalafia                      running
+ 70    Onoza                          paused
+ 71    Fosauri                        paused
+ 72    Marpus                         paused
+ 73    Byflame                        paused
+ -     Umiawyth                       shut off
+--END--
+
+
+# -----------------------------------------------------
+# Destroy the unused VM.
+#[user@trop03]
+
+    source "${HOME}/nodenames"
+    source "${HOME}/libvirt.settings"
+
+    vmname=Umiawyth
+
+    virsh \
+        --connect ${libvirtcon:?} \
+        undefine \
+            "${vmname}" \
+            --remove-all-storage    
+
+
+# -----------------------------------------------------
+# Try unpausing the VMs gradually.
+#[user@trop03]
+
+    source "${HOME}/nodenames"
+    source "${HOME}/libvirt.settings"
+
+    for vmname in ${zknames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            virsh \
+                --connect "${libvirtcon:?}" \
+                resume \
+                    "${vmname}"
+        done
+
+--START--
+---- ----
+Node [Fosauri]
+Domain Fosauri resumed
+
+---- ----
+Node [Marpus]
+Domain Marpus resumed
+
+---- ----
+Node [Byflame]
+Domain Byflame resumed
+--END--
+
+
+    source "${HOME}/libvirt.settings"
+    virsh -c $libvirtcon list --all
+
+
+--START--
+ Id    Name                           State
+----------------------------------------------------
+ 67    Stedigo                        running
+ 68    Angece                         paused
+ 69    Edwalafia                      running
+ 70    Onoza                          paused
+ 71    Fosauri                        running
+ 72    Marpus                         running
+ 73    Byflame                        running
+--END--
+
+    #
+    # Zookeper VMs are listed as running, but we can't login via SSH.
+    # 
+
+# -----------------------------------------------------
+# Stop the Zookeeper VMs.
+#[user@trop03]
+
+    source "${HOME}/nodenames"
+    source "${HOME}/libvirt.settings"
+
+    for vmname in ${zknames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            virsh \
+                --connect "${libvirtcon:?}" \
+                destroy \
+                    "${vmname}"
+        done
+
+--START--
+---- ----
+Node [Fosauri]
+Domain Fosauri destroyed
+
+---- ----
+Node [Marpus]
+Domain Marpus destroyed
+
+---- ----
+Node [Byflame]
+Domain Byflame destroyed
+--END--
+
+
+# -----------------------------------------------------
+# Start the Zookeeper VMs.
+#[user@trop03]
+
+    source "${HOME}/nodenames"
+    source "${HOME}/libvirt.settings"
+
+    for vmname in ${zknames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            virsh \
+                --connect "${libvirtcon:?}" \
+                start \
+                    "${vmname}"
+        done
+
+--START--
+---- ----
+Node [Fosauri]
+Domain Fosauri started
+
+---- ----
+Node [Marpus]
+Domain Marpus started
+
+---- ----
+Node [Byflame]
+Domain Byflame started
+--END--
+
+
+# -----------------------------------------------------
+# Clear the Docker logs from the Zookeeper nodes.
+#[user@trop03]
+
+    source "${HOME}/nodenames"
+    source "${HOME}/ssh-options"
+    source "${HOME}/libvirt.settings"
+
+    for vmname in ${zknames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                '
+                logpath=$(
+                    docker inspect --format='{{.LogPath}}' 'stevedore_courtney_1'
+                    )
+                echo "Log path [${logpath:?}]"
+                sudo ls -lh "${logpath:?}"
+                sudo rm     "${logpath:?}"
+                sudo touch  "${logpath:?}"
+                sudo ls -lh "${logpath:?}"
+                '
+        done
+
+--START--
+---- ----
+Node [Fosauri]
+Log path [/var/lib/docker/containers/b32817cb4465779fea8e31bb729a97d359af20a913f893ac0b9712a126a8dc51/b32817cb4465779fea8e31bb729a97d359af20a913f893ac0b9712a126a8dc51-json.log]
+-rw-r--r--. 1 root root 120K Mar 21 10:40 /var/lib/docker/containers/b32817cb4465779fea8e31bb729a97d359af20a913f893ac0b9712a126a8dc51/b32817cb4465779fea8e31bb729a97d359af20a913f893ac0b9712a126a8dc51-json.log
+-rw-r--r--. 1 root root 0 Mar 21 11:31 /var/lib/docker/containers/b32817cb4465779fea8e31bb729a97d359af20a913f893ac0b9712a126a8dc51/b32817cb4465779fea8e31bb729a97d359af20a913f893ac0b9712a126a8dc51-json.log
+---- ----
+Node [Marpus]
+Log path [/var/lib/docker/containers/765f868419991fb2710849c2648afacb8c401023e5ebe0c9a40af22e11251367/765f868419991fb2710849c2648afacb8c401023e5ebe0c9a40af22e11251367-json.log]
+-rw-r--r--. 1 root root 8.1M Mar 21 10:34 /var/lib/docker/containers/765f868419991fb2710849c2648afacb8c401023e5ebe0c9a40af22e11251367/765f868419991fb2710849c2648afacb8c401023e5ebe0c9a40af22e11251367-json.log
+-rw-r--r--. 1 root root 0 Mar 21 11:31 /var/lib/docker/containers/765f868419991fb2710849c2648afacb8c401023e5ebe0c9a40af22e11251367/765f868419991fb2710849c2648afacb8c401023e5ebe0c9a40af22e11251367-json.log
+---- ----
+Node [Byflame]
+Log path [/var/lib/docker/containers/24130d517f1d36da07eabefe8a861a7dafc7784116664c0c7c201be85dcafbb1/24130d517f1d36da07eabefe8a861a7dafc7784116664c0c7c201be85dcafbb1-json.log]
+-rw-r--r--. 1 root root 112K Mar 21 10:40 /var/lib/docker/containers/24130d517f1d36da07eabefe8a861a7dafc7784116664c0c7c201be85dcafbb1/24130d517f1d36da07eabefe8a861a7dafc7784116664c0c7c201be85dcafbb1-json.log
+-rw-r--r--. 1 root root 0 Mar 21 11:31 /var/lib/docker/containers/24130d517f1d36da07eabefe8a861a7dafc7784116664c0c7c201be85dcafbb1/24130d517f1d36da07eabefe8a861a7dafc7784116664c0c7c201be85dcafbb1-json.log
+--END--
+
+    #
+    # Logs on the Zookeeper nodes (112K) were not an issue.
+    #
+    
+# -----------------------------------------------------
+# Restart the Docker daemon on the Zookeeper nodes.
+#[user@trop03]
+
+    source "${HOME}/nodenames"
+    source "${HOME}/ssh-options"
+    source "${HOME}/libvirt.settings"
+
+    for vmname in ${zknames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                '
+                sudo systemctl restart docker.service
+                '
+        done
+
+--START--
+---- ----
+Node [Fosauri]
+---- ----
+Node [Marpus]
+---- ----
+Node [Byflame]
+--END--
+
+
+# -----------------------------------------------------
+# Start our Zookeeper containers,
+# (separate login on each node).
+#[user@desktop]
+
+    ssh Fosauri
+    ssh Marpus
+    ssh Byflame
+
+    docker-compose \
+        --file zookeeper.yml \
+        up \
+        -d
+
+    docker logs \
+        --follow \
+        --since "$(date +%Y-%m-%dT%H:%M:%S -d  '1 hour ago')" \
+        'stevedore_courtney_1'
+
+
+--START--
+....
+....
+[2020-03-21 11:34:56,001] INFO Processed session termination for sessionid: 0x370f987ed470003 (org.apache.zookeeper.server.PrepRequestProcessor)
+[2020-03-21 11:34:56,002] INFO Processed session termination for sessionid: 0x270f987e1d30001 (org.apache.zookeeper.server.PrepRequestProcessor)
+[2020-03-21 11:34:56,162] INFO Got user-level KeeperException when processing sessionid:0x270f987e1d30000 type:create cxid:0x5217 zxid:0x800000156 txntype:-1 reqpath:n/a Error Path:/controller Error:KeeperErrorCode = NodeExists for /controller (org.apache.zookeeper.server.PrepRequestProcessor)
+--END--
+
+--START--
+....
+....
+[2020-03-21 11:34:55,423] INFO Received connection request /172.16.5.16:48832 (org.apache.zookeeper.server.quorum.QuorumCnxManager)
+[2020-03-21 11:34:55,425] INFO Notification: 1 (message format version), 3 (n.leader), 0x70000009c (n.zxid), 0x1 (n.round), LOOKING (n.state), 3 (n.sid), 0x7 (n.peerEpoch) FOLLOWING (my state) (org.apache.zookeeper.server.quorum.FastLeaderElection)
+[2020-03-21 11:34:55,432] INFO Notification: 1 (message format version), 1 (n.leader), 0x70000009d (n.zxid), 0x1 (n.round), LOOKING (n.state), 3 (n.sid), 0x7 (n.peerEpoch) FOLLOWING (my state) (org.apache.zookeeper.server.quorum.FastLeaderElection)
+--END--
+
+--START--
+....
+....
+[2020-03-21 11:34:55,502] WARN Got zxid 0x800000001 expected 0x70000009e (org.apache.zookeeper.server.quorum.Learner)
+[2020-03-21 11:34:55,566] INFO Creating new log file: log.70000009d (org.apache.zookeeper.server.persistence.FileTxnLog)
+[2020-03-21 11:34:55,569] WARN Got zxid 0x800000130 expected 0x1 (org.apache.zookeeper.server.quorum.Learner)
+--END--
+
+
+# -----------------------------------------------------
+# Destroy (unplug) the paused Kafka VMs.
+#[user@trop03]
+
+    source "${HOME}/nodenames"
+    source "${HOME}/libvirt.settings"
+
+    paused=$(
+        virsh -c $libvirtcon list --name --state-paused
+        )
+
+    for vmname in ${paused[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            virsh \
+                --connect "${libvirtcon:?}" \
+                destroy \
+                    "${vmname}"
+        done
+
+--START--
+---- ----
+Node [Angece]
+Domain Angece destroyed
+
+---- ----
+Node [Onoza]
+Domain Onoza destroyed
+--END--
+
+
+# -----------------------------------------------------
+# Start the paused Kafka VMs.
+#[user@trop03]
+
+    source "${HOME}/nodenames"
+    source "${HOME}/libvirt.settings"
+
+    for vmname in ${paused[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            virsh \
+                --connect "${libvirtcon:?}" \
+                start \
+                    "${vmname}"
+        done
+
+--START--
+---- ----
+Node [Angece]
+Domain Angece started
+
+---- ----
+Node [Onoza]
+Domain Onoza started
+--END--
+
+
+# -----------------------------------------------------
+# Clear the Docker logs from the Kafka nodes.
+#[user@trop03]
+
+    source "${HOME}/nodenames"
+    source "${HOME}/ssh-options"
+    source "${HOME}/libvirt.settings"
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                '
+                logpath=$(
+                    docker inspect --format='{{.LogPath}}' 'stevedore_courtney_1'
+                    )
+                echo "Log path [${logpath:?}]"
+                sudo ls -lh "${logpath:?}"
+                sudo rm     "${logpath:?}"
+                sudo touch  "${logpath:?}"
+                sudo ls -lh "${logpath:?}"
+                '
+        done
+
+
+
+# -----------------------------------------------------
+# Start our Kafka containers,
+# (separate login on each node).
+#[user@desktop]
+
+    ssh Angece
+    ssh Onoza
+
+
+    docker-compose \
+        --file kafka.yml \
+        up \
+        -d
+
+    docker logs \
+        --follow \
+        --since "$(date +%Y-%m-%dT%H:%M:%S -d  '1 hour ago')" \
+        'stevedore_emily_1'
+
+
+--START--
+....
+[2020-03-21 11:43:26,004] INFO [ProducerStateManager partition=ztf_20190920_programid1-165] Writing producer snapshot at offset 358 (kafka.log.ProducerStateManager)
+[2020-03-21 11:43:26,007] INFO [Log partition=ztf_20190920_programid1-165, dir=/data2-01] Recovering unflushed segment 358 (kafka.log.Log)
+[2020-03-21 11:43:26,008] INFO [ProducerStateManager partition=ztf_20190920_programid1-165] Loading producer state from snapshot file '/data2-01/ztf_20190920_programid1-165/00000000000000000358.snapshot' (kafka.log.ProducerStateManager)
+[2020-03-21 11:43:26,009] INFO [Log partition=ztf_20190920_programid1-165, dir=/data2-01] Loading producer state from offset 358 with message format version 2 (kafka.log.Log)
+[2020-03-21 11:43:26,010] INFO [Log partition=ztf_20190920_programid1-165, dir=/data2-01] Completed load of log with 1 segments, log start offset 358 and log end offset 358 in 44 ms (kafka.log.Log)
+[2020-03-21 11:43:26,044] WARN [Log partition=ztf_20190808_programid1-12, dir=/data2-01] Found a corrupted index file corresponding to log file /data2-01/ztf_20190808_programid1-12/00000000000000000000.log due to Corrupt index found, index file (/data2-01/ztf_20190808_programid1-12/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
+....
+--END--
+
+
+--START--
+....
+[2020-03-21 11:43:52,783] INFO [ProducerStateManager partition=ztf_20190802_programid1-12] Writing producer snapshot at offset 8935 (kafka.log.ProducerStateManager)
+[2020-03-21 11:43:52,785] INFO [Log partition=ztf_20190802_programid1-12, dir=/data2-01] Recovering unflushed segment 0 (kafka.log.Log)
+[2020-03-21 11:43:53,987] INFO [ProducerStateManager partition=ztf_20190802_programid1-12] Writing producer snapshot at offset 8935 (kafka.log.ProducerStateManager)
+[2020-03-21 11:43:53,989] INFO [Log partition=ztf_20190802_programid1-12, dir=/data2-01] Loading producer state from offset 8935 with message format version 2 (kafka.log.Log)
+[2020-03-21 11:43:53,990] INFO [ProducerStateManager partition=ztf_20190802_programid1-12] Loading producer state from snapshot file '/data2-01/ztf_20190802_programid1-12/00000000000000008935.snapshot' (kafka.log.ProducerStateManager)
+[2020-03-21 11:43:53,991] INFO [Log partition=ztf_20190802_programid1-12, dir=/data2-01] Completed load of log with 1 segments, log start offset 0 and log end offset 8935 in 33351 ms (kafka.log.Log)
+[2020-03-21 11:43:54,246] WARN [Log partition=ztf_20190802_programid1-0, dir=/data2-01] Found a corrupted index file corresponding to log file /data2-01/ztf_20190802_programid1-0/00000000000000000000.log due to Corrupt index found, index file (/data2-01/ztf_20190802_programid1-0/00000000000000000000.index) has non-zero size but the last offset is 0 which is no greater than the base offset 0.}, recovering segment and rebuilding index files... (kafka.log.Log)
+....
+--END--
+
+
+    #
+    # TODO Spread the load.
+    # TODO Create a set of Zookeeper and Kafka VMs on trop04.
+    # Figure out how to remote boot these machines.
+    # Wipe the OS and re-partition the drives in a more useable form.
+    #
+
+
+
+# -----------------------------------------------------
+# Deleted some unused VM images.
+#[user@trop03]
+
+    ls -alh /var/lib/libvirt/images/base
+
+--START--
+total 5.2G
+drwxr-xr-x 2 root         root          4.0K Sep  3  2019 .
+drwx--x--x 5 root         root          4.0K Dec  9  2018 ..
+-rw------- 1 libvirt-qemu libvirt-qemu 1001M Oct 16  2018 fedora-28-16G-docker-base-20181016.qcow
+-rw------- 1 libvirt-qemu libvirt-qemu  992M Oct 16  2018 fedora-28-32G-docker-base-20181016.qcow
+-rw------- 1 libvirt-qemu libvirt-qemu  1.1G Oct 16  2018 fedora-28-8G-docker-base-20181016.qcow
+-rw------- 1 libvirt-qemu libvirt-qemu  1.1G Jul 15  2019 fedora-29-docker-base-20190715.qcow
+-rw------- 1 libvirt-qemu libvirt-qemu  1.2G Sep  3  2019 fedora-30-docker-base-20190903.qcow
+--END--
+
+        #
+        # Deleted unused images via the VirtManager GUI
+        #
+
+    ls -alh /var/lib/libvirt/images/base
+
+
+--START--
+total 2.2G
+drwxr-xr-x 2 root         root         4.0K Mar 21 11:54 .
+drwx--x--x 5 root         root         4.0K Dec  9  2018 ..
+-rw------- 1 libvirt-qemu libvirt-qemu 1.1G Jul 15  2019 fedora-29-docker-base-20190715.qcow
+-rw------- 1 libvirt-qemu libvirt-qemu 1.2G Sep  3  2019 fedora-30-docker-base-20190903.qcow
+--END--
+
+
+    df -h /var
+
+--START--
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/sda5        65G   54G  7.3G  89% /var
+--END--
+
+
+

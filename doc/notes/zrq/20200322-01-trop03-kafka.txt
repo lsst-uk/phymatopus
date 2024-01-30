@@ -1,0 +1,1305 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2020, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#zrq-notes-time
+#zrq-notes-indent
+#zrq-notes-crypto
+#zrq-notes-ansible
+#zrq-notes-osformat
+#
+
+# -----------------------------------------------------
+# Annnd back to where we started.
+#[user@trop03]
+
+    df -h /var/
+
+--START--
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/sda5        65G   61G     0 100% /var
+--END--
+
+
+    source "${HOME}/libvirt.env"
+    virsh -c $libvirtcon list --all
+
+--START--
+ Id    Name                           State
+----------------------------------------------------
+ 67    Stedigo                        paused
+ 69    Edwalafia                      running
+ 81    Angece                         paused
+ 82    Onoza                          paused
+ 83    Fosauri                        paused
+ 84    Marpus                         paused
+ 85    Byflame                        paused
+--END--
+
+
+# -----------------------------------------------------
+# Stop (destroy) all the paused VMs.
+#[user@trop03]
+
+    source "${HOME}/libvirt.env"
+
+    for vmname in $(
+        virsh -c $libvirtcon list --name --state-paused
+        )
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            virsh \
+                --connect "${libvirtcon:?}" \
+                destroy \
+                    "${vmname}"
+        done
+
+--START--
+---- ----
+Node [Stedigo]
+Domain Stedigo destroyed
+
+---- ----
+Node [Angece]
+Domain Angece destroyed
+
+---- ----
+Node [Onoza]
+Domain Onoza destroyed
+
+---- ----
+Node [Fosauri]
+Domain Fosauri destroyed
+
+---- ----
+Node [Marpus]
+Domain Marpus destroyed
+
+---- ----
+Node [Byflame]
+Domain Byflame destroyed
+--END--
+
+
+# -----------------------------------------------------
+# Stop shutdown all the running VMs.
+#[user@trop03]
+
+    source "${HOME}/libvirt.env"
+
+    for vmname in $(
+        virsh -c $libvirtcon list --name --state-running
+        )
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            virsh \
+                --connect "${libvirtcon:?}" \
+                shutdown \
+                    "${vmname}"
+        done
+
+--START--
+---- ----
+Node [Edwalafia]
+Domain Edwalafia is being shutdown
+--END--
+
+
+    source "${HOME}/libvirt.env"
+    virsh -c $libvirtcon list --all
+
+--START--
+ Id    Name                           State
+----------------------------------------------------
+ -     Angece                         shut off
+ -     Byflame                        shut off
+ -     Edwalafia                      shut off
+ -     Fosauri                        shut off
+ -     Marpus                         shut off
+ -     Onoza                          shut off
+ -     Stedigo                        shut off
+--END--
+
+
+# -----------------------------------------------------
+# Track down where the large files are.
+#[user@trop03]
+
+    sudo du -h /var | sed -n '/^[0-9.]*G/p'
+
+--START--
+1.3G    /var/cache/apt/archives
+1.4G    /var/cache/apt
+1.4G    /var/cache
+57G     /var/lib/libvirt/images/live
+2.2G    /var/lib/libvirt/images/base
+60G     /var/lib/libvirt/images
+60G     /var/lib/libvirt
+60G     /var/lib
+61G     /var
+--END--
+
+
+    ls -alh /var/lib/libvirt/images/live
+
+--START--
+total 57G
+drwxr-xr-x 2 root root 4.0K Mar 21 11:16 .
+drwx--x--x 5 root root 4.0K Dec  9  2018 ..
+-rw------- 1 root root 5.0G Mar 22 01:09 Angece.qcow
+-rw------- 1 root root 9.0G Mar 22 02:09 Byflame.qcow
+-rw------- 1 root root  12G Mar 22 02:18 Edwalafia.qcow
+-rw------- 1 root root 9.0G Mar 22 02:09 Fosauri.qcow
+-rw------- 1 root root 9.0G Mar 22 02:09 Marpus.qcow
+-rw------- 1 root root 6.4G Mar 21 23:30 Onoza.qcow
+-rw------- 1 root root 6.8G Mar 21 23:30 Stedigo.qcow
+--END--
+
+
+    source nodenames 
+
+--START--
+Zookeepers    [Fosauri Marpus Byflame]
+Kafka nodes   [Stedigo Angece Edwalafia Onoza]
+Mirror makers [Dwalewen Gwoeric]
+--END--
+
+    #
+    # Edwalafia just didn't get the message (12G).
+    # The Zookeeper nodes (9G) are taking up more space than the Kafa (6G) nodes.
+    #
+
+    #
+    # Delete one of the Zookeeper nodes (Byflame), and start a replacement on trop04.
+    # Make sure the Zookeeper nodes know about the log limits.
+    # Make sure the Kafka nodes (Edwalafia) know about the log limits.
+    #
+
+
+# -----------------------------------------------------
+# Delete one of the Zookeeper nodes (Byflame).
+#[user@trop03]
+
+    vmname=Byflame
+    
+    virsh \
+        --connect "${libvirtcon:?}" \
+        undefine \
+            "${vmname}" \
+            --remove-all-storage    
+
+
+--START--
+Domain Byflame has been undefined
+Volume 'vda'(/var/lib/libvirt/images/live/Byflame.qcow) removed.
+Volume 'vdb'(/var/lib/libvirt/images/init/Byflame.iso) removed.
+--END--
+
+
+# -----------------------------------------------------
+# Start the remaining Zookeeper nodes.
+#[user@trop03]
+
+    vmnames=(
+        Fosauri
+        Marpus        
+        )
+
+    for vmname in "${vmnames[@]}"
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            virsh \
+                --connect "${libvirtcon:?}" \
+                start \
+                    "${vmname}"
+        done
+
+--START--
+---- ----
+Node [Fosauri]
+Domain Fosauri started
+
+---- ----
+Node [Marpus]
+Domain Marpus started
+--END--
+
+
+# -----------------------------------------------------
+# Clear the Docker logs from the Zookeeper nodes.
+#[user@trop03]
+
+    source "${HOME}/ssh-options"
+    source "${HOME}/libvirt.env"
+
+    vmnames=(
+        Fosauri
+        Marpus        
+        )
+
+    for vmname in ${vmnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                '
+                logpath=$(
+                    docker inspect --format='{{.LogPath}}' 'stevedore_courtney_1'
+                    )
+                echo "Log path [${logpath:?}]"
+                sudo ls -lh "${logpath:?}"
+                sudo rm     "${logpath:?}"
+                sudo touch  "${logpath:?}"
+                sudo ls -lh "${logpath:?}"
+                '
+        done
+
+--START--
+---- ----
+Node [Fosauri]
+Log path [/var/lib/docker/containers/b32817cb4465779fea8e31bb729a97d359af20a913f893ac0b9712a126a8dc51/b32817cb4465779fea8e31bb729a97d359af20a913f893ac0b9712a126a8dc51-json.log]
+-rw-r--r--. 1 root root 4.5M Mar 21 23:21 /var/lib/docker/containers/b32817cb4465779fea8e31bb729a97d359af20a913f893ac0b9712a126a8dc51/b32817cb4465779fea8e31bb729a97d359af20a913f893ac0b9712a126a8dc51-json.log
+-rw-r--r--. 1 root root 0 Mar 22 02:41 /var/lib/docker/containers/b32817cb4465779fea8e31bb729a97d359af20a913f893ac0b9712a126a8dc51/b32817cb4465779fea8e31bb729a97d359af20a913f893ac0b9712a126a8dc51-json.log
+---- ----
+Node [Marpus]
+Log path [/var/lib/docker/containers/765f868419991fb2710849c2648afacb8c401023e5ebe0c9a40af22e11251367/765f868419991fb2710849c2648afacb8c401023e5ebe0c9a40af22e11251367-json.log]
+-rw-r--r--. 1 root root 61K Mar 21 23:26 /var/lib/docker/containers/765f868419991fb2710849c2648afacb8c401023e5ebe0c9a40af22e11251367/765f868419991fb2710849c2648afacb8c401023e5ebe0c9a40af22e11251367-json.log
+-rw-r--r--. 1 root root 0 Mar 22 02:41 /var/lib/docker/containers/765f868419991fb2710849c2648afacb8c401023e5ebe0c9a40af22e11251367/765f868419991fb2710849c2648afacb8c401023e5ebe0c9a40af22e11251367-json.log
+--END--
+
+
+# -----------------------------------------------------
+# Limit the Docker log size on the Zookeeper nodes.
+#[user@trop03]
+
+    source "${HOME}/ssh-options"
+    source "${HOME}/libvirt.env"
+
+    vmnames=(
+        Fosauri
+        Marpus        
+        )
+
+    for vmname in ${vmnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                '
+cat > /tmp/daemon.json << EOF
+{
+  "log-driver": "json-file",
+  "log-opts": {"max-size": "5m", "max-file": "2"}
+}
+EOF
+                sudo mv /tmp/daemon.json /etc/docker/daemon.json
+                '
+        done
+
+
+# -----------------------------------------------------
+# Restart the Docker daemon on the Zookeeper nodes.
+#[user@trop03]
+
+    source "${HOME}/ssh-options"
+    source "${HOME}/libvirt.env"
+
+    vmnames=(
+        Fosauri
+        Marpus        
+        )
+
+    for vmname in ${vmnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                '
+                sudo systemctl restart docker.service
+                '
+        done
+
+--START--
+---- ----
+Node [Fosauri]
+---- ----
+Node [Marpus]
+--END--
+
+
+# -----------------------------------------------------
+# Create the third Zookeeper node on trop04.
+#[user@trop03]
+
+    ssh trop04
+
+        createvm
+
+--START--
+....
+INFO : Node name [Sendalin]
+INFO : Base name [fedora-30-docker-base-20190903.qcow]
+INFO : Base path [/var/lib/libvirt/images/base/fedora-30-docker-base-20190903.qcow]
+INFO : Disc name [Sendalin.qcow]
+INFO : Disc size [16GiB]
+....
+--END--
+
+
+# -----------------------------------------------------
+# Update the number of cores on our new Zookeeper node.
+#[user@trop03]
+
+    ssh trop04
+
+        vmname=Sendalin
+        
+        source "${HOME}/libvirt.env"
+
+        virsh \
+            --connect ${libvirtcon:?} \
+                setvcpus \
+                ${vmname:?} \
+                2 \
+                --maximum \
+                --config
+
+# -----------------------------------------------------
+# Shutdown and restart our new Zookeeper node.
+#[user@trop03]
+
+    ssh trop04
+
+        vmname=Sendalin
+
+        virsh \
+            --connect ${libvirtcon:?} \
+                shutdown \
+                ${vmname:?}
+
+--START--
+Domain Sendalin is being shutdown
+--END--
+
+        sleep 30
+
+        virsh \
+            --connect ${libvirtcon:?} \
+                start \
+                ${vmname:?}
+
+--START--
+Domain Sendalin started
+--END--
+
+
+# -----------------------------------------------------
+# Update our node names.
+#[user@trop03]
+
+    vi "${HOME}/nodenames"
+
+        # Zookeeper nodes.
+        unset zknames
+        zknames=(
+            Fosauri
+            Marpus
+    -       Byflame
+    +       Sendalin
+            )
+
+
+# -----------------------------------------------------
+# Check we can login to all our Zookeeper nodes.
+#[user@trop03]
+
+    source "${HOME}/nodenames"
+    source "${HOME}/libvirt.env"
+    source "${HOME}/ssh-options"
+
+    for vmname in ${zknames[@]}
+        do
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+                    hostname
+                    date
+                    "
+        done
+
+--START--
+Fosauri
+Sun 22 Mar 03:01:06 GMT 2020
+Marpus
+Sun 22 Mar 03:01:06 GMT 2020
+Sendalin
+Sun 22 Mar 03:01:06 GMT 2020
+--END--
+
+
+# -----------------------------------------------------
+# Build a list of lists of zookeeper addresses.
+# Each instance gets a lits of the other server names,
+# with it's own address set to 0.0.0.0 to make this
+# instance listen on all interfaces.
+#[user@trop03]
+
+    unset zkservers
+    declare -a zkservers=()
+
+    for i in {0..2}
+    do
+
+        delim=''
+        ports=':2888:3888'
+        servers=''
+
+        for j in {0..2}
+        do
+            if [[ $i -eq $j ]]
+            then
+                server="0.0.0.0"
+            else
+                server="${zknames[${j}]}"
+            fi
+            servers=${servers}${delim}${server}${ports}
+            delim=';'
+            j=$(($j + 1))
+        done
+
+        zkservers+=(${servers})
+
+    done
+
+    for i in {0..2}
+    do
+        echo "list[${i}] [${zkservers[${i}]}]"
+    done
+
+--START--
+list[0] [0.0.0.0:2888:3888;Marpus:2888:3888;Sendalin:2888:3888]
+list[1] [Fosauri:2888:3888;0.0.0.0:2888:3888;Sendalin:2888:3888]
+list[2] [Fosauri:2888:3888;Marpus:2888:3888;0.0.0.0:2888:3888]
+--END--
+
+
+# -----------------------------------------------------
+# Create our compose YAML file.
+#[user@trop03]
+
+    cat > /tmp/zookeeper.yml << 'EOYML'
+
+version: '3'
+
+networks:
+    zookeeper:
+
+volumes:
+    zklog:
+    zkdata:
+
+services:
+
+    courtney:
+        image:
+            confluentinc/cp-zookeeper:4.1.1
+        restart:
+            unless-stopped
+        ports:
+            - "2181:2181"
+            - "2888:2888"
+            - "3888:3888"
+        environment:
+            - ZOOKEEPER_SERVER_ID=${ZOOKEEPER_SERVER_ID}
+            - ZOOKEEPER_SERVERS=${ZOOKEEPER_SERVERS}
+            - ZOOKEEPER_TICK_TIME=2000
+            - ZOOKEEPER_INIT_LIMIT=5
+            - ZOOKEEPER_SYNC_LIMIT=2
+            - ZOOKEEPER_CLIENT_PORT=2181
+            - ZOOKEEPER_CLIENT_PORT_ADDRESS=0.0.0.0
+        volumes:
+            - "zklog:/var/lib/zookeeper/log"
+            - "zkdata:/var/lib/zookeeper/data"
+        networks:
+            - zookeeper
+
+EOYML
+
+# -----------------------------------------------------
+# Deploy our compose YAML file to each node.
+#[user@trop03]
+
+    source "${HOME}/ssh-options"
+
+    for vmname in ${zknames[@]}
+        do
+            scp \
+                ${scpopts[*]} \
+                /tmp/zookeeper.yml \
+                ${sshuser:?}@${vmname:?}:zookeeper.yml
+        done
+
+--START--
+zookeeper.yml       100%  784   818.0KB/s   00:00    
+zookeeper.yml       100%  784     1.0MB/s   00:00    
+zookeeper.yml       100%  784   743.5KB/s   00:00
+--END--
+
+
+# -----------------------------------------------------
+# Deploy a compose ENV file to each node.
+#[user@trop03]
+
+    source "${HOME}/ssh-options"
+
+    for (( i=0 ; i < ${#zknames[@]} ; i++ ))
+        do
+            vmname=${zknames[${i}]}
+            echo "Node [${i}][${vmname}]"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                    "
+cat > zookeeper.env << EOF
+ZOOKEEPER_SERVER_ID=$((i + 1))
+ZOOKEEPER_SERVERS=${zkservers[${i}]}
+EOF
+ln -sf zookeeper.env .env
+                    "
+        done
+
+--START--
+Node [0][Fosauri]
+Node [1][Marpus]
+Node [2][Sendalin]
+--END--
+
+
+# -----------------------------------------------------
+# Check the compose ENV file on each node.
+#[user@trop03]
+
+    for vmname in ${zknames[@]}
+        do
+            echo "---- ----"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                hostname
+                date
+                cat .env
+                "
+        done
+
+--START--
+---- ----
+Fosauri
+Sun 22 Mar 03:03:46 GMT 2020
+ZOOKEEPER_SERVER_ID=1
+ZOOKEEPER_SERVERS=0.0.0.0:2888:3888;Marpus:2888:3888;Sendalin:2888:3888
+---- ----
+Marpus
+Sun 22 Mar 03:03:46 GMT 2020
+ZOOKEEPER_SERVER_ID=2
+ZOOKEEPER_SERVERS=Fosauri:2888:3888;0.0.0.0:2888:3888;Sendalin:2888:3888
+---- ----
+Sendalin
+Sun 22 Mar 03:03:46 GMT 2020
+ZOOKEEPER_SERVER_ID=3
+ZOOKEEPER_SERVERS=Fosauri:2888:3888;Marpus:2888:3888;0.0.0.0:2888:3888
+--END--
+
+
+# -----------------------------------------------------
+# Start Zookeeper on each node.
+#[user@trop03]
+
+    source "${HOME}/ssh-options"
+
+    for vmname in ${zknames[@]}
+        do
+            echo "---- ----"
+            ssh \
+                ${scpopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                hostname
+                date
+                docker-compose \
+                    --file zookeeper.yml \
+                    up -d
+                "
+        done
+
+# -----------------------------------------------------
+# Check our disc space.
+#[user@trop03]
+
+    df -h /var
+
+--START--
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/sda5        65G   52G  8.9G  86% /var
+--END--
+    
+
+    ls -alh /var/lib/libvirt/images/live
+
+--START--
+total 49G
+drwxr-xr-x 2 root         root         4.0K Mar 22 02:37 .
+drwx--x--x 5 root         root         4.0K Dec  9  2018 ..
+-rw------- 1 root         root         5.0G Mar 22 01:09 Angece.qcow
+-rw------- 1 root         root          12G Mar 22 02:18 Edwalafia.qcow
+-rw------- 1 libvirt-qemu libvirt-qemu 9.0G Mar 22 03:07 Fosauri.qcow
+-rw------- 1 libvirt-qemu libvirt-qemu 9.0G Mar 22 03:07 Marpus.qcow
+-rw------- 1 root         root         6.4G Mar 21 23:30 Onoza.qcow
+-rw------- 1 root         root         6.8G Mar 21 23:30 Stedigo.qcow
+--END--
+
+
+    sudo du -h /var | sed -n '/^[0-9.]*G/p'
+
+--START--
+1.3G	/var/cache/apt/archives
+1.4G	/var/cache/apt
+1.4G	/var/cache
+49G	/var/lib/libvirt/images/live
+2.2G	/var/lib/libvirt/images/base
+51G	/var/lib/libvirt/images
+51G	/var/lib/libvirt
+51G	/var/lib
+52G	/var
+--END--
+
+
+    sudo apt-get clean
+
+    sudo du -h /var | sed -n '/^[0-9.]*G/p'
+
+--START--
+49G	/var/lib/libvirt/images/live
+2.2G	/var/lib/libvirt/images/base
+51G	/var/lib/libvirt/images
+51G	/var/lib/libvirt
+51G	/var/lib
+51G	/var
+--END--
+
+
+    df -h /var
+
+--START--
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/sda5        65G   51G   11G  84% /var
+--END--
+
+
+# -----------------------------------------------------
+# Start Edwalafia.
+#[user@trop03]
+
+    vmname=Edwalafia
+    
+    virsh \
+        --connect ${libvirtcon:?} \
+            start \
+            ${vmname:?}
+
+--START--
+Domain Edwalafia started
+--END--
+
+
+# -----------------------------------------------------
+# Delete the Docker logs on Edwalafia.
+#[user@trop03]
+
+    source "${HOME}/ssh-options"
+    
+    vmname=Edwalafia
+    
+    ssh \
+        ${sshopts[*]} \
+        ${sshuser:?}@${vmname:?} \
+        '
+        logpath=$(
+            docker inspect --format='{{.LogPath}}' 'stevedore_emily_1'
+            )
+        echo "Log path [${logpath:?}]"
+        sudo ls -lh "${logpath:?}"
+        sudo rm     "${logpath:?}"
+        sudo touch  "${logpath:?}"
+        sudo ls -lh "${logpath:?}"
+        '
+
+--START--
+Log path [/var/lib/docker/containers/e7f81f6dceb599ded533ee39545428b01cced7e29816938faca4024bfa51974c/e7f81f6dceb599ded533ee39545428b01cced7e29816938faca4024bfa51974c-json.log]
+-rw-r--r--. 1 root root 2.5G Mar 22 02:18 /var/lib/docker/containers/e7f81f6dceb599ded533ee39545428b01cced7e29816938faca4024bfa51974c/e7f81f6dceb599ded533ee39545428b01cced7e29816938faca4024bfa51974c-json.log
+-rw-r--r--. 1 root root 0 Mar 22 03:16 /var/lib/docker/containers/e7f81f6dceb599ded533ee39545428b01cced7e29816938faca4024bfa51974c/e7f81f6dceb599ded533ee39545428b01cced7e29816938faca4024bfa51974c-json.log
+--END--
+    
+    #
+    # Didn't really save much space.
+    #
+
+    df -h /var
+
+--START--
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/sda5        65G   51G   11G  84% /var
+--END--
+
+
+# -----------------------------------------------------
+# Shutdown Edwalafia.
+#[user@trop03]
+
+    vmname=Edwalafia
+
+    source "${HOME}/libvirt.env"
+
+    virsh \
+        --connect ${libvirtcon:?} \
+            shutdown \
+            ${vmname:?}
+
+--START--
+Domain Edwalafia is being shutdown
+--END--
+
+
+# -----------------------------------------------------
+# Move Edwalafia's image to another partition.
+#[user@trop03]
+
+    sudo mv \
+        /var/lib/libvirt/images/live/Edwalafia.qcow \
+        /data0/libvirt/
+        
+
+# -----------------------------------------------------
+# Edit Edwalafia's configuration.
+#[user@trop03]
+
+    vmname=Edwalafia
+
+    source "${HOME}/libvirt.env"
+
+    virsh \
+        --connect ${libvirtcon:?} \
+            edit \
+            ${vmname:?}
+
+
+        <disk type='file' device='disk'>
+          <driver name='qemu' type='qcow2'/>
+     -    <source file='/var/lib/libvirt/images/live/Edwalafia.qcow'/>
+     +    <source file='/data0/libvirt/Edwalafia.qcow'/>
+          <target dev='vda' bus='virtio'/>
+          <address type='pci' domain='0x0000' bus='0x00' slot='0x04' function='0x0'/>
+        </disk>
+
+
+--START--
+Domain Edwalafia XML configuration edited.
+--END--
+
+
+# -----------------------------------------------------
+# Start Edwalafia.
+#[user@trop03]
+
+    vmname=Edwalafia
+    
+    virsh \
+        --connect ${libvirtcon:?} \
+            start \
+            ${vmname:?}
+
+--START--
+Domain Edwalafia started
+--END--
+
+
+# -----------------------------------------------------
+# Check the space.
+#[user@trop03]
+
+    df -h /var
+
+--START--
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/sda5        65G   39G   23G  64% /var
+--END--
+
+
+    ls -alh /var/lib/libvirt/images/live
+
+--START--
+drwxr-xr-x 2 root         root         4.0K Mar 22 03:46 .
+drwx--x--x 5 root         root         4.0K Dec  9  2018 ..
+-rw------- 1 root         root         5.0G Mar 22 01:09 Angece.qcow
+-rw------- 1 libvirt-qemu libvirt-qemu 9.0G Mar 22 03:49 Fosauri.qcow
+-rw------- 1 libvirt-qemu libvirt-qemu 9.0G Mar 22 03:49 Marpus.qcow
+-rw------- 1 root         root         6.4G Mar 21 23:30 Onoza.qcow
+-rw------- 1 root         root         6.8G Mar 21 23:30 Stedigo.qcow
+--END--
+
+
+# -----------------------------------------------------
+# Start the remaining Kafka nodes.
+#[user@trop03]
+
+    for vmname in $(
+        virsh -c $libvirtcon list --name --state-shutoff
+        )
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            virsh \
+                --connect "${libvirtcon:?}" \
+                start \
+                    "${vmname}"
+        done
+
+--START--
+---- ----
+Node [Angece]
+Domain Angece started
+
+---- ----
+Node [Onoza]
+Domain Onoza started
+
+---- ----
+Node [Stedigo]
+Domain Stedigo started
+--END--
+
+
+# -----------------------------------------------------
+# Clear the Docker logs from the Kafka nodes.
+#[user@trop03]
+
+    source "${HOME}/nodenames"
+    source "${HOME}/ssh-options"
+    source "${HOME}/libvirt.env"
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                '
+                logpath=$(
+                    docker inspect --format='{{.LogPath}}' 'stevedore_emily_1'
+                    )
+                echo "Log path [${logpath:?}]"
+                sudo ls -lh "${logpath:?}"
+                sudo rm     "${logpath:?}"
+                sudo touch  "${logpath:?}"
+                sudo ls -lh "${logpath:?}"
+                '
+        done
+
+--START--
+---- ----
+Node [Stedigo]
+Log path [/var/lib/docker/containers/d16a051975c06903e28152d3d9cb20d42341d3063a6ef3734348582f83645097/d16a051975c06903e28152d3d9cb20d42341d3063a6ef3734348582f83645097-json.log]
+-rw-r--r--. 1 root root 2.2G Mar 21 23:29 /var/lib/docker/containers/d16a051975c06903e28152d3d9cb20d42341d3063a6ef3734348582f83645097/d16a051975c06903e28152d3d9cb20d42341d3063a6ef3734348582f83645097-json.log
+-rw-r--r--. 1 root root 0 Mar 22 03:54 /var/lib/docker/containers/d16a051975c06903e28152d3d9cb20d42341d3063a6ef3734348582f83645097/d16a051975c06903e28152d3d9cb20d42341d3063a6ef3734348582f83645097-json.log
+---- ----
+Node [Angece]
+Log path [/var/lib/docker/containers/54af20eec4e413c023121f554198d29e5dfa1c948a90114d9e1062e56fdbab0b/54af20eec4e413c023121f554198d29e5dfa1c948a90114d9e1062e56fdbab0b-json.log]
+-rw-r--r--. 1 root root 2.0G Mar 22 01:08 /var/lib/docker/containers/54af20eec4e413c023121f554198d29e5dfa1c948a90114d9e1062e56fdbab0b/54af20eec4e413c023121f554198d29e5dfa1c948a90114d9e1062e56fdbab0b-json.log
+-rw-r--r--. 1 root root 0 Mar 22 03:54 /var/lib/docker/containers/54af20eec4e413c023121f554198d29e5dfa1c948a90114d9e1062e56fdbab0b/54af20eec4e413c023121f554198d29e5dfa1c948a90114d9e1062e56fdbab0b-json.log
+---- ----
+Node [Edwalafia]
+Log path [/var/lib/docker/containers/e7f81f6dceb599ded533ee39545428b01cced7e29816938faca4024bfa51974c/e7f81f6dceb599ded533ee39545428b01cced7e29816938faca4024bfa51974c-json.log]
+-rw-r--r--. 1 root root 0 Mar 22 03:16 /var/lib/docker/containers/e7f81f6dceb599ded533ee39545428b01cced7e29816938faca4024bfa51974c/e7f81f6dceb599ded533ee39545428b01cced7e29816938faca4024bfa51974c-json.log
+-rw-r--r--. 1 root root 0 Mar 22 03:54 /var/lib/docker/containers/e7f81f6dceb599ded533ee39545428b01cced7e29816938faca4024bfa51974c/e7f81f6dceb599ded533ee39545428b01cced7e29816938faca4024bfa51974c-json.log
+---- ----
+Node [Onoza]
+Log path [/var/lib/docker/containers/ee678ed8f55aa462e513b07db3ccf241a124055429c80c078e6494c86c04e848/ee678ed8f55aa462e513b07db3ccf241a124055429c80c078e6494c86c04e848-json.log]
+-rw-r--r--. 1 root root 1.7G Mar 21 23:29 /var/lib/docker/containers/ee678ed8f55aa462e513b07db3ccf241a124055429c80c078e6494c86c04e848/ee678ed8f55aa462e513b07db3ccf241a124055429c80c078e6494c86c04e848-json.log
+-rw-r--r--. 1 root root 0 Mar 22 03:54 /var/lib/docker/containers/ee678ed8f55aa462e513b07db3ccf241a124055429c80c078e6494c86c04e848/ee678ed8f55aa462e513b07db3ccf241a124055429c80c078e6494c86c04e848-json.log
+--END--
+
+
+# -----------------------------------------------------
+# Limit the Docker log size on the Kafka nodes.
+#[user@trop03]
+
+    source "${HOME}/nodenames"
+    source "${HOME}/ssh-options"
+    source "${HOME}/libvirt.env"
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                '
+cat > /tmp/daemon.json << EOF
+{
+  "log-driver": "json-file",
+  "log-opts": {"max-size": "5m", "max-file": "2"}
+}
+EOF
+                sudo mv /tmp/daemon.json /etc/docker/daemon.json
+                '
+        done
+
+--START--
+---- ----
+Node [Stedigo]
+---- ----
+Node [Angece]
+---- ----
+Node [Edwalafia]
+---- ----
+Node [Onoza]
+--END--
+
+
+# -----------------------------------------------------
+# Restart the Docker daemon on the Kafka nodes.
+#[user@trop03]
+
+    source "${HOME}/nodenames"
+    source "${HOME}/ssh-options"
+    source "${HOME}/libvirt.env"
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                '
+                sudo systemctl restart docker.service
+                '
+        done
+
+--START--
+---- ----
+Node [Stedigo]
+---- ----
+Node [Angece]
+---- ----
+Node [Edwalafia]
+---- ----
+Node [Onoza]
+--END--
+
+
+# -----------------------------------------------------
+# Start our Kafka containers,
+# (separate login on each node).
+#[user@desktop]
+
+    ssh Stedigo
+    ssh Angece
+    ssh Edwalafia
+    ssh Onoza
+
+    docker-compose \
+        --file kafka.yml \
+        up \
+        -d
+
+    docker logs \
+        --follow \
+        'stevedore_emily_1'
+
+
+--START--
+[2020-03-22 03:57:46,778] INFO Connecting to zookeeper on Fosauri,Marpus,Byflame (kafka.server.KafkaServer)
+--END--
+
+    #
+    # TODO Need to edit the Kafka config to update the Zookeeper address.
+    #
+
+# -----------------------------------------------------
+# Stop the Kafka containers.
+#[user@trop03]
+
+    source "${HOME}/nodenames"
+    source "${HOME}/ssh-options"
+    source "${HOME}/libvirt.env"
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                '
+                docker-compose \
+                    --file kafka.yml \
+                    down
+                '
+        done
+
+
+--START--
+---- ----
+Node [Stedigo]
+Stopping stevedore_emily_1 ... done
+Removing stevedore_emily_1 ... done
+Removing network stevedore_default
+---- ----
+Node [Angece]
+Stopping stevedore_emily_1 ... done
+Removing stevedore_emily_1 ... done
+Removing network stevedore_default
+---- ----
+Node [Edwalafia]
+Stopping stevedore_emily_1 ... done
+Removing stevedore_emily_1 ... done
+Removing network stevedore_default
+---- ----
+Node [Onoza]
+Stopping stevedore_emily_1 ... done
+Removing stevedore_emily_1 ... done
+Removing network stevedore_default
+--END--
+
+
+# -----------------------------------------------------
+# Make a list of our Zookeeper nodes.
+#[user@trop03]
+
+    zklist=${zknames[*]}
+    zklist=${zklist// /,}
+
+    echo "zklist [${zklist}]"
+
+--START--
+zklist [Fosauri,Marpus,Sendalin]
+--END--
+
+
+# -----------------------------------------------------
+# Update the Kafka config on each node.
+#[user@trop03]
+
+    source "${HOME}/nodenames"
+    source "${HOME}/ssh-options"
+    source "${HOME}/libvirt.env"
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                "
+                sed -i '
+                    s/KAFKA_ZOOKEEPER_CONNECT=.*/KAFKA_ZOOKEEPER_CONNECT=${zklist:?}/
+                    ' kafka.env
+                "
+        done
+
+--START--
+---- ----
+Node [Stedigo]
+---- ----
+Node [Angece]
+---- ----
+Node [Edwalafia]
+---- ----
+Node [Onoza]
+--END--
+
+
+# -----------------------------------------------------
+# Start the Kafka containers.
+#[user@trop03]
+
+    source "${HOME}/nodenames"
+    source "${HOME}/ssh-options"
+    source "${HOME}/libvirt.env"
+
+    for vmname in ${kfnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                '
+                docker-compose \
+                    --file kafka.yml \
+                    up -d
+                '
+        done
+
+--START--
+---- ----
+Node [Stedigo]
+Creating network "stevedore_default" with the default driver
+Creating stevedore_emily_1 ... done
+---- ----
+Node [Angece]
+Creating network "stevedore_default" with the default driver
+Creating stevedore_emily_1 ... done
+---- ----
+Node [Edwalafia]
+Creating network "stevedore_default" with the default driver
+Creating stevedore_emily_1 ... done
+---- ----
+Node [Onoza]
+Creating network "stevedore_default" with the default driver
+Creating stevedore_emily_1 ... done
+--END--
+
+
+    #
+    # TODO Move the MirrorMaker clients to worker node.
+    # TODO Deploy two Kafka nodes on trop04.
+    # TODO Delete two Kafka nodes on trop03.
+    #
+
+
+# -----------------------------------------------------
+# -----------------------------------------------------
+# Check what is running on trop04.
+#[user@trop04]
+
+    source "${HOME}/nodenames"
+    source "${HOME}/ssh-options"
+    source "${HOME}/libvirt.env"
+
+    for vmname in $(
+        virsh -c $libvirtcon list --name --state-running
+        )
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            ssh \
+                ${sshopts[*]} \
+                ${sshuser:?}@${vmname:?} \
+                '
+                date
+                hostname
+                docker ps -a
+                '
+
+        done
+
+--START--
+---- ----
+Node [Dwalewen]
+Sun 22 Mar 04:21:40 GMT 2020
+Dwalewen
+CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS               NAMES
+---- ----
+Node [Gwoeric]
+Sun 22 Mar 04:21:40 GMT 2020
+Gwoeric
+CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS               NAMES
+---- ----
+Node [Wumar]
+Sun 22 Mar 04:21:40 GMT 2020
+Wumar
+CONTAINER ID        IMAGE               COMMAND             CREATED             STATUS              PORTS               NAMES
+---- ----
+Node [Sendalin]
+Sun 22 Mar 04:21:40 GMT 2020
+Sendalin
+CONTAINER ID        IMAGE                             COMMAND                  CREATED             STATUS              PORTS                                                                    NAMES
+858c1ab9b30d        confluentinc/cp-zookeeper:4.1.1   "/etc/confluent/dock…"   About an hour ago   Up About an hour    0.0.0.0:2181->2181/tcp, 0.0.0.0:2888->2888/tcp, 0.0.0.0:3888->3888/tcp   stevedore_courtney_1
+--END--
+
+
+# -----------------------------------------------------
+# Delete the unused nodes.
+#[user@trop04]
+
+    source "${HOME}/libvirt.env"
+
+    vmnames=(
+        Dwalewen
+        Gwoeric
+        Wumar
+        )
+
+    for vmname in ${vmnames[@]}
+        do
+            echo "---- ----"
+            echo "Node [${vmname:?}]"
+            virsh \
+                --connect "${libvirtcon:?}" \
+                destroy \
+                    "${vmname}"
+
+            virsh \
+                --connect "${libvirtcon:?}" \
+                undefine \
+                    "${vmname}" \
+                    --remove-all-storage    
+        done
+
+--START--
+---- ----
+Node [Dwalewen]
+Domain Dwalewen destroyed
+
+Domain Dwalewen has been undefined
+Volume 'vda'(/var/lib/libvirt/images/live/Dwalewen.qcow) removed.
+Volume 'vdb'(/var/lib/libvirt/images/init/Dwalewen.iso) removed.
+
+---- ----
+Node [Gwoeric]
+Domain Gwoeric destroyed
+
+Domain Gwoeric has been undefined
+Volume 'vda'(/var/lib/libvirt/images/live/Gwoeric.qcow) removed.
+Volume 'vdb'(/var/lib/libvirt/images/init/Gwoeric.iso) removed.
+
+---- ----
+Node [Wumar]
+Domain Wumar destroyed
+
+Domain Wumar has been undefined
+Volume 'vda'(/var/lib/libvirt/images/live/Wumar.qcow) removed.
+Volume 'vdb'(/var/lib/libvirt/images/init/Wumar.iso) removed.
+--END--
+

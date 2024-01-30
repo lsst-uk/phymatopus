@@ -1,0 +1,105 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+
+# -----------------------------------------------------
+#
+#[user@Stedigo]
+
+    docker ps -a
+
+    >   CONTAINER ID        IMAGE                         COMMAND                  CREATED             STATUS              PORTS                              NAMES
+    >   fe7aece71406        confluentinc/cp-kafka:4.1.1   "/etc/confluent/dock…"   3 weeks ago         Up 3 weeks          0.0.0.0:9092-9093->9092-9093/tcp   stevedore_emily_1
+
+
+    docker logs -f stevedore_emily_1
+
+
+    >   ....
+    >   ....
+    >   [2019-08-27 14:05:31,374] DEBUG [Controller id=1] Topics not in preferred replica for broker 2 Map() (kafka.controller.KafkaController)
+    >   [2019-08-27 14:05:31,374] TRACE [Controller id=1] Leader imbalance ratio for broker 2 is 0.0 (kafka.controller.KafkaController)
+    >   [2019-08-27 14:05:31,374] DEBUG [Controller id=1] Topics not in preferred replica for broker 4 Map() (kafka.controller.KafkaController)
+    >   [2019-08-27 14:05:31,374] TRACE [Controller id=1] Leader imbalance ratio for broker 4 is 0.0 (kafka.controller.KafkaController)
+    >   [2019-08-27 14:05:31,374] DEBUG [Controller id=1] Topics not in preferred replica for broker 1 Map() (kafka.controller.KafkaController)
+    >   [2019-08-27 14:05:31,374] TRACE [Controller id=1] Leader imbalance ratio for broker 1 is 0.0 (kafka.controller.KafkaController)
+    >   [2019-08-27 14:05:31,374] DEBUG [Controller id=1] Topics not in preferred replica for broker 3 Map() (kafka.controller.KafkaController)
+    >   [2019-08-27 14:05:31,374] TRACE [Controller id=1] Leader imbalance ratio for broker 3 is 0.0 (kafka.controller.KafkaController)
+
+
+# -----------------------------------------------------
+# List the active clients.
+#[user@trop03]
+
+    source "${HOME}/ssh-options"
+    source "${HOME}/nodenames"
+
+    kafkaurl=${kfnames[0]}:9092
+
+    ssh \
+        ${sshopts[*]} \
+        ${sshuser:?}@${mmnames[0]:?} \
+        "
+        docker run --rm phymatopus/kafka-core \
+            bin/kafka-consumer-groups.sh \
+                --bootstrap-server "${kafkaurl:?}" \
+                --list
+         " \
+    | sort
+
+    >   LASAIR-test467
+    >   LASAIR-test918
+
+
+# -----------------------------------------------------
+# Get the total rows for some of the topics.
+#[user@Grerat]
+
+        for topic in $(tail -n 4 /tmp/topiclist)
+        do
+            echo "---- ----"
+            echo "Topic [${topic}]"
+
+            cat /tmp/${topic:?}-offsets \
+            | sed '
+                s/\([^:]*\):\([^:]*\):\([^:]*\)/\3/
+                ' \
+            | awk '
+                {sum += $1} END {print sum}
+                '
+        done
+
+    >   ---- ----
+    >   Topic [ztf_20190824_programid1]
+    >   130723
+    >   ---- ----
+    >   Topic [ztf_20190825_programid1]
+    >   184504
+    >   ---- ----
+    >   Topic [ztf_20190826_programid1]
+    >   1032500
+    >   ---- ----
+    >   Topic [ztf_20190827_programid1]
+    >   167450
+
+
+

@@ -1,0 +1,437 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+
+# -----------------------------------------------------
+# Create a container to work with.
+#[user@virtual]
+
+    ssh Onaukon
+    ssh Nydiabaen
+    ssh Umynd
+    ssh Rhaler
+
+
+    #
+    # 'normal' user requires chmod in firethorn image.
+    # --user $(id -u) \
+
+    docker run \
+        --rm \
+        --tty \
+        --interactive \
+        --hostname builder \
+        --env SSH_AUTH_SOCK=/tmp/ssh_auth_sock \
+        --volume ${SSH_AUTH_SOCK}:/tmp/ssh_auth_sock \
+        firethorn/builder \
+        bash
+
+    >   ....
+    >   Digest: sha256:e668160c68cda1ce76ac7982b9dadf21bcbd6cbfb8427c3a3c26d8def3c3a49f
+    >   Status: Downloaded newer image for firethorn/builder:latest
+
+# -----------------------------------------------------
+# Checkout a copy of our source code.
+#[user@builder]
+
+    PHYMATOPUS_REPO=https://github.com/Zarquan/phymatopus
+    PHYMATOPUS_CODE=/var/local/build/phymatopus
+
+    if [ ! -e "${PHYMATOPUS_CODE:?}" ]
+    then
+        if [ ! -e "$(dirname ${PHYMATOPUS_CODE:?})" ]
+        then
+            mkdir -p "$(dirname ${PHYMATOPUS_CODE:?})"
+        fi
+        pushd "$(dirname ${PHYMATOPUS_CODE:?})"
+            git clone "${PHYMATOPUS_REPO:?}" "$(basename ${PHYMATOPUS_CODE:?})"
+
+        popd
+    else
+        pushd "${PHYMATOPUS_CODE:?}"
+            git pull
+        popd
+    fi
+
+# -----------------------------------------------------
+# Build and run our tests.
+#[user@builder]
+
+    rewind=true
+    rewind=false
+    rewind=true
+
+    pushd "${PHYMATOPUS_CODE:?}"
+        pushd kafka-tools
+
+            git pull
+
+            mvn clean compile
+
+            topic=ztf_20190916_programid1            
+            topic=ztf_20190904_programid1
+
+            topic=ztf_20190823_programid1
+            looplimit=10000
+            threads=8
+            rewind=true
+
+            mvn test \
+                -D 'test=ZtfAlertReaderTest' \
+                -D "phymatopus.kafka.reader.rewind=${rewind}" \
+                -D "phymatopus.kafka.reader.threads=${threads}" \
+                -D "phymatopus.kafka.reader.looplimit=${looplimit}" \
+                -D "phymatopus.kafka.reader.topic=${topic}"
+
+
+    >   2019-09-04 12:41:14,256 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [4] threads read [20449] alerts from topic [ztf_20190904_programid1] in [75004.0]ms at [3.6678567]ms per alert
+    >   2019-09-04 12:41:03,259 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [4] threads read [10163] alerts from topic [ztf_20190904_programid1] in [67287.0]ms at [6.6207814]ms per alert
+    >   2019-09-04 12:41:14,243 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [4] threads read [30653] alerts from topic [ztf_20190904_programid1] in [76440.0]ms at [2.49372]ms per alert
+
+
+    >   ....
+    >   2019-09-04 12:40:33,316 INFO  [pool-1-thread-4] [AbstractCoordinator] [Consumer clientId=consumer-3, groupId=Epicallima] (Re-)joining group
+    >   2019-09-04 12:40:38,210 INFO  [pool-1-thread-3] [AbstractCoordinator] [Consumer clientId=consumer-2, groupId=Epicallima] Attempt to heartbeat failed since group is rebalancing
+    >   2019-09-04 12:40:38,843 INFO  [pool-1-thread-2] [AbstractCoordinator] [Consumer clientId=consumer-4, groupId=Epicallima] Attempt to heartbeat failed since group is rebalancing
+    >   ....
+    >   2019-09-04 12:40:47,769 INFO  [pool-1-thread-3] [AbstractCoordinator] [Consumer clientId=consumer-2, groupId=Epicallima] Discovered group coordinator Angece:9092 (id: 2147483645 rack: null)
+    >   2019-09-04 12:40:47,829 INFO  [pool-1-thread-3] [ConsumerCoordinator] [Consumer clientId=consumer-2, groupId=Epicallima] Revoking previously assigned partitions [ztf_20190904_programid1-84, ztf_20190904_programid1-82, ztf_20190904_programid1-80, ztf_20190904_programid1-78, ztf_20190904_programid1-92, ztf_20190904_programid1-90, ztf_20190904_programid1-88, ztf_20190904_programid1-86, ztf_20190904_programid1-100, ztf_20190904_programid1-98, ztf_20190904_programid1-96, ztf_20190904_programid1-94, ztf_20190904_programid1-102, ztf_20190904_programid1-83, ztf_20190904_programid1-81, ztf_20190904_programid1-79, ztf_20190904_programid1-91, ztf_20190904_programid1-89, ztf_20190904_programid1-87, ztf_20190904_programid1-85, ztf_20190904_programid1-99, ztf_20190904_programid1-97, ztf_20190904_programid1-95, ztf_20190904_programid1-93, ztf_20190904_programid1-103, ztf_20190904_programid1-101]
+    >   2019-09-04 12:40:47,830 INFO  [pool-1-thread-3] [AbstractCoordinator] [Consumer clientId=consumer-2, groupId=Epicallima] (Re-)joining group
+    >   2019-09-04 12:40:51,983 INFO  [pool-1-thread-4] [AbstractCoordinator] [Consumer clientId=consumer-3, groupId=Epicallima] Successfully joined group with generation 37
+    >   2019-09-04 12:40:51,983 INFO  [pool-1-thread-3] [AbstractCoordinator] [Consumer clientId=consumer-2, groupId=Epicallima] Successfully joined group with generation 37
+    >   ....
+    >   2019-09-04 12:41:16,937 ERROR [kafka-coordinator-heartbeat-thread | Epicallima] [AbstractCoordinator] [Consumer clientId=consumer-4, groupId=Epicallima] Heartbeat thread failed due to unexpected error
+    >   java.lang.OutOfMemoryError: Java heap space
+    >   	at java.nio.HeapByteBuffer.<init>(HeapByteBuffer.java:57)
+    >   	at java.nio.ByteBuffer.allocate(ByteBuffer.java:335)
+    >       ....
+    >   2019-09-04 12:41:17,229 ERROR [kafka-coordinator-heartbeat-thread | Epicallima] [AbstractCoordinator] [Consumer clientId=consumer-2, groupId=Epicallima] Heartbeat thread failed due to unexpected error
+    >   java.lang.OutOfMemoryError: Java heap space
+    >   	at java.nio.HeapByteBuffer.<init>(HeapByteBuffer.java:57)
+    >   	at java.nio.ByteBuffer.allocate(ByteBuffer.java:335)
+    >       ....
+
+
+
+
+
+            topic=ztf_20190904_programid1
+            looplimit=8000
+            threads=4
+
+            mvn test \
+                -D 'test=ZtfAlertReaderTest' \
+                -D "phymatopus.kafka.reader.rewind=${rewind}" \
+                -D "phymatopus.kafka.reader.threads=${threads}" \
+                -D "phymatopus.kafka.reader.looplimit=${looplimit}" \
+                -D "phymatopus.kafka.reader.topic=${topic}"
+
+
+
+    #
+    # Increase the memory for each node.
+    # Increase the threads in each client.
+    #
+
+
+
+
+
+
+
+
+# -----------------------------------------------------
+# Update the memory allocation for our test clients.
+#[user@trop03]
+
+    source "${HOME}/nodenames"
+    source "${HOME}/ssh-options"
+    source "${HOME}/libvirt.settings"
+
+    physical=work01
+    vmname=Onaukon
+    vmsize=16G
+
+    physical=work02
+    vmname=Nydiabaen
+    vmsize=16G
+
+    physical=work03
+    vmname=Umynd
+    vmsize=16G
+
+    physical=work04
+    vmname=Rhaler
+    vmsize=16G
+
+
+    ssh \
+        ${sshopts[*]} \
+        $(id -un)@${physical:?} \
+            "
+            date
+            hostname
+            source libvirt.settings
+
+            virsh \
+                --connect \${libvirtcon:?} \
+                    shutdown  ${vmname}
+
+            sleep 20
+
+            virsh \
+                --connect \${libvirtcon:?} \
+                    setmaxmem ${vmname} ${vmsize} \
+                        --config
+
+            virsh \
+                --connect \${libvirtcon:?} \
+                    setmem ${vmname} ${vmsize} \
+                        --config
+
+            sleep 20
+
+            virsh \
+                --connect \${libvirtcon:?} \
+                    start  ${vmname}
+            "
+
+
+# -----------------------------------------------------
+# Create a container to work with.
+#[user@virtual]
+
+    ssh Onaukon
+    ssh Nydiabaen
+    ssh Umynd
+    ssh Rhaler
+
+
+    #
+    # 'normal' user requires chmod in firethorn image.
+    # --user $(id -u) \
+
+    docker run \
+        --rm \
+        --tty \
+        --interactive \
+        --hostname builder \
+        --env SSH_AUTH_SOCK=/tmp/ssh_auth_sock \
+        --volume ${SSH_AUTH_SOCK}:/tmp/ssh_auth_sock \
+        firethorn/builder \
+        bash
+
+    >   ....
+    >   Digest: sha256:e668160c68cda1ce76ac7982b9dadf21bcbd6cbfb8427c3a3c26d8def3c3a49f
+    >   Status: Downloaded newer image for firethorn/builder:latest
+
+# -----------------------------------------------------
+# Checkout a copy of our source code.
+#[user@builder]
+
+    PHYMATOPUS_REPO=https://github.com/Zarquan/phymatopus
+    PHYMATOPUS_CODE=/var/local/build/phymatopus
+
+    if [ ! -e "${PHYMATOPUS_CODE:?}" ]
+    then
+        if [ ! -e "$(dirname ${PHYMATOPUS_CODE:?})" ]
+        then
+            mkdir -p "$(dirname ${PHYMATOPUS_CODE:?})"
+        fi
+        pushd "$(dirname ${PHYMATOPUS_CODE:?})"
+            git clone "${PHYMATOPUS_REPO:?}" "$(basename ${PHYMATOPUS_CODE:?})"
+
+        popd
+    else
+        pushd "${PHYMATOPUS_CODE:?}"
+            git pull
+        popd
+    fi
+
+# -----------------------------------------------------
+# Build and run our tests.
+#[user@builder]
+
+    rewind=true
+    rewind=false
+
+    pushd "${PHYMATOPUS_CODE:?}"
+        pushd kafka-tools
+
+            git pull
+
+            mvn clean compile
+
+            topic=ztf_20190904_programid1
+            looplimit=8000
+            threads=4
+
+            mvn test \
+                -D 'test=ZtfAlertReaderTest' \
+                -D "phymatopus.kafka.reader.rewind=${rewind}" \
+                -D "phymatopus.kafka.reader.threads=${threads}" \
+                -D "phymatopus.kafka.reader.looplimit=${looplimit}" \
+                -D "phymatopus.kafka.reader.topic=${topic}"
+
+    >   2019-09-04 13:37:04,256 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [4] threads read [32529] alerts from topic [ztf_20190904_programid1] in [26157.0]ms at [0.80411327]ms per alert
+    >   2019-09-04 13:37:10,235 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [4] threads read [32536] alerts from topic [ztf_20190904_programid1] in [25888.0]ms at [0.7956725]ms per alert
+    >   2019-09-04 13:37:09,928 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [4] threads read [32250] alerts from topic [ztf_20190904_programid1] in [22845.0]ms at [0.7083721]ms per alert
+    >   2019-09-04 13:37:15,050 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [4] threads read [32556] alerts from topic [ztf_20190904_programid1] in [25654.0]ms at [0.78799605]ms per alert
+
+
+            topic=ztf_20190904_programid1
+            looplimit=8000
+            threads=8
+
+            mvn test \
+                -D 'test=ZtfAlertReaderTest' \
+                -D "phymatopus.kafka.reader.rewind=${rewind}" \
+                -D "phymatopus.kafka.reader.threads=${threads}" \
+                -D "phymatopus.kafka.reader.looplimit=${looplimit}" \
+                -D "phymatopus.kafka.reader.topic=${topic}"
+
+    >   2019-09-04 13:40:45,867 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [8] threads read [64701] alerts from topic [ztf_20190904_programid1] in [82096.0]ms at [1.2688521]ms per alert
+    >   2019-09-04 13:40:50,304 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [8] threads read [65360] alerts from topic [ztf_20190904_programid1] in [91284.0]ms at [1.396634]ms per alert
+    >   2019-09-04 13:40:49,373 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [8] threads read [64586] alerts from topic [ztf_20190904_programid1] in [87942.0]ms at [1.3616264]ms per alert
+    >   2019-09-04 13:40:51,362 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [8] threads read [64980] alerts from topic [ztf_20190904_programid1] in [93083.0]ms at [1.4324869]ms per alert
+
+
+            topic=ztf_20190904_programid1
+            looplimit=4000
+            threads=8
+
+            mvn test \
+                -D 'test=ZtfAlertReaderTest' \
+                -D "phymatopus.kafka.reader.rewind=${rewind}" \
+                -D "phymatopus.kafka.reader.threads=${threads}" \
+                -D "phymatopus.kafka.reader.looplimit=${looplimit}" \
+                -D "phymatopus.kafka.reader.topic=${topic}"
+
+    >   2019-09-04 13:42:56,224 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [8] threads read [32185] alerts from topic [ztf_20190904_programid1] in [26266.0]ms at [0.81609446]ms per alert
+    >   2019-09-04 13:43:04,625 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [8] threads read [33854] alerts from topic [ztf_20190904_programid1] in [31073.0]ms at [0.9178531]ms per alert
+    >   2019-09-04 13:43:01,748 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [8] threads read [32853] alerts from topic [ztf_20190904_programid1] in [24639.0]ms at [0.7499772]ms per alert
+    >   2019-09-04 13:43:01,303 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [8] threads read [32800] alerts from topic [ztf_20190904_programid1] in [21715.0]ms at [0.6620427]ms per alert
+
+
+            topic=ztf_20190904_programid1
+            looplimit=2000
+            threads=16
+
+            mvn test \
+                -D 'test=ZtfAlertReaderTest' \
+                -D "phymatopus.kafka.reader.rewind=${rewind}" \
+                -D "phymatopus.kafka.reader.threads=${threads}" \
+                -D "phymatopus.kafka.reader.looplimit=${looplimit}" \
+                -D "phymatopus.kafka.reader.topic=${topic}"
+
+    >   2019-09-04 13:45:32,187 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [16] threads read [32356] alerts from topic [ztf_20190904_programid1] in [28215.0]ms at [0.87201756]ms per alert
+    >   2019-09-04 13:45:40,001 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [16] threads read [33312] alerts from topic [ztf_20190904_programid1] in [31897.0]ms at [0.9575228]ms per alert
+    >   2019-09-04 13:45:41,112 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [16] threads read [33639] alerts from topic [ztf_20190904_programid1] in [31550.0]ms at [0.9378995]ms per alert
+    >   2019-09-04 13:45:40,664 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [16] threads read [33687] alerts from topic [ztf_20190904_programid1] in [28431.0]ms at [0.8439754]ms per alert
+
+    >   2019-09-04 13:50:09,199 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [16] threads read [32600] alerts from topic [ztf_20190904_programid1] in [28852.0]ms at [0.8850307]ms per alert
+    >   2019-09-04 13:50:15,888 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [16] threads read [32905] alerts from topic [ztf_20190904_programid1] in [28699.0]ms at [0.8721775]ms per alert
+    >   2019-09-04 13:50:17,364 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [16] threads read [33651] alerts from topic [ztf_20190904_programid1] in [26139.0]ms at [0.77676743]ms per alert
+    >   2019-09-04 13:50:26,662 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [16] threads read [36021] alerts from topic [ztf_20190904_programid1] in [31917.0]ms at [0.88606644]ms per alert
+
+
+    #
+    # Run two containers per virtual ..
+    #
+
+
+            topic=ztf_20190904_programid1
+            looplimit=2000
+            threads=8
+
+            mvn test \
+                -D 'test=ZtfAlertReaderTest' \
+                -D "phymatopus.kafka.reader.rewind=${rewind}" \
+                -D "phymatopus.kafka.reader.threads=${threads}" \
+                -D "phymatopus.kafka.reader.looplimit=${looplimit}" \
+                -D "phymatopus.kafka.reader.topic=${topic}"
+
+    >   2019-09-04 14:11:45,200 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [8] threads read [16158] alerts from topic [ztf_20190904_programid1] in [26687.0]ms at [1.6516277]ms per alert
+    >   2019-09-04 14:11:52,754 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [8] threads read [16472] alerts from topic [ztf_20190904_programid1] in [28201.0]ms at [1.7120569]ms per alert
+    >   2019-09-04 14:11:50,201 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [8] threads read [16349] alerts from topic [ztf_20190904_programid1] in [23072.0]ms at [1.4112178]ms per alert
+    >   2019-09-04 14:11:58,451 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [8] threads read [17414] alerts from topic [ztf_20190904_programid1] in [29148.0]ms at [1.6738256]ms per alert
+    >   
+    >   2019-09-04 14:11:53,005 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [8] threads read [16445] alerts from topic [ztf_20190904_programid1] in [19424.0]ms at [1.1811492]ms per alert
+    >   2019-09-04 14:11:59,696 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [8] threads read [16947] alerts from topic [ztf_20190904_programid1] in [24580.0]ms at [1.4504042]ms per alert
+    >   2019-09-04 14:12:00,431 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [8] threads read [16475] alerts from topic [ztf_20190904_programid1] in [22577.0]ms at [1.3703793]ms per alert
+    >   2019-09-04 14:12:03,269 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [8] threads read [16726] alerts from topic [ztf_20190904_programid1] in [24368.0]ms at [1.4568934]ms per alert
+
+
+            topic=ztf_20190904_programid1
+            looplimit=2000
+            threads=4
+
+            mvn test \
+                -D 'test=ZtfAlertReaderTest' \
+                -D "phymatopus.kafka.reader.rewind=${rewind}" \
+                -D "phymatopus.kafka.reader.threads=${threads}" \
+                -D "phymatopus.kafka.reader.looplimit=${looplimit}" \
+                -D "phymatopus.kafka.reader.topic=${topic}"
+
+    >   2019-09-04 14:17:03,768 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [4] threads read [8724] alerts from topic [ztf_20190904_programid1] in [15126.0]ms at [1.7338377]ms per alert
+    >   2019-09-04 14:17:08,428 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [4] threads read [8510] alerts from topic [ztf_20190904_programid1] in [16393.0]ms at [1.926322]ms per alert
+    >   2019-09-04 14:17:11,051 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [4] threads read [8418] alerts from topic [ztf_20190904_programid1] in [16164.0]ms at [1.920171]ms per alert
+    >   2019-09-04 14:17:11,889 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [4] threads read [8628] alerts from topic [ztf_20190904_programid1] in [14215.0]ms at [1.6475428]ms per alert
+    >   
+    >   2019-09-04 14:17:14,422 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [4] threads read [8472] alerts from topic [ztf_20190904_programid1] in [11575.0]ms at [1.3662653]ms per alert
+    >   2019-09-04 14:17:18,955 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [4] threads read [8916] alerts from topic [ztf_20190904_programid1] in [12887.0]ms at [1.4453791]ms per alert
+    >   2019-09-04 14:17:22,615 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [4] threads read [8762] alerts from topic [ztf_20190904_programid1] in [13322.0]ms at [1.5204291]ms per alert
+    >   2019-09-04 14:17:21,953 INFO  [main] [KafkaReaderTestBase] Group [Epicallima] with [4] threads read [8628] alerts from topic [ztf_20190904_programid1] in [10432.0]ms at [1.2090867]ms per alert
+
+    #
+    # Adding things up ...
+
+    [8724] in [15126.0]ms at [1.7338377]ms per alert
+    [8510] in [16393.0]ms at [1.926322]ms per alert
+    [8418] in [16164.0]ms at [1.920171]ms per alert
+    [8628] in [14215.0]ms at [1.6475428]ms per alert
+    [8472] in [11575.0]ms at [1.3662653]ms per alert
+    [8916] in [12887.0]ms at [1.4453791]ms per alert
+    [8762] in [13322.0]ms at [1.5204291]ms per alert
+    [8628] in [10432.0]ms at [1.2090867]ms per alert
+
+    [8724+8510+8418+8628+8472+8916+8762+8628] in [16393.0]ms at [0.23]ms per alert
+
+    16393.0 / (8724 + 8510 + 8418 + 8628 + 8472 + 8916 + 8762 + 8628) = 0.23 ms/alert
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

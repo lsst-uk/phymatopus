@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-FROM phymatopus/fedora:2018.06.20
+FROM phymatopus/fedora:2019.09.11
 MAINTAINER Dave Morris <docker-admin@metagrid.co.uk>
 
 #
@@ -25,7 +25,7 @@ RUN dnf install -y openssh-clients
 #
 # Install the OpenStack client.
 # https://docs.openstack.org/python-openstackclient/latest/
-RUN dnf install -y python-openstackclient
+RUN dnf install -y python3-openstackclient
 
 #
 # Install the jq JSON parser.
@@ -38,7 +38,7 @@ RUN dnf install -y jq
 RUN dnf install -y ipcalc
 
 #
-# Add our util scripts. 
+# Add our util scripts.
 COPY bin /usr/local/bin/
 RUN chmod a+x /usr/local/bin/*.sh
 

@@ -1,0 +1,574 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+
+
+Statement of target numbers
+
+    1kHz (1.0ms) is 'nominal' normal operations
+   10kHz (0.1ms) is the stretch goal.
+
+    Build with 1kHz target, test with 10kHz.
+
+Four stages of processing
+
+    Stage #1
+
+    The initial stage of the LSST:UK system should be a local Kafka mirror that is
+    configured as a 7 day rolling buffer of the main LSST stream.
+
+    This buffer would have a number of functions:
+
+        1) Provide a buffer, making our system more resilient to
+           upstream networking issues, and to short term failures
+           in our own system.
+
+           If ourprocessing chain fails or goes awry, the 7day buffer
+           gives us time to fix the issue, restart the system and
+           optionally reprocess the last few days of data.
+
+        2) Expand the number of partitions to suit our local configuration.
+           The number of partitions in a Kafka stream puts an upper limit
+           on the level of parallelism that the downstream components
+           can apply to processing the stream (see [kafka-partitions]).
+           Adding a buffer at the start of our chain give us direct local
+           control over the number of partitions in the the alert stream.
+
+           We can increase or decrease the number of partitions simply
+           by changing a configuration setting on our local Kafka service.
+           (experiment to see if this can be changed dynamically?)
+
+        3) Update the schema identifier to match the value registered in our
+           local SchemaRegistry.
+           Incomming messages from the main LSST stream will use a schema ID
+           from the main LSST SchemaRegistry.
+           To allow ous internal components to use our own local SchemaRegistry
+           we will need to change the schema ID in incoming messages
+           to use the corresponding schema ID from our local SchemaRegistry.
+           (see [schema-registry])
+
+        4) Control the topic identifier and merge 'daily' topics into a single
+           continous stream.
+           At the moment ZTF publish their data in a series of separate 'daily'
+           streams, one for each night of observations.
+           Handling the data in chunks like this a useful format to manage the bulk
+           transfer and archiving of the data. It makes it easy to refer to the data
+           from yesterday or the data from three days ago.
+
+           However, in terms of the end user, from their prespective they want to receive
+           "the live data from LSST", in one continous stream.
+
+           This gateway buffer is the ideal place to take the data from each of the
+           separate 'daily' topics and publish them locally as one continous stream.
+
+        5) Provide a suite of test data in the correct format.
+           The same Kafka service (or a very similar one) can be used to store a known
+           set of test data that can be used both to replicate conditions for a set of
+           integration tests and as test data during the development of new filters.
+
+            Example test data
+                -- Known sets of simulated data
+                -- Known subsets of real data
+                -- Data using different schema
+                    -- ZTF
+                    -- LSST
+                    -- static schema
+                    -- inline schema
+                    -- registered schema
+
+            The advantage of using this service (or a very similar one) to store and
+            serve test data is it means that clients under test can use the same
+            client libraries and configurations in both test and developent and
+            live production scenarios.
+
+            In this context, the phrase "or a very similar one" means using the same
+            software, server deployment and configuration for both the test and live
+            systems (see [kafka-blackbox]).
+
+
+
+        --todo
+            run a set of tests to check how much latency this buffer would add.
+
+        -- todo
+            create empty Kafka and populate from Avro files or database.
+
+
+    Stage #2
+
+        A collection of loosely coupled services that consume data from a stream,
+        apply a filter or processing step, optionally producing a new stream of results.
+
+        A wide range of different services can subscribe to a single Kafka topic
+        and process the messages at different rates.
+        Fast and slow services can subscribe to the same topic without interfering
+        with each other (see [kafka-coupling]).
+
+
+        Low bandwidth branches
+
+            Write alerts to Avro for backup
+            Write alerts to Parquet for analysis
+            Write light curves to FITS/VOTable for processing
+            Write images to FITS/PNG/JPEG for website
+
+        Medium bandwidth branches
+
+            Write Objects to MariaDB for analysis
+            Write Candidates to MariaDB for analysis
+
+            Write Objects to Cassandra for analysis
+            Write Candidates to Cassandra for analysis
+
+
+        High bandwidth branches
+
+            Live, low-latency(~= 1ms), real time filters and annotators.
+            Talked about a lot, but few documented use cases.
+
+            Processing nodes
+                Java/Python framework
+                Each node has one or more AlertProcessor objects.
+                Framework as a separate Maven/GitHub project.
+                Contents of the array configured separateley/dynamically.
+                    Main project develops classes that implement AlertProcessor
+                    External projects may submit classes that implements AlertProcessor
+                    Chain processing - similar to the Anvil live bond trading 'ladder' .
+
+            Use cases
+
+                Solar system
+
+                    Solar system filter
+                        Filter to based on the solar system values
+                            ssdistnr != null
+                            ssmagnr  != null
+                            ssnamenr != null
+
+
+                    Solar system stream
+                        -- listen to main stream, apply solar-system filter
+                        Generates solar-system and non-solar-system streams
+
+
+                    Solar system writer
+                        -- listen to the solar-system stream
+                        or
+                        -- listen to main stream, apply solar-system filter
+
+                        Writes to Cassandra database table
+                            CassandraWriter extends DatabaseWriter
+                                DatabaseWriter has Avro schema to table mapping.
+                        Writes to MariaDB database table
+                            MariaDB extends DatabaseWriter
+                                DatabaseWriter has Avro schema to table mapping.
+
+                    Solar system object stream
+                        -- listen to the solar-system stream
+                        or
+                        -- listen to main stream, apply solar-system filter
+                        and
+                        -- apply filter on solar system object name (ssnamenr)
+
+
+                    Solar system object writers
+                        -- listen to a solar-system object stream
+                        or
+                        -- listen to main stream, apply solar-system filter
+                        and
+                        -- apply filter on solar system object name (ssnamenr)
+
+                        Writes to Cassandra database table
+                            CassandraWriter extends DatabaseWriter
+                                DatabaseWriter has Avro to table mapping.
+                        Writes to MariaDB database table
+                            MariaDB extends DatabaseWriter
+                                DatabaseWriter has Avro to table mapping.
+
+
+                Non-solar system
+
+
+                    CandidateWriter
+                        -- listen to the non-solar stream
+                        or
+                        -- listen to main stream, apply non-solar-system filter
+
+                        Writes to Cassandra database table
+                            CassandraWriter extends DatabaseWriter
+                                DatabaseWriter has Avro schema to table mapping.
+                        Writes to MariaDB database table
+                            MariaDB extends DatabaseWriter
+                                DatabaseWriter has Avro schema to table mapping.
+
+
+                    Position watch lists
+                        -- listen to the non-solar stream
+                        or
+                        -- listen to main stream, apply non-solar-system filter
+
+                        for each Candidate
+                            Zone based crossmatch on watch list data
+                                listid, posid, ra, dec, radius
+
+                        Single match represented as a WatchListMatch
+                            WatchListMatch {
+                                listid
+                                posid
+                                ra
+                                dec
+                                radius
+                                candidid
+                                objectid
+                                }
+
+                        Stream of simple WatchListMatch
+                            Downstream listener writes WatchListMatch to Cassandra database table
+                            Downstream listener writes WatchListMatch to MariaDB database table
+                            Downstream listener publishes WatchListMatch via VOEvent
+                                Mapping from Avro WatchListMatch to VOEvent template
+                            Downstream listener publishes WatchListMatch via email
+                                Mapping from Avro WatchListMatch to email template
+
+
+                        WatchListMatchCandidate includes match and full candidate
+                            WatchListMatchCandidate {
+                                WatchListMatch match;
+                                Candidate candidate ;
+                                }
+
+                        Stream of complex WatchListMatchCandidate
+                            Downstream listener writes WatchListCandidate to Cassandra database table
+                            Downstream listener writes WatchListCandidate to MariaDB database table
+                            Downstream listener publishes WatchListCandidate via VOEvent
+                                Mapping from Avro WatchListCandidate to VOEvent template
+                            Downstream listener publishes WatchListCandidate via email
+                                Mapping from Avro WatchListCandidate to email template
+
+
+                        Experiments:
+                            Keep the watchlist data in memory (cost estimates)
+                            Keep the watchlist data in HSQLDB
+                            Keep the watchlist data in MariaDB
+                            Keep the watchlist data in Cassandra
+
+                        If we computer cross matches between Object and watchlist not candidate,
+                        then for each canddate we load and execute the actions, no need to
+                        re-calculate the cross match.
+
+                        // Lasair code calculates HTMID of every candidate.
+
+                        for each Object
+                            Zone based crossmatch on watch list data
+                                listid, posid, ra, dec, radius
+
+                        for each Candidate
+                            load candidate.object()
+                                load object.triggers()
+                                    for each trigger
+                                        trigger.execute()
+
+
+
+
+
+
+                    CandidateObjectMatcher
+                        -- listen to the non-solar stream
+                        or
+                        -- listen to main stream, apply non-solar-system filter
+
+                        for each Candidate
+                            load corresponding Object based on objectid
+                            load previous Candidates based on objectid
+                                plus this Candidate
+                            generate statistics
+
+                            if this is a new Object
+                                write to CreatedObject stream
+
+                            write to UpdatedObject stream
+
+                                Downstream listener writes Object to Cassandra database table
+                                Downstream listener writes Object to MariaDB database table
+
+
+                    Experiments:
+                        Keep the object data in memory (cost estimates)
+                        Keep the object data in HSQLDB
+                        Keep the object data in MariaDB
+                        Keep the object data in Cassandra
+
+                    Experiments:
+                        Keep the candidate data in memory (cost estimates)
+                        Keep the candidate data in HSQLDB
+                        Keep the candidate data in MariaDB
+                        Keep the candidate data in Cassandra
+
+
+                Position cross match applied to new Objects.
+                (*) or if position change is larger than <delta>.
+
+                    Position cross match on new Objects
+                        -- listen to the CreatedObject stream
+
+                        Zone based crossmatch on catalog list data
+                            listid, posid, ra, dec, radius
+
+                        Single match represented as a ObjectCrossMatch
+                            ObjectCrossMatch {
+                                catalogid
+                                sourceid
+                                ra
+                                dec
+                                radius
+                                objectid
+                                }
+
+                        Object accumulates List of ObjectCrossMatch
+                            Object {
+                                List<ObjectCrossMatch> catalogmatches ;
+                                }
+
+
+                Cost estimates of keeping data in memory.
+                Dynamic loading - the case for/againts.
+
+
+
+    Stage #3
+
+        User processing nodes
+
+            Container framework for user supplied filters.
+            Python / Java / R / code in containers.
+
+            Command and control service for managing containers.
+
+            Advantages:
+                We can define the command and control interfaces.
+                We can define the message handling interfaces.
+
+            Disadvantages:
+                We have to define the command and control interfaces.
+                We have to document the command and control interfaces.
+                We have to define the message handling interfaces.
+                We have to document the message handling interfaces.
+
+
+
+
+    Stage #4
+
+        Spark Structured Streaming
+
+            User supplied code executing on Spark-SS deployment.
+
+            Advantages:
+                Spark framework is well established.
+                Spark framework is well documented.
+                Active community contributing 3rd party extensions, e.g. AXS
+
+
+
+
+
+
+
+
+
+    Kafka offsets
+
+        Kafka serves data to each client group by maintaining a record of the last seen offset fgor each group.
+
+        One to all of many - different group identifiers
+        One to one of many - same group identifiers
+
+        Combination of all of many and one of many in single step by choosing the right group identifiers.
+
+    Kafka partitions
+
+        Description of partitioning - cost/benefit of increasing the number of partitions.
+
+    Kafka deployments
+
+        One logical Kafka service deployed as a set of physical Kafka servers.
+        All messages go through the same set of physical network interfaces.
+        Built-in bottleneck in the system.
+
+
+    Kafka data store
+
+        Normal use case is starting a Kafka service with empty disc, adding it to a cluster and then sharing data from other nodes.
+        Setting disc space and expiry date to null means Kafka won't delete old data.
+        However, re-starting a Kafka service with existing data on disc causes problems.
+        Default behavour is to verify and index all of the data on disc before joining the cluster.
+            Our experience is that verifing and indexing Tbytes of data takes a very long time ..
+
+        It’s Okay To Store Data In Apache Kafka
+        https://www.confluent.io/blog/okay-store-data-apache-kafka/
+            "So is it crazy to do this? The answer is no, there’s nothing crazy about storing data in Kafka:
+             it works well for this because it was designed to do it. Data in Kafka is persisted to disk,
+             checksummed, and replicated for fault tolerance. Accumulating more stored data doesn’t make it
+             slower. There are Kafka clusters running in production with over a petabyte of stored data."
+
+        BUT - the data is stored sequentially.
+        So this works if you just want to replay the data from a known offset,
+        Kafka does not provide any methods for querying or selecting part of the data.
+
+    Kafka optimization
+
+        Kafka uses <>Sequential I/O</> to optimise data transfers, relying on OS features to
+        provide high speed transfers to/from discs and network sockets
+
+            OS provides in-memory caches of files.
+            OS provides API for direct block transfer between files (and sockets).
+
+        Here’s what makes Apache Kafka so fast
+        https://www.freecodecamp.org/news/what-makes-apache-kafka-so-fast-a8d4f94ab145/
+
+        Kafka documentation, Efficiency
+        http://kafka.apache.org/documentation.html#maximizingefficiency
+
+        Java NIO - Efficient data transfer through zero copy
+        https://developer.ibm.com/articles/j-zerocopy/
+
+        Linux sendfile - transfer data between file descriptors
+        http://man7.org/linux/man-pages/man2/sendfile.2.html
+
+        java.nio.channels.FileChannel.transferTo()
+        https://docs.oracle.com/javase/8/docs/api/java/nio/channels/FileChannel.html#transferTo-long-long-java.nio.channels.WritableByteChannel-
+
+        Using tmpfs for Kafka buffers
+        http://www.xml-data.org/DZKJDXXBYWB/html/20190102.htm#outline_anchor_18
+
+    Kafka Avro schema
+
+        Three schema modes.
+        Changes to Avro schema changes the object shape, which has repercussions for downstream code.
+        Python code can be designed to be adaptable.
+        Java code is possible, but more tricky, to make the code adaptable.
+            Need modifications to the standard generated ser/deser classes.
+
+        Separate schema files.
+            ZTF schema are published as static JSON files on a webserver (not GitHub).
+
+        Inline JSON schema
+            Every ZTF message includes a JSON representation of the schema.
+            This is what happens now, but they plan to change it at some point.
+
+        Schema registry
+            Schema registered in a SchemRegistry service.
+            Schema fingerprint is a hash of the JSON representation.
+            Avro messages contain a schemaID (int) reference to a schema in the registry.
+            LSST plan to use this throuought their system.
+
+            Problem - the schemaID in the Avro message is just an integer.
+            Which identifies the schema within a particular SchemRegistry service.
+            It does not identify which SchemRegistry service to use.
+
+            Most of the documentation for the SchemRegistry that describes multi-site
+            deployments assumes that Kafka is being used within a single organisation,
+            with a primary data center and one or more secondary data centers.
+
+            In this scenario, all of the data, and by implication, all of the schema,
+            are owned by the same commercial entity, and so it makes sense to centralized
+            the registration and management of the schema.
+
+            In our scenarion, the initial data published by LSST are owned by LSST,.
+            However, the local data generated within the LSST:UK by the various internal processing
+            steps (including all of the temporary sub-streams created by our Spark users) are
+            only relevant to our internal system. The upstream LSST project would not
+            want to be responsible for registering and managing our
+
+
+            We would need to have our own local SchemRegistry service and figure out a way of mapping from LSST schema ID numbers to LSST:UK schema ID numbers.
+            We can't just replicate their numbers, because we need to be able to generate ID numbers to register our own local schema.
+            As far as I can tell at the moment there is no protocol for federating SchemRegistry services.
+            This is something we could propose as part of an IVOA standard.
+
+            JSON description for a event stream
+
+                For Kafka/Avro messages :
+                    Kafka bootstrap endpoint : URL
+                    Kafka auth method : URN
+                    Avro schema type : [json-file|registry|other]
+                        JSON schema file  : URL
+                        Registry endpoint : URL
+
+                For VOEvent/VTP messages :
+                    VTP endpoint : URL
+                    VOEvent template : URI (e.g. http://.../FRB)
+
+
+            Every new stream in Spark will have a new schema.
+            Large data analytics system handle *lots* of schemas.
+            https://docs.confluent.io/current/schema-registry/installation/deployment.html
+            "A conservative upper bound on the number of unique schemas registered in a large data-oriented company like LinkedIn is around 10,000."
+
+            In a standard multi-data center configuration, the SchemaRegistries are configured as master/slaves.
+            https://docs.confluent.io/current/schema-registry/multidc.html
+
+            "The SchemaRegistry nodes in both datacenters link to the primary Kafka cluster in the primary data center,
+            and the SchemaRegistry in the secondary datacenter forwards SchemaRegistry writes back to the primary data
+            center."
+
+            This is equivalent to the LSST:UK SchemaRegistry in Edinburgh pushing new schema identifres back into
+            the primary SchemaRegistry at LSST. Which is not a long-term scaleable option. The problem gradually
+            becomes worse as more downstream community brokers all try to register their local schema with the
+            SchemaRegistry at LSST.
+
+
+
+
+
+
+
+
+TODO -
+Test platform in development
+
+    Automated build from configuration in source control
+        Virtual machine provisioning
+            Bash shell script
+                Ischnura provisioning on test platform
+                    Needs work to automate the script.
+                        YAML config file ?
+                            https://yq.readthedocs.io/en/latest/
+                            http://mikefarah.github.io/yq/
+                OpenStack provisioning
+                    Edinburgh - Eleanor
+                    Cambridge - Cumulus
+                    ....
+
+        Standard VM images
+            fedora-docker image copied from firethorn.
+            Uses Docker CE install, but not sure we need to.
+            Fedora Docker os probably good enough.
+
+        Ansible scripts
+            TODO ...
+
+        Direct container deployment
+            Current tests have used confluentinc images without modification.
+
+

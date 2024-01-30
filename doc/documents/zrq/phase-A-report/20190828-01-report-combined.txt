@@ -1,0 +1,1025 @@
+#
+# <meta:header>
+#   <meta:licence>
+#     Copyright (c) 2019, ROE (http://www.roe.ac.uk/)
+#
+#     This information is free software: you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation, either version 3 of the License, or
+#     (at your option) any later version.
+#
+#     This information is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+#
+#     You should have received a copy of the GNU General Public License
+#     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#   </meta:licence>
+# </meta:header>
+#
+#
+
+
+This document outlines a design for a scalable architecture to implement a real-time alert
+processing platform for LSST:UK, capable of handling the data rates expected during the
+lifetime of the LSST project.
+
+The evaluation criteria for the design are based on the following requirements:
+
+\begin{itemize}
+  \item Capable of meeting the initial expected data rate from the LSST project.
+  \item The ability to increase the processing speed of the system by adding new resources.
+  \item The ability to increase the storage capacity of the system by adding new resources.
+  \item How much downtime, if any, is required to add new resources to the system.
+  \item The resilience of the system to individual component failures.
+\end{itemize}
+
+An additional criteria is set by the requirements of the LSST:UK project and its
+links to the IRIS eInfrastructure initiative and the DiRAC integrated supercomputing facility.
+
+\begin{itemize}
+  \item Where possible implement the system using standard hardware resources.
+\end{itemize}
+
+The target data rates for the experiments are:
+
+\begin{itemize}
+  \item Sustained 1,000 alerts per second
+  \item Stretch goal 10,000 alerts per second
+\end{itemize}
+
+These numbers are based on the values given in table 29 of the LSST System Science Requirements Document (LPM-17).
+https://docushare.lsstcorp.org/docushare/dsweb/Get/LPM-17/LPM17_LSSTSRD_20180130.pdf
+
+    “Specification: The system should be capable of reporting such data for at least transN candidate
+    transients per field of view and visit (Table29)”
+
+    Quantity    DesignSpec  MinimumSpec StretchGoal
+    transN      10^4        10^3        10^5
+
+    Table 29: The minimum number of candidate transients per field of view that the system can report in realtime
+
+The transN value sets the number of alerts per visit, this combined with the expected cadence of 30 to 40 seconds
+per visit gives us our target evaluation criteria of 1,000 alerts per second and the stretch goal of 10,000 alerts
+per second for these experiment.
+
+To meet the scalability and fault tolerance requirements the architecture design for the alert processing system is
+based on a distributed micro-service architecture, where multiple instances of each component can be deployed in
+parallel, using Kafka data streams to distribute the alert data between each stage of the pipeline.
+
+----
+
+The high level view of the architecture devides the system into three stages.
+
+-- Stage #1
+
+The first stage of the LSST:UK system should be a local Kafka mirror configured as a 7day
+rolling buffer of the live stream from LSST.
+
+This buffer would have a number of functions:
+
+1) Provide a local Kafka mirror for our processing components to connect to.
+To support multiple processing components operating in parrallel we will need to have
+a local Kfakfa endpoint for the components to connect to.
+
+The upstream Kafka endpoint provided by LSST is bandwidth limited and will only
+allow a specific set of clients to connect to it. As a registered community broker,
+we will be able to subscribe to the upstream service, but we will only have
+permission to connect once.
+
+We have been experimenting with the MirrorMaker component provided by the Apache
+Kafka project to implement this.
+
+
+2) Provide a simple FIFO buffer, making our system more resilient to networking issues
+and component failures.
+
+If a component in our system fails, the 7 day buffer gives us time to fix the issue,
+test and restart the failed component using data from the local buffer.
+
+The default out-of-the-box deployment of Kafka implements a 7 day FIFO buffer, so
+this would not need any additional configuration.
+
+
+3) Increase the number of partitions in the stream to match our processing requirements.
+
+The number of partitions in a Kafka stream puts an upper limit on the level of parallelism
+that downstream components can apply to processing a stream (see [kafka-partitions]).
+
+Adding a buffer at the start of our chain give us direct control over the number
+of partitions in the the alert stream.
+
+The configuration tools provided with Kafka enable us to configure the number of
+partitions on a per topic basis.
+
+However, the best place to implement this would be to modify the code for our
+MirroMaker to set the numebr of partitions when the topic is created in our
+local service.
+
+4) Update SchemaRegistry schema ID identifiers to match the value registered in our
+local SchemaRegistry.
+
+Incomming messages from the main LSST stream will use a schema ID from the main LSST SchemaRegistry.
+If we want our internal components to use our own local SchemaRegistry, then we will need to replace
+the schema ID in incoming messages with the corresponding schema ID from our local SchemaRegistry.
+(see [schema-registry])
+
+This requires a bit more than then standard MirrorMaker service provided by the Apache Kafka
+project. To impleemnt this we would need to fork the code for the standard MirrorMaker
+and add our own code to manipulate the schema ID field in each message.
+
+5) Merge 'daily' topics into a single continous stream.
+
+At the moment ZTF publish their data in a series of separate 'daily' streams, one for each night of
+observations. LSST are likley to do the same for their live stream.
+
+Handling the data in chunks like this a useful format to manage the bulk transfer and archiving of
+the data. It makes it easy to refer to [the data from yesterday] or [the data from three days ago].
+
+However, in terms of our end users, they are likley to want to receive [the live data from LSST],
+in one continous stream.
+
+This gateway buffer is the ideal place to take the data from each of the
+separate 'daily' topics and publish them locally as one continous stream.
+
+Again, this requires a bit more than then standard MirrorMaker service provided by the Apache Kafka
+project. To impleemnt this we would need to fork the code for the standard MirrorMaker
+and add our own code to use different topic names for the consumer and producer sides.
+
+
+5) Provide a suite of test data in the different formats.
+
+The same Kafka service (or a separate deployment of the same code base for testing) can be used to
+store a known set of test data that can be used both to replicate conditions for a set of integration
+tests and as test data during the development of new filters.
+
+Example test data:
+
+\begin{itemize}
+  \item Known sets of simulated data
+  \item Known subsets of real data
+  \item Data using different schema
+  \item ZTF schema (static, inline and registered)
+  \item LSST schema (static, inline and registered)
+\end{itemize}
+
+The advantage of using this service to store and serve test data is it means that clients under test
+will use the same client libraries and configurations in both test, developent and live production
+scenarios.
+
+(multiple servers runing in parallel)
+(replication)
+
+
+-- Stage #2
+
+The second stage of processing consists of a set of loosely coupled components that consume data
+from a stream, apply a filter or processing step, and produce a new stream of results.
+
+In order to make it easier to develop pipeline components the project should provide a set of template components
+which implement of the Kafka consumer and producer connections along with the configuration needed to connect them.
+
+A wide range of different components can subscribe to the same Kafka topic and process the
+messages at different rates without interfering with each other (see [kafka-offsets]).
+
+So it is possible to have a set of slow low bandwidth copmponents iterating through the
+messages in their own time running alongside a set of high speed high bandwidth
+components that are processing the messages as fast as possible.
+
+--- Low speed processors
+
+Some example low speed processors might include
+
+\begin{itemize}
+  \item Read Avro messages and write them to Avro files for backup.
+  \item Read alert messages and write candidates to Parquet files for downstream Spark analysis.
+  \item Read alert messages, extract the light curves and write them to FITS/VOTable files for downstream analysis.
+  \item Read alert messages, extract the images and write them to FITS/PNG/JPEG files for downstream display or analysis.
+\end{itemize}
+
+These can all function as independent stand alone components, listening to the live stream,
+processing the alert messages as they arrive and writing the output to a file archive.
+
+Note that these components still have to meet a minimum level of processing speed  in order to be able to process
+a days worth of data within a day. The data rate from the telescope is likley to be non-uniform, periods with a
+high rate of alerts, and periods with a much lower rate.
+
+While the low speed components don't need to be able to match the peak bandwidth of the busy periods,
+they do need to be able to process the cumulative data from each night fast enough to have completed
+that night's worth of data and emptied the buffer in time to start processing the next night's data.
+
+--- Medium speed processors
+
+Some example medium speed processors might include :
+
+    Read Avro alert messages, write Candidates to MariaDB for analysis.
+    Read Avro alert messages, write Candidates to Cassandra for analysis.
+
+These processors are very similar to the file based examples given above, the only difference is that
+for these use cases there are stronger requirements for these processosr to transfer the data into
+the databases as fast as possible.
+
+In which case it may be necessary to run multiple instances of these processors in parrallel
+in order to meet the speed requirements.
+
+(partitioning)
+
+--- High speed processors
+
+The high speed, high low latency, components would aim to process the messages from the same stream at
+the fastest rate possible.
+
+In most of these cases the reason for the low latency requiement is that the output from these components will be
+used as the input for other components, creating a pipeline or workflow.
+
+Some example high speed processors might include :
+
+    (watch list)
+    (region match)
+    (solar system target)
+
+
+
+In order to help develop these processors and filters, the project should provide
+a set of Java and Python libraries that implement all of the functionality
+needed to connect to Kafka services, subscribe to topics, read and write
+messages, serialize and deserialize Avro messages into class objects etc.
+
+Using a common set of well tested libraries helps to make our own components
+easier to develop and more reliable to use.
+It also helps to lower the barrier to entry for 3rd party deveopers to
+create their own processors and filters.
+
+The framework should include implementations of a set of interfaces for reading,
+processing and writing messages.
+
+See section [java-framework] for details of an initial set of Java interfaces and
+classes that were used to develop some of the performance and scalability tests.
+
+Note - in the following examples the class names have been shortened compared
+to the full implementation to make the examples clearer.
+
+A basic interface for a class to process a candidate would be :
+
+    interface CandidateProcessor {
+
+        enum Response {
+            PASS,
+            SKIP
+            };
+
+        public Response process(Candidate candidate);
+
+        }
+
+The interface defines a process() that takes a Candidate as input and
+returns a single value a list of response codes [OK, SKIP, STOP].
+
+The meaning of the result codes are :
+
+\begin{itemize}
+  \item \texttt{PASS} - Processing completed, pass the \texttt{Candidate} on to the next step.
+  \item \texttt{SKIP} - Processing completed, skip any further steps.
+\end{itemize}
+
+
+The framework also provides a template implementation of a component that
+can connect to a Kafka service, subscribed to a topic, read alert messages
+from the topic, deserialized them into Java objects and passes each
+Candidate object to a process() method.
+
+\begin{lstlisting}[]
+    /**
+     * A component template that includes methods for
+     * connecting, subscribing, reading messages and deserializing
+     * alert Candidates
+     */
+    public class ProcessorComponent
+        {
+        //
+        // Code to connect, subscribe, read messages  and deserialized alerts ..
+        //
+
+        /**
+         * Template method to process a candidate.
+         *
+         */
+        public void process(Candidate candidate)
+            {
+            //
+            // Code to process a Candidate goes here ...
+            //
+            }
+        }
+\end{lstlisting}
+
+Extend this a bit further, adding a list of CandidateProcessor instances
+and a for loop to iterate through the list, passing the candidate
+object to each of the CandidateProcessor(s) in turn.
+
+\begin{lstlisting}[style=Java]
+    /**
+     * A component template that includes methods for connecting
+     * and subscribing to Kafka streams, reading messages and
+     * deserializing alert Candidates.
+     */
+    public class ProcessorComponent
+        {
+        //
+        // Methods for connecting and subscribing to Kafka streams,
+        // reading messages and deserializing alert Candidates.
+        //
+
+        /**
+         * Initialise our array of processors.
+         *
+         */
+        public void init()
+            {
+            this.processors = new ArrayList<CandidateProcessor>();
+            }
+
+        /**
+         * Our list of CandidateProcessor(s).
+         *
+         */
+        private List<CandidateProcessor> processors ;
+
+        /**
+         * Top level method to process a candidate.
+         *
+         */
+        public void process(Candidate candidate)
+            {
+            // Iterate the list of processors.
+            foreach (CandidateProcessor processor : this.processors)
+                {
+                // Pass the candidate to the processor.
+                Response response = processor.process(candidate);
+
+                // If the processor response is SKIP.
+                if (response == SKIP)
+                    {
+                    // Skip the rest of the list and continue
+                    // to the next candidate.
+                    continue;
+                    }
+
+                }
+            }
+        }
+\end{lstlisting}
+
+
+
+To implement a specific alert processor, the end user only has to provide
+one or more classes that implement the CandidateProcessor to populate the list.
+
+A simple example of a CandidateProcessor implementation would be a
+a solar system object filter.
+
+For alerts that correspond to known solar system objects the ZTF and LSST alert messages
+will contain information about the corresponding solar system object.
+
+In the ZTF alert schema these include :
+
+\begin{itemize}
+  \item \texttt{ssnamenr} Name of nearest known solar system object if exists within 30 arcsec (from MPC archive).
+  \item \texttt{ssdistnr} Distance to nearest known solar system object if exists within 30 arcsec [arcsec].
+  \item \texttt{ssmagnr} Magnitude of nearest known solar system object if exists within 30 arcsec (usually V-band from MPC archive) [mag].
+\end{itemize}
+
+    ssnamenr    Name of nearest known solar system object if exists within 30 arcsec (from MPC archive).
+    ssdistnr    Distance to nearest known solar system object if exists within 30 arcsec [arcsec]
+    ssmagnr     Magnitude of nearest known solar system object if exists within 30 arcsec (usually V-band from MPC archive) [mag].
+
+If we assume alerts that correspond to known solar system objects will have the solar system object name set,
+and alerts that do not correspond to known solar system objects will have a null value,
+then we can implement a simple CandidateProcessor that filters alert candidates and selects
+those that have been matched with a corresponding solar system object.
+
+\begin{lstlisting}[style=Java]
+    /**
+     * A filter to detect solar system objects.
+     *
+     */
+    class SolarSystemFilter implements CandidateProcessor
+        {
+        /**
+         * Check the 'ssnamenr' attribute.
+         * @return PASS if it is not null.
+         *
+         */
+        public Response process(Candidate candidate)
+            {
+            if (candidate.ssnamenr != null)
+                {
+                return PASS;
+                }
+            else {
+                return SKIP;
+                }
+            }
+        }
+\end{lstlisting}
+
+If we add an instance of this class to the list of \texttt{CandidateProcessor}(s) in an alert processor,
+we create a processor that will only pass on alert candidates that have been associated with
+a known solar system object.
+
+\begin{lstlisting}[style=Java]
+    class MySolarSystemComponent
+        extends ProcessorComponent
+        {
+        /**
+         * Initialise our List of processors.
+         *
+         */
+        public void init()
+            {
+            // Initialise our list.
+            super.init();
+
+            // Add the solar system filter
+            this.processors.add(
+                new SolarSystemFilter()
+                );
+            }
+        }
+\end{lstlisting}
+
+The result is a processor component with all the code for connecting and subscribing to Kafka streams,
+reading messages and deserializing alert Candidates, plus a filter that selects solar system objects.
+
+We could also create a \texttt{CandidateProcessor} class which writes \texttt{Candidate} objects
+to a database table.
+
+\begin{lstlisting}[style=Java]
+    class MyDatabaseWriter implements CandidateProcessor
+        {
+        //
+        // Code to connect to a database.
+        //
+
+        /**
+         * Write the Candidate to a database table.
+         * @return Always returns PASS.
+         *
+         */
+        public Response process(Candidate candidate)
+            {
+            //
+            // Code to write a Candidate object to a database table.
+            //
+            return PASS;
+            }
+        }
+\end{lstlisting}
+
+We can now create a component that combines the two processors to filter out
+solar system objects from the input stream and write them to a database table.
+
+\begin{lstlisting}[style=Java]
+    class MySolarSystemComponent
+        extends ProcessorComponent
+        {
+        /**
+         * Initialise our List of processors.
+         *
+         */
+        public void init()
+            {
+            // Initialise our list.
+            super.init();
+
+            // Add the solar system filter
+            this.processors.add(
+                new SolarSystemFilter()
+                );
+
+            // Add the database writer
+            this.processors.add(
+                new MyDatabaseWriter(
+                    "databasename",
+                    "tablename"
+                    )
+                );
+            }
+        }
+\end{lstlisting}
+
+In practice, the project would provide a basic toolkit of processor classes, including
+processors to write to a range of different database platforms, processors that write
+messages to Kafka streams, generate VOEvent messages, write to a Slack chanel or send
+emails.
+
+The project would also provide tools for creating the processing component
+and initialising the list of processors from a configuration file.
+Enabling end users to combine processor classes from the library to create their
+own processing chains just by writing a JSON or YAML configuration file.
+
+For example, the following YAML fragment defines a processing component
+based on the ProcessorComponent described above, with a slighly extended version
+of the SolarSystemFilter described above that selects alerts associated with
+'jupiter' and 'saturn', and writes them to an external MariaDB database table.
+
+\begin{lstlisting}[language=yaml]
+  component:
+
+    type: "processing-node"
+
+      params:
+        - kafkaurl: "kafka-head:9092"
+          topicid:  "ztf-buffer"
+          groupid:  "groupid-f2542d11-df48-4b62-a052-1872bee0c055"
+
+      processors:
+
+        filter:
+          class:
+            "uk.org.example.SolarSystemFilter"
+          params:
+            - action: "include"
+            - targets:
+              - "saturn"
+              - "jupiter"
+
+        writer:
+          class:
+            "uk.org.example.MariaDBWriter"
+          params:
+            - tablename: "ztfevents"
+              database:  "jdbc:mariadb://hostname:3306/dbname"
+              username:  "Albert"
+              password:  "Saxe-Coburg-Saalfeld"
+
+\end{lstlisting}
+
+The component designer creates this YAML configuration file, or use a GUI design tool
+that creates YAML configuration files like this, and submits it to the system.
+
+The framework behind would create the processing component wrapped up as a Docker container
+and pass it to the ochestration layer to run one or more instances of it in parallel.
+
+This is a deliberately simplified example, and there are many more details to work out,
+including user accounts, permissions and access controls to limit who is allowed to
+connect to which streams, who is allowed to create new streams, and what
+compute resources they are allowed to use etc.
+
+However, this example is enough to demonstrate the ideas behind a basic framework
+which enables project developers, and potentially end users, to create alert processing
+pipelines from a toolkit of building blocks provided by the project.
+
+Based on this design we can imagine a number of building blocks that could be used to
+implement parts of the Lasair ingestion process.
+
+Our example list of low speed processors could all be implemented as processing components
+wrapped up in Docker containers, subscribed to the level #1 Kafka buffer.
+
+\begin{itemize}
+  \item Read Avro messages and write them to Avro files for backup.
+  \begin{itemize}
+    \item Implemented as a \texttt{CandidateProcessor} that serialises \texttt{Candidate} data to Avro files.
+  \end{itemize}
+
+  \item Read alert messages and write candidates to Parquet files for downstream Spark analysis.
+  \begin{itemize}
+    \item Implemented as a \texttt{CandidateProcessor} that serialises \texttt{Candidate} data to Parquet files.
+  \end{itemize}
+
+  \item Read alert messages, extract the light curves and write them to FITS/VOTable files for downstream analysis.
+  \begin{itemize}
+    \item Implemented as a \texttt{CandidateProcessor} that extracts the light curve data from the \texttt{Candidate} and serialises it to FITS files.
+  \end{itemize}
+
+  \item Read alert messages, extract the images and write them to FITS/PNG/JPEG files for downstream display or analysis.
+  \begin{itemize}
+    \item Implemented as a \texttt{CandidateProcessor} that extracts the images from the \texttt{Candidate} and serialises them to a variety of image formats.
+  \end{itemize}
+\end{itemize}
+
+Using the proposed architecture, all of these could be described using the YAML configuration file
+format, deployed automatically and managed by our orchestration system.
+
+We have already discussed how to implement a filter that includes or excludes solar system objects.
+This filter could be combined with different database writers to build a set of components that write
+data about solar system objects to different storage databases.
+
+\begin{itemize}
+    \item SolarSystemFilter + MariaDBWriter
+    \begin{itemize}
+        \item SolarSystemFilter configured to include any solar system object.
+    \end{itemize}
+    \begin{itemize}
+        \item MariaDBWriter writes solar-system alerts in a MariaDB database.
+    \end{itemize}
+\end{itemize}
+
+---
+
+\begin{itemize}
+    \item SolarSystemFilter + MariaDBWriter
+    \begin{itemize}
+        \item SolarSystemFilter configured to include any solar system object.
+    \end{itemize}
+    \begin{itemize}
+        \item CassandraWriter writes solar-system alerts in a Cassandra database.
+    \end{itemize}
+\end{itemize}
+
+If we create a CandidateProcessor capable of writing data to a Kafka stream,
+we can combine this with our SolarSystemFilter to create a component
+that reads messages from the main ztf-buffer, selecting,
+or excluding, alert messages associated with known solar system objects
+and writes them to a new Kafka stream.
+
+\begin{itemize}
+    \item New stream of that only contains solar system objects.
+    \begin{itemize}
+        \item SolarSystemFilter configured to include any solar system object.
+    \end{itemize}
+    \begin{itemize}
+        \item KafkaProducer writes solar-system alerts to a new Kafka stream.
+    \end{itemize}
+\end{itemize}
+
+
+\begin{itemize}
+    \item New stream of that only contains solar system objects.
+    \begin{itemize}
+        \item SolarSystemFilter configured to include any solar system object.
+    \end{itemize}
+    \begin{itemize}
+        \item KafkaProducer writes solar-system alerts to a new Kafka stream.
+    \end{itemize}
+\end{itemize}
+
+
+    SolarSystemFilter + KafkaProducer
+    -- SolarSystemFilter configured to exclude all solar system objects.
+    -- KafkaProducer writes non-solar-system alerts to a separate Kafka stream.
+
+
+
+Section [zone-match] describes an experiment that looks at
+a high speed cross match algorithm for matching Candidates
+against a static catalog of positions.
+
+However, at this level, the cross matching algorithm can be
+imagined as a CrossmatchProcessor component that cross matches
+each Candidate against the catalog of positions, adding
+an annotation to the Candidate to hold the result of the match.
+
+Each match annotation contains a reference identifier and position for
+the Candidate, a reference identifier and position for the catalog
+entry it has been matched with and the distance between the two
+positions.
+
+\begin{lstlisting}[style=Java]
+    interface CandidateMatch
+        {
+        long   candid();
+        double candra();
+        double canddec();
+
+        long   catalogid();
+        long   sourceid();
+        double sourcera();
+        double sourcedec();
+
+        double distance();
+        }
+\end{lstlisting}
+
+We can extend the Candidate class, adding a list of
+cross matches, creating a new class, AnnotatedCandidate.
+
+\begin{lstlisting}[style=Java]
+    interface AnnotatedCandidate extends Candidate
+        {
+        List<CandidateMatch> matches();
+        }
+\end{lstlisting}
+
+We can then build a component that combines a CrossmatchProcessor
+that matches the candidates against a catalog, and then either
+a stream writer to create a new Kafka stream.
+
+\begin{itemize}
+    \item New stream of annotated cross matched candidates.
+    \begin{itemize}
+        \item CrossmatchProcessor matches against a catalog and adds annotations.
+    \end{itemize}
+    \begin{itemize}
+        \item KafkaProducer writes annotated candidates to a new Kafka stream.
+    \end{itemize}
+\end{itemize}
+
+
+
+Realistically it does not make sense to cross match Candidates that
+are associated with know solar system objects, so we want to exclude
+the solar system objects from the crossmatch processing.
+
+One way to acheive this would be to connect the two stream Components
+together using a Kafka stream, connecting the ouput from the \texttt{SolarSystemComponent}
+to the input of the \texttt{CrossmatchComponent}.
+
+
+
+\begin{itemize}
+    \item New stream of annotated cross matched candidates.
+    \begin{itemize}
+        \item CrossmatchProcessor matches against a catalog and adds annotations.
+    \end{itemize}
+    \begin{itemize}
+        \item KafkaProducer writes annotated candidates to a new Kafka stream.
+    \end{itemize}
+\end{itemize}
+
+
+
+
+
+using a
+Kafka stream to link the outputof one to the input of the other.
+
+
+
+
+
+
+
+    SolarSystemFilter + CatalogMatcher + KafkaProducer
+    -- SolarSystemFilter configured to exclude all solar system objects.
+    -- CrossmatchProcessor matches against a catalog and adds annotations.
+    -- Writes matched candidates to a new Kafka stream.
+
+Alternativley, we could deploy the \texttt{SolarSystemFilter} and \texttt{CatalogMatcher}
+processors in the same \texttt{Component} linking them together using a Kafka stream.
+
+\begin{itemize}
+    \item \texttt{} Component that generates a new stream of cross-match annotated candidates, contains :
+    \begin{itemize}
+
+
+    SolarSystemFilter + KafkaProducer
+    -- SolarSystemFilter configured to exclude all solar system objects.
+    -- KafkaProducer writes non-solar-system alerts to a separate Kafka stream.
+
+    CatalogMatcher + KafkaProducer
+    -- Subscribed to the output of the non-solar-system stream
+    -- CrossmatchProcessor matches against a catalog and adds annotations.
+    -- Writes matched candidates to a new Kafka stream.
+
+
+
+
+In this example, the resource cost of the SolarSystemFilter is so low,
+the combined solution is probably the most practical. The resource
+cost of publishing the non-solar-system results as a separate stream
+and reading them back in to to the cross match processor far out weighs
+the minimal cost of the very simple SolarSystemFilter.
+
+In contrast, a CrossmatchProcessor for a large catalog requires a lot of
+resources to implement. Significantly more resources than would be needed by
+an additional Kafka stream. So if we have multiple use cases that need to use
+the results of the crosss-match, it would be better to do the cross-match
+calculation once and publish the results as a new stream of annotated Candidates.
+This new stream can then be used as the source stream for a range of different
+processors.
+
+In general, the cost/benefit of combining multiple {Processor}(s) within a complex
+Component, or deploying them in separate Component(s), joining the output stream of
+one as the input to the next depends on the relative resource costs of
+performing the Processor steps compared to the resource cost of
+adding another Kafka stream.
+
+High cost \texttt{Processor}(s) like a \texttt{CrossmatchProcessor} are a better
+fit for deploying as separate Kafka streams. Low cost \texttt{Processor}(s)
+like the \texttt{SolarSystemFilter} are better suited to being combined to
+build compound \texttt{Component}(s).
+
+
+In all probability, our use cases will need to use a combination of both methods
+for combining \texttt{Component}(s) and \texttt{Processor}(s).
+
+Where we do need to use Kafka streams to link the input and outputs of
+\texttt{Component}(s), there are two options for deploying the Kafka services.
+
+Ths first is to simply add another stream to the existing Kafka service
+that is providing the stage #1 input buffer.
+
+However, this may cause issues with resource contention for the physical network
+and disks.
+
+There are likley to be a lot of processes subscribed to the output of the stage #1
+input buffer, and it is likley that a lot of clients will want to subscribe to
+the output of the main catalog cross match as well.
+
+Placing two heavily subscribed streams on the same logical Kafka service, served by
+the same set of physical Kafra servers, could cause resource contention
+(see [kafa-distribution]).
+
+To solve this issue the Kafka services themselves can be treated as components,
+configured and deployed automatically using a similar YAML configuration file
+as the processing components.
+
+
+
+    component:
+
+        type: "kafka-buffer"
+        instances: 4
+        serviceid: "serviceid-903a2730-23c9-4e96-bf7a-240426063766"
+
+        topics:
+
+            - topic:
+                - topicid: "topicid-c22d9283-2661-4239-80ef-11da68c07e00"
+                  replication :  1
+                  partitions  : 64
+
+            - topic:
+                - topicid: "topicid-6b5e41ac-8c8c-436a-b911-c3b83507f47c"
+                  replication :  1
+                  partitions  : 64
+
+
+Treating Kafka services as components makes it easy to deploy them alongside
+the processing components. A single YAML configuration file
+could describe a chain of kafka buffers and processing nodes that work together
+to implement everything needed for a science use case.
+
+Readers familiar with the Docker eco-system will reconginse a strong similarity
+between these YAML configuration files and docker-compose configuration files
+used to deploy groups of Docker containers.
+
+In fact implementing the system behind all will probably use many of the
+infrastructure orchestration tools provided by Open Stack, Docker and Kubernetes.
+
+However, where possible we should avoid exposing these interfaces directly
+to either our science users or our system administratiors.
+
+The component configuration outlined above is intended to provide thin interface
+layer that sits on top of the system level tools and processes.
+
+The goal of this interface is to provide a thin abstraction layer between
+the programming interface that the user interacts with and the technologies
+selected to implement the system underneath.
+
+We do not want to develop a new set of orchestration tools.
+Equally, we do not want implementation specific details of the underlying
+technologies to be exposed as part of the interface.
+
+Designing our own an abstraction layer has a number of advantages.
+
+Firtsly, it provides a level of insulation between our users and the technologies
+we have selected to build the system. Containerization and container orchestration
+is new and raplidly changing field and the technologies behind it are themselves
+evolving rapidly.
+
+Using our own tools for the the user facing interface means we can evolve our
+implemntation to adopt new technologies as the become available without causing
+huge problems for our users.
+
+
+Second, it is unlikley that one technology will provide everything we will need to
+implement all of the functionality we will want to have.
+As a result we will need to use a combination of different technologies, tools
+and frameworks to implement the system. Each of which will have their own
+slightly different programming interface and configuration file syntax.
+
+Using our own tools for the the user facing interface means our system can use
+a consistent programming interface and configuration syntax across all the
+different layers of the system implementation.
+
+Thirdly, using a mapping between our component configuration interface and the
+underlying technologies means it will be easier to make our components portable
+across a range of different platforms.
+
+Our initial system will probably be developed using a combination of KVM,
+OpenStack and Kubernetes.
+However, we may also want to implement a lightweight test platform using
+technologies like VirtualBox and Vagrant to provide parts of the virtualization
+layer.
+
+As long as the lightweight test platform used the same YAML syntax for the
+component configuration files and the same containerization layer interface,
+then a researcher could use the lightweight platform to develop their
+processing components using local test data, and be confident that they could
+deploy their processing components into a full scale system without having to
+make major changes.
+
+-- Stage #3
+
+Apache Spark Structured Streaming
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# --------------------------------
+section [kafa-distribution]Kafa services and servers
+
+Logical and physical Kafa services and servers.
+
+Kafka is a distributed system with multiple levels of components running in parallel
+on multiple nachines.
+
+For this document we define a distinction between a logial Kafka *service* that
+provides a logical *stream* of messages and the physical deployment of one or more
+Kafa *servers* that manage the stream data in physical partitions.
+
+
+
+
+
+Placing two heavily subscribed streams on the same logical Kafka service, served by
+the same set of physical Kafra servers, could cause resource contention.
+
+However the fact that one of the streams is used as the direct input to the next
+stream
+
+
+
+# --------------------------------
+section [component-deploy] Component deployment
+
+
+
+    components:
+
+        "service-903a2730-240426063766":
+
+            type: "kafka-buffer"
+            instances: 4
+
+            topics:
+
+                "topicid-c22d9283-11da68c07e00":
+                    - replication :  1
+                      partitions  : 64
+
+                "topicid-6b5e41ac-c3b83507f47c":
+                    - replication :  1
+                      partitions  : 64
+
+
+        "processor-1a9b1a7f-a718e9e3502d":
+
+            type: "processing-node"
+            instances: 4
+
+            source:
+                topicid: "topicid-c22d9283-11da68c07e00"
+                groupid: "groupid-f2542d11-1872bee0c055"
+
+            processors:
+
+                "processor-81ca1295-c4b82fded30d":
+                      class:
+                          "uk.org.example.SolarSystemFilter"
+                      params:
+                          - action: "include"
+                          - targets:
+                              - "saturn"
+                              - "jupiter"
+
+                "processor-6716a2b2-c9e93dd4005c":
+                      class:
+                          "uk.org.example.KafkaStreamWriter"
+                      params:
+                          - topicid: "topicid-aded3365-2f31528f59af"
+                            groupid: "groupid-6f1ad6ce-835dc385de2a"
+
+
+                "processor-487e2cc6-b5e230276bf5":
+                      class:
+                          "uk.org.example.MariaDBWriter"
+                      params:
+                          - tablename: "ztfevents"
+                            database:  "jdbc:mariadb://hostname:3306/dbname"
+                            username:  "Albert"
+                            password:  "Saxe-Coburg-Saalfeld"
+
+
